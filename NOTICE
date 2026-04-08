@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 --------------------------------------------------------------------------------
 
-This project includes software developed by:
-- qtpydocking (https://github.com/klauer/qtpydocking)
-  Copyright (c) 2019 Ken Lauer
-  License: BSD-3-Clause
+This project contains code from qtpydocking.
+Project: qtpydocking (https://github.com/klauer/qtpydocking)
+SPDX-License-Identifier: BSD-3-Clause
+Copyright (c) 2019 Ken Lauer
