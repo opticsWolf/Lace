@@ -1,8 +1,13 @@
-Lace: Advanced pyside6 docking system
+Lace: Advanced PySide6 Docking System
 Copyright (c) 2026 opticsWolf
 
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
 SPDX-License-Identifier: Apache-2.0
+
+--------------------------------------------------------------------------------
 
 This project includes software developed by:
 - qtpydocking (https://github.com/klauer/qtpydocking)
-  Copyright (c) 2019 Ken Lauer @klauer
+  Copyright (c) 2019 Ken Lauer
+  License: BSD-3-Clause
