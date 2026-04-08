@@ -167,12 +167,40 @@ class DockThemeBridge(QObject):
     # ──────────────────────────────────────────────────────────────────────
 
     def refresh_dock_palette(self) -> None:
-        """Build a ``QPalette`` from the current dock theme and apply it."""
+        """Build a QPalette from the current dock theme and apply it."""
+        from PySide6.QtWidgets import QWidget, QApplication
+        
         colors = resolve_dock_colors()
         palette = build_dock_palette(
             window_color=colors.canvas_bg,
             base_palette=self._target.palette(),
             colors=colors,
         )
+        
+        # Apply palette to the main target
         self._target.setPalette(palette)
-        logger.debug("Dock palette refreshed from theme.")
+        if self._target.style():
+            self._target.setStyle(self._target.style())
+
+        # --- OPTIMIZED STYLESHEET NUDGE ---
+        if isinstance(self._target, QApplication):
+            # If targeting the whole app, ONLY nudge visible windows.
+            # This prevents Qt from wasting CPU re-styling hundreds of hidden
+            # tooltips, closed menus, and cached UI elements.
+            for window in self._target.topLevelWidgets():
+                if window.isVisible():
+                    current_ss = window.styleSheet()
+                    window.setStyleSheet("/* force style re-evaluation */")
+                    window.setStyleSheet(current_ss)
+                    window.update()
+        else:
+            # If targeting just the DockManager, nudge it directly
+            current_ss = self._target.styleSheet()
+            self._target.setStyleSheet("/* force style re-evaluation */")
+            self._target.setStyleSheet(current_ss)
+            self._target.update()
+            
+        # IMPORTANT: Remove QCoreApplication.processEvents() here.
+        # Let Qt handle the layout/paint cycle naturally on the next frame.
+
+        logger.debug("Dock palette refreshed (Optimized).")

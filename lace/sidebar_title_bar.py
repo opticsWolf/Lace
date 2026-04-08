@@ -81,7 +81,7 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         # Close Button — uses canonical "close" icon
         self._close_btn = QToolButton()
         self._close_btn.setAutoRaise(True)
-        self._close_btn.setIcon(dock_icon("close"))
+        self._close_btn.setIcon(dock_icon("close_tab"))
         self._close_btn.setToolTip("Close")
         self._close_btn.clicked.connect(self.close_requested.emit)
 

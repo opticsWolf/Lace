@@ -72,8 +72,7 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         
         self._close_button = QPushButton()
         self._close_button.setObjectName("tabCloseButton")
-        set_button_icon(self.style(), self._close_button,
-                        QStyle.SP_TitleBarCloseButton)
+        self._close_button.setIcon(dock_icon("close_tab"))
 
         self._close_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._close_button.setVisible(False)

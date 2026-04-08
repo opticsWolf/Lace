@@ -60,7 +60,11 @@ class DockWidget(QFrame):
         self._is_floating_top_level = False
         self._widget_state = WidgetState.docked  # <-- NEW: Track current state
 
-        self._layout.setContentsMargins(0, 0, 0, 0)
+        # Make the DockWidget frame borderless (replaces 'border: none' from stylesheet)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setAutoFillBackground(True) # Ensures it respects the Window palette role
+
+        self._layout.setContentsMargins(14, 14, 14, 14)
         self._layout.setSpacing(0)
         self.setLayout(self._layout)
         self.setWindowTitle(title)
@@ -76,9 +80,9 @@ class DockWidget(QFrame):
         self.set_toolbar_floating_style(False)
 
         # --- ADDED: Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.CORE)
-        self.refresh_style()
+        #self._style_mgr = get_dock_style_manager()
+        #self._style_mgr.register(self, DockStyleCategory.CORE)
+        #self.refresh_style()
 
     def __repr__(self):
         return f'<{self.__class__.__name__} title={self.windowTitle()!r}>'
@@ -122,6 +126,15 @@ class DockWidget(QFrame):
     def _setup_tool_bar(self):
         self._tool_bar = QToolBar(self)
         self._tool_bar.setObjectName("dockWidgetToolBar")
+        
+        # PURE NATIVE APPROACH: 
+        # Makes the toolbar transparent without overriding the style engine.
+        self._tool_bar.setAutoFillBackground(False)
+        self._tool_bar.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        # (Optional) If Fusion style draws a grip/handle you want to hide:
+        #self._tool_bar.setMovable(False) 
+        
         self._layout.insertWidget(0, self._tool_bar)
         self._tool_bar.setIconSize(QSize(16, 16))
         self._tool_bar.toggleViewAction().setEnabled(False)
@@ -131,6 +144,11 @@ class DockWidget(QFrame):
     def _setup_scroll_area(self):
         self._scroll_area = QScrollArea(self)
         self._scroll_area.setObjectName("dockWidgetScrollArea")
+        
+        # Replaces 'border: none; background-color: transparent;'
+        self._scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll_area.viewport().setAutoFillBackground(False)
+        
         self._scroll_area.setWidgetResizable(True)
         self._layout.addWidget(self._scroll_area)
 
@@ -391,28 +409,3 @@ class DockWidget(QFrame):
             self.toggle_view_internal(open_)
         elif open_ and self._dock_area:
             self._dock_area.set_current_dock_widget(self)
-            
-    # --- ADDED METHODS ---
-    def refresh_style(self):
-        """Applies base canvas colors and strips native borders from the scroll area."""
-        styles = self._style_mgr.get_all(DockStyleCategory.CORE)
-        
-        bg_color = styles.get("canvas_bg", QColor(30, 33, 40, 255)).name()
-        
-        self.setStyleSheet(f"""
-            DockWidget {{
-                background-color: {bg_color};
-                border: none;
-            }}
-            QScrollArea#dockWidgetScrollArea {{
-                background-color: transparent;
-                border: none;
-            }}
-            QToolBar#dockWidgetToolBar {{
-                background-color: transparent;
-                border: none;
-            }}
-        """)
-
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()

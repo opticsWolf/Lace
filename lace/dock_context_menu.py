@@ -94,6 +94,7 @@ _ICON_SPECS: Dict[str, tuple] = {
     "dock":         ("window-restore",  QStyle.SP_TitleBarNormalButton),
     "close":        ("window-close",    QStyle.SP_TitleBarCloseButton),
     "close_others": ("window-close",    QStyle.SP_TitleBarCloseButton),
+    "close_tab":    ("tab-close",       QStyle.SP_TitleBarCloseButton),
     "tabs_menu":    ("view-list",       QStyle.SP_TitleBarUnshadeButton),
 }
 
