@@ -172,9 +172,9 @@ class DockSplitterStyleSchema:
     """Layout splitters and resize handles."""
     handle_color: Optional[List[int]] = None
     handle_hover_color: Optional[List[int]] = None
-    handle_width: int = 2
-    corner_radius: int = 0
-    margin: int = 0
+    handle_width: int =  3
+    total_width:  int =  7
+    handle_margin: int = 0
 
 
 @dataclass
@@ -211,8 +211,7 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "focus_border_color": [0, 120, 212, 255],
         "text_color":         [204, 204, 204, 255],
         "disabled_text_color":[110, 110, 110, 255],
-        "border_width":       1.0,
-        "corner_radius":      4,
+
     },
     DockStyleCategory.SIDEBAR: {
         "bg_color":           [30, 30, 30, 255],
@@ -225,8 +224,7 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "indicator_color":    [0, 120, 212, 255],
         "badge_bg":           [0, 120, 212, 255],
         "badge_text":         [255, 255, 255, 255],
-        "width":              42,
-        "tab_corner_radius":  4,
+
     },
     DockStyleCategory.TAB: {
         "bg_normal":          [37, 37, 38, 255],
@@ -235,9 +233,6 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "text_normal":        [150, 150, 150, 255],
         "text_active":        [255, 255, 255, 255],
         "indicator_color":    [0, 120, 212, 255],
-        "indicator_width":    2,
-        "indicator_position": "top",
-        "corner_radius":      0,
         "close_btn_color":    [150, 150, 150, 255],
         "close_btn_bg_hover": [62, 62, 62, 255],
         "close_btn_corner_radius": 3,
@@ -248,8 +243,6 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "text_normal":        [150, 150, 150, 255],
         "text_active":        [255, 255, 255, 255],
         "active_edge_color":  [0, 120, 212, 255],
-        "active_edge_width":  2,
-        "height":             30,
         "button_color":       [150, 150, 150, 255],
         "button_hover_bg":    [62, 62, 62, 255],
         "button_corner_radius": 3,
@@ -257,7 +250,7 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
     DockStyleCategory.SPLITTER: {
         "handle_color":       [45, 45, 45, 255],
         "handle_hover_color": [0, 120, 212, 255],
-        "handle_width":       2,
+
     },
     DockStyleCategory.OVERLAY: {
         "frame_color":        [0, 120, 212, 255],
@@ -268,8 +261,5 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "title_text_color":   [204, 204, 204, 255],
         "button_color":       [204, 204, 204, 255],
         "button_hover_bg":    [62, 62, 62, 255],
-        "button_corner_radius": 3,
-        "corner_radius":      4,
-        "shadow_blur_radius": 20,
     },
 }
