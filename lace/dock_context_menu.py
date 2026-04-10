@@ -43,7 +43,7 @@ from PySide6.QtCore import QPoint, QRect
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QStyle
 
-from .enums import DockWidgetArea, DockWidgetFeature
+from .enums import DockWidgetArea, DockWidgetFeature, WidgetState
 
 if TYPE_CHECKING:
     from .dock_area_widget import DockAreaWidget
@@ -123,6 +123,7 @@ class MenuSection(Flag):
     NONE         = 0
     TAB_LIST     = auto()   # Checkable list of tabs with active marker
     PIN          = auto()   # Pin to sidebar actions
+    UNPIN        = auto()   # Unpin from sidebar actions
     DETACH       = auto()   # Float or Dock (reattach)
     CLOSE        = auto()   # Close (area or individual tab)
     CLOSE_OTHERS = auto()   # Close Other Areas / Close Other Tabs
@@ -130,7 +131,7 @@ class MenuSection(Flag):
     # Convenient presets
     TITLE_BAR = TAB_LIST | PIN | DETACH | CLOSE | CLOSE_OTHERS
     TAB       = PIN | DETACH | CLOSE | CLOSE_OTHERS
-
+    SIDEBAR_TAB = UNPIN | DETACH | CLOSE
 
 class DockMenuMixin:
     """
@@ -217,6 +218,17 @@ class DockMenuMixin:
         widget = self._menu_dock_widget()
         return bool(widget and (DockWidgetFeature.pinnable in widget.features()))
 
+    def _menu_is_pinned(self) -> bool:
+        """Check if the active widget is currently in a sidebar."""
+        widget = self._menu_dock_widget()
+        
+        if not widget:
+            return False
+            
+        # Check if the widget's current state is one of the pinned states
+        state = widget.widget_state()
+        return state in (WidgetState.pinned_shown, WidgetState.pinned_hidden)
+
     def _menu_show_close_others(self) -> bool:
         """Whether the Close Others action should appear."""
         return not self._menu_is_floating()
@@ -261,6 +273,7 @@ class DockMenuMixin:
         is_closable  = self._menu_is_closable()
         is_floatable = self._menu_is_floatable()
         is_pinnable  = self._menu_is_pinnable()
+        is_pinned    = self._menu_is_pinned()
 
         def _sep():
             nonlocal _pending_sep
@@ -285,27 +298,34 @@ class DockMenuMixin:
                 act.setData(("switch_tab", i))
             _pending_sep = True
 
-        # ── Sidebar pin ───────────────────────────────────────────────
-        if MenuSection.PIN in sections and self._menu_has_sidebars():
-            if count == 1 and not is_pinnable:
-                pass  # Hide completely for single unpinnable widget
-            else:
-                _sep()
-                act = menu.addAction(_icon("pin"), self._label_pin(count))
-                act.setToolTip("Pin the active tab to the nearest sidebar")
-                act.setEnabled(is_pinnable)
-                act.setData(("pin",))
+        # ── Sidebar pin / unpin ───────────────────────────────────────
+        if MenuSection.PIN in sections:
+            _sep()
+            if is_pinned:
+                # If already pinned, show the "Unpin" action in the natural "Pin" slot
+                act = menu.addAction(_icon("unpin"), "Unpin from Sidebar")
+                act.setToolTip("Return this widget to the main dock layout")
+                act.setData(("unpin",))
+            elif self._menu_has_sidebars():
+                # Standard Pin logic for widgets currently in the main layout
+                if count == 1 and not is_pinnable:
+                    pass  # Hide completely for single unpinnable widget
+                else:
+                    act = menu.addAction(_icon("pin"), self._label_pin(count))
+                    act.setToolTip("Pin the active tab to the nearest sidebar")
+                    act.setEnabled(is_pinnable)
+                    act.setData(("pin",))
 
-                if area and len(area.opened_dock_widgets()) > 1:
-                    act = menu.addAction(_icon("pin_all"), self._label_pin_all())
-                    act.setToolTip("Pin every tab in this group to the nearest sidebar")
-                    all_pinnable = all(
-                        DockWidgetFeature.pinnable in w.features()
-                        for w in area.opened_dock_widgets()
-                    )
-                    act.setEnabled(all_pinnable)
-                    act.setData(("pin_all",))
-                _pending_sep = True
+                    if area and len(area.opened_dock_widgets()) > 1:
+                        act = menu.addAction(_icon("pin_all"), self._label_pin_all())
+                        act.setToolTip("Pin every tab in this group to the nearest sidebar")
+                        all_pinnable = all(
+                            DockWidgetFeature.pinnable in w.features()
+                            for w in area.opened_dock_widgets()
+                        )
+                        act.setEnabled(all_pinnable)
+                        act.setData(("pin_all",))
+            _pending_sep = True
 
         # ── Float / Dock ──────────────────────────────────────────────
         if MenuSection.DETACH in sections:
@@ -347,6 +367,7 @@ class DockMenuMixin:
         dispatch = {
             "switch_tab":  lambda: self._menu_on_switch_tab(data[1]),
             "pin":         self._menu_pin_current,
+            "unpin":       self._menu_unpin_current, # Add this
             "pin_all":     self._menu_pin_all,
             "float":       self._menu_detach,
             "dock":        self._menu_reattach,
@@ -371,6 +392,15 @@ class DockMenuMixin:
             mgr = area.dock_manager()
             if mgr and hasattr(mgr, 'sidebar_manager'):
                 mgr.sidebar_manager.pin_to_closest_sidebar(widget)
+
+    def _menu_unpin_current(self) -> None:
+        """Logic to move from sidebar back to main area."""
+        widget = self._menu_dock_widget()
+        area = self._menu_dock_area()
+        if widget and area:
+            mgr = area.dock_manager()
+            if hasattr(mgr, 'sidebar_manager'):
+                mgr.sidebar_manager.unpin_widget(widget)
 
     def _menu_pin_all(self) -> None:
         area = self._menu_dock_area()
