@@ -16,6 +16,7 @@ from PySide6.QtGui import QFont
 class DockStyleCategory(enum.Enum):
     """Namespaces for different dock component style groups."""
     CORE = enum.auto()
+    PANEL = enum.auto()
     TAB = enum.auto()
     TITLE_BAR = enum.auto()
     SIDEBAR = enum.auto()
@@ -26,16 +27,16 @@ class DockStyleCategory(enum.Enum):
 @dataclass
 class DockCoreStyleSchema:
     """Global colors and palette basics for the dock system."""
-    canvas_bg: Optional[List[int]] = None
-    border_color: Optional[List[int]] = None
-    accent_color: Optional[List[int]] = None
+    canvas_bg: Optional[List[int]] = None    #App / Window main background
+    border_color: Optional[List[int]] = None #Dock Area Widget Accent accent / highlight color
+    accent_color: Optional[List[int]] = None #App / Window Accent accent / highlight color
     focus_border_color: Optional[List[int]] = None
 
     # Geometry
-    border_width: float = 1.0
-    corner_radius: int = 0
-    margin: int = 0
-    padding: int = 0
+    border_width: float = 1.0 #Dock Area Widget border
+    corner_radius: int = 2.0 #Dock Area Widget corner radius
+    margin: int = 0 #to be kept at zero
+    padding: int = 0 #probably not even used, need to check or connect
 
     # Typography
     text_color: Optional[List[int]] = None
@@ -46,6 +47,18 @@ class DockCoreStyleSchema:
     font_italic: bool = False
     font_underline: bool = False
 
+@dataclass
+class DockPanelStyleSchema:
+    """Content area inside the dock widgets."""
+    # Backgrounds & Borders
+    bg_normal: Optional[List[int]] = None
+    text_color: Optional[List[int]] = None
+    
+    # Geometry
+    border_width: float = 2.0
+    corner_radius: int = 8
+    padding: int = 0
+    margin: int = 0
 
 @dataclass
 class DockTabStyleSchema:
@@ -131,7 +144,7 @@ class DockSidebarStyleSchema:
     border_color: Optional[List[int]] = None
     border_width: float = 1.0
     corner_radius: int = 0
-    padding: int = 2
+    padding: int = 0
     margin: int = 0
 
     # Tab Buttons - Backgrounds
@@ -205,7 +218,7 @@ class DockOverlayStyleSchema:
 
 BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
     DockStyleCategory.CORE: {
-        "canvas_bg":          [30, 30, 30, 255],
+        "canvas_bg":          [20, 20, 20, 255],
         "border_color":       [45, 45, 45, 255],
         "accent_color":       [0, 120, 212, 255],
         "focus_border_color": [0, 120, 212, 255],
@@ -213,12 +226,16 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "disabled_text_color":[110, 110, 110, 255],
 
     },
+    DockStyleCategory.PANEL: {
+        "bg_normal":          [30, 30, 30, 255],
+        "text_color":         [204, 204, 204, 255],
+    },
     DockStyleCategory.SIDEBAR: {
-        "bg_color":           [30, 30, 30, 255],
+        "bg_color":           [20, 20, 20, 255],
         "tab_bg_normal":      [0, 0, 0, 0],
         "tab_bg_hover_start": [51, 51, 51, 255],
         "tab_bg_hover_end":   [45, 45, 46, 255],
-        "tab_bg_active":      [37, 37, 38, 255],
+        "tab_bg_active":      [30, 30, 30, 255],
         "tab_text_normal":    [150, 150, 150, 255],
         "tab_text_active":    [255, 255, 255, 255],
         "indicator_color":    [0, 120, 212, 255],
@@ -248,7 +265,7 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "button_corner_radius": 3,
     },
     DockStyleCategory.SPLITTER: {
-        "handle_color":       [45, 45, 45, 255],
+        "handle_color":       [20, 20, 20, 255],
         "handle_hover_color": [0, 120, 212, 255],
 
     },

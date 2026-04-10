@@ -15,6 +15,7 @@ import logging
 from typing import TYPE_CHECKING, List, Dict, Tuple, Optional
 
 from PySide6.QtCore import (QByteArray, QEvent, QPoint, Qt, Signal)
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QGridLayout, QSplitter, QWidget
 
 from .util import (find_parent, hide_empty_parent_splitters,
@@ -86,6 +87,11 @@ class DockContainerWidget(QFrame):
         self._layout.setContentsMargins(0, 1, 0, 1)
         self._layout.setSpacing(0)
         self.setLayout(self._layout)
+
+        # Enable palette-driven background so CORE.canvas_bg paints
+        # behind splitters and dock-area gaps when the theme changes.
+        self.setAutoFillBackground(True)
+        self.setBackgroundRole(QPalette.ColorRole.Window)
 
         if dock_manager is not self:
             self._dock_manager.register_dock_container(self)

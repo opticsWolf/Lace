@@ -15,14 +15,14 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QEvent, QSize, Qt, Signal
-from PySide6.QtGui import QAction, QIcon, QColor
+from PySide6.QtGui import QAction, QIcon, QColor, QPalette
 from PySide6.QtWidgets import (QBoxLayout, QFrame, QScrollArea,
                                QSplitter, QToolBar, QWidget)
 
 # --- ADDED IMPORTS ---
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory
-
+from .dock_palette_bridge import resolve_dock_colors, build_dock_palette
 from .enums import (DockWidgetFeature, WidgetState, ToggleViewActionMode,
                     InsertMode)
 from .util import find_parent, emit_top_level_event_for_widget
@@ -60,9 +60,10 @@ class DockWidget(QFrame):
         self._is_floating_top_level = False
         self._widget_state = WidgetState.docked  # <-- NEW: Track current state
 
-        # Make the DockWidget frame borderless (replaces 'border: none' from stylesheet)
+        # Make the DockWidget frame borderless
         self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setAutoFillBackground(True) # Ensures it respects the Window palette role
+        self.setAutoFillBackground(True)
+        self.setBackgroundRole(QPalette.ColorRole.Window) # Native Qt behavior
 
         self._layout.setContentsMargins(14, 14, 14, 14)
         self._layout.setSpacing(0)
@@ -79,10 +80,10 @@ class DockWidget(QFrame):
         
         self.set_toolbar_floating_style(False)
 
-        # --- ADDED: Style Manager Integration ---
-        #self._style_mgr = get_dock_style_manager()
-        #self._style_mgr.register(self, DockStyleCategory.CORE)
-        #self.refresh_style()
+        # --- NEW: Style Manager Integration ---
+        self._style_mgr = get_dock_style_manager()
+        self._style_mgr.register(self, DockStyleCategory.PANEL)
+        self.refresh_style()
 
     def __repr__(self):
         return f'<{self.__class__.__name__} title={self.windowTitle()!r}>'
@@ -399,6 +400,33 @@ class DockWidget(QFrame):
             self.title_changed.emit(title)
 
         return super().event(e)
+
+    def refresh_style(self):
+        """
+        Applies the localized panel palette override and strictly pushes
+        it down to children to bypass Qt StyleSheet inheritance breaks.
+        """
+        colors = resolve_dock_colors()
+        pal = build_dock_palette(is_panel=True, colors=colors)
+        
+        self.setPalette(pal)
+        self.setAutoFillBackground(True)
+        self.setBackgroundRole(QPalette.ColorRole.Window)
+
+        # Force the panel palette onto the immediate content layer
+        # so Qt StyleSheets don't sever the inheritance to user widgets.
+        if self._scroll_area:
+            self._scroll_area.setPalette(pal)
+            if self._scroll_area.widget():
+                self._scroll_area.widget().setPalette(pal)
+        elif self._widget:
+            self._widget.setPalette(pal)
+
+    def on_style_changed(self, category: DockStyleCategory, changes: dict):
+        """Callback triggered by DockStyleManager when the theme switches."""
+        # Listen for both PANEL and CORE changes just in case shared colors update
+        if category in (DockStyleCategory.PANEL, DockStyleCategory.CORE):
+            self.refresh_style()
 
     def toggle_view(self, open_: bool):
         sender = self.sender()

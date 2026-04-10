@@ -63,8 +63,9 @@ class DockThemeColors:
     ``resolve_dock_colors()`` to get a fresh snapshot whenever the
     active theme may have changed.
     """
-    canvas_bg:        QColor
-    panel_bg:         QColor
+    canvas_bg:        QColor  # 1. The deep background (gaps/outside)
+    title_bg:         QColor  # 2. The title bars and tabs
+    panel_bg:         QColor  # 3. The inside of the dock widgets
     text_color:       QColor
     accent_color:     QColor
     border_color:     QColor
@@ -74,29 +75,16 @@ class DockThemeColors:
 
 
 def resolve_dock_colors() -> DockThemeColors:
-    """Fetch and resolve the colours required for palette construction
-    from the current ``DockStyleManager`` state."""
     sm = get_dock_style_manager()
 
-    canvas_bg = sm.get(DockStyleCategory.CORE, "canvas_bg")
-    text_color = sm.get(DockStyleCategory.CORE, "text_color")
-    accent = sm.get(DockStyleCategory.CORE, "accent_color")
-    border = sm.get(DockStyleCategory.CORE, "border_color")
-    panel_bg = sm.get(DockStyleCategory.TITLE_BAR, "bg_normal")
-
-    # Defensive defaults if schema values are missing
-    if not isinstance(canvas_bg, QColor):
-        canvas_bg = QColor(30, 30, 30)
-    if not isinstance(text_color, QColor):
-        text_color = QColor(204, 204, 204)
-    if not isinstance(accent, QColor):
-        accent = QColor(0, 120, 212)
-    if not isinstance(border, QColor):
-        border = QColor(45, 45, 45)
-    if not isinstance(panel_bg, QColor):
-        panel_bg = QColor(37, 37, 38)
-
-    input_bg = QColor(canvas_bg).darker(115)
+    canvas_bg = to_qcolor(sm.get(DockStyleCategory.CORE, "canvas_bg", [20, 20, 20]))
+    title_bg = to_qcolor(sm.get(DockStyleCategory.TITLE_BAR, "bg_normal", [37, 37, 38]))
+    panel_bg = to_qcolor(sm.get(DockStyleCategory.PANEL, "bg_normal", [30, 30, 30]))
+    text_color = to_qcolor(sm.get(DockStyleCategory.CORE, "text_color", [204, 204, 204]))
+    accent = to_qcolor(sm.get(DockStyleCategory.CORE, "accent_color", [0, 120, 212]))
+    border = to_qcolor(sm.get(DockStyleCategory.CORE, "border_color", [45, 45, 45]))
+    
+    input_bg = QColor(panel_bg).darker(115) 
 
     disabled_text = QColor(text_color)
     disabled_text.setAlpha(max(0, text_color.alpha() // 3))
@@ -105,15 +93,28 @@ def resolve_dock_colors() -> DockThemeColors:
     placeholder_text.setAlpha(max(0, text_color.alpha() // 2))
 
     return DockThemeColors(
-        canvas_bg=canvas_bg,
-        panel_bg=panel_bg,
-        text_color=text_color,
-        accent_color=accent,
-        border_color=border,
-        input_bg=input_bg,
-        disabled_text=disabled_text,
-        placeholder_text=placeholder_text,
+        canvas_bg=canvas_bg, title_bg=title_bg, panel_bg=panel_bg,
+        text_color=text_color, accent_color=accent, border_color=border,
+        input_bg=input_bg, disabled_text=disabled_text, placeholder_text=placeholder_text
     )
+
+def to_qcolor(val) -> QColor:
+    if isinstance(val, QColor): return val
+    if isinstance(val, (list, tuple)) and len(val) >= 3:
+        return QColor(int(val[0]), int(val[1]), int(val[2]), int(val[3]) if len(val) > 3 else 255)
+    return QColor(0, 0, 0, 255)
+
+
+def _apply_shared_roles(pal: QPalette, c: DockThemeColors):
+    """Applies palette roles that are identical across all dock contexts."""
+    pal.setColor(QPalette.ColorRole.Highlight, c.accent_color)
+    pal.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+    pal.setColor(QPalette.ColorRole.ToolTipBase, c.title_bg)
+    pal.setColor(QPalette.ColorRole.ToolTipText, c.text_color)
+    pal.setColor(QPalette.ColorRole.PlaceholderText, c.placeholder_text)
+    
+    for role in (QPalette.ColorRole.Text, QPalette.ColorRole.WindowText, QPalette.ColorRole.ButtonText):
+        pal.setColor(QPalette.ColorGroup.Disabled, role, c.disabled_text)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -121,59 +122,51 @@ def resolve_dock_colors() -> DockThemeColors:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def build_dock_palette(
-    window_color: Optional[QColor] = None,
-    base_palette: Optional[QPalette] = None,
-    colors: Optional[DockThemeColors] = None,
+    is_panel: bool = False, 
+    base_palette: Optional[QPalette] = None, 
+    colors: Optional[DockThemeColors] = None
 ) -> QPalette:
-    """Construct a ``QPalette`` from the current dock theme.
-
+    """
+    Constructs a QPalette for the docking system.
+    
     Parameters
     ----------
-    window_color : QColor, optional
-        Override for the ``Window`` role.  Defaults to ``colors.canvas_bg``.
-    base_palette : QPalette, optional
-        Starting palette.  ``None`` creates a fresh ``QPalette``.
-    colors : DockThemeColors, optional
-        Pre-resolved colours.  ``None`` calls ``resolve_dock_colors()``.
+    is_panel : bool
+        If True, builds the palette for the inside of DockWidgets.
+        If False, builds the CORE palette for splitters and gaps.
     """
-    if colors is None:
-        colors = resolve_dock_colors()
-    c = colors
-
+    c = colors or resolve_dock_colors()
     pal = QPalette(base_palette) if base_palette else QPalette()
-    win = window_color if window_color is not None else c.canvas_bg
 
-    # Window — dock panel backgrounds
-    pal.setColor(QPalette.ColorRole.Window, win)
+    # Only Window background varies depending on whether we are styling 
+    # the deep gaps (CORE) or the raised panel faces (PANEL).
+    primary_bg = c.panel_bg if is_panel else c.canvas_bg
+
+    # 1. Window & Text
+    pal.setColor(QPalette.ColorRole.Window, primary_bg)
     pal.setColor(QPalette.ColorRole.WindowText, c.text_color)
 
-    # Interactive leaf widgets (spinboxes, combos, line-edits inside docks)
+    # 2. Inputs (Base) & Alternate Base
+    # CRITICAL FIX: Standard input widgets (QTextEdit, lists) live inside panels.
+    # Even in the CORE palette, their Base must be derived from panel_bg to prevent
+    # the canvas gap color from "bleeding" through if palette inheritance breaks.
     pal.setColor(QPalette.ColorRole.Base, c.input_bg)
-    pal.setColor(QPalette.ColorRole.AlternateBase, QColor(c.input_bg).darker(110))
+    pal.setColor(QPalette.ColorRole.AlternateBase, c.panel_bg)
     pal.setColor(QPalette.ColorRole.Text, c.text_color)
 
-    pal.setColor(QPalette.ColorRole.Button, c.panel_bg)
+    # 3. Buttons
+    button_bg = QColor(c.panel_bg).lighter(120) if is_panel else c.title_bg
+    pal.setColor(QPalette.ColorRole.Button, button_bg)
     pal.setColor(QPalette.ColorRole.ButtonText, c.text_color)
 
-    # Selection / focus — accent colour
-    pal.setColor(QPalette.ColorRole.Highlight, c.accent_color)
-    pal.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
-
-    pal.setColor(QPalette.ColorRole.ToolTipBase, c.panel_bg)
-    pal.setColor(QPalette.ColorRole.ToolTipText, c.text_color)
-
-    pal.setColor(QPalette.ColorRole.PlaceholderText, c.placeholder_text)
-
-    # Structural roles — frame edges, sunken/raised borders
-    pal.setColor(QPalette.ColorRole.Mid, c.border_color)
+    # 4. Structural Roles (Mid, Light, Dark)
+    # CRITICAL FIX: 3D borders of standard widgets use these roles.
+    # They must ALWAYS calculate against panel_bg, otherwise they glow with canvas_bg.
+    mid_color = QColor(c.panel_bg).darker(115)
+    pal.setColor(QPalette.ColorRole.Mid, mid_color)
     pal.setColor(QPalette.ColorRole.Light, QColor(c.panel_bg).lighter(140))
     pal.setColor(QPalette.ColorRole.Dark, QColor(c.panel_bg).darker(130))
     pal.setColor(QPalette.ColorRole.Shadow, QColor(0, 0, 0, 80))
 
-    # Disabled state
-    for role in (QPalette.ColorRole.Text,
-                 QPalette.ColorRole.WindowText,
-                 QPalette.ColorRole.ButtonText):
-        pal.setColor(QPalette.ColorGroup.Disabled, role, c.disabled_text)
-
+    _apply_shared_roles(pal, c)
     return pal

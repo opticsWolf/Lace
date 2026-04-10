@@ -171,22 +171,13 @@ class DockThemeBridge(QObject):
         from PySide6.QtWidgets import QWidget, QApplication
         
         colors = resolve_dock_colors()
-        palette = build_dock_palette(
-            window_color=colors.canvas_bg,
-            base_palette=self._target.palette(),
-            colors=colors,
-        )
         
-        # Apply palette to the main target
+        # 1. Apply the CORE palette to the application/manager (is_panel=False)
+        palette = build_dock_palette(is_panel=False, colors=colors)
         self._target.setPalette(palette)
-        if self._target.style():
-            self._target.setStyle(self._target.style())
-
-        # --- OPTIMIZED STYLESHEET NUDGE ---
+        
+        # --- STYLESHEET NUDGE ---
         if isinstance(self._target, QApplication):
-            # If targeting the whole app, ONLY nudge visible windows.
-            # This prevents Qt from wasting CPU re-styling hundreds of hidden
-            # tooltips, closed menus, and cached UI elements.
             for window in self._target.topLevelWidgets():
                 if window.isVisible():
                     current_ss = window.styleSheet()
@@ -194,13 +185,17 @@ class DockThemeBridge(QObject):
                     window.setStyleSheet(current_ss)
                     window.update()
         else:
-            # If targeting just the DockManager, nudge it directly
             current_ss = self._target.styleSheet()
             self._target.setStyleSheet("/* force style re-evaluation */")
             self._target.setStyleSheet(current_ss)
             self._target.update()
-            
-        # IMPORTANT: Remove QCoreApplication.processEvents() here.
-        # Let Qt handle the layout/paint cycle naturally on the next frame.
 
-        logger.debug("Dock palette refreshed (Optimized).")
+        # --- RE-APPLY DOCK WIDGET LOCAL PALETTES ---
+        from .dock_widget import DockWidget
+        if isinstance(self._target, QApplication):
+            for window in self._target.topLevelWidgets():
+                for dw in window.findChildren(DockWidget):
+                    dw.refresh_style()
+        elif isinstance(self._target, QWidget):
+            for dw in self._target.findChildren(DockWidget):
+                dw.refresh_style()
