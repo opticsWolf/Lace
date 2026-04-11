@@ -15,7 +15,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QRect, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QPalette
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame
 
 from .util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
@@ -41,7 +41,6 @@ class DockAreaWidget(QFrame):
     def __init__(self, dock_manager: 'DockManager', parent: 'DockContainerWidget'):
         super().__init__(parent)
         
-        # Flattened private properties
         self._dock_manager = dock_manager
         self._layout = QBoxLayout(QBoxLayout.TopToBottom)
         self._contents_layout: DockAreaLayout = None
@@ -55,7 +54,6 @@ class DockAreaWidget(QFrame):
         self._create_title_bar()
         self._contents_layout = DockAreaLayout(self._layout)
 
-        # --- ADDED: Style Manager Integration ---
         self._style_mgr = get_dock_style_manager()
         self._style_mgr.register(self, DockStyleCategory.CORE)
         self.refresh_style()
@@ -77,55 +75,13 @@ class DockAreaWidget(QFrame):
         return self._title_bar.tab_bar()
 
     def _update_title_bar_button_states(self):
+        """Delegates synchronization of the title bar buttons to the title bar itself."""
         if self.isHidden():
             self._update_title_bar_buttons = True
             return
 
-        active_widget = self.current_dock_widget()
-        if not active_widget:
-            return
-
-        count = self.open_dock_widgets_count()
-
-        is_closable = DockWidgetFeature.closable in active_widget.features()
-        is_floatable = DockWidgetFeature.floatable in active_widget.features()
-        is_pinnable = DockWidgetFeature.pinnable in active_widget.features()
-        
-        has_sidebars = False
-        if hasattr(self.dock_manager(), 'sidebar_manager'):
-            has_sidebars = self.dock_manager().sidebar_manager.has_sidebars
-
-        tabs_menu_btn = self._title_bar.button(TitleBarButton.tabs_menu)
-        close_btn = self._title_bar.button(TitleBarButton.close)
-        undock_btn = self._title_bar.button(TitleBarButton.undock)
-        pin_btn = self._title_bar.button(TitleBarButton.pin)
-
-        if count <= 1:
-            # Hide completely if not supported or redundant for single widgets
-            if tabs_menu_btn:
-                tabs_menu_btn.setVisible(False)
-            
-            close_btn.setVisible(is_closable)
-            undock_btn.setVisible(is_floatable)
-            
-            show_pin = is_pinnable and has_sidebars and bool(self.dock_manager().config_flags & DockFlags.title_bar_has_pin_button)
-            if pin_btn:
-                pin_btn.setVisible(show_pin)
-        else:
-            # Unhide and disable/enable based on the active widget
-            if tabs_menu_btn:
-                tabs_menu_btn.setVisible(True)
-                
-            close_btn.setVisible(True)
-            close_btn.setEnabled(is_closable)
-
-            undock_btn.setVisible(True)
-            undock_btn.setEnabled(is_floatable)
-
-            show_pin = has_sidebars and bool(self.dock_manager().config_flags & DockFlags.title_bar_has_pin_button)
-            if pin_btn:
-                pin_btn.setVisible(show_pin)
-                pin_btn.setEnabled(is_pinnable)
+        if self._title_bar:
+            self._title_bar.update_button_states()
 
         self._update_title_bar_buttons = False
 
@@ -140,7 +96,6 @@ class DockAreaWidget(QFrame):
                 to_index >= self._contents_layout.count() or
                 to_index < 0 or
                 from_index == to_index):
-            logger.debug('Invalid index for tab movement %s:%s', from_index, to_index)
             return
 
         widget = self._contents_layout.widget(from_index)
@@ -200,7 +155,7 @@ class DockAreaWidget(QFrame):
 
     def toggle_dock_widget_view(self, dock_widget: 'DockWidget', open_: bool):
         self.update_title_bar_visibility()
-        self._update_title_bar_button_states() # <-- ADD THIS
+        self._update_title_bar_button_states()
 
     def next_open_dock_widget(self, dock_widget: 'DockWidget') -> Optional['DockWidget']:
         open_dock_widgets = self.opened_dock_widgets()
@@ -243,7 +198,6 @@ class DockAreaWidget(QFrame):
             return
 
         if self._title_bar:
-            # Unify Logic: Always show the title bar because FloatingDockContainer is now chromeless.
             self._title_bar.setVisible(True)
 
     def internal_set_current_dock_widget(self, dock_widget: 'DockWidget'):
@@ -312,7 +266,6 @@ class DockAreaWidget(QFrame):
         self.internal_set_current_dock_widget(dock_widget)
 
     def save_state(self) -> dict:
-        """Phase 2: Modernized dict-based state saving."""
         current_dock_widget = self.current_dock_widget()
         name = current_dock_widget.objectName() if current_dock_widget else ''
         logger.debug('DockAreaWidget.saveState TabCount: %s current: %s',
@@ -327,15 +280,17 @@ class DockAreaWidget(QFrame):
 
     @property
     def closable(self):
-        return DockWidgetFeature.closable in self.features()
+        return bool(self.features() & DockWidgetFeature.closable)
 
     @property
     def floatable(self):
-        return DockWidgetFeature.floatable in self.features()
+        return bool(self.features() & DockWidgetFeature.floatable)
 
     def features(self) -> DockWidgetFeature:
+        # --- FIX: Only intersect the features of OPEN dock widgets! ---
+        # Prevents hidden/closed widgets from falsely locking the area.
         features = DockWidgetFeature.all_features
-        for dock_widget in self.dock_widgets():
+        for dock_widget in self.opened_dock_widgets():
             features &= dock_widget.features()
         return features
 
@@ -367,18 +322,32 @@ class DockAreaWidget(QFrame):
         self.dock_container().close_other_areas(self)
 
     def refresh_style(self):
-        styles = self._style_mgr.get_all(DockStyleCategory.CORE)
+        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
+        panel_styles = self._style_mgr.get_all(DockStyleCategory.PANEL) # Fetch the panel schema
         
-        border_color = styles.get("border_color").name()
-        border_width = styles.get("border_width", 1.0)
-        radius = styles.get("corner_radius", 0)
+        # 1. Assign the panel background to the Area's palette for children to inherit
+        bg_color = panel_styles.get("bg_normal")
+        if bg_color:
+            pal = self.palette()
+            pal.setColor(QPalette.ColorRole.Window, bg_color)
+            self.setPalette(pal)
+            
+        # 2. Tell Qt Native painting NOT to fill this specific widget's background
+        self.setAutoFillBackground(False)
         
-        self.setStyleSheet(f"""
-            DockAreaWidget {{
-                border: {border_width}px solid {border_color};
-                border-radius: {radius}px;
-            }}
-        """)
+        border_color = core_styles.get("border_color").name()
+        border_width = core_styles.get("border_width", 1.0)
+        radius = core_styles.get("corner_radius", 0)
+        
+        ## 3. Enforce the transparent background in CSS so the style engine 
+        ## doesn't accidentally invent a background color when drawing the border.
+        #self.setStyleSheet(f"""
+        #    DockAreaWidget {{
+        #        border: {border_width}px solid {border_color};
+        #        border-radius: {radius}px;
+        #        background-color: transparent;
+        #    }}
+        #""")
 
     def on_style_changed(self, category: DockStyleCategory, changes: dict):
         self.refresh_style()

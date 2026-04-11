@@ -10,18 +10,14 @@ sidebar_title_bar.py
 Standalone title bar for the sidebar overlay panel, with context menu,
 drag-to-detach, and unified action naming / icons.
 """
-from typing import TYPE_CHECKING, List, Optional
-
-from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QRect, QPoint, QEvent
-from PySide6.QtGui import QMouseEvent, QColor
+from typing import TYPE_CHECKING, Optional
+from PySide6.QtCore import Qt, Signal, QPoint
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
-    QFrame, QMenu, QSplitter, QVBoxLayout, QHBoxLayout, QLabel,
-    QToolButton, QStyle, QGraphicsDropShadowEffect, QWidget
+    QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
 )
-from .enums import DockWidgetArea, DockWidgetFeature
+from .enums import DockWidgetFeature
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
-from .dock_style_manager import get_dock_style_manager
-from .dock_theme import DockStyleCategory
 from .util import start_drag_distance
 
 if TYPE_CHECKING:
@@ -32,6 +28,9 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
     """
     Standalone Title Bar for the Overlay, managing buttons, titles, 
     context menus, and drag-to-detach behavior.
+    
+    Provides float, unpin, and close functionality with unified iconography
+    and consistent interaction patterns.
     """
     
     _menu_sections = MenuSection.DETACH | MenuSection.CLOSE
@@ -47,7 +46,6 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         self.setAutoFillBackground(True)
 
         self._active_widget: Optional['DockWidget'] = None
-        self._menu_outdated = True
         self._drag_start: Optional[QPoint] = None
 
         self._setup_ui()
@@ -60,23 +58,19 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         self._title_label = QLabel("Panel")
         self._title_label.setObjectName("overlayTitleLabel")
 
-        # Tab List Menu Button — uses canonical icon
-        self._tabs_menu_button = QToolButton()
-        self._tabs_menu_button.setAutoRaise(True)
-        self._tabs_menu_button.setIcon(dock_icon("tabs_menu"))
-        self._tabs_menu_button.setToolTip("Menu")
-        self._tabs_menu_button.setPopupMode(QToolButton.InstantPopup)
-        
-        self._tabs_menu = QMenu(self._tabs_menu_button)
-        self._tabs_menu_button.setMenu(self._tabs_menu)
-        self._tabs_menu.aboutToShow.connect(self._on_tabs_menu_about_to_show)
-
         # Unpin button — uses canonical "unpin" icon
         self._reattach_btn = QToolButton()
         self._reattach_btn.setAutoRaise(True)
         self._reattach_btn.setIcon(dock_icon("unpin"))
         self._reattach_btn.setToolTip("Unpin from Sidebar")
         self._reattach_btn.clicked.connect(self._on_reattach_clicked)
+
+        # Float button — uses canonical "float" icon
+        self._float_btn = QToolButton()
+        self._float_btn.setAutoRaise(True)
+        self._float_btn.setIcon(dock_icon("float"))
+        self._float_btn.setToolTip("Float")
+        self._float_btn.clicked.connect(lambda: self.detach_requested.emit(self._active_widget) if self._active_widget else None)
 
         # Close Button — uses canonical "close" icon
         self._close_btn = QToolButton()
@@ -86,8 +80,8 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         self._close_btn.clicked.connect(self.close_requested.emit)
 
         layout.addWidget(self._title_label, 1)
-        layout.addWidget(self._tabs_menu_button)
         layout.addWidget(self._reattach_btn)
+        layout.addWidget(self._float_btn)
         layout.addWidget(self._close_btn)
 
         # Context Menu wiring
@@ -97,26 +91,23 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
     def set_widget(self, dock_widget: Optional['DockWidget']):
         """Updates the title and buttons based on the active widget."""
         self._active_widget = dock_widget
-        self._menu_outdated = True
         
         if dock_widget:
             self._title_label.setText(dock_widget.windowTitle())
             
             features = dock_widget.features()
-            is_closable = DockWidgetFeature.closable in features
-            is_pinnable = DockWidgetFeature.pinnable in features
-            is_floatable = DockWidgetFeature.floatable in features
+            is_closable = bool(features & DockWidgetFeature.closable)
+            is_pinnable = bool(features & DockWidgetFeature.pinnable)
+            is_floatable = bool(features & DockWidgetFeature.floatable)
             
             self._close_btn.setVisible(is_closable)
             self._reattach_btn.setVisible(is_pinnable)
-            # The tabs menu always stays visible so the user can access
-            # float / unpin / close even with a single panel.
-            self._tabs_menu_button.setVisible(True)
+            self._float_btn.setVisible(is_floatable)
         else:
             self._title_label.setText("Panel")
             self._close_btn.setVisible(True)
             self._reattach_btn.setVisible(True)
-            self._tabs_menu_button.setVisible(True)
+            self._float_btn.setVisible(True)
 
     # --- Mouse & Drag Logic ---
 
@@ -146,9 +137,9 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
             return
 
         features = widget.features()
-        is_closable = DockWidgetFeature.closable in features
-        is_floatable = DockWidgetFeature.floatable in features
-        is_pinnable = DockWidgetFeature.pinnable in features
+        is_closable = bool(features & DockWidgetFeature.closable)
+        is_floatable = bool(features & DockWidgetFeature.floatable)
+        is_pinnable = bool(features & DockWidgetFeature.pinnable)
 
         if is_pinnable:
             act = menu.addAction(dock_icon("unpin"), "Unpin from Sidebar")
@@ -173,13 +164,6 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         self._build_overlay_menu(menu)
         menu.exec(self.mapToGlobal(pos))
 
-    def _on_tabs_menu_about_to_show(self):
-        if not self._menu_outdated:
-            return
-        self._tabs_menu.clear()
-        self._build_overlay_menu(self._tabs_menu)
-        self._menu_outdated = False
-
     def _on_reattach_clicked(self):
         if self._active_widget:
             self.reattach_requested.emit(self._active_widget)
@@ -196,12 +180,10 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         return False
 
     def _menu_is_closable(self) -> bool:
-        return bool(self._active_widget and
-                    DockWidgetFeature.closable in self._active_widget.features())
+        return bool(self._active_widget and (self._active_widget.features() & DockWidgetFeature.closable))
 
     def _menu_is_floatable(self) -> bool:
-        return bool(self._active_widget and
-                    DockWidgetFeature.floatable in self._active_widget.features())
+        return bool(self._active_widget and (self._active_widget.features() & DockWidgetFeature.floatable))
 
     def _menu_show_close_others(self) -> bool:
         return False
@@ -274,6 +256,6 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
                 background-color: {btn_hover_css};
             }}
         """
-        self._tabs_menu_button.setStyleSheet(button_css)
         self._reattach_btn.setStyleSheet(button_css)
+        self._float_btn.setStyleSheet(button_css)
         self._close_btn.setStyleSheet(button_css)

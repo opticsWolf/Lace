@@ -140,7 +140,7 @@ class DockWidgetTab(QFrame, DockMenuMixin):
 
     @property
     def _floatable(self):
-        return DockWidgetFeature.floatable in self._dock_widget.features()
+        return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.floatable))
 
     def on_detach_action_triggered(self):
         if self._floatable:
@@ -277,18 +277,14 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         return self._is_active_tab
 
     def set_active_tab(self, active: bool):
-        closable = DockWidgetFeature.closable in self._dock_widget.features()
+        closable = bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.closable))
         tab_has_close_button = self._test_config_flag(DockFlags.active_tab_has_close_button)
         self._close_button.setVisible(active and closable and tab_has_close_button)
         
         if self._is_active_tab == active:
             return
-
         self._is_active_tab = active
-        
-        # Trigger the dynamic theme refresh to swap active/inactive colors
         self.refresh_style() 
-        
         self.active_tab_changed.emit()
 
     def dock_widget(self) -> 'DockWidget':
@@ -333,8 +329,7 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         self._title_label.setText(title)
 
     def is_closable(self) -> bool:
-        return (self._dock_widget and
-                DockWidgetFeature.closable in self._dock_widget.features())
+        return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.closable))
 
     def event(self, e: QEvent) -> bool:
         if e.type() == QEvent.ToolTipChange:
@@ -343,7 +338,7 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         return super().event(e)
 
     def refresh_style(self):
-        """Applies TAB styles based on active/inactive state."""
+        """Applies TAB styles including indicator position and rounded top corners."""
         styles = self._style_mgr.get_all(DockStyleCategory.TAB)
         
         # 1. Determine state-specific colors
@@ -352,16 +347,29 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         text_color = styles.get("text_active").name() if is_active else styles.get("text_normal").name()
         hover_bg = styles.get("bg_hover").name()
         
-        # 2. Setup the visual indicator (e.g., a colored line under the active tab)
+        # 2. Setup the visual indicator and corner radius
         indicator = styles.get("indicator_color").name()
         ind_width = styles.get("indicator_width", 2)
-        border_css = f"border-bottom: {ind_width}px solid {indicator};" if is_active else "border-bottom: none;"
+        ind_pos = styles.get("indicator_position", "bottom")
+        
+        # Fetch corner radius from the TAB schema
+        radius = styles.get("corner_radius", 0)
+        
+        # Build border and radius CSS
+        # We only round the top corners so the bottom remains flush with the dock area
+        radius_css = f"border-top-left-radius: {radius}px; border-top-right-radius: {radius}px;"
+        
+        border_css = "border: none;"
+        if is_active:
+            side = "top" if ind_pos == "top" else "bottom"
+            border_css = f"border-{side}: {ind_width}px solid {indicator};"
         
         # 3. Apply Stylesheet
         self.setStyleSheet(f"""
             DockWidgetTab {{
                 background-color: {bg_color};
                 {border_css}
+                {radius_css}
             }}
             DockWidgetTab:hover {{
                 background-color: {bg_color if is_active else hover_bg};
@@ -374,7 +382,7 @@ class DockWidgetTab(QFrame, DockMenuMixin):
             QPushButton#tabCloseButton {{
                 background: transparent;
                 border: none;
-                border-radius: 2px;
+                border-radius: {styles.get("close_btn_corner_radius", 3)}px;
             }}
             QPushButton#tabCloseButton:hover {{
                 background-color: {styles.get("close_btn_bg_hover").name()};
@@ -386,7 +394,6 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         font.setFamily(styles.get("font_family", "Segoe UI"))
         font.setPointSize(styles.get("font_size", 10))
         
-        # Optional: Bold the active tab text
         weight = styles.get("active_font_weight" if is_active else "font_weight", "normal")
         font.setBold(weight in ("bold", 700))
         

@@ -201,7 +201,7 @@ class DockMenuMixin:
     def _menu_is_closable(self) -> bool:
         """Whether the *active widget* can be closed."""
         widget = self._menu_dock_widget()
-        return bool(widget and (DockWidgetFeature.closable in widget.features()))
+        return bool(widget and (widget.features() & DockWidgetFeature.closable))
 
     def _menu_is_area_closable(self) -> bool:
         """Whether the whole area can be closed (all tabs closable)."""
@@ -216,7 +216,7 @@ class DockMenuMixin:
     def _menu_is_pinnable(self) -> bool:
         """Check if the active widget is allowed to be pinned."""
         widget = self._menu_dock_widget()
-        return bool(widget and (DockWidgetFeature.pinnable in widget.features()))
+        return bool(widget and (widget.features() & DockWidgetFeature.pinnable))
 
     def _menu_is_pinned(self) -> bool:
         """Check if the active widget is currently in a sidebar."""
@@ -284,7 +284,7 @@ class DockMenuMixin:
         def _icon(key: str) -> QIcon:
             return icons.get(key, QIcon())
 
-        # ── Tab list (only entries when ≥ 2 tabs) ────────────────────
+        # ── Tab list (only entries when > 1 tabs) ─────────────────────
         if MenuSection.TAB_LIST in sections and tab_bar is not None and count > 1:
             current_index = tab_bar.current_index()
             for i in range(tab_bar.count()):
@@ -367,7 +367,7 @@ class DockMenuMixin:
         dispatch = {
             "switch_tab":  lambda: self._menu_on_switch_tab(data[1]),
             "pin":         self._menu_pin_current,
-            "unpin":       self._menu_unpin_current, # Add this
+            "unpin":       self._menu_unpin_current,
             "pin_all":     self._menu_pin_all,
             "float":       self._menu_detach,
             "dock":        self._menu_reattach,

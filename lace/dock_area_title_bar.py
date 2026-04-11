@@ -97,7 +97,6 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self._tabs_menu_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self._top_layout.addWidget(self._tabs_menu_button, 0)
         self._tabs_menu.triggered.connect(self.on_tabs_menu_action_triggered)
-        # Visibility follows dock_area_has_tabs_menu_button — nothing else.
         self._tabs_menu_button.setVisible(
             self._test_config_flag(DockFlags.dock_area_has_tabs_menu_button)
         )
@@ -151,7 +150,11 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self._tab_bar.removing_tab.connect(self.mark_tabs_menu_outdated)
         self._tab_bar.tab_moved.connect(self.mark_tabs_menu_outdated)
         self._tab_bar.current_changed.connect(self.mark_tabs_menu_outdated)
-        self._tab_bar.current_changed.connect(self.on_current_tab_changed)
+        
+        # --- FIX: Sync to the Area's index signal, not the Tab Bar's! ---
+        # Ensures internal layout widget swap is complete before evaluating states.
+        self._dock_area.current_changed.connect(self.on_current_tab_changed)
+        
         self._tab_bar.tab_bar_clicked.connect(self.tab_bar_clicked)
     
         self._tab_bar.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -181,39 +184,43 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self.on_close_button_clicked()
 
     def _menu_is_closable(self) -> bool:
-        """Respect the config flag: if the close button closes only the tab,
-        check the active widget; otherwise check the whole area."""
         if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
             widget = self._menu_dock_widget()
-            return bool(widget and DockWidgetFeature.closable in widget.features())
+            return bool(widget and (widget.features() & DockWidgetFeature.closable))
         return self._dock_area.closable
 
     # ── Button state management ───────────────────────────────────────────
 
     def update_button_states(self):
-        """Synchronise every title-bar button with the active widget's features.
-
-        Called whenever the current tab changes, a tab is added/removed,
-        or the area transitions between floating/docked.
-        """
+        """Synchronise every title-bar button with the area and active widget features."""
         area = self._dock_area
         if area is None:
             return
 
         widget = area.current_dock_widget()
+        if not widget:
+            return
+
         count = area.open_dock_widgets_count()
         is_floating = self._menu_is_floating()
 
+        # Specific features of the currently active tab
+        tab_features = widget.features()
+        tab_closable = bool(tab_features & DockWidgetFeature.closable)
+        tab_pinnable = bool(tab_features & DockWidgetFeature.pinnable)
+
+        # Whole area features (intersection of all OPEN widgets in the area)
+        area_features = area.features()
+        area_closable = bool(area_features & DockWidgetFeature.closable)
+        area_floatable = bool(area_features & DockWidgetFeature.floatable)
+
         # — Close button —
-        # When dock_area_close_button_closes_tab is set the button acts on
-        # the *active tab*, so its enabled state follows that tab's closable
-        # feature.  Otherwise it closes the whole area so we need all tabs
-        # to be closable.
-        if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
-            can_close = bool(widget and DockWidgetFeature.closable in widget.features())
+        closes_tab = self._test_config_flag(DockFlags.dock_area_close_button_closes_tab)
+        if closes_tab:
+            can_close = tab_closable
             self._close_button.setToolTip("Close")
         else:
-            can_close = area.closable
+            can_close = area_closable
             self._close_button.setToolTip("Close Group" if count > 1 else "Close")
 
         if self._test_config_flag(DockFlags.dock_area_has_close_button):
@@ -223,7 +230,6 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
             self._close_button.setVisible(False)
 
         # — Undock / Float button —
-        can_float = area.floatable
         if self._test_config_flag(DockFlags.dock_area_has_undock_button):
             self._undock_button.setVisible(True)
             if is_floating:
@@ -234,45 +240,39 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
             else:
                 self._undock_button.setIcon(dock_icon("float"))
                 self._undock_button.setToolTip("Float Group" if count > 1 else "Float")
-                self._undock_button.setEnabled(can_float)
+                self._undock_button.setEnabled(area_floatable)
         else:
             self._undock_button.setVisible(False)
 
         # — Pin button —
+        # FIX: Removed the `and not is_floating` restriction so users can pin 
+        # a widget directly back into the main window's sidebar while it is floating.
         has_sidebars = self._menu_has_sidebars()
-        can_pin = bool(widget and DockWidgetFeature.pinnable in widget.features())
         show_pin = (
             has_sidebars
-            and self._test_config_flag(DockFlags.title_bar_has_pin_button)
-            and not is_floating
+            and self._test_config_flag(DockFlags.dock_area_has_pin_button)
         )
         self._pin_button.setVisible(show_pin)
-        self._pin_button.setEnabled(can_pin)
+        self._pin_button.setEnabled(tab_pinnable)
 
-        # — Tabs menu button (always visible when config flag is on) —
+        # — Tabs menu button —
         if self._test_config_flag(DockFlags.dock_area_has_tabs_menu_button):
             self._tabs_menu_button.setVisible(True)
         else:
             self._tabs_menu_button.setVisible(False)
 
     def update_pin_button_visibility(self):
-        """Re-check whether the pin button should be shown and enabled."""
-        # Run the full two-stage update so DockAreaWidget state is consistent.
         self._dock_area._update_title_bar_button_states()
-        self.update_button_states()
 
     def refresh_style(self):
         styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
         
-        # Apply Geometry
         self.setFixedHeight(styles.get("height", 24))
         pad = styles.get("padding", 4)
         
-        # Update layout spacing dynamically
         self._top_layout.setSpacing(styles.get("button_spacing", 4))
         self._top_layout.setContentsMargins(pad, 0, pad, 0)
         
-        # Apply Colors via Stylesheet for the buttons and background
         bg_color = styles.get("bg_normal").name()
         btn_color = styles.get("button_color").name()
         btn_hover = styles.get("button_hover_bg").name()
@@ -313,9 +313,8 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
     def on_close_button_clicked(self):
         logger.debug('DockAreaTitleBar.onCloseButtonClicked')
         if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
-            # Only close the active tab if its widget is actually closable.
             widget = self._dock_area.current_dock_widget()
-            if widget and DockWidgetFeature.closable not in widget.features():
+            if widget and not (widget.features() & DockWidgetFeature.closable):
                 return
             self._tab_bar.close_tab(self._tab_bar.current_index())
         else:
@@ -323,7 +322,6 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
 
     def on_undock_button_clicked(self):
         if self._menu_is_floating():
-            # Already floating — reattach (dock)
             self._menu_reattach()
         elif self._dock_area.floatable:
             self._tab_bar.make_area_floating(QCursor.pos(), DragState.inactive)
@@ -333,17 +331,13 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self.pin_button_clicked.emit()
 
     def show_context_menu(self, global_pos: QPoint):
-        """Show the unified menu at the given global screen position."""
         self.mark_tabs_menu_outdated()
         self._tabs_menu.exec(global_pos)
 
     def on_current_tab_changed(self, index: int):
         if index < 0:
             return
-        # Let DockAreaWidget do its internal bookkeeping first …
         self._dock_area._update_title_bar_button_states()
-        # … then apply our feature-aware overrides on top.
-        self.update_button_states()
         
     def mark_tabs_menu_outdated(self):
         self._menu_outdated = True
@@ -367,7 +361,6 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self.mark_tabs_menu_outdated()
 
     # --- Drag Functionality ---
-
     def _is_dragging_state(self, drag_state: DragState) -> bool:
         return self._drag_state == drag_state
 
@@ -427,7 +420,6 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         if drag_distance >= start_drag_distance():
             dock_container = self._dock_area.dock_container()
             
-            # --- NATIVE BEHAVIOR: Drag floating window ONLY if it's the sole dock area ---
             if dock_container and dock_container.is_floating() and dock_container.visible_dock_area_count() == 1:
                 from .floating_dock_container import FloatingDockContainer
                 floating_window = self.window()
@@ -436,12 +428,10 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
                     self._drag_state = DragState.floating_widget
                     self._floating_widget = floating_window
                     
-                    # Map local drag position to the floating window's coordinates
                     mapped_start_pos = self.mapTo(floating_window, self._drag_start_mouse_position)
                     floating_window.start_dragging(mapped_start_pos, floating_window.size(), self)
                 return
 
-            # --- Original tear-off logic for main window docks AND split floating docks ---
             if self._dock_area.floatable:
                 self._start_floating()
         else:

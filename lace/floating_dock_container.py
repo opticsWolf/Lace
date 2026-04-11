@@ -14,12 +14,17 @@ Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 from typing import TYPE_CHECKING
 import logging
 
-from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer)
-from PySide6.QtGui import QCloseEvent, QCursor, QHideEvent, QMoveEvent, QMouseEvent
+from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, 
+                            QSize, Qt, QTimer)
+from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, 
+                           QPalette, QMoveEvent, QMouseEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
 from .enums import DockWidgetFeature, DragState, DockWidgetArea
 from .dock_container_widget import DockContainerWidget
+
+from .dock_style_manager import get_dock_style_manager
+from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
     from . import DockAreaWidget, DockWidget, DockManager
@@ -85,6 +90,11 @@ class FloatingDockContainer(QWidget):
             dock_container.add_dock_widget(DockWidgetArea.center, dock_widget)
             
         self._ignore_synthetic_release = False
+
+        # --- Style Manager Integration ---
+        self._style_mgr = get_dock_style_manager()
+        self._style_mgr.register(self, DockStyleCategory.CORE)
+        self.refresh_style()
         
     def __repr__(self):
         return f'<FloatingDockContainer container={self._dock_container}>'
@@ -466,6 +476,21 @@ class FloatingDockContainer(QWidget):
                 return False
 
         return False
+
+    def refresh_style(self):
+        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
+        bg_color = core_styles.get("canvas_bg")
+        
+        if bg_color:
+            pal = self.palette()
+            pal.setColor(QPalette.ColorRole.Window, bg_color)
+            self.setPalette(pal)
+            
+        self.setAutoFillBackground(True)
+        self.setBackgroundRole(QPalette.ColorRole.Window)
+
+    def on_style_changed(self, category: DockStyleCategory, changes: dict):
+        self.refresh_style()
 
     # ─────────────────────────────────────────────────────────────────────
     #  Public accessors
