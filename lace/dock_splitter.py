@@ -34,8 +34,11 @@ class DockSplitterHandle(QSplitterHandle):
         super().__init__(orientation, parent)
         self.setAttribute(Qt.WA_Hover, True)
         self._is_hovered = False
+        
+        # New: Space for layout vs visual thickness
+        self._total_width = 6   # The physical clickable/gap area
+        self._handle_width = 2  # The visual colored line
 
-        # Register with the Style Manager
         self._style_mgr = get_dock_style_manager()
         self._style_mgr.register(self, DockStyleCategory.SPLITTER)
         self.refresh_style()
@@ -44,10 +47,11 @@ class DockSplitterHandle(QSplitterHandle):
         """Fetches the latest splitter styles from the active theme."""
         styles = self._style_mgr.get_all(DockStyleCategory.SPLITTER)
         
-        # Fallback colors just in case the theme is incomplete
         self._c_handle = styles.get("handle_color", QColor(45, 45, 45))
         self._c_hover = styles.get("handle_hover_color", QColor(0, 122, 204))
         self._handle_width = styles.get("handle_width", 2)
+        self._total_width = styles.get("total_width", 6)
+        self._handle_margin = styles.get("handle_margin", 4)  # <--- Load the margin
         
         self.update()
 
@@ -68,20 +72,41 @@ class DockSplitterHandle(QSplitterHandle):
         super().leaveEvent(event)
 
     def sizeHint(self) -> QSize:
-        """Determines the thickness of the handle based on the theme."""
+        """Sets the physical layout width of the splitter."""
         size = super().sizeHint()
         if self.orientation() == Qt.Horizontal:
-            size.setWidth(self._handle_width)
+            size.setWidth(self._total_width)
         else:
-            size.setHeight(self._handle_width)
+            size.setHeight(self._total_width)
         return size
 
     def paintEvent(self, event):
-        """Paints the handle, applying the highlight color if hovered."""
+        """Paints a themed rounded-cap handle centered within a wider gap."""
         painter = QPainter(self)
-        # Use the hover highlight color if the user is interacting with it
+        painter.setRenderHint(QPainter.Antialiasing)
+        
         color = self._c_hover if self._is_hovered else self._c_handle
-        painter.fillRect(self.rect(), color)
+        painter.setBrush(color)
+        painter.setPen(Qt.NoPen)
+        
+        full_rect = self.rect()
+        radius = self._handle_width / 2
+        m = self._handle_margin
+
+        if self.orientation() == Qt.Horizontal:
+            # Center horizontally, apply margin to top/bottom
+            offset = (full_rect.width() - self._handle_width) // 2
+            draw_rect = full_rect.adjusted(offset, m, 
+                                           -(full_rect.width() - self._handle_width - offset), 
+                                           -m)
+        else:
+            # Center vertically, apply margin to left/right
+            offset = (full_rect.height() - self._handle_width) // 2
+            draw_rect = full_rect.adjusted(m, offset, 
+                                           -m, 
+                                           -(full_rect.height() - self._handle_width - offset))
+
+        painter.drawRoundedRect(draw_rect, radius, radius)
 
 
 class DockSplitter(QSplitter):
