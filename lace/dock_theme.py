@@ -218,7 +218,7 @@ class DockOverlayStyleSchema:
 
 BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
     DockStyleCategory.CORE: {
-        "canvas_bg":          [220, 20, 20, 255],
+        "canvas_bg":          [20, 20, 20, 255],
         "border_color":       [45, 45, 45, 255],
         "accent_color":       [0, 120, 212, 255],
         "focus_border_color": [0, 120, 212, 255],
