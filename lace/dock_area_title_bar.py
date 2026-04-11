@@ -86,7 +86,8 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self._tabs_menu_button.setObjectName("tabsMenuButton")
         self._tabs_menu_button.setAutoRaise(True)
         self._tabs_menu_button.setPopupMode(QToolButton.InstantPopup)
-        self._tabs_menu_button.setIcon(dock_icon("tabs_menu"))
+        # Use dock_icon for proper Normal/Disabled state handling
+        self._tabs_menu_button.setIcon(dock_icon("tabs_menu", DockStyleCategory.TITLE_BAR))
         self._tabs_menu_button.setToolTip("Menu")
 
         self._tabs_menu = QMenu(self._tabs_menu_button)
@@ -106,7 +107,8 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self._pin_button.setObjectName("pinButton")
         self._pin_button.setAutoRaise(True)
         self._pin_button.setToolTip("Pin to Sidebar")
-        self._pin_button.setIcon(dock_icon("pin"))
+        # Use dock_icon for proper Normal/Disabled state handling
+        self._pin_button.setIcon(dock_icon("pin", DockStyleCategory.TITLE_BAR))
         self._pin_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self._top_layout.addWidget(self._pin_button, 0)
         self._pin_button.clicked.connect(self.on_pin_button_clicked)
@@ -118,7 +120,8 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self._undock_button.setObjectName("undockButton")
         self._undock_button.setAutoRaise(True)
         self._undock_button.setToolTip("Float")
-        self._undock_button.setIcon(dock_icon("float"))
+        # Use dock_icon for proper Normal/Disabled state handling
+        self._undock_button.setIcon(dock_icon("float", DockStyleCategory.TITLE_BAR))
         self._undock_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self._top_layout.addWidget(self._undock_button, 0)
         self._undock_button.clicked.connect(self.on_undock_button_clicked)
@@ -127,7 +130,8 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self._close_button = QToolButton()
         self._close_button.setObjectName("closeButton")
         self._close_button.setAutoRaise(True)
-        self._close_button.setIcon(dock_icon("close"))
+        # Use dock_icon for proper Normal/Disabled state handling
+        self._close_button.setIcon(dock_icon("close", DockStyleCategory.TITLE_BAR))
 
         if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
             self._close_button.setToolTip("Close")
@@ -192,7 +196,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
     # ── Button state management ───────────────────────────────────────────
 
     def update_button_states(self):
-        """Synchronise every title-bar button with the area and active widget features."""
+        """Synchronise every title-bar button with themed icons, sizes, and widget features."""
         area = self._dock_area
         if area is None:
             return
@@ -203,18 +207,33 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
 
         count = area.open_dock_widgets_count()
         is_floating = self._menu_is_floating()
+        is_pinned = self._menu_is_pinned()
+        hide_disabled = self._test_config_flag(DockFlags.hide_disabled_title_bar_icons)
 
-        # Specific features of the currently active tab
+        icon_dim = self._style_mgr.get(DockStyleCategory.TITLE_BAR, "button_icon_size", 14)
+        icon_size = QSize(icon_dim, icon_dim)
+
+        # Tab-level features (current widget)
         tab_features = widget.features()
         tab_closable = bool(tab_features & DockWidgetFeature.closable)
+        tab_floatable = bool(tab_features & DockWidgetFeature.floatable)
         tab_pinnable = bool(tab_features & DockWidgetFeature.pinnable)
 
-        # Whole area features (intersection of all OPEN widgets in the area)
+        # Area-level features (aggregated)
         area_features = area.features()
         area_closable = bool(area_features & DockWidgetFeature.closable)
         area_floatable = bool(area_features & DockWidgetFeature.floatable)
 
-        # — Close button —
+        # — Tabs Menu Button —
+        # Use dock_icon for proper Normal/Disabled state handling
+        self._tabs_menu_button.setIcon(dock_icon("tabs_menu", DockStyleCategory.TITLE_BAR))
+        self._tabs_menu_button.setIconSize(icon_size)
+        self._tabs_menu_button.setVisible(self._test_config_flag(DockFlags.dock_area_has_tabs_menu_button))
+
+        # — Close Button —
+        self._close_button.setIcon(dock_icon("close", DockStyleCategory.TITLE_BAR))
+        self._close_button.setIconSize(icon_size)
+        
         closes_tab = self._test_config_flag(DockFlags.dock_area_close_button_closes_tab)
         if closes_tab:
             can_close = tab_closable
@@ -224,75 +243,132 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
             self._close_button.setToolTip("Close Group" if count > 1 else "Close")
 
         if self._test_config_flag(DockFlags.dock_area_has_close_button):
-            self._close_button.setVisible(True)
-            self._close_button.setEnabled(can_close)
+            # Use tab_closable for both hide and enable logic (responds to active tab)
+            show_close = not (hide_disabled and not tab_closable)
+            self._close_button.setVisible(show_close)
+            self._close_button.setEnabled(tab_closable)
         else:
             self._close_button.setVisible(False)
 
-        # — Undock / Float button —
+        # — Undock / Float Button —
+        undock_key = "dock" if is_floating else "float"
+        self._undock_button.setIcon(dock_icon(undock_key, DockStyleCategory.TITLE_BAR))
+        self._undock_button.setIconSize(icon_size)
+        
         if self._test_config_flag(DockFlags.dock_area_has_undock_button):
-            self._undock_button.setVisible(True)
             if is_floating:
-                # "Dock" is always available — you can always reattach.
-                self._undock_button.setIcon(dock_icon("dock"))
                 self._undock_button.setToolTip("Dock Group" if count > 1 else "Dock")
+                self._undock_button.setVisible(True)
                 self._undock_button.setEnabled(True)
             else:
-                self._undock_button.setIcon(dock_icon("float"))
                 self._undock_button.setToolTip("Float Group" if count > 1 else "Float")
-                self._undock_button.setEnabled(area_floatable)
+                # Use tab_floatable for both hide and enable logic (responds to active tab)
+                show_undock = not (hide_disabled and not tab_floatable)
+                self._undock_button.setVisible(show_undock)
+                self._undock_button.setEnabled(tab_floatable)
         else:
             self._undock_button.setVisible(False)
 
-        # — Pin button —
-        # FIX: Removed the `and not is_floating` restriction so users can pin 
-        # a widget directly back into the main window's sidebar while it is floating.
+        # — Pin / Unpin Button —
+        pin_key = "unpin" if is_pinned else "pin"
+        self._pin_button.setIcon(dock_icon(pin_key, DockStyleCategory.TITLE_BAR))
+        self._pin_button.setIconSize(icon_size)
+        self._pin_button.setToolTip("Unpin from Sidebar" if is_pinned else "Pin to Sidebar")
+        
         has_sidebars = self._menu_has_sidebars()
-        show_pin = (
-            has_sidebars
-            and self._test_config_flag(DockFlags.dock_area_has_pin_button)
-        )
-        self._pin_button.setVisible(show_pin)
-        self._pin_button.setEnabled(tab_pinnable)
-
-        # — Tabs menu button —
-        if self._test_config_flag(DockFlags.dock_area_has_tabs_menu_button):
-            self._tabs_menu_button.setVisible(True)
+        has_pin_button = self._test_config_flag(DockFlags.dock_area_has_pin_button)
+        
+        if has_sidebars and has_pin_button:
+            show_pin = not (hide_disabled and not tab_pinnable)
+            self._pin_button.setVisible(show_pin)
+            self._pin_button.setEnabled(tab_pinnable)
         else:
-            self._tabs_menu_button.setVisible(False)
-
+            self._pin_button.setVisible(False)
+        
     def update_pin_button_visibility(self):
         self._dock_area._update_title_bar_button_states()
 
     def refresh_style(self):
+        # Retrieve all relevant style schemas
         styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
         
+        # Apply Geometry
         self.setFixedHeight(styles.get("height", 24))
-        pad = styles.get("padding", 4)
+        pad_left = styles.get("padding_left", 4)
+        pad_right = styles.get("padding_right", 4)
+        pad_top = styles.get("padding_top", 0)
         
         self._top_layout.setSpacing(styles.get("button_spacing", 4))
-        self._top_layout.setContentsMargins(pad, 0, pad, 0)
+        self._top_layout.setContentsMargins(pad_left, pad_top, pad_right, 0)
         
-        bg_color = styles.get("bg_normal").name()
-        btn_color = styles.get("button_color").name()
-        btn_hover = styles.get("button_hover_bg").name()
+        # Resolve Colors with fallbacks (matching sidebar_title_bar pattern)
+        bg = styles.get("bg_normal")
+        btn_color = styles.get("button_color")
+        btn_hover = styles.get("button_hover_bg")
+        disabled_color = core_styles.get("disabled_text_color")
         
+        bg_css = bg.name() if bg else "palette(window)"
+        btn_css = btn_color.name() if btn_color else "palette(text)"
+        btn_hover_css = btn_hover.name() if btn_hover else "palette(mid)"
+        disabled_css = disabled_color.name() if disabled_color else "palette(mid)"
+        
+        btn_radius = styles.get("button_corner_radius", 3)
+        btn_padding = styles.get("button_padding", 4)
+        btn_expand_v = styles.get("button_expand_vertical", True)
+        btn_size = styles.get("button_size", 20)
+        btn_icon_size = styles.get("button_icon_size", 16)
+        
+        # Title bar container styling only
         self.setStyleSheet(f"""
             DockAreaTitleBar {{
-                background-color: {bg_color};
+                background-color: {bg_css};
                 border: none;
-            }}
-            QToolButton {{
-                color: {btn_color};
-                background: transparent;
-                border: none;
-                border-radius: {styles.get('corner_radius', 0)}px;
-                padding: {pad}px;
-            }}
-            QToolButton:hover {{
-                background-color: {btn_hover};
             }}
         """)
+        
+        # Apply button styling individually (unified with sidebar_title_bar)
+        button_css = f"""
+            QToolButton {{
+                color: {btn_css};
+                background: transparent;
+                border: none;
+                border-radius: {btn_radius}px;
+                padding: {btn_padding}px;
+                min-width: {btn_size}px;
+                min-height: {btn_size}px;
+            }}
+            QToolButton:hover {{
+                background-color: {btn_hover_css};
+            }}
+            QToolButton:disabled {{
+                color: {disabled_css};
+            }}
+        """
+        
+        # Apply size policy based on vertical expansion setting
+        v_policy = QSizePolicy.Expanding if btn_expand_v else QSizePolicy.Fixed
+        icon_size = QSize(btn_icon_size, btn_icon_size)
+        
+        self._tabs_menu_button.setStyleSheet(button_css)
+        self._tabs_menu_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        self._tabs_menu_button.setIconSize(icon_size)
+        
+        self._pin_button.setStyleSheet(button_css)
+        self._pin_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        self._pin_button.setIconSize(icon_size)
+        
+        self._undock_button.setStyleSheet(button_css)
+        self._undock_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        self._undock_button.setIconSize(icon_size)
+        
+        self._close_button.setStyleSheet(button_css)
+        self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        self._close_button.setIconSize(icon_size)
+
+        # Trigger an update of the icons to ensure they reflect 
+        # any changes in 'button_color'
+        self.update_button_states()
 
     def on_style_changed(self, category: DockStyleCategory, changes: dict):
         self.refresh_style()

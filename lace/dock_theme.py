@@ -93,8 +93,9 @@ class DockTabStyleSchema:
     # Action Buttons
     close_btn_color: Optional[List[int]] = None
     close_btn_bg_hover: Optional[List[int]] = None
-    close_btn_size: int = 16
-    close_btn_icon_size: int = 12
+    close_btn_bg_disable: Optional[List[int]] = None
+    close_btn_size: int = 20
+    close_btn_icon_size: int = 16
     close_btn_corner_radius: int = 3
 
 
@@ -111,10 +112,13 @@ class DockTitleBarStyleSchema:
     active_edge_width: int = 2
 
     # Geometry
-    height: int = 24
+    height: int = 30
+    padding_left: int = 2
+    padding_right: int = 6
+    padding_top: int = 0
     border_width: float = 0.0
     corner_radius: int = 0
-    padding: int = 4
+    padding: int = 4 #distance for the tab from edge
     margin: int = 0
 
     # Typography
@@ -126,13 +130,15 @@ class DockTitleBarStyleSchema:
     font_italic: bool = False
     font_underline: bool = False
 
-    # Action Buttons
+    # Action Buttons (unified with overlay)
     button_color: Optional[List[int]] = None
     button_hover_bg: Optional[List[int]] = None
-    button_size: int = 20
-    button_icon_size: int = 14
-    button_spacing: int = 4
     button_corner_radius: int = 3
+    button_padding: int = 2
+    button_expand_vertical: bool = False
+    button_size: int = 18
+    button_icon_size: int = 16
+    button_spacing: int = 4
 
 
 @dataclass
@@ -201,13 +207,26 @@ class DockOverlayStyleSchema:
     shadow_color: Optional[List[int]] = None
 
     # Sidebar overlay panel
+    height: int = 32
+    padding_left: int = 10
+    padding_right: int = 6
+    padding_top: int = 0
     title_text_color: Optional[List[int]] = None
     title_font_family: str = "Segoe UI"
     title_font_size: int = 10
     title_font_weight: Union[str, int, QFont.Weight] = "bold"
+
+    # Action Buttons (unified with title bar)
     button_color: Optional[List[int]] = None
     button_hover_bg: Optional[List[int]] = None
     button_corner_radius: int = 3
+    button_padding: int = 2
+    button_expand_vertical: bool = False
+    button_size: int = 18
+    button_icon_size: int = 16
+    button_spacing: int = 2
+
+    # Panel geometry
     corner_radius: int = 0
     shadow_blur_radius: int = 20
 
@@ -218,7 +237,7 @@ class DockOverlayStyleSchema:
 
 BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
     DockStyleCategory.CORE: {
-        "canvas_bg":          [20, 20, 20, 255],
+        "canvas_bg":          [220, 20, 20, 255],
         "border_color":       [45, 45, 45, 255],
         "accent_color":       [0, 120, 212, 255],
         "focus_border_color": [0, 120, 212, 255],
@@ -252,7 +271,7 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "indicator_color":    [0, 120, 212, 255],
         "close_btn_color":    [150, 150, 150, 255],
         "close_btn_bg_hover": [62, 62, 62, 255],
-        "close_btn_corner_radius": 3,
+        "close_btn_bg_disable": [110, 110, 210, 255],
     },
     DockStyleCategory.TITLE_BAR: {
         "bg_normal":          [37, 37, 38, 255],
@@ -262,7 +281,7 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "active_edge_color":  [0, 120, 212, 255],
         "button_color":       [150, 150, 150, 255],
         "button_hover_bg":    [62, 62, 62, 255],
-        "button_corner_radius": 3,
+
     },
     DockStyleCategory.SPLITTER: {
         "handle_color":       [20, 20, 20, 255],
@@ -275,8 +294,10 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "overlay_color":      [0, 120, 212, 64],
         "arrow_color":        [204, 204, 204, 255],
         "shadow_color":       [0, 0, 0, 64],
+        "height":             32,
         "title_text_color":   [204, 204, 204, 255],
-        "button_color":       [204, 204, 204, 255],
+        "button_color":       [150, 150, 150, 255],
         "button_hover_bg":    [62, 62, 62, 255],
+
     },
 }

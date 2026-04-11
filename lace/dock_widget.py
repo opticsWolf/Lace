@@ -175,6 +175,14 @@ class DockWidget(QFrame):
     def set_dock_area(self, dock_area: 'DockAreaWidget'):
         self._dock_area = dock_area
         self._toggle_view_action.setChecked(dock_area is not None and not self.is_closed())
+        
+        # If the widget is moved back to the main window, reset its state to docked
+        if dock_area:
+            container = dock_area.dock_container()
+            if container and not container.is_floating():
+                self.set_widget_state(WidgetState.docked)
+
+        self.refresh_style()
 
     def set_toggle_view_action_checked(self, checked: bool):
         action = self._toggle_view_action

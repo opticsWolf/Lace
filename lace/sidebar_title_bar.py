@@ -11,14 +11,16 @@ Standalone title bar for the sidebar overlay panel, with context menu,
 drag-to-detach, and unified action naming / icons.
 """
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import Qt, Signal, QPoint
+from PySide6.QtCore import Qt, Signal, QPoint, QSize
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
+    QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu, QSizePolicy
 )
 from .enums import DockWidgetFeature
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
 from .util import start_drag_distance
+from .dock_theme import DockStyleCategory
+from .dock_style_manager import get_dock_style_manager
 
 if TYPE_CHECKING:
     from .dock_widget import DockWidget
@@ -58,24 +60,26 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         self._title_label = QLabel("Panel")
         self._title_label.setObjectName("overlayTitleLabel")
 
-        # Unpin button — uses canonical "unpin" icon
+        # Use dock_icon for proper Normal/Disabled state handling
+
+        # Unpin button
         self._reattach_btn = QToolButton()
         self._reattach_btn.setAutoRaise(True)
-        self._reattach_btn.setIcon(dock_icon("unpin"))
+        self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.OVERLAY))
         self._reattach_btn.setToolTip("Unpin from Sidebar")
         self._reattach_btn.clicked.connect(self._on_reattach_clicked)
 
-        # Float button — uses canonical "float" icon
+        # Float button
         self._float_btn = QToolButton()
         self._float_btn.setAutoRaise(True)
-        self._float_btn.setIcon(dock_icon("float"))
+        self._float_btn.setIcon(dock_icon("float", DockStyleCategory.OVERLAY))
         self._float_btn.setToolTip("Float")
         self._float_btn.clicked.connect(lambda: self.detach_requested.emit(self._active_widget) if self._active_widget else None)
 
-        # Close Button — uses canonical "close" icon
+        # Close Button
         self._close_btn = QToolButton()
         self._close_btn.setAutoRaise(True)
-        self._close_btn.setIcon(dock_icon("close_tab"))
+        self._close_btn.setIcon(dock_icon("close", DockStyleCategory.OVERLAY))
         self._close_btn.setToolTip("Close")
         self._close_btn.clicked.connect(self.close_requested.emit)
 
@@ -84,7 +88,6 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         layout.addWidget(self._float_btn)
         layout.addWidget(self._close_btn)
 
-        # Context Menu wiring
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
@@ -141,13 +144,15 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         is_floatable = bool(features & DockWidgetFeature.floatable)
         is_pinnable = bool(features & DockWidgetFeature.pinnable)
 
+        # Use dock_icon for proper Normal/Disabled state handling in menus
+
         if is_pinnable:
-            act = menu.addAction(dock_icon("unpin"), "Unpin from Sidebar")
+            act = menu.addAction(dock_icon("unpin", DockStyleCategory.OVERLAY), "Unpin from Sidebar")
             act.setToolTip("Remove from sidebar and place back in the main layout")
             act.triggered.connect(self._on_reattach_clicked)
 
         if is_floatable:
-            act = menu.addAction(dock_icon("float"), "Float")
+            act = menu.addAction(dock_icon("float", DockStyleCategory.OVERLAY), "Float")
             act.setToolTip("Detach into a floating window")
             act.triggered.connect(self._menu_detach)
 
@@ -155,7 +160,7 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
             menu.addSeparator()
 
         if is_closable:
-            act = menu.addAction(dock_icon("close"), "Close")
+            act = menu.addAction(dock_icon("close", DockStyleCategory.OVERLAY), "Close")
             act.setToolTip("Hide this panel")
             act.triggered.connect(self._menu_close)
 
@@ -204,17 +209,39 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
     # --- Styling ---
     
     def apply_style(self, s: dict):
+        # Get core styles for disabled color
+        style_mgr = get_dock_style_manager()
+        core_styles = style_mgr.get_all(DockStyleCategory.CORE)
+        
         bg = s.get("background_color")
         frame = s.get("frame_color")
         title_text = s.get("title_text_color")
         btn_color = s.get("button_color")
         btn_hover = s.get("button_hover_bg")
+        disabled_color = core_styles.get("disabled_text_color")
 
         bg_css = bg.name() if bg else "palette(window)"
         frame_css = frame.name() if frame else "palette(mid)"
         title_css = title_text.name() if title_text else "palette(text)"
         btn_css = btn_color.name() if btn_color else "palette(text)"
         btn_hover_css = btn_hover.name() if btn_hover else "palette(mid)"
+        disabled_css = disabled_color.name() if disabled_color else "palette(mid)"
+        
+        btn_radius = s.get("button_corner_radius", 3)
+        btn_padding = s.get("button_padding", 4)
+        btn_expand_v = s.get("button_expand_vertical", True)
+        btn_size = s.get("button_size", 20)
+        btn_icon_size = s.get("button_icon_size", 16)
+        btn_spacing = s.get("button_spacing", 2)
+        height = s.get("height", 32)
+        pad_left = s.get("padding_left", 8)
+        pad_right = s.get("padding_right", 4)
+        pad_top = s.get("padding_top", 0)
+        
+        # Apply title bar geometry
+        self.setFixedHeight(height)
+        self.layout().setSpacing(btn_spacing)
+        self.layout().setContentsMargins(pad_left, pad_top, pad_right, 0)
 
         self.setStyleSheet(f"""
             #overlayTitleBar {{
@@ -245,17 +272,37 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         font.setBold(bold)
         self._title_label.setFont(font)
 
+        # Apply button styling individually (unified with dock_area_title_bar)
         button_css = f"""
             QToolButton {{
                 color: {btn_css};
                 background: transparent;
                 border: none;
-                border-radius: 2px;
+                border-radius: {btn_radius}px;
+                padding: {btn_padding}px;
+                min-width: {btn_size}px;
+                min-height: {btn_size}px;
             }}
             QToolButton:hover {{
                 background-color: {btn_hover_css};
             }}
+            QToolButton:disabled {{
+                color: {disabled_css};
+            }}
         """
+        
+        # Apply size policy based on vertical expansion setting
+        v_policy = QSizePolicy.Expanding if btn_expand_v else QSizePolicy.Fixed
+        icon_size = QSize(btn_icon_size, btn_icon_size)
+        
         self._reattach_btn.setStyleSheet(button_css)
+        self._reattach_btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        self._reattach_btn.setIconSize(icon_size)
+        
         self._float_btn.setStyleSheet(button_css)
+        self._float_btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        self._float_btn.setIconSize(icon_size)
+        
         self._close_btn.setStyleSheet(button_css)
+        self._close_btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        self._close_btn.setIconSize(icon_size)

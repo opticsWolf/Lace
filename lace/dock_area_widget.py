@@ -51,8 +51,8 @@ class DockAreaWidget(QFrame):
         self._layout.setSpacing(0)
         self.setLayout(self._layout)
         
-        self._create_title_bar()
         self._contents_layout = DockAreaLayout(self._layout)
+        self._create_title_bar()
 
         self._style_mgr = get_dock_style_manager()
         self._style_mgr.register(self, DockStyleCategory.CORE)

@@ -81,13 +81,19 @@ class DockFlags(enum.IntFlag):
     none_ = 0
     
     opaque_splitter_resize = enum.auto()
-    """Splitters instantly resize content instead of showing a rubber band."""
+    """Splitters instantly resize content instead of showing a rubber band.
+    Currently not in proper use - requires implementation
+    """
     
     opaque_undocking = enum.auto()
-    """Widgets instantly follow the cursor when torn off."""
+    """Widgets instantly follow the cursor when torn off.
+    Currently not in proper use - requires implementation
+    """
        
     always_show_tabs = enum.auto()
-    """Tabs are always shown, even if there is only one widget in the area."""
+    """Tabs are always shown, even if there is only one widget in the area.
+    Currently not in proper use - requires implementation
+    """
     
     show_tab_close_button = enum.auto()
     """Tabs display their own close button."""
@@ -114,20 +120,30 @@ class DockFlags(enum.IntFlag):
     """Clicking a tab with the middle mouse button closes it."""
     
     floatable_tabs = enum.auto()
-    """Tabs can be dragged out to float in their own window."""
+    """Tabs can be dragged out to float in their own window.
+    Currently not in use - requires implementation
+    """
     
     pinnable_tabs = enum.auto()
-    """Tabs can be pinned into sidebar."""
+    """Tabs can be pinned into sidebar.
+    Currently not in use - requires implementation
+    """
     
     custom_tab_icons = enum.auto()
-    """Use custom icons provided via user config instead of defaults."""
+    """
+    Use custom icons provided via user config instead of defaults in the tab.
+    Currently not in use - requires implementation
+    """
+    
+    hide_disabled_title_bar_icons = enum.auto()
+    """Hides disabled icons in the title bar."""
     
     drag_preview_shows_content_pixmap = enum.auto()
     """Shows a snapshot of the widget content while dragging."""
 
     default_config = (
         opaque_splitter_resize | opaque_undocking | always_show_tabs |
-        show_tab_close_button | active_tab_has_close_button |
+        show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |
         dock_area_has_close_button | dock_area_has_undock_button |
         dock_area_has_tabs_menu_button | dock_area_has_pin_button | middle_mouse_button_closes_tab |
         dock_area_has_pin_button | floatable_tabs | drag_preview_shows_content_pixmap

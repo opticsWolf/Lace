@@ -39,11 +39,14 @@ from __future__ import annotations
 from enum import Flag, auto
 from typing import TYPE_CHECKING, Dict, Optional
 
-from PySide6.QtCore import QPoint, QRect
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtCore import QPoint, QRect, QSize
+from PySide6.QtGui import QAction, QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QMenu, QStyle
 
 from .enums import DockWidgetArea, DockWidgetFeature, WidgetState
+from .dock_style_manager import get_dock_style_manager
+from .dock_theme import DockStyleCategory
+from .dock_icon_provider import get_icon_provider
 
 if TYPE_CHECKING:
     from .dock_area_widget import DockAreaWidget
@@ -99,24 +102,72 @@ _ICON_SPECS: Dict[str, tuple] = {
 }
 
 
-def dock_icon(key: str) -> QIcon:
-    """Return the canonical icon for *key*.
+def dock_icon(key: str, category: DockStyleCategory = DockStyleCategory.TITLE_BAR) -> QIcon:
+    """Return the canonical icon for *key*, tinted for Normal and Disabled states."""
+    sm = get_dock_style_manager()
+    provider = get_icon_provider()
+    
+    icon_dim = sm.get(category, "button_icon_size", 14)
+    size = QSize(icon_dim, icon_dim)
+    
+    # 1. Try the custom SVG Provider FIRST
+    # This prevents OS themes (like Linux XDG) from overriding your custom UI
+    normal_icon = provider.get(key, category, active=False, disabled=False, size=icon_dim)
+    
+    if not normal_icon.isNull():
+        # Get disabled variant and build a combined QIcon with both states
+        disabled_icon = provider.get(key, category, active=False, disabled=True, size=icon_dim)
+        
+        icon = QIcon()
+        normal_pixmap = normal_icon.pixmap(size)
+        disabled_pixmap = disabled_icon.pixmap(size) if not disabled_icon.isNull() else normal_pixmap
+        
+        icon.addPixmap(normal_pixmap, QIcon.Normal, QIcon.Off)
+        icon.addPixmap(normal_pixmap, QIcon.Normal, QIcon.On)
+        icon.addPixmap(disabled_pixmap, QIcon.Disabled, QIcon.Off)
+        icon.addPixmap(disabled_pixmap, QIcon.Disabled, QIcon.On)
+        return icon
 
-    Looks up the XDG theme icon first (native on Linux/macOS); falls back
-    to the QStyle standard pixmap on Windows or when the theme is missing.
-
-    This is the **single source of truth** for every icon used in dock
-    title bars, tab context menus, and sidebar overlays.
-    """
+    # 2. Fallbacks: Standard QStyle logic if SVG is missing
     spec = _ICON_SPECS.get(key)
     if spec is None:
         return QIcon()
+        
     theme_name, fallback = spec
     if QIcon.hasThemeIcon(theme_name):
         return QIcon.fromTheme(theme_name)
+    
     style = QApplication.style()
-    return style.standardIcon(fallback) if style else QIcon()
+    if not style:
+        return QIcon()
 
+    std_icon = style.standardIcon(fallback)
+    
+    from PySide6.QtGui import QColor
+    def to_color(c):
+        if isinstance(c, QColor): return c
+        if isinstance(c, str): return QColor(c)
+        if isinstance(c, (list, tuple)) and len(c) >= 3: return QColor(*c[:3])
+        return QColor(150, 150, 150)
+
+    normal_color = to_color(sm.get(category, "button_color", [150, 150, 150]))
+    disabled_color = to_color(sm.get(DockStyleCategory.CORE, "disabled_text_color", [110, 110, 110]))
+    
+    def create_tinted_pixmap(color):
+        pixmap = std_icon.pixmap(size)
+        painter = QPainter(pixmap)
+        painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+        painter.fillRect(pixmap.rect(), color)
+        painter.end()
+        return pixmap
+
+    icon = QIcon()
+    icon.addPixmap(create_tinted_pixmap(normal_color), QIcon.Normal, QIcon.Off)
+    icon.addPixmap(create_tinted_pixmap(normal_color), QIcon.Normal, QIcon.On)
+    icon.addPixmap(create_tinted_pixmap(disabled_color), QIcon.Disabled, QIcon.Off)
+    icon.addPixmap(create_tinted_pixmap(disabled_color), QIcon.Disabled, QIcon.On)
+    
+    return icon
 
 class MenuSection(Flag):
     """Bit-flags controlling which sections appear in the unified dock menu."""
@@ -150,6 +201,7 @@ class DockMenuMixin:
     """
 
     _menu_sections: MenuSection = MenuSection.TITLE_BAR
+    _menu_category: DockStyleCategory = DockStyleCategory.TITLE_BAR  # <-- ADD THIS
 
     # ── Icon provider ─────────────────────────────────────────────────────
 
@@ -162,10 +214,11 @@ class DockMenuMixin:
         """
         return {}
 
-    @staticmethod
-    def _get_default_icons() -> Dict[str, QIcon]:
+    #@staticmethod
+    def _get_default_icons(self) -> Dict[str, QIcon]:
         """Built-in default icons from the canonical registry."""
-        return {key: dock_icon(key) for key in _ICON_SPECS}
+        #return {key: dock_icon(key) for key in _ICON_SPECS}
+        return {key: dock_icon(key, self._menu_category) for key in _ICON_SPECS}
 
     def _resolved_icons(self) -> Dict[str, QIcon]:
         """Merge defaults with any consumer overrides (overrides win)."""

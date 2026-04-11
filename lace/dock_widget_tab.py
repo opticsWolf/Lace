@@ -26,6 +26,7 @@ from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
 
+
 if TYPE_CHECKING:
     from . import DockWidget, DockAreaWidget, FloatingDockContainer
 
@@ -70,9 +71,10 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         self._title_label.setObjectName("dockWidgetTabLabel")
         self._title_label.setAlignment(Qt.AlignCenter)
         
+        # Use dock_icon for proper Normal/Disabled state handling
         self._close_button = QPushButton()
         self._close_button.setObjectName("tabCloseButton")
-        self._close_button.setIcon(dock_icon("close_tab"))
+        self._close_button.setIcon(dock_icon("close_tab", DockStyleCategory.TAB))
 
         self._close_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._close_button.setVisible(False)
@@ -388,6 +390,11 @@ class DockWidgetTab(QFrame, DockMenuMixin):
                 background-color: {styles.get("close_btn_bg_hover").name()};
             }}
         """)
+        
+        btn_size = styles.get("close_btn_size", 20)
+        icon_size_val = styles.get("close_btn_icon_size", 16)
+        self._close_button.setFixedSize(QSize(btn_size, btn_size))
+        self._close_button.setIconSize(QSize(icon_size_val, icon_size_val))
         
         # 4. Apply Typography
         font = self.font()

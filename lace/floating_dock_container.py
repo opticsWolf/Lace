@@ -20,7 +20,7 @@ from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent,
                            QPalette, QMoveEvent, QMouseEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
-from .enums import DockWidgetFeature, DragState, DockWidgetArea
+from .enums import DockWidgetFeature, DragState, DockWidgetArea, WidgetState
 from .dock_container_widget import DockContainerWidget
 
 from .dock_style_manager import get_dock_style_manager
@@ -38,6 +38,7 @@ class FloatingDockContainer(QWidget):
     def __init__(self, *, dock_area: 'DockAreaWidget' = None,
                  dock_widget: 'DockWidget' = None,
                  dock_manager: 'DockManager' = None):
+        """Initializes the floating container and resets the state of incoming widgets."""
         if dock_manager is None:
             if dock_area is not None:
                 dock_manager = dock_area.dock_manager()
@@ -49,7 +50,7 @@ class FloatingDockContainer(QWidget):
 
         super().__init__(dock_manager)
         
-        # --- UPDATED: Apply the default application icon ---
+        # Apply application icon
         app_icon = QApplication.instance().windowIcon()
         if not app_icon.isNull():
             self.setWindowIcon(app_icon)
@@ -64,7 +65,6 @@ class FloatingDockContainer(QWidget):
         self._drag_start_mouse_position = QPoint()
         self._drop_container: DockContainerWidget = None
         self._single_dock_area: 'DockAreaWidget' = None
-        
         self._mouse_event_handler: QWidget = None
 
         dock_container = DockContainerWidget(dock_manager, self)
@@ -81,17 +81,22 @@ class FloatingDockContainer(QWidget):
         self.setLayout(layout)
 
         layout.addWidget(dock_container, 1)
-
         dock_manager.register_floating_widget(self)
 
+        # --- FIX: Transition widgets to Floating state before adding to layout ---
         if dock_area is not None:
+            # Update all widgets within the area to floating state
+            for dw in dock_area.dock_widgets():
+                dw.set_widget_state(WidgetState.floating)
             dock_container.add_dock_area(dock_area)
         elif dock_widget is not None:
+            # Update single widget to floating state
+            dock_widget.set_widget_state(WidgetState.floating)
             dock_container.add_dock_widget(DockWidgetArea.center, dock_widget)
             
         self._ignore_synthetic_release = False
 
-        # --- Style Manager Integration ---
+        # Style Manager Integration
         self._style_mgr = get_dock_style_manager()
         self._style_mgr.register(self, DockStyleCategory.CORE)
         self.refresh_style()
@@ -265,23 +270,29 @@ class FloatingDockContainer(QWidget):
     # ─────────────────────────────────────────────────────────────────────
 
     def on_dock_areas_added_or_removed(self):
+        """Updates window title and forces title-bar button synchronization."""
         logger.debug('FloatingDockContainer.onDockAreasAddedOrRemoved()')
         
+        # --- FIX: Synchronize all title bars in this floating window ---
+        # This ensures the Pin/Unpin icon flips immediately upon floating.
+        try:
+            for area in self._dock_container.opened_dock_areas():
+                area._update_title_bar_button_states()
+        except (RuntimeError, AttributeError):
+            pass
+
+        # Existing title management logic
         try:
             top_level_dock_area = self._dock_container.top_level_dock_area()
             dock_areas = self._dock_container.opened_dock_areas()
         except RuntimeError:
-            # Reached if _dock_container is unstable/deleting
             return
-        
-        # If the container is split, top_level_dock_area is None.
-        # Ensure we always have an area (fallback to index 0) to prevent staling.
+
         target_area = top_level_dock_area if top_level_dock_area else (dock_areas[0] if dock_areas else None)
 
         try:
             is_different = self._single_dock_area != target_area
         except RuntimeError:
-            # Previous reference was destroyed in C++ (common during splits)
             is_different = True
 
         if is_different:
@@ -309,11 +320,14 @@ class FloatingDockContainer(QWidget):
         self._set_window_title(title)
 
     def on_dock_area_current_changed(self, index: int):
+        """Updates the floating window title when the active tab in the area changes."""
         try:
-            widget = self._single_dock_area.current_dock_widget()
-            if widget:
-                self._set_window_title(widget.windowTitle())
-        except RuntimeError:
+            if self._single_dock_area:
+                widget = self._single_dock_area.current_dock_widget()
+                if widget:
+                    self._set_window_title(widget.windowTitle())
+        except (RuntimeError, AttributeError):
+            # Safe guard if the widget or area is being destroyed
             pass
 
     # ─────────────────────────────────────────────────────────────────────
