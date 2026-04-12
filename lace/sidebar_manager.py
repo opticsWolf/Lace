@@ -21,7 +21,7 @@ from .enums import DockWidgetArea, WidgetState
 from .dock_context_menu import find_closest_dock_area
 from .sidebar_state import SidebarStateManager, SidebarState
 from .sidebar_tab import VerticalTabButton
-from .sidebar_overlay import ResizableOverlay
+from .sidebar_container import SideBarContainer
 from .sidebar_tab_bar import SideTabBar
 
 if TYPE_CHECKING:
@@ -78,7 +78,7 @@ class SidebarManager(QObject):
         self._keep_open: bool = False
         
         self._sidebars: Dict[DockWidgetArea, SideTabBar] = {}
-        self._overlay = ResizableOverlay(dock_manager)
+        self._overlay = SideBarContainer(dock_manager)
         
         # Connect overlay signals
         self._overlay.pin_back_requested.connect(self._on_overlay_pin_back)
@@ -622,7 +622,7 @@ class SidebarManager(QObject):
         self._animations_enabled = enable
     
     @property
-    def overlay(self) -> 'ResizableOverlay':
+    def overlay(self) -> 'SideBarContainer':
         return self._overlay
 
     @property

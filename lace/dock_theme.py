@@ -6,11 +6,34 @@ Copyright (c) 2026 opticsWolf
 SPDX-License-Identifier: Apache-2.0
 """
 
+import colorsys
 import enum
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Union
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+
+def adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):
+    # Normalize input and separate alpha
+    rgba = [x / 255.0 for x in col]
+    rgb, a = rgba[:3], rgba[3:]
+
+    # Convert, apply offsets, and clamp/wrap
+    h, l, s = colorsys.rgb_to_hls(*rgb)
+    clamp = lambda x: max(0.0, min(1.0, x))
+    
+    h = (h + h_off) % 1.0
+    l = clamp(l + l_off)
+    s = clamp(s + s_off)
+    
+    # Reconstruct RGB
+    new_rgb = list(colorsys.hls_to_rgb(h, l, s))
+    
+    # Handle Alpha and scale back to 255
+    if a:
+        new_rgb.append(clamp(a[0] + a_off))
+        
+    return [round(x * 255) for x in new_rgb]
 
 
 class DockStyleCategory(enum.Enum):
@@ -20,9 +43,9 @@ class DockStyleCategory(enum.Enum):
     TAB = enum.auto()
     TITLE_BAR = enum.auto()
     SIDEBAR = enum.auto()
+    SIDEPANEL = enum.auto()
     SPLITTER = enum.auto()
     OVERLAY = enum.auto()
-
 
 @dataclass
 class DockCoreStyleSchema:
@@ -132,6 +155,7 @@ class DockTitleBarStyleSchema:
 
     # Action Buttons (unified with overlay)
     button_color: Optional[List[int]] = None
+    button_disable_clr: Optional[List[int]] = None
     button_hover_bg: Optional[List[int]] = None
     button_corner_radius: int = 3
     button_padding: int = 2
@@ -167,6 +191,7 @@ class DockSidebarStyleSchema:
     # Tab Buttons - Typography
     tab_text_normal: Optional[List[int]] = None
     tab_text_active: Optional[List[int]] = None
+    tab_text_disabled: Optional[List[int]] = None
     tab_font_family: str = "Segoe UI"
     tab_font_size: int = 10
     tab_font_weight: Union[str, int, QFont.Weight] = "normal"
@@ -185,28 +210,10 @@ class DockSidebarStyleSchema:
     badge_font_weight: Union[str, int, QFont.Weight] = "bold"
     badge_radius: int = 6
 
-
 @dataclass
-class DockSplitterStyleSchema:
-    """Layout splitters and resize handles."""
-    handle_color: Optional[List[int]] = None
-    handle_hover_color: Optional[List[int]] = None
-    handle_width: int =  3
-    total_width:  int =  7
-    handle_margin: int = 0
-
-
-@dataclass
-class DockOverlayStyleSchema:
-    """Drag-and-drop overlay and sidebar overlay panel styling."""
-    # Drag overlay
-    frame_color: Optional[List[int]] = None
-    background_color: Optional[List[int]] = None
-    overlay_color: Optional[List[int]] = None
-    arrow_color: Optional[List[int]] = None
-    shadow_color: Optional[List[int]] = None
-
-    # Sidebar overlay panel
+class DockSidePanelStyleSchema:
+    # Sidebar dock panel
+    bg_normal: Optional[List[int]] = None
     height: int = 32
     padding_left: int = 10
     padding_right: int = 6
@@ -215,9 +222,11 @@ class DockOverlayStyleSchema:
     title_font_family: str = "Segoe UI"
     title_font_size: int = 10
     title_font_weight: Union[str, int, QFont.Weight] = "bold"
+    
 
     # Action Buttons (unified with title bar)
     button_color: Optional[List[int]] = None
+    button_disable_clr: Optional[List[int]] = None
     button_hover_bg: Optional[List[int]] = None
     button_corner_radius: int = 3
     button_padding: int = 2
@@ -229,6 +238,26 @@ class DockOverlayStyleSchema:
     # Panel geometry
     corner_radius: int = 0
     shadow_blur_radius: int = 20
+    shadow_color: Optional[List[int]] = None
+
+@dataclass
+class DockSplitterStyleSchema:
+    """Layout splitters and resize handles."""
+    handle_color: Optional[List[int]] = None
+    handle_hover_color: Optional[List[int]] = None
+    handle_width: int =  3
+    total_width:  int =  7
+    handle_margin: int = 0
+
+@dataclass
+class DockOverlayStyleSchema:
+    """Drag-and-drop overlay and sidebar overlay panel styling."""
+    # Drag overlay
+    frame_color: Optional[List[int]] = None
+    background_color: Optional[List[int]] = None
+    overlay_color: Optional[List[int]] = None
+    arrow_color: Optional[List[int]] = None
+    shadow_color: Optional[List[int]] = None
 
 
 # ============================================================================
@@ -237,7 +266,7 @@ class DockOverlayStyleSchema:
 
 BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
     DockStyleCategory.CORE: {
-        "canvas_bg":          [220, 20, 20, 255],
+        "canvas_bg":          [20, 20, 20, 255],
         "border_color":       [45, 45, 45, 255],
         "accent_color":       [0, 120, 212, 255],
         "focus_border_color": [0, 120, 212, 255],
@@ -257,9 +286,17 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "tab_bg_active":      [30, 30, 30, 255],
         "tab_text_normal":    [150, 150, 150, 255],
         "tab_text_active":    [255, 255, 255, 255],
+        "tab_text_disabled":   [92, 92, 92, 255],
         "indicator_color":    [0, 120, 212, 255],
         "badge_bg":           [0, 120, 212, 255],
         "badge_text":         [255, 255, 255, 255],
+        },
+    DockStyleCategory.SIDEPANEL: {
+        "bg_normal":          [37, 37, 38, 255],
+        "button_color":       [150, 150, 150, 255],
+        "button_disable_clr": [92, 92, 92, 255],
+        "button_hover_bg":    [62, 62, 62, 255],
+        "shadow_color":       [0, 0, 0, 64],
 
     },
     DockStyleCategory.TAB: {
@@ -271,7 +308,8 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "indicator_color":    [0, 120, 212, 255],
         "close_btn_color":    [150, 150, 150, 255],
         "close_btn_bg_hover": [62, 62, 62, 255],
-        "close_btn_bg_disable": [110, 110, 210, 255],
+        "close_btn_bg_disable": [92, 92, 92, 255],
+        "title_text_color":   [204, 204, 204, 255],
     },
     DockStyleCategory.TITLE_BAR: {
         "bg_normal":          [37, 37, 38, 255],
@@ -280,6 +318,7 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "text_active":        [255, 255, 255, 255],
         "active_edge_color":  [0, 120, 212, 255],
         "button_color":       [150, 150, 150, 255],
+        "button_disable_clr": [92, 92, 92, 255],
         "button_hover_bg":    [62, 62, 62, 255],
 
     },
@@ -294,10 +333,5 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
         "overlay_color":      [0, 120, 212, 64],
         "arrow_color":        [204, 204, 204, 255],
         "shadow_color":       [0, 0, 0, 64],
-        "height":             32,
-        "title_text_color":   [204, 204, 204, 255],
-        "button_color":       [150, 150, 150, 255],
-        "button_hover_bg":    [62, 62, 62, 255],
-
     },
 }

@@ -13,284 +13,264 @@ active-edge indicators, and overlay panel styling.
 from typing import Dict, Any
 from .dock_theme import DockStyleCategory, BASE_DOCK_DEFAULTS
 
-
 DOCK_THEMES: Dict[str, Dict[DockStyleCategory, Dict[str, Any]]] = {
 
-
-    "dark": {},  # Empty dict defaults back to BASE_DOCK_DEFAULTS (VS Code 2026 Dark)
+    "default": {},  # Empty dict defaults back to BASE_DOCK_DEFAULTS (VS Code 2026 Dark)    
 
     # -------------------------------------------------------------------------
-    # VS CODE LIGHT
-    # -------------------------------------------------------------------------    
-    "light": {
+    # DARK (Weave Default Base)
+    # -------------------------------------------------------------------------
+    "dark": {
         DockStyleCategory.CORE: {
-            "canvas_bg":          [238, 238, 238, 255], # Darker gray for splitters/gaps
-            "border_color":       [204, 204, 204, 255],
-            "accent_color":       [0, 120, 212, 255],
-            "focus_border_color": [0, 120, 212, 255],
-            "text_color":         [51, 51, 51, 255],
-            "disabled_text_color":[160, 160, 160, 255],
+            "canvas_bg":          [20, 23, 30, 255],    # From Weave Canvas bg_color
+            "border_color":       [20, 20, 20, 255],    # From Weave Node outline_color
+            "accent_color":       [32, 64, 128, 255],   # From Weave Node header_bg
+            "focus_border_color": [60, 120, 200, 255],  # From Weave Node sel_border_color
+            "text_color":         [200, 205, 215, 255], # From Weave Node body_text_color
+            "disabled_text_color":[110, 110, 110, 255],
         },
         DockStyleCategory.PANEL: {
-            "bg_normal":          [255, 255, 255, 255], # Pure white panels
-            "text_color":         [51, 51, 51, 255],
+            "bg_normal":          [38, 41, 46, 255],    # From Weave Node body_bg
+            "text_color":         [200, 205, 215, 255],
         },
         DockStyleCategory.SIDEBAR: {
-            "bg_color":           [238, 238, 238, 255],
+            "bg_color":           [30, 33, 40, 255],
             "tab_bg_normal":      [0, 0, 0, 0],
-            "tab_bg_hover_start": [218, 218, 218, 255],
-            "tab_bg_hover_end":   [224, 224, 224, 255],
-            "tab_bg_active":      [255, 255, 255, 255],
-            "tab_text_normal":    [110, 110, 110, 255],
-            "tab_text_active":    [51, 51, 51, 255],
-            "indicator_color":    [0, 120, 212, 255],
-            "badge_bg":           [0, 120, 212, 255],
+            "tab_bg_hover_start": [50, 55, 62, 255],
+            "tab_bg_hover_end":   [45, 48, 55, 255],
+            "tab_bg_active":      [38, 41, 46, 255],
+            "tab_text_normal":    [163, 166, 173, 255], # From Weave Minimap text_color
+            "tab_text_active":    [224, 236, 255, 255], # From Weave Node title_text_color
+            "indicator_color":    [32, 64, 128, 255],
+            "badge_bg":           [32, 64, 128, 255],
             "badge_text":         [255, 255, 255, 255],
         },
         DockStyleCategory.TAB: {
-            "bg_normal":          [238, 238, 238, 255],
-            "bg_hover":           [228, 228, 228, 255],
-            "bg_active":          [255, 255, 255, 255],
-            "text_normal":        [110, 110, 110, 255],
-            "text_active":        [51, 51, 51, 255],
-            "indicator_color":    [0, 120, 212, 255],
-            "close_btn_color":    [110, 110, 110, 255],
-            "close_btn_bg_hover": [198, 198, 198, 255],
+            "bg_normal":          [30, 33, 40, 255],
+            "bg_hover":           [45, 48, 55, 255],
+            "bg_active":          [38, 41, 46, 255],
+            "text_normal":        [150, 150, 150, 255],
+            "text_active":        [224, 236, 255, 255],
+            "indicator_color":    [60, 120, 200, 255],
+            "close_btn_color":    [192, 195, 203, 192], # From Weave minimize_btn_normal
+            "close_btn_bg_hover": [202, 205, 213, 224],
+            "close_btn_bg_disable": [110, 110, 210, 255],
         },
         DockStyleCategory.TITLE_BAR: {
-            "bg_normal":          [246, 246, 246, 255], # Distinct header gray
-            "bg_active":          [246, 246, 246, 255],
+            "bg_normal":          [30, 33, 40, 255],
+            "bg_active":          [30, 33, 40, 255],
+            "text_normal":        [150, 150, 150, 255],
+            "text_active":        [224, 236, 255, 255],
+            "active_edge_color":  [60, 120, 200, 255],
+            "button_color":       [150, 150, 150, 255],
+            "button_hover_bg":    [62, 62, 62, 255],
+        },
+        DockStyleCategory.SPLITTER: {
+            "handle_color":       [20, 23, 30, 255],
+            "handle_hover_color": [32, 64, 128, 255],
+        },
+        DockStyleCategory.OVERLAY: {
+            "frame_color":        [60, 120, 200, 255],
+            "background_color":   [38, 41, 46, 255],
+            "overlay_color":      [32, 64, 128, 64],
+            "arrow_color":        [224, 236, 255, 255],
+            "shadow_color":       [0, 0, 0, 64],
+            "title_text_color":   [224, 236, 255, 255],
+            "button_color":       [150, 150, 150, 255],
+            "button_hover_bg":    [62, 62, 62, 255],
+        },
+    },
+
+    # -------------------------------------------------------------------------
+    # LIGHT (Weave Light)
+    # -------------------------------------------------------------------------    
+    "light": {
+        DockStyleCategory.CORE: {
+            "canvas_bg":          [230, 232, 235, 255], # From Weave Light Canvas
+            "border_color":       [180, 185, 190, 255], # From Weave Light Node outline
+            "accent_color":       [54, 81, 217, 255],   # From Weave Light Node header
+            "focus_border_color": [54, 81, 217, 255],
+            "text_color":         [50, 55, 65, 255],    # From Weave Light Node body text
+            "disabled_text_color":[160, 160, 160, 255],
+        },
+        DockStyleCategory.PANEL: {
+            "bg_normal":          [250, 252, 255, 255], # From Weave Light Node body_bg
+            "text_color":         [50, 55, 65, 255],
+        },
+        DockStyleCategory.SIDEBAR: {
+            "bg_color":           [240, 242, 245, 255],
+            "tab_bg_normal":      [0, 0, 0, 0],
+            "tab_bg_hover_start": [220, 225, 230, 255],
+            "tab_bg_hover_end":   [210, 215, 220, 255],
+            "tab_bg_active":      [250, 252, 255, 255],
+            "tab_text_normal":    [80, 85, 95, 255],    # From Weave Light Minimap text
+            "tab_text_active":    [30, 35, 40, 255],    # From Weave Light Node title text
+            "indicator_color":    [54, 81, 217, 255],
+            "badge_bg":           [54, 81, 217, 255],
+            "badge_text":         [255, 255, 255, 255],
+        },
+        DockStyleCategory.TAB: {
+            "bg_normal":          [240, 242, 245, 255],
+            "bg_hover":           [230, 235, 240, 255],
+            "bg_active":          [250, 252, 255, 255],
             "text_normal":        [110, 110, 110, 255],
-            "text_active":        [51, 51, 51, 255],
-            "active_edge_color":  [0, 120, 212, 255],
+            "text_active":        [30, 35, 40, 255],
+            "indicator_color":    [54, 81, 217, 255],
+            "close_btn_color":    [110, 110, 110, 255],
+            "close_btn_bg_hover": [198, 198, 198, 255],
+            "close_btn_bg_disable": [220, 220, 220, 255],
+        },
+        DockStyleCategory.TITLE_BAR: {
+            "bg_normal":          [240, 242, 245, 255],
+            "bg_active":          [240, 242, 245, 255],
+            "text_normal":        [110, 110, 110, 255],
+            "text_active":        [30, 35, 40, 255],
+            "active_edge_color":  [54, 81, 217, 255],
             "button_color":       [110, 110, 110, 255],
             "button_hover_bg":    [198, 198, 198, 255],
         },
         DockStyleCategory.SPLITTER: {
-            "handle_color":       [204, 204, 204, 255],
-            "handle_hover_color": [0, 120, 212, 255],
+            "handle_color":       [230, 232, 235, 255], # From Weave Light grid color
+            "handle_hover_color": [54, 81, 217, 255],
         },
         DockStyleCategory.OVERLAY: {
-            "frame_color":        [0, 120, 212, 255],
-            "background_color":   [255, 255, 255, 255],
-            "overlay_color":      [0, 120, 212, 48],
-            "arrow_color":        [51, 51, 51, 255],
+            "frame_color":        [54, 81, 217, 255],
+            "background_color":   [250, 252, 255, 255],
+            "overlay_color":      [54, 81, 217, 48],
+            "arrow_color":        [30, 35, 40, 255],
             "shadow_color":       [0, 0, 0, 32],
-            "title_text_color":   [51, 51, 51, 255],
+            "title_text_color":   [30, 35, 40, 255],
             "button_color":       [110, 110, 110, 255],
             "button_hover_bg":    [198, 198, 198, 255],
         },
     },
 
     # -------------------------------------------------------------------------
-    # MIDNIGHT (Deep Blue)
+    # MIDNIGHT (Weave Midnight)
     # -------------------------------------------------------------------------
     "midnight": {
         DockStyleCategory.CORE: {
-            "canvas_bg":          [15, 17, 26, 255], # Deepest dark blue gap
-            "border_color":       [30, 33, 45, 255],
-            "accent_color":       [82, 110, 228, 255],
-            "focus_border_color": [82, 110, 228, 255],
-            "text_color":         [215, 220, 230, 255],
+            "canvas_bg":          [10, 13, 20, 255],    # From Weave Midnight Canvas
+            "border_color":       [10, 12, 18, 255],    # From Weave Midnight Node outline
+            "accent_color":       [54, 81, 217, 255],   # From Weave Midnight Node header
+            "focus_border_color": [54, 81, 217, 255],
+            "text_color":         [200, 205, 220, 255], # From Weave Midnight body text
             "disabled_text_color":[90, 100, 115, 255],
         },
         DockStyleCategory.PANEL: {
-            "bg_normal":          [24, 26, 35, 255], # Raised panel face
-            "text_color":         [215, 220, 230, 255],
+            "bg_normal":          [22, 25, 32, 255],    # From Weave Midnight body_bg
+            "text_color":         [200, 205, 220, 255],
         },
         DockStyleCategory.SIDEBAR: {
-            "bg_color":           [15, 17, 26, 255],
+            "bg_color":           [15, 18, 25, 255],
             "tab_bg_normal":      [0, 0, 0, 0],
             "tab_bg_hover_start": [35, 40, 55, 255],
             "tab_bg_hover_end":   [30, 34, 45, 255],
-            "tab_bg_active":      [24, 26, 35, 255],
+            "tab_bg_active":      [22, 25, 32, 255],
             "tab_text_normal":    [140, 150, 170, 255],
             "tab_text_active":    [255, 255, 255, 255],
-            "indicator_color":    [82, 110, 228, 255],
-            "badge_bg":           [82, 110, 228, 255],
+            "indicator_color":    [54, 81, 217, 255],
+            "badge_bg":           [54, 81, 217, 255],
             "badge_text":         [255, 255, 255, 255],
         },
         DockStyleCategory.TAB: {
-            "bg_normal":          [20, 22, 30, 255],
+            "bg_normal":          [15, 18, 25, 255],
             "bg_hover":           [35, 40, 55, 255],
-            "bg_active":          [24, 26, 35, 255],
+            "bg_active":          [22, 25, 32, 255],
             "text_normal":        [140, 150, 170, 255],
             "text_active":        [255, 255, 255, 255],
-            "indicator_color":    [82, 110, 228, 255],
+            "indicator_color":    [54, 81, 217, 255],
             "close_btn_color":    [140, 150, 170, 255],
             "close_btn_bg_hover": [50, 55, 75, 255],
+            "close_btn_bg_disable": [40, 45, 60, 255],
         },
         DockStyleCategory.TITLE_BAR: {
-            "bg_normal":          [20, 22, 30, 255],
-            "bg_active":          [20, 22, 30, 255],
+            "bg_normal":          [15, 18, 25, 255],
+            "bg_active":          [15, 18, 25, 255],
             "text_normal":        [140, 150, 170, 255],
             "text_active":        [255, 255, 255, 255],
-            "active_edge_color":  [82, 110, 228, 255],
+            "active_edge_color":  [54, 81, 217, 255],
             "button_color":       [140, 150, 170, 255],
             "button_hover_bg":    [50, 55, 75, 255],
         },
         DockStyleCategory.SPLITTER: {
-            "handle_color":       [30, 33, 45, 255],
-            "handle_hover_color": [82, 110, 228, 255],
+            "handle_color":       [10, 13, 20, 255],
+            "handle_hover_color": [54, 81, 217, 255],
         },
         DockStyleCategory.OVERLAY: {
-            "frame_color":        [82, 110, 228, 255],
-            "background_color":   [24, 26, 35, 255],
-            "overlay_color":      [82, 110, 228, 64],
-            "arrow_color":        [215, 220, 230, 255],
+            "frame_color":        [54, 81, 217, 255],
+            "background_color":   [22, 25, 32, 255],
+            "overlay_color":      [54, 81, 217, 64],
+            "arrow_color":        [200, 205, 220, 255],
             "shadow_color":       [0, 0, 0, 80],
-            "title_text_color":   [215, 220, 230, 255],
-            "button_color":       [215, 220, 230, 255],
+            "title_text_color":   [200, 205, 220, 255],
+            "button_color":       [200, 205, 220, 255],
             "button_hover_bg":    [50, 55, 75, 255],
         },
     },
 
     # -------------------------------------------------------------------------
-    # NORDIC (Arctic Frost)
-    # -------------------------------------------------------------------------
-    "nordic": {
-        DockStyleCategory.CORE: {
-            "canvas_bg":          [46, 52, 64, 255], # Deep background
-            "border_color":       [59, 66, 82, 255],
-            "accent_color":       [136, 192, 208, 255],
-            "focus_border_color": [129, 161, 193, 255],
-            "text_color":         [236, 239, 244, 255],
-            "disabled_text_color":[76, 86, 106, 255],
-        },
-        DockStyleCategory.PANEL: {
-            "bg_normal":          [59, 66, 82, 255], # Raised panel
-            "text_color":         [236, 239, 244, 255],
-        },
-        DockStyleCategory.SIDEBAR: {
-            "bg_color":           [46, 52, 64, 255],
-            "tab_bg_normal":      [0, 0, 0, 0],
-            "tab_bg_hover_start": [67, 76, 94, 255],
-            "tab_bg_active":      [59, 66, 82, 255],
-            "tab_text_normal":    [144, 154, 172, 255],
-            "tab_text_active":    [236, 239, 244, 255],
-            "indicator_color":    [136, 192, 208, 255],
-        },
-        DockStyleCategory.TAB: {
-            "bg_normal":          [46, 52, 64, 255],
-            "bg_hover":           [67, 76, 94, 255],
-            "bg_active":          [59, 66, 82, 255],
-            "text_normal":        [144, 154, 172, 255],
-            "text_active":        [236, 239, 244, 255],
-            "indicator_color":    [136, 192, 208, 255],
-        },
-        DockStyleCategory.TITLE_BAR: {
-            "bg_normal":          [67, 76, 94, 255], # Distinct header
-            "bg_active":          [67, 76, 94, 255],
-            "text_active":        [216, 222, 233, 255],
-            "active_edge_color":  [136, 192, 208, 255],
-        },
-        DockStyleCategory.SPLITTER: {
-            "handle_color":       [59, 66, 82, 255],
-            "handle_hover_color": [136, 192, 208, 255],
-        },
-    },
-
-    # -------------------------------------------------------------------------
-    # MONOKAI PRO (Vibrant Dark)
-    # -------------------------------------------------------------------------
-    "monokai": {
-        DockStyleCategory.CORE: {
-            "canvas_bg":          [25, 23, 26, 255], # FIXED: Deep background is now darker
-            "border_color":       [34, 31, 34, 255],
-            "accent_color":       [255, 216, 102, 255], # Yellow
-            "focus_border_color": [255, 97, 136, 255],  # Pink
-            "text_color":         [252, 252, 250, 255],
-            "disabled_text_color":[114, 112, 114, 255],
-        },
-        DockStyleCategory.PANEL: {
-            "bg_normal":          [45, 42, 46, 255], # FIXED: Panel is raised/lighter
-            "text_color":         [252, 252, 250, 255],
-        },
-        DockStyleCategory.SIDEBAR: {
-            "bg_color":           [25, 23, 26, 255],
-            "tab_bg_active":      [45, 42, 46, 255],
-            "tab_text_normal":    [147, 146, 147, 255],
-            "indicator_color":    [169, 220, 118, 255], # Green
-        },
-        DockStyleCategory.TAB: {
-            "bg_normal":          [34, 31, 34, 255],
-            "bg_active":          [45, 42, 46, 255],
-            "text_normal":        [147, 146, 147, 255],
-            "indicator_color":    [255, 216, 102, 255],
-        },
-        DockStyleCategory.TITLE_BAR: {
-            "bg_normal":          [34, 31, 34, 255],
-            "bg_active":          [34, 31, 34, 255],
-            "text_active":        [252, 252, 250, 255],
-            "active_edge_color":  [255, 216, 102, 255],
-        },
-        DockStyleCategory.OVERLAY: {
-            "frame_color":        [120, 220, 232, 255], # Cyan
-            "overlay_color":      [120, 220, 232, 40],
-            "arrow_color":        [252, 252, 250, 255],
-        },
-    },
-
-    # -------------------------------------------------------------------------
-    # WARM (Earthy / Gruvbox)
+    # WARM (Weave Warm)
     # -------------------------------------------------------------------------
     "warm": {
         DockStyleCategory.CORE: {
-            "canvas_bg":          [43, 38, 35, 255], # Deep gap
-            "border_color":       [58, 52, 48, 255],
-            "accent_color":       [214, 136, 63, 255],
-            "focus_border_color": [214, 136, 63, 255],
-            "text_color":         [235, 219, 195, 255],
+            "canvas_bg":          [35, 28, 25, 255],    # From Weave Warm Canvas
+            "border_color":       [65, 55, 50, 255],    # From Weave Warm grid_color
+            "accent_color":       [160, 90, 50, 255],   # From Weave Warm header_bg
+            "focus_border_color": [200, 140, 80, 255],  # From Weave Warm sel_border
+            "text_color":         [230, 220, 200, 255], # From Weave Warm body_text
             "disabled_text_color":[130, 115, 105, 255],
         },
         DockStyleCategory.PANEL: {
-            "bg_normal":          [54, 49, 46, 255], # Raised panel
-            "text_color":         [235, 219, 195, 255],
+            "bg_normal":          [55, 48, 44, 255],    # From Weave Warm body_bg
+            "text_color":         [230, 220, 200, 255],
         },
         DockStyleCategory.SIDEBAR: {
-            "bg_color":           [43, 38, 35, 255],
+            "bg_color":           [45, 38, 35, 255],
             "tab_bg_normal":      [0, 0, 0, 0],
             "tab_bg_hover_start": [75, 68, 64, 255],
             "tab_bg_hover_end":   [65, 59, 55, 255],
-            "tab_bg_active":      [54, 49, 46, 255],
-            "tab_text_normal":    [180, 165, 150, 255],
-            "tab_text_active":    [255, 245, 230, 255],
-            "indicator_color":    [214, 136, 63, 255],
-            "badge_bg":           [214, 136, 63, 255],
+            "tab_bg_active":      [55, 48, 44, 255],
+            "tab_text_normal":    [173, 166, 163, 255], # From Weave Warm Minimap text
+            "tab_text_active":    [255, 245, 230, 255], # From Weave Warm title text
+            "indicator_color":    [160, 90, 50, 255],
+            "badge_bg":           [160, 90, 50, 255],
             "badge_text":         [255, 255, 255, 255],
+            "shadow_color":       [0, 0, 0, 80],
+            "title_text_color":   [230, 220, 200, 255],
+            "button_color":       [230, 220, 200, 255],
+            "button_hover_bg":    [90, 82, 77, 255],
         },
         DockStyleCategory.TAB: {
-            "bg_normal":          [43, 38, 35, 255],
+            "bg_normal":          [45, 38, 35, 255],
             "bg_hover":           [60, 54, 50, 255],
-            "bg_active":          [54, 49, 46, 255],
+            "bg_active":          [55, 48, 44, 255],
             "text_normal":        [180, 165, 150, 255],
             "text_active":        [255, 245, 230, 255],
-            "indicator_color":    [214, 136, 63, 255],
+            "indicator_color":    [160, 90, 50, 255],
             "close_btn_color":    [180, 165, 150, 255],
             "close_btn_bg_hover": [90, 82, 77, 255],
+            "close_btn_bg_disable": [110, 110, 210, 255],
         },
         DockStyleCategory.TITLE_BAR: {
-            "bg_normal":          [43, 38, 35, 255],
-            "bg_active":          [43, 38, 35, 255],
+            "bg_normal":          [45, 38, 35, 255],
+            "bg_active":          [45, 38, 35, 255],
             "text_normal":        [180, 165, 150, 255],
             "text_active":        [255, 245, 230, 255],
-            "active_edge_color":  [214, 136, 63, 255],
+            "active_edge_color":  [200, 140, 80, 255],
             "button_color":       [180, 165, 150, 255],
             "button_hover_bg":    [90, 82, 77, 255],
         },
         DockStyleCategory.SPLITTER: {
-            "handle_color":       [58, 52, 48, 255],
-            "handle_hover_color": [214, 136, 63, 255],
+            "handle_color":       [35, 28, 25, 255],
+            "handle_hover_color": [160, 90, 50, 255],
         },
         DockStyleCategory.OVERLAY: {
-            "frame_color":        [214, 136, 63, 255],
-            "background_color":   [54, 49, 46, 255],
-            "overlay_color":      [214, 136, 63, 64],
-            "arrow_color":        [235, 219, 195, 255],
+            "frame_color":        [200, 140, 80, 255],
+            "background_color":   [55, 48, 44, 255],
+            "overlay_color":      [160, 90, 50, 64],
+            "arrow_color":        [230, 220, 200, 255],
             "shadow_color":       [0, 0, 0, 80],
-            "title_text_color":   [235, 219, 195, 255],
-            "button_color":       [235, 219, 195, 255],
-            "button_hover_bg":    [90, 82, 77, 255],
         },
     },
 }

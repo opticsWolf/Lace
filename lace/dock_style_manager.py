@@ -17,8 +17,9 @@ from PySide6.QtCore import Qt, QObject, Signal
 
 from .dock_theme import (
     DockStyleCategory, DockCoreStyleSchema, DockTabStyleSchema, 
-    DockTitleBarStyleSchema, DockSidebarStyleSchema, DockSplitterStyleSchema, 
-    DockOverlayStyleSchema, BASE_DOCK_DEFAULTS
+    DockTitleBarStyleSchema, DockSidebarStyleSchema, 
+    DockSidePanelStyleSchema, DockSplitterStyleSchema, DockOverlayStyleSchema, 
+    DockPanelStyleSchema, BASE_DOCK_DEFAULTS
 )
 
 logger = logging.getLogger(__name__)
@@ -64,8 +65,10 @@ _SCHEMA_MAP: Dict[DockStyleCategory, type] = {
     DockStyleCategory.TAB:       DockTabStyleSchema,
     DockStyleCategory.TITLE_BAR: DockTitleBarStyleSchema,
     DockStyleCategory.SIDEBAR:   DockSidebarStyleSchema,
+    DockStyleCategory.SIDEPANEL: DockSidePanelStyleSchema,
     DockStyleCategory.SPLITTER:  DockSplitterStyleSchema,
-    DockStyleCategory.OVERLAY:   DockOverlayStyleSchema,  # <--- Added to map
+    DockStyleCategory.OVERLAY:   DockOverlayStyleSchema,
+    DockStyleCategory.PANEL:     DockPanelStyleSchema,  # <--- Added to map
 }
 
 def _create_default_schema(category: DockStyleCategory) -> Any:

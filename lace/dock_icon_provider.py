@@ -106,9 +106,11 @@ class DockIconProvider:
             if category == DockStyleCategory.TAB:
                 color = styles.get("close_btn_bg_disable")
             elif category == DockStyleCategory.TITLE_BAR:
-                color = styles.get("button_disable_bg")
-            elif category == DockStyleCategory.OVERLAY:
-                color = styles.get("button_disable_color")
+                color = styles.get("button_disable_clr")
+            elif category == DockStyleCategory.SIDEPANEL:
+                color = styles.get("button_disable_clr")
+            elif category == DockStyleCategory.SIDEBAR:
+                color = styles.get("tab_text_disabled")
             else:
                 color = None
             
@@ -125,8 +127,10 @@ class DockIconProvider:
             color = styles.get("text_active" if active else "text_normal")
         elif category == DockStyleCategory.SIDEBAR:
             color = styles.get("tab_text_active" if active else "tab_text_normal")
-        elif category in (DockStyleCategory.TITLE_BAR, DockStyleCategory.OVERLAY):
-            color = styles.get("button_color")
+        elif category == (DockStyleCategory.TITLE_BAR):
+            color = styles.get("button_color" if active else "button_color")
+        elif category == (DockStyleCategory.SIDEPANEL):
+            color = styles.get("button_color" if active else "button_color")
         else:
             color = styles.get("text_color")
 
