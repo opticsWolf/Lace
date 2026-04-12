@@ -13,29 +13,6 @@ from typing import Optional, List, Dict, Any, Union
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
-def adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):
-    # Normalize input and separate alpha
-    rgba = [x / 255.0 for x in col]
-    rgb, a = rgba[:3], rgba[3:]
-
-    # Convert, apply offsets, and clamp/wrap
-    h, l, s = colorsys.rgb_to_hls(*rgb)
-    clamp = lambda x: max(0.0, min(1.0, x))
-    
-    h = (h + h_off) % 1.0
-    l = clamp(l + l_off)
-    s = clamp(s + s_off)
-    
-    # Reconstruct RGB
-    new_rgb = list(colorsys.hls_to_rgb(h, l, s))
-    
-    # Handle Alpha and scale back to 255
-    if a:
-        new_rgb.append(clamp(a[0] + a_off))
-        
-    return [round(x * 255) for x in new_rgb]
-
-
 class DockStyleCategory(enum.Enum):
     """Namespaces for different dock component style groups."""
     CORE = enum.auto()
@@ -56,7 +33,7 @@ class DockCoreStyleSchema:
     focus_border_color: Optional[List[int]] = None
 
     # Geometry
-    border_width: float = 1.0 #Dock Area Widget border
+    border_width: float = 0.0 #Dock Area Widget border
     corner_radius: int = 2.0 #Dock Area Widget corner radius
     margin: int = 0 #to be kept at zero
     padding: int = 0 #probably not even used, need to check or connect
@@ -169,7 +146,7 @@ class DockTitleBarStyleSchema:
 class DockSidebarStyleSchema:
     """Enhanced auto-hide sidebar styling."""
     # General Container
-    width: int = 42
+    width: int = 30
     bg_color: Optional[List[int]] = None
     border_color: Optional[List[int]] = None
     border_width: float = 1.0
@@ -214,7 +191,7 @@ class DockSidebarStyleSchema:
 class DockSidePanelStyleSchema:
     # Sidebar dock panel
     bg_normal: Optional[List[int]] = None
-    height: int = 32
+    height: int = 30
     padding_left: int = 10
     padding_right: int = 6
     padding_top: int = 0
@@ -261,77 +238,164 @@ class DockOverlayStyleSchema:
 
 
 # ============================================================================
-# BASE DEFAULTS  (VS Code 2026 Dark)
+# Theme Builder
 # ============================================================================
 
-BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = {
-    DockStyleCategory.CORE: {
-        "canvas_bg":          [20, 20, 20, 255],
-        "border_color":       [45, 45, 45, 255],
-        "accent_color":       [0, 120, 212, 255],
-        "focus_border_color": [0, 120, 212, 255],
-        "text_color":         [204, 204, 204, 255],
-        "disabled_text_color":[110, 110, 110, 255],
-
-    },
-    DockStyleCategory.PANEL: {
-        "bg_normal":          [30, 30, 30, 255],
-        "text_color":         [204, 204, 204, 255],
-    },
-    DockStyleCategory.SIDEBAR: {
-        "bg_color":           [20, 20, 20, 255],
-        "tab_bg_normal":      [0, 0, 0, 0],
-        "tab_bg_hover_start": [51, 51, 51, 255],
-        "tab_bg_hover_end":   [45, 45, 46, 255],
-        "tab_bg_active":      [30, 30, 30, 255],
-        "tab_text_normal":    [150, 150, 150, 255],
-        "tab_text_active":    [255, 255, 255, 255],
-        "tab_text_disabled":   [92, 92, 92, 255],
-        "indicator_color":    [0, 120, 212, 255],
-        "badge_bg":           [0, 120, 212, 255],
-        "badge_text":         [255, 255, 255, 255],
+def _build_theme(
+    base: list, 
+    accent: list, 
+    text: list, 
+    is_light: bool = False,
+    title_mode: str = "darker", # "lighter" or "darker" relative to panel
+    hover_mode: str = "lighter"    # "lighter" or "darker" relative to panel
+) -> Dict[DockStyleCategory, Dict[str, Any]]:
+    """
+    Build a complete dock theme from 3 primary colors.
+    
+    Args:
+        base:     Darkest background color [R, G, B, A]
+        accent:   Primary accent/highlight color [R, G, B, A]
+        text:     Primary text color [R, G, B, A]
+        is_light: If True, adjustments go darker instead of lighter
+    """
+    # Direction multiplier: light themes darken, dark themes lighten
+    d = -1 if is_light else 1
+    
+    if title_mode == "darker":
+        t_mode = -1.0
+    else:
+        t_mode = 1.0
+    
+    if hover_mode == "darker":
+        h_mode = -1.0
+    else:
+        h_mode = 1.0
+    
+    # === DERIVED BACKGROUNDS ===
+    _panel      = _adjust_color(base, l_off=d * 0.10)
+    _title_bg   =  _adjust_color(_panel, l_off= h_mode * d * 0.05)
+    _surface    = _adjust_color(base, l_off=d * 0.05)
+    _hover      = _adjust_color(base, l_off= h_mode * d * 0.20)
+    _hover_end  = _adjust_color(base, l_off= h_mode * d * 0.12)
+    _btn_hover  = _adjust_color(base, l_off= h_mode * d * 0.15)
+    
+    
+    
+    # === DERIVED TEXT ===
+    _text_muted    = _adjust_color(text, l_off=-d * 0.10)
+    _text_disabled = _adjust_color(text, l_off=-d * 0.30)
+    _text_active   = _adjust_color(text, l_off=d * 0.20)
+    
+    # === BUTTON DISABLED (tinted with theme color) ===
+    # Push base towards mid-gray while preserving hue tint
+    _btn_disabled = _adjust_color(base, l_off=d * 0.20, s_off=0.05)
+    
+    # === ACCENT VARIANTS ===
+    _accent_bright = _adjust_color(accent, l_off=0.15)
+    _accent_dim    = _adjust_color(accent, a_off=-0.75)
+    
+    # === UTILITY ===
+    _transparent = [0, 0, 0, 0]
+    _shadow      = [0, 0, 0, 64 if not is_light else 32]
+    
+    return {
+        DockStyleCategory.CORE: {
+            "canvas_bg":          base,
+            "border_color":       _adjust_color(base, l_off=-0.02),
+            "accent_color":       accent,
+            "focus_border_color": _accent_bright,
+            "text_color":         text,
+            "disabled_text_color": _text_disabled,
         },
-    DockStyleCategory.SIDEPANEL: {
-        "bg_normal":          [37, 37, 38, 255],
-        "button_color":       [150, 150, 150, 255],
-        "button_disable_clr": [92, 92, 92, 255],
-        "button_hover_bg":    [62, 62, 62, 255],
-        "shadow_color":       [0, 0, 0, 64],
+        DockStyleCategory.PANEL: {
+            "bg_normal":          _panel,
+            "text_color":         text,
+        },
+        DockStyleCategory.SIDEBAR: {
+            "bg_color":           base,
+            "tab_bg_normal":      _transparent,
+            "tab_bg_hover_start": _hover,
+            "tab_bg_hover_end":   _hover_end,
+            "tab_bg_active":      _panel,
+            "tab_text_normal":    _text_muted,
+            "tab_text_active":    _text_active,
+            "tab_text_disabled":  _text_disabled,
+            "indicator_color":    accent,
+            "badge_bg":           accent,
+            "badge_text":         _text_muted,
+        },
+        DockStyleCategory.SIDEPANEL: {
+            "bg_normal":          _panel,
+            "title_text_color":   text,
+            "button_color":       _text_muted,
+            "button_disable_clr": _btn_disabled,
+            "button_hover_bg":    _btn_hover,
+            "shadow_color":       _shadow,
+        },
+        DockStyleCategory.TAB: {
+            "bg_normal":          _title_bg,
+            "bg_hover":           _hover,
+            "bg_active":          _panel,
+            "text_normal":        _text_muted,
+            "text_active":        _text_active,
+            "indicator_color":    accent,
+            "close_btn_color":    _text_muted,
+            "close_btn_bg_hover": _btn_hover,
+            "close_btn_bg_disable": _btn_disabled,
+            "title_text_color":   text,
+        },
+        DockStyleCategory.TITLE_BAR: {
+            "bg_normal":          _title_bg,
+            "bg_active":          _title_bg,
+            "text_normal":        _text_muted,
+            "text_active":        _text_active,
+            "active_edge_color":  _accent_bright,
+            "button_color":       _text_muted,
+            "button_disable_clr": _btn_disabled,
+            "button_hover_bg":    _btn_hover,
+        },
+        DockStyleCategory.SPLITTER: {
+            "handle_color":       base,
+            "handle_hover_color": accent,
+        },
+        DockStyleCategory.OVERLAY: {
+            "frame_color":        _accent_bright,
+            "background_color":   _panel,
+            "overlay_color":      _accent_dim,
+            "arrow_color":        text,
+            "shadow_color":       _shadow,
+        },
+    }
+# -------------------------------------------------------------------------
+# Color Helper
+# -------------------------------------------------------------------------
+def _adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):
+    # Normalize input and separate alpha
+    rgba = [x / 255.0 for x in col]
+    rgb, a = rgba[:3], rgba[3:]
 
-    },
-    DockStyleCategory.TAB: {
-        "bg_normal":          [37, 37, 38, 255],
-        "bg_hover":           [44, 44, 45, 255],
-        "bg_active":          [30, 30, 30, 255],
-        "text_normal":        [150, 150, 150, 255],
-        "text_active":        [255, 255, 255, 255],
-        "indicator_color":    [0, 120, 212, 255],
-        "close_btn_color":    [150, 150, 150, 255],
-        "close_btn_bg_hover": [62, 62, 62, 255],
-        "close_btn_bg_disable": [92, 92, 92, 255],
-        "title_text_color":   [204, 204, 204, 255],
-    },
-    DockStyleCategory.TITLE_BAR: {
-        "bg_normal":          [37, 37, 38, 255],
-        "bg_active":          [37, 37, 38, 255],
-        "text_normal":        [150, 150, 150, 255],
-        "text_active":        [255, 255, 255, 255],
-        "active_edge_color":  [0, 120, 212, 255],
-        "button_color":       [150, 150, 150, 255],
-        "button_disable_clr": [92, 92, 92, 255],
-        "button_hover_bg":    [62, 62, 62, 255],
+    # Convert, apply offsets, and clamp/wrap
+    h, l, s = colorsys.rgb_to_hls(*rgb)
+    clamp = lambda x: max(0.0, min(1.0, x))
+    
+    h = (h + h_off) % 1.0
+    l = clamp(l + l_off)
+    s = clamp(s + s_off)
+    
+    # Reconstruct RGB
+    new_rgb = list(colorsys.hls_to_rgb(h, l, s))
+    
+    # Handle Alpha and scale back to 255
+    if a:
+        new_rgb.append(clamp(a[0] + a_off))
+        
+    return [round(x * 255) for x in new_rgb]
 
-    },
-    DockStyleCategory.SPLITTER: {
-        "handle_color":       [20, 20, 20, 255],
-        "handle_hover_color": [0, 120, 212, 255],
-
-    },
-    DockStyleCategory.OVERLAY: {
-        "frame_color":        [0, 120, 212, 255],
-        "background_color":   [37, 37, 38, 255],
-        "overlay_color":      [0, 120, 212, 64],
-        "arrow_color":        [204, 204, 204, 255],
-        "shadow_color":       [0, 0, 0, 64],
-    },
-}
+# -------------------------------------------------------------------------
+# VS CODE 2026 DARK (Default Theme)
+# -------------------------------------------------------------------------
+BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = _build_theme(
+    base   = [20, 20, 20, 255],
+    accent = [0, 120, 212, 255],
+    text   = [204, 204, 204, 255],
+)

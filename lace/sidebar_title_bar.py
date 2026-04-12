@@ -52,6 +52,11 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
 
         self._setup_ui()
 
+        # Style Manager Integration
+        self._style_mgr = get_dock_style_manager()
+        self._style_mgr.register(self, DockStyleCategory.SIDEPANEL)
+        self.refresh_style()
+
     def _setup_ui(self):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 0, 4, 0)
@@ -207,17 +212,29 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         self._on_reattach_clicked()
 
     # --- Styling ---
-    
-    def apply_style(self, s: dict):
-        # Get core styles for disabled color
-        style_mgr = get_dock_style_manager()
-        core_styles = style_mgr.get_all(DockStyleCategory.CORE)
-        
-        bg = s.get("background_color")
-        frame = s.get("frame_color")
-        title_text = s.get("title_text_color")
-        btn_color = s.get("button_color")
-        btn_hover = s.get("button_hover_bg")
+
+    def refresh_style(self):
+        """Refresh styling from the DockStyleManager (mirrors dock_area_title_bar)."""
+        styles = self._style_mgr.get_all(DockStyleCategory.SIDEPANEL)
+        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
+        sidebar_styles = self._style_mgr.get_all(DockStyleCategory.SIDEBAR)
+
+        # Apply Geometry
+        self.setFixedHeight(styles.get("height", 32))
+        self.layout().setSpacing(styles.get("button_spacing", 2))
+        self.layout().setContentsMargins(
+            styles.get("padding_left", 8),
+            styles.get("padding_top", 0),
+            styles.get("padding_right", 4),
+            0
+        )
+
+        # Resolve Colors with fallbacks
+        bg = styles.get("bg_normal")
+        frame = sidebar_styles.get("border_color")
+        title_text = styles.get("title_text_color")
+        btn_color = styles.get("button_color")
+        btn_hover = styles.get("button_hover_bg")
         disabled_color = core_styles.get("disabled_text_color")
 
         bg_css = bg.name() if bg else "palette(window)"
@@ -226,40 +243,30 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         btn_css = btn_color.name() if btn_color else "palette(text)"
         btn_hover_css = btn_hover.name() if btn_hover else "palette(mid)"
         disabled_css = disabled_color.name() if disabled_color else "palette(mid)"
-        
-        btn_radius = s.get("button_corner_radius", 3)
-        btn_padding = s.get("button_padding", 4)
-        btn_expand_v = s.get("button_expand_vertical", True)
-        btn_size = s.get("button_size", 20)
-        btn_icon_size = s.get("button_icon_size", 16)
-        btn_spacing = s.get("button_spacing", 2)
-        height = s.get("height", 32)
-        pad_left = s.get("padding_left", 8)
-        pad_right = s.get("padding_right", 4)
-        pad_top = s.get("padding_top", 0)
-        
-        # Apply title bar geometry
-        self.setFixedHeight(height)
-        self.layout().setSpacing(btn_spacing)
-        self.layout().setContentsMargins(pad_left, pad_top, pad_right, 0)
 
+        # Title bar container styling
+        # self.setStyleSheet(f"""
+        #     #overlayTitleBar {{
+        #         background-color: {bg_css};
+        #         border-bottom: 1px solid {frame_css};
+        #     }}
+        # """)
         self.setStyleSheet(f"""
             #overlayTitleBar {{
                 background-color: {bg_css};
-                border-bottom: 1px solid {frame_css};
             }}
         """)
 
-        font_family = s.get("title_font_family", "Segoe UI")
-        font_size = s.get("title_font_size", 10)
-        font_weight = s.get("title_font_weight", "bold")
+        # Title label styling
+        font_family = styles.get("title_font_family", "Segoe UI")
+        font_size = styles.get("title_font_size", 10)
+        font_weight = styles.get("title_font_weight", "bold")
         bold = font_weight in ("bold", 700)
-        weight_css = "bold" if bold else "normal"
 
         self._title_label.setStyleSheet(f"""
             #overlayTitleLabel {{
                 color: {title_css};
-                font-weight: {weight_css};
+                font-weight: {"bold" if bold else "normal"};
                 font-family: "{font_family}";
                 font-size: {font_size}pt;
                 background: transparent;
@@ -272,7 +279,13 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
         font.setBold(bold)
         self._title_label.setFont(font)
 
-        # Apply button styling individually (unified with dock_area_title_bar)
+        # Button styling
+        btn_radius = styles.get("button_corner_radius", 3)
+        btn_padding = styles.get("button_padding", 2)
+        btn_size = styles.get("button_size", 18)
+        btn_icon_size = styles.get("button_icon_size", 16)
+        btn_expand_v = styles.get("button_expand_vertical", False)
+
         button_css = f"""
             QToolButton {{
                 color: {btn_css};
@@ -290,19 +303,15 @@ class OverlayTitleBar(QFrame, DockMenuMixin):
                 color: {disabled_css};
             }}
         """
-        
-        # Apply size policy based on vertical expansion setting
+
         v_policy = QSizePolicy.Expanding if btn_expand_v else QSizePolicy.Fixed
         icon_size = QSize(btn_icon_size, btn_icon_size)
-        
-        self._reattach_btn.setStyleSheet(button_css)
-        self._reattach_btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._reattach_btn.setIconSize(icon_size)
-        
-        self._float_btn.setStyleSheet(button_css)
-        self._float_btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._float_btn.setIconSize(icon_size)
-        
-        self._close_btn.setStyleSheet(button_css)
-        self._close_btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._close_btn.setIconSize(icon_size)
+
+        for btn in (self._reattach_btn, self._float_btn, self._close_btn):
+            btn.setStyleSheet(button_css)
+            btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
+            btn.setIconSize(icon_size)
+
+    def on_style_changed(self, category: DockStyleCategory, changes: dict):
+        """Called by DockStyleManager when subscribed categories change."""
+        self.refresh_style()

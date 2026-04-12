@@ -339,9 +339,6 @@ class SideBarContainer(QFrame):
             }}
         """)
 
-        # Delegate title bar styling
-        self._title_bar.apply_style(s)
-
         # Shadow
         shadow_color = s.get("shadow_color")
         if shadow_color:
