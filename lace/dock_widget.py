@@ -65,7 +65,7 @@ class DockWidget(QFrame):
         self.setAutoFillBackground(True)
         self.setBackgroundRole(QPalette.ColorRole.Window) # Native Qt behavior
 
-        self._layout.setContentsMargins(14, 14, 14, 14)
+        self._layout.setContentsMargins(6, 6, 6, 6)
         self._layout.setSpacing(0)
         self.setLayout(self._layout)
         self.setWindowTitle(title)
