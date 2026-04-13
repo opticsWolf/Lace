@@ -15,7 +15,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QEvent, QSize, Qt, Signal
-from PySide6.QtGui import QAction, QIcon, QColor, QPalette
+from PySide6.QtGui import QAction, QIcon, QColor, QPalette, QShowEvent
 from PySide6.QtWidgets import (QBoxLayout, QFrame, QScrollArea,
                                QSplitter, QToolBar, QWidget)
 
@@ -59,6 +59,7 @@ class DockWidget(QFrame):
         self._tool_bar_icon_size_floating = QSize(24, 24)
         self._is_floating_top_level = False
         self._widget_state = WidgetState.docked  # <-- NEW: Track current state
+        self._style_dirty = False  # Track if style refresh is pending
 
         # Make the DockWidget frame borderless
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -409,6 +410,14 @@ class DockWidget(QFrame):
 
         return super().event(e)
 
+    def showEvent(self, event: QShowEvent):
+        """Refresh style when widget becomes visible to ensure palette is current."""
+        super().showEvent(event)
+        # Apply any pending style changes that occurred while hidden
+        if self._style_dirty:
+            self._style_dirty = False
+            self.refresh_style()
+
     def refresh_style(self):
         """
         Applies the localized panel palette override and strictly pushes
@@ -434,7 +443,11 @@ class DockWidget(QFrame):
         """Callback triggered by DockStyleManager when the theme switches."""
         # Listen for both PANEL and CORE changes just in case shared colors update
         if category in (DockStyleCategory.PANEL, DockStyleCategory.CORE):
-            self.refresh_style()
+            if self.isVisible():
+                self.refresh_style()
+            else:
+                # Defer refresh until widget becomes visible
+                self._style_dirty = True
 
     def toggle_view(self, open_: bool):
         sender = self.sender()

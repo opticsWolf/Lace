@@ -69,7 +69,13 @@ class DockThemeColors:
     text_color:       QColor
     accent_color:     QColor
     border_color:     QColor
-    input_bg:         QColor
+    input_bg:         QColor  # 4. Input field backgrounds (Base role)
+    alternate_base:   QColor  # 5. Alternating row color for tables/lists
+    button_bg:        QColor  # 6. Button face background
+    color_light:      QColor  # 7. 3D highlight edge
+    color_mid:        QColor  # 8. 3D mid-tone border
+    color_dark:       QColor  # 9. 3D shadow edge
+    color_shadow:     QColor  # 10. Drop shadow
     disabled_text:    QColor
     placeholder_text: QColor
 
@@ -84,7 +90,50 @@ def resolve_dock_colors() -> DockThemeColors:
     accent = to_qcolor(sm.get(DockStyleCategory.CORE, "accent_color", [0, 120, 212]))
     border = to_qcolor(sm.get(DockStyleCategory.CORE, "border_color", [45, 45, 45]))
     
-    input_bg = QColor(panel_bg).darker(115) 
+    # Input backgrounds - fetch from theme or derive sensible fallbacks
+    input_bg_raw = sm.get(DockStyleCategory.PANEL, "input_bg")
+    if input_bg_raw:
+        input_bg = to_qcolor(input_bg_raw)
+    else:
+        input_bg = QColor(panel_bg).darker(115)
+    
+    alternate_base_raw = sm.get(DockStyleCategory.PANEL, "alternate_base")
+    if alternate_base_raw:
+        alternate_base = to_qcolor(alternate_base_raw)
+    else:
+        alternate_base = QColor(input_bg).lighter(112)
+    
+    # Button background
+    button_bg_raw = sm.get(DockStyleCategory.PANEL, "button_bg")
+    if button_bg_raw:
+        button_bg = to_qcolor(button_bg_raw)
+    else:
+        button_bg = QColor(panel_bg).lighter(120)
+    
+    # 3D structural colors
+    color_light_raw = sm.get(DockStyleCategory.PANEL, "color_light")
+    if color_light_raw:
+        color_light = to_qcolor(color_light_raw)
+    else:
+        color_light = QColor(panel_bg).lighter(140)
+    
+    color_mid_raw = sm.get(DockStyleCategory.PANEL, "color_mid")
+    if color_mid_raw:
+        color_mid = to_qcolor(color_mid_raw)
+    else:
+        color_mid = QColor(panel_bg).darker(115)
+    
+    color_dark_raw = sm.get(DockStyleCategory.PANEL, "color_dark")
+    if color_dark_raw:
+        color_dark = to_qcolor(color_dark_raw)
+    else:
+        color_dark = QColor(panel_bg).darker(130)
+    
+    color_shadow_raw = sm.get(DockStyleCategory.PANEL, "color_shadow")
+    if color_shadow_raw:
+        color_shadow = to_qcolor(color_shadow_raw)
+    else:
+        color_shadow = QColor(0, 0, 0, 80)
 
     disabled_text = QColor(text_color)
     disabled_text.setAlpha(max(0, text_color.alpha() // 3))
@@ -95,7 +144,10 @@ def resolve_dock_colors() -> DockThemeColors:
     return DockThemeColors(
         canvas_bg=canvas_bg, title_bg=title_bg, panel_bg=panel_bg,
         text_color=text_color, accent_color=accent, border_color=border,
-        input_bg=input_bg, disabled_text=disabled_text, placeholder_text=placeholder_text
+        input_bg=input_bg, alternate_base=alternate_base,
+        button_bg=button_bg, color_light=color_light, color_mid=color_mid,
+        color_dark=color_dark, color_shadow=color_shadow,
+        disabled_text=disabled_text, placeholder_text=placeholder_text
     )
 
 def to_qcolor(val) -> QColor:
@@ -151,22 +203,19 @@ def build_dock_palette(
     # Even in the CORE palette, their Base must be derived from panel_bg to prevent
     # the canvas gap color from "bleeding" through if palette inheritance breaks.
     pal.setColor(QPalette.ColorRole.Base, c.input_bg)
-    pal.setColor(QPalette.ColorRole.AlternateBase, c.panel_bg)
+    pal.setColor(QPalette.ColorRole.AlternateBase, c.alternate_base)
     pal.setColor(QPalette.ColorRole.Text, c.text_color)
 
     # 3. Buttons
-    button_bg = QColor(c.panel_bg).lighter(120) if is_panel else c.title_bg
-    pal.setColor(QPalette.ColorRole.Button, button_bg)
+    pal.setColor(QPalette.ColorRole.Button, c.button_bg)
     pal.setColor(QPalette.ColorRole.ButtonText, c.text_color)
 
-    # 4. Structural Roles (Mid, Light, Dark)
-    # CRITICAL FIX: 3D borders of standard widgets use these roles.
-    # They must ALWAYS calculate against panel_bg, otherwise they glow with canvas_bg.
-    mid_color = QColor(c.panel_bg).darker(115)
-    pal.setColor(QPalette.ColorRole.Mid, mid_color)
-    pal.setColor(QPalette.ColorRole.Light, QColor(c.panel_bg).lighter(140))
-    pal.setColor(QPalette.ColorRole.Dark, QColor(c.panel_bg).darker(130))
-    pal.setColor(QPalette.ColorRole.Shadow, QColor(0, 0, 0, 80))
+    # 4. Structural Roles (Mid, Light, Dark, Shadow)
+    # Used for 3D borders of standard widgets like spinboxes, scrollbars, frames
+    pal.setColor(QPalette.ColorRole.Light, c.color_light)
+    pal.setColor(QPalette.ColorRole.Mid, c.color_mid)
+    pal.setColor(QPalette.ColorRole.Dark, c.color_dark)
+    pal.setColor(QPalette.ColorRole.Shadow, c.color_shadow)
 
     _apply_shared_roles(pal, c)
     return pal

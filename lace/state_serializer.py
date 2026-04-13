@@ -4,18 +4,26 @@ Lace: Advanced PySide6 Docking System
 Copyright (c) 2026 opticsWolf
 
 SPDX-License-Identifier: Apache-2.0
+
+Enhanced Layout Serializer with comprehensive state tracking for:
+- All dock containers (main + floating)
+- Dock areas and their widgets
+- Floating window positions and sizes
+- Sidebar pinned widgets and overlay states
+- Widget states (docked, floating, pinned, closed)
 """
 
 import logging
 import json
-from typing import TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 
-from .enums import DockFlags
+from .enums import DockFlags, WidgetState
 from .dock_container_widget import DockContainerWidget
 from .floating_dock_container import FloatingDockContainer
 
 if TYPE_CHECKING:
     from .dock_manager import DockManager
+    from .dock_widget import DockWidget
 
 logger = logging.getLogger(__name__)
 
@@ -23,40 +31,63 @@ logger = logging.getLogger(__name__)
 class LayoutSerializer:
     """
     Dedicated serializer for saving and restoring the DockManager's layout state.
-    Utilizes standard JSON for easy debugging, persistence, and cross-compatibility.
+    
+    State Structure:
+    {
+        "type": "QtAdvancedDockingSystem",
+        "version": <int>,
+        "containers": [...],           # Main + floating containers
+        "sidebars": {...},             # Sidebar pinned widgets & sizes
+        "widget_states": {...},        # Per-widget state info
+        "floating_geometries": {...},  # Floating window positions
+    }
     """
 
     def __init__(self, manager: 'DockManager'):
         self._manager = manager
 
+    # ─────────────────────────────────────────────────────────────────────
+    #  Public API
+    # ─────────────────────────────────────────────────────────────────────
+
     def save_state(self, version: int = 0) -> str:
         """
         Serializes the entire dock layout into a JSON string.
-        Child widgets (Containers, Areas, Splitters) now return dicts via `save_state()`.
+        Includes containers, sidebars, widget states, and floating geometries.
         """
         state_dict = {
             "type": "QtAdvancedDockingSystem",
             "version": version,
-            "containers": []
+            "containers": [],
+            "sidebars": {},
+            "widget_states": {},
+            "floating_geometries": {},
         }
         
+        # 1. Save all containers (main + floating)
         containers = self._manager.dock_containers()
-        
         for container in containers:
             if container is self._manager:
-                # The DockManager is the root DockContainerWidget
-                # We call the class method directly to avoid recursive loops
                 container_state = DockContainerWidget.save_state(container)
             else:
                 container_state = container.save_state()
-            
             state_dict["containers"].append(container_state)
+        
+        # 2. Save floating window geometries separately for easy access
+        state_dict["floating_geometries"] = self._save_floating_geometries()
+        
+        # 3. Save sidebar state if sidebar manager exists
+        state_dict["sidebars"] = self._save_sidebar_state()
+        
+        # 4. Save comprehensive widget states
+        state_dict["widget_states"] = self._save_widget_states()
+        
+        return json.dumps(state_dict)
 
-        # Apply formatting if configured
-        #indent = 2 if DockFlags.xml_auto_formatting in self._manager.config_flags else None
-        # We can optionally compress the string here if needed, but standard 
-        # string returns are usually preferred for JSON workflows.
-        return json.dumps(state_dict)#, indent=indent)
+    def save_state_formatted(self, version: int = 0) -> str:
+        """Save state with pretty formatting for debugging."""
+        state_json = self.save_state(version)
+        return json.dumps(json.loads(state_json), indent=2)
 
     def check_format(self, state_json: str, version: int) -> bool:
         """Validates if the provided JSON matches the expected version."""
@@ -69,42 +100,137 @@ class LayoutSerializer:
             return False
 
     def restore_state(self, state_json: str, version: int) -> bool:
-        """Parses the JSON state and rebuilds the dock layout."""
+        """
+        Parses the JSON state and rebuilds the dock layout.
+        
+        Restoration order:
+        1. Pre-cleanup (hide floaters, mark widgets dirty)
+        2. Restore containers (main + floating with geometries)
+        3. Cleanup orphaned floating widgets
+        4. Restore widget open/closed states
+        5. Restore sidebar pinned widgets
+        6. Restore active tabs and emit UI events
+        """
         if not self.check_format(state_json, version):
             logger.error('LayoutSerializer: JSON format error or version mismatch!')
             return False
 
         try:
             state_dict = json.loads(state_json)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            logger.error(f'LayoutSerializer: JSON decode error: {e}')
             return False
 
         # Pre-restore cleanup
         self._hide_floating_widgets()
         self._mark_dock_widgets_dirty()
+        
+        # Close sidebar overlay before restoration
+        self._close_sidebar_overlay()
 
-        # The actual restoration
+        # 1. Restore containers
         containers_data = state_dict.get("containers", [])
         result = True
         
         for index, container_data in enumerate(containers_data):
-            result = self._restore_container(index, container_data, testing=False)
-            if not result:
+            if not self._restore_container(index, container_data, testing=False):
                 logger.error(f'LayoutSerializer: Failed restoring container at index {index}')
+                result = False
                 break
 
-        # Cleanup floating widgets that existed previously but aren't in the new state
+        # 2. Restore floating window geometries
+        floating_geometries = state_dict.get("floating_geometries", {})
+        self._restore_floating_geometries(floating_geometries)
+
+        # 3. Cleanup orphaned floating widgets
         self._cleanup_orphaned_floating_widgets(expected_count=len(containers_data))
 
-        # Post-restore UI updates
+        # 4. Restore widget states (open/closed)
         self._restore_dock_widgets_open_state()
+        
+        # 5. Restore sidebar state (pinned widgets)
+        sidebar_state = state_dict.get("sidebars", {})
+        self._restore_sidebar_state(sidebar_state)
+
+        # 6. Final UI updates
         self._restore_dock_areas_indices()
         self._emit_top_level_events()
         
         return result
 
     # ─────────────────────────────────────────────────────────────────────
-    #  Internal Restoration Lifecycle Methods
+    #  Save Helpers
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _save_floating_geometries(self) -> Dict[str, Dict[str, int]]:
+        """Save geometry of all floating containers."""
+        geometries = {}
+        for i, floating_widget in enumerate(self._manager.floating_widgets()):
+            geo = floating_widget.geometry()
+            geometries[f"floating_{i}"] = {
+                "x": geo.x(),
+                "y": geo.y(),
+                "width": geo.width(),
+                "height": geo.height(),
+                "is_maximized": floating_widget.isMaximized(),
+            }
+        return geometries
+
+    def _save_sidebar_state(self) -> Dict[str, Any]:
+        """Save sidebar manager state if available."""
+        if not hasattr(self._manager, 'sidebar_manager') or not self._manager.sidebar_manager:
+            return {}
+        
+        try:
+            return self._manager.sidebar_manager.save_state()
+        except Exception as e:
+            logger.warning(f"Failed to save sidebar state: {e}")
+            return {}
+
+    def _save_widget_states(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Save comprehensive state for each dock widget.
+        Captures: closed, widget_state, container, dock_area, tab_index
+        """
+        states = {}
+        for name, dock_widget in self._manager.dock_widgets_map().items():
+            widget_state = {
+                "closed": dock_widget.is_closed(),
+                "state": self._widget_state_to_str(dock_widget.widget_state()),
+            }
+            
+            # Track location
+            dock_area = dock_widget.dock_area_widget()
+            if dock_area:
+                container = dock_area.dock_container()
+                widget_state["container_index"] = self._get_container_index(container)
+                widget_state["in_dock_area"] = True
+            else:
+                widget_state["in_dock_area"] = False
+            
+            # Check if pinned to sidebar
+            if hasattr(self._manager, 'sidebar_manager') and self._manager.sidebar_manager:
+                if self._manager.sidebar_manager.is_pinned(dock_widget):
+                    widget_state["pinned"] = True
+            
+            states[name] = widget_state
+        
+        return states
+
+    def _widget_state_to_str(self, state: WidgetState) -> str:
+        """Convert WidgetState enum to string."""
+        return state.name if hasattr(state, 'name') else str(state)
+
+    def _get_container_index(self, container) -> int:
+        """Get index of container in the dock_containers list."""
+        containers = self._manager.dock_containers()
+        try:
+            return containers.index(container)
+        except ValueError:
+            return -1
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  Restore Helpers
     # ─────────────────────────────────────────────────────────────────────
 
     def _restore_container(self, index: int, container_data: Dict[str, Any], testing: bool) -> bool:
@@ -125,6 +251,50 @@ class LayoutSerializer:
         else:
             return DockContainerWidget.restore_state(container, container_data, testing)
 
+    def _restore_floating_geometries(self, geometries: Dict[str, Dict[str, int]]):
+        """Restore floating window positions and sizes."""
+        floating_widgets = self._manager.floating_widgets()
+        
+        for i, floating_widget in enumerate(floating_widgets):
+            key = f"floating_{i}"
+            if key not in geometries:
+                continue
+            
+            geo = geometries[key]
+            try:
+                floating_widget.setGeometry(
+                    geo.get("x", 100),
+                    geo.get("y", 100),
+                    geo.get("width", 400),
+                    geo.get("height", 300)
+                )
+                if geo.get("is_maximized", False):
+                    floating_widget.showMaximized()
+            except Exception as e:
+                logger.warning(f"Failed to restore floating geometry {key}: {e}")
+
+    def _restore_sidebar_state(self, sidebar_state: Dict[str, Any]):
+        """Restore sidebar pinned widgets and settings."""
+        if not sidebar_state:
+            return
+        
+        if not hasattr(self._manager, 'sidebar_manager') or not self._manager.sidebar_manager:
+            logger.debug("No sidebar manager available for state restoration")
+            return
+        
+        try:
+            self._manager.sidebar_manager.restore_state(sidebar_state)
+        except Exception as e:
+            logger.warning(f"Failed to restore sidebar state: {e}")
+
+    def _close_sidebar_overlay(self):
+        """Close sidebar overlay before restoration."""
+        if hasattr(self._manager, 'sidebar_manager') and self._manager.sidebar_manager:
+            try:
+                self._manager.sidebar_manager.close_overlay()
+            except Exception:
+                pass
+
     def _cleanup_orphaned_floating_widgets(self, expected_count: int):
         """Removes floating widgets that were not part of the restored state."""
         floating_widgets = self._manager.floating_widgets()
@@ -135,9 +305,12 @@ class LayoutSerializer:
         delete_count = len(floating_widgets) - floating_widget_index
 
         for i in range(delete_count):
-            to_remove = floating_widgets[floating_widget_index + i]
-            self._manager.remove_dock_container(to_remove.dock_container())
-            to_remove.deleteLater()
+            try:
+                to_remove = floating_widgets[floating_widget_index + i]
+                self._manager.remove_dock_container(to_remove.dock_container())
+                to_remove.deleteLater()
+            except Exception as e:
+                logger.warning(f"Failed to cleanup orphaned floating widget: {e}")
 
     def _restore_dock_widgets_open_state(self):
         """Ensures widgets that were closed in the saved state are hidden, and open ones are shown."""
@@ -178,6 +351,7 @@ class LayoutSerializer:
                         dock_widget.emit_top_level_changed(False)
 
     def _hide_floating_widgets(self):
+        """Hide all floating widgets before restoration."""
         for floating_widget in self._manager.floating_widgets():
             floating_widget.hide()
 

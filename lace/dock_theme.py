@@ -54,6 +54,19 @@ class DockPanelStyleSchema:
     bg_normal: Optional[List[int]] = None
     text_color: Optional[List[int]] = None
     
+    # Input widget backgrounds (QLineEdit, QTextEdit, QListView, etc.)
+    input_bg: Optional[List[int]] = None        # Base role - input field background
+    alternate_base: Optional[List[int]] = None  # AlternateBase role - table row striping
+    
+    # Button styling
+    button_bg: Optional[List[int]] = None       # Button role - button face background
+    
+    # 3D structural colors (spinbox borders, scrollbar grooves, frame edges)
+    color_light: Optional[List[int]] = None     # Light role - highlight edge
+    color_mid: Optional[List[int]] = None       # Mid role - mid-tone border
+    color_dark: Optional[List[int]] = None      # Dark role - shadow edge
+    color_shadow: Optional[List[int]] = None    # Shadow role - drop shadow
+    
     # Geometry
     border_width: float = 2.0
     corner_radius: int = 8
@@ -179,6 +192,7 @@ class DockSidebarStyleSchema:
     # Highlights & Badges
     indicator_color: Optional[List[int]] = None
     indicator_width: int = 3
+    indicator_position: str = "right"  # "left" or "right"
 
     badge_bg: Optional[List[int]] = None
     badge_text: Optional[List[int]] = None
@@ -279,6 +293,19 @@ def _build_theme(
     _hover_end  = _adjust_color(base, l_off= h_mode * d * 0.12)
     _btn_hover  = _adjust_color(base, l_off= h_mode * d * 0.15)
     
+    # Input widget backgrounds (for QLineEdit, QTextEdit, tables, etc.)
+    _input_bg       = _adjust_color(_panel, l_off=-d * 0.04)  # Slightly darker than panel
+    _alternate_base = _adjust_color(_input_bg, l_off=d * 0.06)  # Visible contrast for zebra rows
+    
+    # Button face background
+    _button_bg = _adjust_color(_panel, l_off=d * 0.08)
+    
+    # 3D structural colors (for widget borders, scrollbars, frames)
+    _color_light  = _adjust_color(_panel, l_off=d * 0.15)   # Highlight edge
+    _color_mid    = _adjust_color(_panel, l_off=-d * 0.05)  # Mid-tone border
+    _color_dark   = _adjust_color(_panel, l_off=-d * 0.12)  # Shadow edge
+    _color_shadow = [0, 0, 0, 72 if not is_light else 48]   # Drop shadow
+    
     
     
     # === DERIVED TEXT ===
@@ -310,6 +337,13 @@ def _build_theme(
         DockStyleCategory.PANEL: {
             "bg_normal":          _panel,
             "text_color":         text,
+            "input_bg":           _input_bg,
+            "alternate_base":     _alternate_base,
+            "button_bg":          _button_bg,
+            "color_light":        _color_light,
+            "color_mid":          _color_mid,
+            "color_dark":         _color_dark,
+            "color_shadow":       _color_shadow,
         },
         DockStyleCategory.SIDEBAR: {
             "bg_color":           base,

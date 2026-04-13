@@ -53,6 +53,19 @@ class SidebarStateManager:
         key_str = key.name if hasattr(key, 'name') else str(key)
         return self._states.get(key_str, SidebarState())
     
+    def export_all(self) -> Dict[str, dict]:
+        """Export all states as a serializable dict."""
+        return {k: v.to_dict() for k, v in self._states.items()}
+    
+    def import_all(self, data: Dict[str, dict]):
+        """Import states from a dict (e.g., from JSON deserialization)."""
+        self._states.clear()
+        for k, v in data.items():
+            try:
+                self._states[k] = SidebarState.from_dict(v)
+            except Exception as e:
+                logger.warning(f"Failed to import sidebar state for '{k}': {e}")
+    
     def _persist(self):
         if not self._save_path:
             return

@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
 _ANIMATION_DURATION_MS = 50
 _RESIZE_HANDLE_WIDTH = 6
+_MIN_SIDEBAR_WIDTH = 200
+_MIN_SIDEBAR_HEIGHT = 150
+_MIN_CENTER_GAP = 50  # Minimum space to preserve in center / prevent overlap
 
 class SideBarContainer(QFrame):
     """
@@ -102,13 +105,17 @@ class SideBarContainer(QFrame):
     def eventFilter(self, obj, event):
         if obj == self.parentWidget() and event.type() == QEvent.Resize:
             if self.isVisible():
-                parent_size = event.size()
-                
+                # Clamp size_hint if it exceeds new maximums after resize
                 if self._area in (DockWidgetArea.left, DockWidgetArea.right):
-                    self.setFixedHeight(parent_size.height())
-                    
+                    max_w = self._get_max_width()
+                    if self._size_hint.width() > max_w:
+                        self._size_hint.setWidth(max_w)
                 elif self._area in (DockWidgetArea.top, DockWidgetArea.bottom):
-                    self.setFixedWidth(parent_size.width())
+                    max_h = self._get_max_height()
+                    if self._size_hint.height() > max_h:
+                        self._size_hint.setHeight(max_h)
+                
+                self._update_geometry()
                     
         return super().eventFilter(obj, event)
 
@@ -254,6 +261,49 @@ class SideBarContainer(QFrame):
         else:
             self._shadow.setOffset(4, 0)
     
+    def _get_max_width(self) -> int:
+        """Calculate maximum allowed width based on parent and opposite sidebar."""
+        parent = self.parentWidget()
+        if not parent:
+            return 600
+        
+        if self._area not in (DockWidgetArea.left, DockWidgetArea.right):
+            return parent.width()
+        
+        available = parent.width()
+        
+        # Account for our own tab bar
+        own_bar = self._find_sibling_bar(self._area)
+        own_bar_width = own_bar.width() if own_bar and own_bar.isVisible() else 0
+        
+        # Account for opposite tab bar to prevent covering it
+        opposite_area = (DockWidgetArea.right 
+                        if self._area == DockWidgetArea.left 
+                        else DockWidgetArea.left)
+        opposite_bar = self._find_sibling_bar(opposite_area)
+        opposite_bar_width = opposite_bar.width() if opposite_bar and opposite_bar.isVisible() else 0
+        
+        max_width = available - own_bar_width - opposite_bar_width - _MIN_CENTER_GAP
+        return max(_MIN_SIDEBAR_WIDTH, max_width)
+
+    def _get_max_height(self) -> int:
+        """Calculate maximum allowed height based on parent."""
+        parent = self.parentWidget()
+        if not parent:
+            return 500
+        
+        if self._area != DockWidgetArea.bottom:
+            return parent.height()
+        
+        available = parent.height()
+        
+        # Account for bottom tab bar
+        own_bar = self._find_sibling_bar(DockWidgetArea.bottom)
+        own_bar_height = own_bar.height() if own_bar and own_bar.isVisible() else 0
+        
+        max_height = available - own_bar_height - _MIN_CENTER_GAP
+        return max(_MIN_SIDEBAR_HEIGHT, max_height)
+
     def _find_sibling_bar(self, area: DockWidgetArea):
         from .sidebar_tab_bar import SideTabBar
         for child in self.parentWidget().children():
@@ -314,14 +364,21 @@ class SideBarContainer(QFrame):
         geo = self._resize_start_geometry
         
         if self._area == DockWidgetArea.left:
-            new_width = max(200, min(600, geo.width() + delta.x()))
+            max_w = self._get_max_width()
+            new_width = max(_MIN_SIDEBAR_WIDTH, min(max_w, geo.width() + delta.x()))
             self.setGeometry(geo.x(), geo.y(), new_width, geo.height())
+            
         elif self._area == DockWidgetArea.right:
-            new_width = max(200, min(600, geo.width() - delta.x()))
-            self.setGeometry(geo.x() + delta.x(), geo.y(), new_width, geo.height())
+            max_w = self._get_max_width()
+            new_width = max(_MIN_SIDEBAR_WIDTH, min(max_w, geo.width() - delta.x()))
+            new_x = geo.x() + geo.width() - new_width
+            self.setGeometry(new_x, geo.y(), new_width, geo.height())
+            
         elif self._area == DockWidgetArea.bottom:
-            new_height = max(150, min(500, geo.height() - delta.y()))
-            self.setGeometry(geo.x(), geo.y() + delta.y(), geo.width(), new_height)
+            max_h = self._get_max_height()
+            new_height = max(_MIN_SIDEBAR_HEIGHT, min(max_h, geo.height() - delta.y()))
+            new_y = geo.y() + geo.height() - new_height
+            self.setGeometry(geo.x(), new_y, geo.width(), new_height)
         
         self._size_hint = self.size()
 

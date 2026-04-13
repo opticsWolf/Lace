@@ -418,12 +418,26 @@ class DockContainerWidget(QFrame):
             emit_top_level_event_for_widget(top_level_widget, True)
             self.dump_layout()
             self._emit_dock_areas_removed()
-
+    
         logger.debug('DockContainerWidget.removeDockArea')
-        if area not in self._dock_areas:
-            logger.error('Area %s not found in DockContainerWidget %s?', area, self)
+        
+        # Guard: destroyed signal may pass partially-destroyed QWidget
+        if not isinstance(area, DockAreaWidget):
+            logger.debug('remove_dock_area called with non-DockAreaWidget: %s (likely from destroyed signal)', type(area).__name__)
             return
-
+            
+        if area not in self._dock_areas:
+            # This can happen legitimately if area was already removed explicitly
+            # and then destroyed signal fires later
+            logger.debug('Area %s not found in DockContainerWidget %s (already removed?)', area, self)
+            return
+    
+        # Disconnect destroyed signal to prevent double-removal
+        try:
+            area.destroyed.disconnect(self.remove_dock_area)
+        except RuntimeError:
+            pass  # Already disconnected
+    
         area.view_toggled.disconnect(self._on_dock_area_view_toggled)
         self._dock_areas.remove(area)
         splitter = find_parent(DockSplitter, area)

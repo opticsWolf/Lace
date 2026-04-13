@@ -248,6 +248,7 @@ class SideTabBar(QFrame, DockMenuMixin):
         btn = VerticalTabButton(
             dock_widget.windowTitle(), icon, parent=self._scroll_container
         )
+        btn.set_area(self._area)  # <-- ADD THIS LINE
         btn.setProperty("_dock_widget", dock_widget)
         btn.setAttribute(Qt.WA_Hover, True)
         btn.installEventFilter(self)

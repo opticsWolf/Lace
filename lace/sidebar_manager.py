@@ -11,7 +11,7 @@ resizable panels, and advanced interactions.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional, Dict
+from typing import TYPE_CHECKING, Optional, Dict, Any
 
 from PySide6.QtCore import QObject, Signal, QTimer, QPoint, QEvent, QSize, QRect, Qt
 from PySide6.QtGui import QKeySequence, QShortcut, QCursor
@@ -628,6 +628,122 @@ class SidebarManager(QObject):
     @property
     def has_sidebars(self) -> bool:
         return len(self._sidebars) > 0
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  State Serialization
+    # ─────────────────────────────────────────────────────────────────────
+
+    def save_state(self) -> Dict[str, Any]:
+        """
+        Serialize the complete sidebar state for layout persistence.
+        Returns a dict suitable for JSON serialization.
+        """
+        state = {
+            "pinned_widgets": {},      # widget_name -> sidebar_area
+            "overlay_sizes": {},       # widget_name -> {width, height}
+            "active_widget": None,     # Currently shown widget name
+            "sidebar_areas": [],       # List of active sidebar areas
+            "settings": {
+                "auto_show_on_hover": self._auto_show_on_hover,
+                "animations_enabled": self._animations_enabled,
+                "keep_open": self._keep_open,
+            }
+        }
+        
+        # Save which widgets are pinned to which sidebars
+        for dock_widget, sidebar in self._pinned.items():
+            widget_name = dock_widget.objectName()
+            area_name = sidebar.area.name if hasattr(sidebar.area, 'name') else str(sidebar.area)
+            state["pinned_widgets"][widget_name] = area_name
+        
+        # Save overlay sizes from state manager
+        state["overlay_sizes"] = self._state_manager.export_all()
+        
+        # Save active widget if overlay is visible
+        if self._active_button and self._overlay.isVisible():
+            dock_widget = self._active_button.property("_dock_widget")
+            if dock_widget:
+                state["active_widget"] = dock_widget.objectName()
+        
+        # Save which sidebar areas exist
+        for area in self._sidebars.keys():
+            area_name = area.name if hasattr(area, 'name') else str(area)
+            state["sidebar_areas"].append(area_name)
+        
+        return state
+
+    def restore_state(self, state: Dict[str, Any]) -> bool:
+        """
+        Restore sidebar state from a previously saved dict.
+        Should be called AFTER containers are restored but BEFORE final UI updates.
+        """
+        if not state:
+            return False
+        
+        try:
+            # Close any open overlay first
+            self.close_overlay()
+            
+            # Restore settings
+            settings = state.get("settings", {})
+            self._auto_show_on_hover = settings.get("auto_show_on_hover", True)
+            self._animations_enabled = settings.get("animations_enabled", True)
+            self._keep_open = settings.get("keep_open", False)
+            
+            # Restore overlay sizes
+            overlay_sizes = state.get("overlay_sizes", {})
+            self._state_manager.import_all(overlay_sizes)
+            
+            # Ensure sidebars exist for all saved areas
+            for area_name in state.get("sidebar_areas", []):
+                area = self._area_from_name(area_name)
+                if area and area not in self._sidebars:
+                    self.add_sidebar(area)
+            
+            # Restore pinned widgets
+            pinned_data = state.get("pinned_widgets", {})
+            for widget_name, area_name in pinned_data.items():
+                dock_widget = self._dock_manager.find_dock_widget(widget_name)
+                if dock_widget is None:
+                    logger.warning(f"restore_state: widget '{widget_name}' not found")
+                    continue
+                
+                area = self._area_from_name(area_name)
+                if area is None:
+                    logger.warning(f"restore_state: invalid area '{area_name}'")
+                    continue
+                
+                # Pin the widget (this handles detaching from dock areas)
+                self.pin_widget(dock_widget, area=area)
+            
+            # Restore active widget (show overlay)
+            active_name = state.get("active_widget")
+            if active_name:
+                dock_widget = self._dock_manager.find_dock_widget(active_name)
+                if dock_widget and dock_widget in self._pinned:
+                    sidebar = self._pinned[dock_widget]
+                    button = sidebar.button_for(dock_widget)
+                    if button:
+                        # Defer showing to avoid layout issues during restore
+                        from PySide6.QtCore import QTimer
+                        QTimer.singleShot(0, lambda b=button: self._show_for_button(b))
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to restore sidebar state: {e}")
+            return False
+
+    def _area_from_name(self, name: str) -> Optional[DockWidgetArea]:
+        """Convert area name string back to DockWidgetArea enum."""
+        try:
+            return DockWidgetArea[name]
+        except (KeyError, TypeError):
+            # Try matching by value name
+            for area in DockWidgetArea:
+                if area.name == name or str(area) == name:
+                    return area
+            return None
 
 
 class ClickOutsideFilter(QObject):

@@ -17,6 +17,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QToolButton, QWidget, QSizePolicy
 
 from .util import start_drag_distance
+from .enums import DockWidgetArea
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory
 
@@ -43,6 +44,7 @@ class VerticalTabButton(QToolButton):
         self._drag_start: Optional[QPoint] = None
         self._badge_count: int = 0
         self._is_hovered = False
+        self._area: DockWidgetArea = DockWidgetArea.left  # Which sidebar this tab belongs to
         
         # --- Cached style values (overwritten by refresh_style) ---
         self._badge_color = QColor("#ff6b6b")
@@ -54,6 +56,7 @@ class VerticalTabButton(QToolButton):
         self._text_active = QColor(Qt.white)
         self._text_normal = QColor(204, 204, 204)
         self._indicator_width = 3
+        self._indicator_position = "left"  # "left" or "right"
         self._tab_corner_radius = 4
         
         self.setCheckable(True)
@@ -76,7 +79,12 @@ class VerticalTabButton(QToolButton):
     
     def text(self) -> str:
         """Returns the text of the tab so the context menu can read it."""
-        return self._text    
+        return self._text
+    
+    def set_area(self, area: DockWidgetArea):
+        """Set which sidebar this tab belongs to (for indicator mirroring)."""
+        self._area = area
+        self.update()    
     
     def set_badge(self, count: int, color: QColor = None):
         """Set notification badge count."""
@@ -147,9 +155,16 @@ class VerticalTabButton(QToolButton):
         else:
             p.fillRect(self.rect(), QColor(0, 0, 0, 0))
         
-        # 2. Selection Indicator
+        # 2. Selection Indicator (mirrored for right sidebar)
         if self.isChecked():
-            p.fillRect(0, 0, self._indicator_width, self.height(),
+            is_right_sidebar = self._area == DockWidgetArea.right
+            if self._indicator_position == "right":
+                # "right" = outer edge: right for left sidebar, left for right sidebar
+                x = 0 if is_right_sidebar else self.width() - self._indicator_width
+            else:  # "left" (default)
+                # "left" = inner edge: left for left sidebar, right for right sidebar
+                x = self.width() - self._indicator_width if is_right_sidebar else 0
+            p.fillRect(x, 0, self._indicator_width, self.height(),
                        self._highlight_color)
         
         # 3. Centered Content (Icon + Text)
@@ -236,6 +251,7 @@ class VerticalTabButton(QToolButton):
         self._text_normal = s.get("tab_text_normal") or self._text_normal
         self._highlight_color = s.get("indicator_color") or self._highlight_color
         self._indicator_width = s.get("indicator_width", 3)
+        self._indicator_position = s.get("indicator_position", "left")
         self._tab_corner_radius = s.get("tab_corner_radius", 4)
         self._badge_color = s.get("badge_bg") or self._badge_color
         self._badge_text_color = s.get("badge_text") or self._badge_text_color
