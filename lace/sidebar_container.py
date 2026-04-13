@@ -19,7 +19,7 @@ from .enums import DockWidgetArea, DockWidgetFeature
 from .util import start_drag_distance
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory
-from .sidebar_title_bar import OverlayTitleBar
+from .sidebar_title_bar import SideBarTitleBar
 
 if TYPE_CHECKING:
     from .dock_widget import DockWidget
@@ -70,7 +70,7 @@ class SideBarContainer(QFrame):
         self._splitter.setChildrenCollapsible(False)
         
         # Title bar (Separated logic)
-        self._title_bar = OverlayTitleBar()
+        self._title_bar = SideBarTitleBar()
         self._title_bar.close_requested.connect(self.close_requested.emit)
         self._title_bar.reattach_requested.connect(self.pin_back_requested.emit)
         self._title_bar.detach_requested.connect(self.drag_unpin_requested.emit)

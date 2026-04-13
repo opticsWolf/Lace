@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from .dock_widget import DockWidget
 
 
-class OverlayTitleBar(QFrame, DockMenuMixin):
+class SideBarTitleBar(QFrame, DockMenuMixin):
     """
     Standalone Title Bar for the Overlay, managing buttons, titles, 
     context menus, and drag-to-detach behavior.
