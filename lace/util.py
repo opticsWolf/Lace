@@ -1,4 +1,3 @@
-import sys
 import logging
 from typing import TYPE_CHECKING, Optional, Type, TypeVar, List
 

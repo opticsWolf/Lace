@@ -16,18 +16,16 @@ import json
 import uuid
 import errno
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Any, List
+from typing import TYPE_CHECKING, Dict, Any
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import QRect
 
-from .enums import DockFlags, WidgetState
 from .dock_container_widget import DockContainerWidget
 from .floating_dock_container import FloatingDockContainer
 
 if TYPE_CHECKING:
     from .dock_manager import DockManager
-    from .dock_widget import DockWidget
 
 logger = logging.getLogger(__name__)
 

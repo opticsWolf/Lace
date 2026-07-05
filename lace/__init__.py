@@ -6,12 +6,14 @@ Copyright (c) 2026 opticsWolf
 SPDX-License-Identifier: Apache-2.0
 """
 
-import sys
 import importlib
+import logging
 import pkgutil
 from pathlib import Path
 from threading import Lock
 from typing import Dict, Any, List
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Global State
@@ -61,7 +63,7 @@ def _discover_models() -> None:
             try:
                 module = importlib.import_module(f".{mod_name}", package=__name__)
             except ImportError as exc:
-                print(f"PADDOL Warning: Failed to import '{mod_name}': {exc}", file=sys.stderr)
+                logger.warning("Failed to import '%s': %s", mod_name, exc)
                 continue
 
             for name, obj in vars(module).items():

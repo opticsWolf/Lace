@@ -15,19 +15,18 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QRect, Signal
-from PySide6.QtGui import QAction, QPalette
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame
 
 from .util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget)
-from .enums import TitleBarButton, DockWidgetFeature, DockFlags
+from .enums import TitleBarButton, DockWidgetFeature
 from .dock_area_layout import DockAreaLayout
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
-    from . import (DockContainerWidget, DockManager, DockWidget, DockWidgetTab,
-                   DockAreaTabBar, DockAreaTitleBar)
+    from . import DockContainerWidget, DockManager, DockWidget, DockAreaTabBar, DockAreaTitleBar
 
 logger = logging.getLogger(__name__)
 

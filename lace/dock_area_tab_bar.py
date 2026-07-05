@@ -18,8 +18,7 @@ from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QBoxLayout, QFrame, QScrollArea, QSizePolicy, QWidget
 
-from .util import start_drag_distance
-from .enums import DragState, DockWidgetArea
+from .enums import DragState
 from .dock_widget_tab import DockWidgetTab
 from .floating_dock_container import FloatingDockContainer
 from .dock_style_manager import get_dock_style_manager

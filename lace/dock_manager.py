@@ -16,7 +16,6 @@ import pathlib
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
 
 from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode
@@ -29,7 +28,7 @@ from .dock_area_widget import DockAreaWidget
 # New Modular Sub-systems
 from .dock_signals import DockSignals
 from .sidebar_manager import SidebarManager
-from .state_serializer import LayoutSerializer
+from .layout_serializer import LayoutSerializer, LayoutError, LayoutPersistenceManager
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme_bridge import DockThemeBridge
 
@@ -84,6 +83,7 @@ class DockManager(DockContainerWidget):
 
         # 5. Modular Sub-systems (Phase 3 & 4)
         self._serializer = LayoutSerializer(self)
+        self._persistence = LayoutPersistenceManager(pathlib.Path.cwd())
         self.sidebar_manager = SidebarManager(self)
 
         # 6. Theme Bridge — pushes QPalette to this widget tree so
@@ -144,7 +144,7 @@ class DockManager(DockContainerWidget):
 
     def save_state(self, version: int = 0) -> str:
         """Saves the current layout and sidebars to a JSON string."""
-        return self._serializer.save_state(version)
+        return self._serializer.serialize(version)
 
     def restore_state(self, state_json: str, version: int = 0) -> bool:
         """Restores the layout and sidebars from a JSON string."""
@@ -158,7 +158,13 @@ class DockManager(DockContainerWidget):
         try:
             self._is_restoring_state = True
             self.restoring_state.emit()
-            success = self._serializer.restore_state(state_json, version)
+            # deserialize() raises LayoutError subclasses on failure instead
+            # of returning a bool, so translate that into the legacy contract.
+            self._serializer.deserialize(state_json, version)
+            success = True
+        except LayoutError:
+            logger.exception("DockManager: layout restore failed")
+            success = False
         finally:
             self._is_restoring_state = False
 
@@ -172,6 +178,15 @@ class DockManager(DockContainerWidget):
 
     def is_restoring_state(self) -> bool:
         return self._is_restoring_state
+
+    def save_layout_to_file(self, filename: str, version: int = 0) -> None:
+        """Atomically writes the current layout to ``filename`` (JSON)."""
+        self._persistence.save_layout(self._serializer, filename, version)
+
+    def load_layout_from_file(self, filename: str, version: int = 0) -> None:
+        """Loads and applies a layout previously written with
+        :meth:`save_layout_to_file`."""
+        self._persistence.load_layout(self._serializer, filename, version)
 
     # ─────────────────────────────────────────────────────────────────────
     #  FACADE API: Styling & Theming

@@ -12,7 +12,6 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import Dict, List
 
-from .enums import DockWidgetArea
 
 logger = logging.getLogger(__name__)
 

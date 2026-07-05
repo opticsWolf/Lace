@@ -8,12 +8,12 @@ SPDX-License-Identifier: Apache-2.0
 
 import re
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 from PySide6.QtCore import QByteArray, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPixmap, QPainter
 from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtWidgets import QApplication, QStyle
+from PySide6.QtWidgets import QApplication
 
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory

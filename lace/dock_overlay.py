@@ -11,12 +11,10 @@ Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
 Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 """
 
-from typing import Dict, Optional
+from typing import Optional
 
-from PySide6.QtCore import (QEvent, QPoint, QPointF, QRect, Qt, QSizeF, QRectF,
-                            QLineF, QTimer)
-from PySide6.QtGui import (QColor, QCursor, QHideEvent, QPainter,
-                           QPalette, QShowEvent, QPixmap, QPolygonF)
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt, QSizeF, QRectF, QLineF
+from PySide6.QtGui import QColor, QCursor, QHideEvent, QPainter, QShowEvent, QPixmap, QPolygonF
 from PySide6.QtWidgets import QFrame, QWidget, QLabel, QGridLayout
 
 # Note: area_alignment removed completely!

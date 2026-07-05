@@ -10,9 +10,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (
-    QFrame, QVBoxLayout, QHBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
-)
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
 
 from .enums import DockWidgetArea, DockWidgetFeature
 from .sidebar_tab import VerticalTabButton

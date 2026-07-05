@@ -15,7 +15,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QEvent, QSize, Qt, Signal
-from PySide6.QtGui import QAction, QIcon, QColor, QPalette, QShowEvent
+from PySide6.QtGui import QAction, QIcon, QPalette, QShowEvent
 from PySide6.QtWidgets import (QBoxLayout, QFrame, QScrollArea,
                                QSplitter, QToolBar, QWidget)
 

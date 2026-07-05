@@ -12,8 +12,8 @@ from dataclasses import fields
 from typing import Dict, Any, Optional, Set
 from weakref import WeakSet
 
-from PySide6.QtGui import QColor, QFont
-from PySide6.QtCore import Qt, QObject, Signal
+from PySide6.QtGui import QColor
+from PySide6.QtCore import QObject, Signal
 
 from .dock_theme import (
     DockStyleCategory, DockCoreStyleSchema, DockTabStyleSchema, 

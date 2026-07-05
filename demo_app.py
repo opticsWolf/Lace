@@ -9,11 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 import sys
 import logging
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import (
-        QApplication, QMainWindow, QTextEdit,
-        QLabel, QWidget, QStyle, QMenu,
-)
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit, QLabel, QStyle, QMenu
 
 from pathlib import Path
 

@@ -10,7 +10,6 @@ import colorsys
 import enum
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Union
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 class DockStyleCategory(enum.Enum):

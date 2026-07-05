@@ -16,8 +16,7 @@ import logging
 
 from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, 
                             QSize, Qt, QTimer)
-from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, 
-                           QPalette, QMoveEvent, QMouseEvent)
+from PySide6.QtGui import QCloseEvent, QCursor, QHideEvent, QPalette, QMoveEvent
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
 from .enums import DockWidgetFeature, DragState, DockWidgetArea, WidgetState

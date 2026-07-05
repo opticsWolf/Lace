@@ -6,17 +6,15 @@ Copyright (c) 2026 opticsWolf
 SPDX-License-Identifier: Apache-2.0
 """
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QRect, QPoint, QEvent
 from PySide6.QtGui import QMouseEvent, QColor
 from PySide6.QtWidgets import (
-    QFrame, QMenu, QSplitter, QVBoxLayout, QHBoxLayout, QLabel,
-    QToolButton, QStyle, QGraphicsDropShadowEffect, QWidget
+    QFrame, QSplitter, QVBoxLayout, QGraphicsDropShadowEffect, QWidget
 )
 
-from .enums import DockWidgetArea, DockWidgetFeature
-from .util import start_drag_distance
+from .enums import DockWidgetArea
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory
 from .sidebar_title_bar import SideBarTitleBar

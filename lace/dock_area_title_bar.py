@@ -16,8 +16,7 @@ import logging
 
 from PySide6.QtCore import QPoint, Qt, Signal, QSize
 from PySide6.QtGui import QAction, QCursor, QMouseEvent
-from PySide6.QtWidgets import (QAbstractButton, QBoxLayout, QFrame,
-                               QMenu, QSizePolicy, QStyle, QToolButton)
+from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy, QToolButton
 
 from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea
 from .util import start_drag_distance
