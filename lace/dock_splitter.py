@@ -18,30 +18,30 @@ from PySide6.QtCore import Qt, QEvent, QSize
 from PySide6.QtGui import QPainter, QColor
 from PySide6.QtWidgets import QSplitter, QSplitterHandle, QWidget
 
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 logger = logging.getLogger(__name__)
 
 
-class DockSplitterHandle(QSplitterHandle):
+class DockSplitterHandle(QSplitterHandle, DockStyled):
     """
     Custom resize handle for the DockSplitter.
-    Reacts to hover events and dynamically reads its colors and thickness 
+    Reacts to hover events and dynamically reads its colors and thickness
     from the global DockStyleManager.
     """
+    STYLE_CATEGORIES = (DockStyleCategory.SPLITTER,)
+
     def __init__(self, orientation: Qt.Orientation, parent: 'DockSplitter'):
         super().__init__(orientation, parent)
         self.setAttribute(Qt.WA_Hover, True)
         self._is_hovered = False
-        
+
         # New: Space for layout vs visual thickness
         self._total_width = 6   # The physical clickable/gap area
         self._handle_width = 2  # The visual colored line
 
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.SPLITTER)
-        self.refresh_style()
+        self._init_dock_style()
 
     def refresh_style(self):
         """Fetches the latest splitter styles from the active theme."""
@@ -54,10 +54,6 @@ class DockSplitterHandle(QSplitterHandle):
         self._handle_margin = styles.get("handle_margin", 4)  # <--- Load the margin
         
         self.update()
-
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        """Callback triggered by DockStyleManager when the theme switches."""
-        self.refresh_style()
 
     def enterEvent(self, event: QEvent):
         """Triggered when the mouse hovers over the resize handle."""

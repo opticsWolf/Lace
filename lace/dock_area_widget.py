@@ -22,7 +22,7 @@ from .util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget)
 from .enums import TitleBarButton, DockWidgetFeature
 from .dock_area_layout import DockAreaLayout
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
@@ -31,7 +31,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockAreaWidget(QFrame):
+class DockAreaWidget(QFrame, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.CORE, DockStyleCategory.PANEL)
     tab_bar_clicked = Signal(int)
     current_changing = Signal(int)
     current_changed = Signal(int)
@@ -53,9 +54,7 @@ class DockAreaWidget(QFrame):
         self._contents_layout = DockAreaLayout(self._layout)
         self._create_title_bar()
 
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.CORE)
-        self.refresh_style()
+        self._init_dock_style()
 
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
@@ -348,5 +347,3 @@ class DockAreaWidget(QFrame):
         #    }}
         #""")
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()

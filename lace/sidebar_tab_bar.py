@@ -15,14 +15,15 @@ from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, Q
 from .enums import DockWidgetArea, DockWidgetFeature
 from .sidebar_tab import VerticalTabButton
 from .dock_context_menu import DockMenuMixin, MenuSection
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
     from .dock_widget import DockWidget
 
-class SideTabBar(QFrame, DockMenuMixin):
+class SideTabBar(QFrame, DockMenuMixin, DockStyled):
     """Advanced sidebar with drag-drop reordering, drop zones, unified menus, and overflow scrolling."""
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEBAR,)
     
     # Generate Tab List, Detach/Reattach, Close, and Close Others automatically
     _menu_sections = (MenuSection.TAB_LIST | MenuSection.PIN | 
@@ -123,9 +124,7 @@ class SideTabBar(QFrame, DockMenuMixin):
 
         # --- Style Manager Integration ---
         self._drop_indicator_color = QColor("#007acc")
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.SIDEBAR)
-        self.refresh_style()
+        self._init_dock_style()
 
         self.hide()
 
@@ -517,5 +516,3 @@ class SideTabBar(QFrame, DockMenuMixin):
         if ind:
             self._drop_indicator_color = ind
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()

@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizeP
 
 from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea
 from .util import start_drag_distance
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
 
@@ -31,7 +31,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockAreaTitleBar(QFrame, DockMenuMixin):
+class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.TITLE_BAR, DockStyleCategory.CORE)
     _menu_sections    = MenuSection.TITLE_BAR
 
     tab_bar_clicked = Signal(int)
@@ -72,9 +73,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         )
 
         # Style Manager Integration
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.TITLE_BAR)
-        self.refresh_style()
+        self._init_dock_style()
 
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
@@ -369,8 +368,6 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         # any changes in 'button_color'
         self.update_button_states()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
 
     def on_tabs_menu_about_to_show(self):
         if not self._menu_outdated:

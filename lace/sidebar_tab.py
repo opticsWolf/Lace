@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QToolButton, QWidget, QSizePolicy
 
 from .util import start_drag_distance
 from .enums import DockWidgetArea
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 
@@ -29,8 +29,9 @@ class TabBadgePosition(Enum):
     bottom_right = auto()
 
 
-class VerticalTabButton(QToolButton):
+class VerticalTabButton(QToolButton, DockStyled):
     """Advanced tab button with badges, context menu, and enhanced visuals."""
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEBAR,)
     
     drag_started = Signal(object)
     context_menu_requested = Signal(object, QPoint)
@@ -73,9 +74,7 @@ class VerticalTabButton(QToolButton):
         self.customContextMenuRequested.connect(self._on_context_menu)
 
         # --- Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.SIDEBAR)
-        self.refresh_style()
+        self._init_dock_style()
     
     def text(self) -> str:
         """Returns the text of the tab so the context menu can read it."""
@@ -268,5 +267,3 @@ class VerticalTabButton(QToolButton):
 
         self.update()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()

@@ -20,13 +20,13 @@ from .enums import DockWidgetFeature
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
 from .util import start_drag_distance
 from .dock_theme import DockStyleCategory
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 
 if TYPE_CHECKING:
     from .dock_widget import DockWidget
 
 
-class SideBarTitleBar(QFrame, DockMenuMixin):
+class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
     """
     Standalone Title Bar for the Overlay, managing buttons, titles, 
     context menus, and drag-to-detach behavior.
@@ -34,6 +34,7 @@ class SideBarTitleBar(QFrame, DockMenuMixin):
     Provides float, unpin, and close functionality with unified iconography
     and consistent interaction patterns.
     """
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEPANEL, DockStyleCategory.SIDEBAR, DockStyleCategory.CORE, DockStyleCategory.OVERLAY)
     
     _menu_sections = MenuSection.DETACH | MenuSection.CLOSE
 
@@ -53,9 +54,7 @@ class SideBarTitleBar(QFrame, DockMenuMixin):
         self._setup_ui()
 
         # Style Manager Integration
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.SIDEPANEL)
-        self.refresh_style()
+        self._init_dock_style()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
@@ -312,6 +311,3 @@ class SideBarTitleBar(QFrame, DockMenuMixin):
             btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
             btn.setIconSize(icon_size)
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        """Called by DockStyleManager when subscribed categories change."""
-        self.refresh_style()

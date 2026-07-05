@@ -21,7 +21,7 @@ from PySide6.QtWidgets import QBoxLayout, QFrame, QScrollArea, QSizePolicy, QWid
 from .enums import DragState
 from .dock_widget_tab import DockWidgetTab
 from .floating_dock_container import FloatingDockContainer
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
@@ -30,7 +30,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockAreaTabBar(QScrollArea):
+class DockAreaTabBar(QScrollArea, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.TAB,)
     current_changing = Signal(int)
     current_changed = Signal(int)
     tab_bar_clicked = Signal(int)
@@ -69,9 +70,7 @@ class DockAreaTabBar(QScrollArea):
         self._tabs_container_widget.setLayout(self._tabs_layout)
 
         # --- ADDED: Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.TAB)
-        self.refresh_style()
+        self._init_dock_style()
 
     def _update_tabs(self):
         for i in range(self.count()):
@@ -376,6 +375,4 @@ class DockAreaTabBar(QScrollArea):
             }}
         """)
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
 

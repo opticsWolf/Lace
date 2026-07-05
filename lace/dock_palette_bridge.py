@@ -47,8 +47,15 @@ from typing import Optional
 
 from PySide6.QtGui import QPalette, QColor
 
+from .dock_colors import to_qcolor
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory
+
+
+# Generation-tagged snapshot cache: resolve_dock_colors() walks the whole
+# style manager, and DockWidget / the theme bridge / overlays each call it.
+# Recompute only when the manager's generation counter advances.
+_snapshot_cache: Optional[tuple[int, "DockThemeColors"]] = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -81,8 +88,17 @@ class DockThemeColors:
 
 
 def resolve_dock_colors() -> DockThemeColors:
+    """Return the current resolved dock colours, cached by manager generation."""
+    global _snapshot_cache
     sm = get_dock_style_manager()
+    if _snapshot_cache is not None and _snapshot_cache[0] == sm.generation:
+        return _snapshot_cache[1]
+    colors = _resolve_uncached(sm)
+    _snapshot_cache = (sm.generation, colors)
+    return colors
 
+
+def _resolve_uncached(sm) -> DockThemeColors:
     canvas_bg = to_qcolor(sm.get(DockStyleCategory.CORE, "canvas_bg", [20, 20, 20]))
     title_bg = to_qcolor(sm.get(DockStyleCategory.TITLE_BAR, "bg_normal", [37, 37, 38]))
     panel_bg = to_qcolor(sm.get(DockStyleCategory.PANEL, "bg_normal", [30, 30, 30]))
@@ -149,12 +165,6 @@ def resolve_dock_colors() -> DockThemeColors:
         color_dark=color_dark, color_shadow=color_shadow,
         disabled_text=disabled_text, placeholder_text=placeholder_text
     )
-
-def to_qcolor(val) -> QColor:
-    if isinstance(val, QColor): return val
-    if isinstance(val, (list, tuple)) and len(val) >= 3:
-        return QColor(int(val[0]), int(val[1]), int(val[2]), int(val[3]) if len(val) > 3 else 255)
-    return QColor(0, 0, 0, 255)
 
 
 def _apply_shared_roles(pal: QPalette, c: DockThemeColors):

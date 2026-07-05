@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 from .enums import DockWidgetFeature, DragState, DockWidgetArea, WidgetState
 from .dock_container_widget import DockContainerWidget
 
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
@@ -33,7 +33,8 @@ logger = logging.getLogger(__name__)
 _z_order_counter = 0
 
 
-class FloatingDockContainer(QWidget):
+class FloatingDockContainer(QWidget, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.CORE,)
     def __init__(self, *, dock_area: 'DockAreaWidget' = None,
                  dock_widget: 'DockWidget' = None,
                  dock_manager: 'DockManager' = None):
@@ -96,9 +97,7 @@ class FloatingDockContainer(QWidget):
         self._ignore_synthetic_release = False
 
         # Style Manager Integration
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.CORE)
-        self.refresh_style()
+        self._init_dock_style()
         
     def __repr__(self):
         return f'<FloatingDockContainer container={self._dock_container}>'
@@ -502,8 +501,6 @@ class FloatingDockContainer(QWidget):
         self.setAutoFillBackground(True)
         self.setBackgroundRole(QPalette.ColorRole.Window)
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
 
     # ─────────────────────────────────────────────────────────────────────
     #  Public accessors

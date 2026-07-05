@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QBoxLayout, QFrame, QScrollArea,
                                QSplitter, QToolBar, QWidget)
 
 # --- ADDED IMPORTS ---
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .dock_palette_bridge import resolve_dock_colors, build_dock_palette
 from .enums import (DockWidgetFeature, WidgetState, ToggleViewActionMode,
@@ -33,7 +33,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockWidget(QFrame):
+class DockWidget(QFrame, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.PANEL, DockStyleCategory.CORE)
     view_toggled = Signal(bool)
     closed = Signal()
     title_changed = Signal(str)
@@ -82,9 +83,7 @@ class DockWidget(QFrame):
         self.set_toolbar_floating_style(False)
 
         # --- NEW: Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.PANEL)
-        self.refresh_style()
+        self._init_dock_style()
 
     def __repr__(self):
         return f'<{self.__class__.__name__} title={self.windowTitle()!r}>'

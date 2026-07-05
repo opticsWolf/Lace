@@ -12,52 +12,17 @@ from dataclasses import fields
 from typing import Dict, Any, Optional, Set
 from weakref import WeakSet
 
-from PySide6.QtGui import QColor
 from PySide6.QtCore import QObject, Signal
 
+from .dock_colors import deep_to_qcolor
 from .dock_theme import (
-    DockStyleCategory, DockCoreStyleSchema, DockTabStyleSchema, 
-    DockTitleBarStyleSchema, DockSidebarStyleSchema, 
-    DockSidePanelStyleSchema, DockSplitterStyleSchema, DockOverlayStyleSchema, 
+    DockStyleCategory, DockCoreStyleSchema, DockTabStyleSchema,
+    DockTitleBarStyleSchema, DockSidebarStyleSchema,
+    DockSidePanelStyleSchema, DockSplitterStyleSchema, DockOverlayStyleSchema,
     DockPanelStyleSchema, BASE_DOCK_DEFAULTS
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _is_color_list(val: Any) -> bool:
-    return (isinstance(val, (list, tuple))
-            and 3 <= len(val) <= 4
-            and all(isinstance(c, (int, float)) for c in val))
-
-def to_qcolor(val) -> QColor:
-    if isinstance(val, QColor):
-        return val
-    if isinstance(val, str) and val.startswith("#"):
-        return QColor(val)
-    if isinstance(val, (list, tuple)) and len(val) >= 3:
-        return QColor(int(val[0]), int(val[1]), int(val[2]), int(val[3]) if len(val) > 3 else 255)
-    return QColor(0, 0, 0, 255)
-
-def _deep_convert_for_read(value: Any) -> Any:
-    if isinstance(value, QColor):
-        return value
-    if _is_color_list(value):
-        return to_qcolor(value)
-    if isinstance(value, dict):
-        return {k: _deep_convert_for_read(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_deep_convert_for_read(item) for item in value]
-    return value
-
-def _deep_coerce_for_storage(value: Any) -> Any:
-    if isinstance(value, QColor):
-        return [value.red(), value.green(), value.blue(), value.alpha()]
-    if isinstance(value, dict):
-        return {k: _deep_coerce_for_storage(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_deep_coerce_for_storage(item) for item in value]
-    return value
 
 
 _SCHEMA_MAP: Dict[DockStyleCategory, type] = {
@@ -75,7 +40,9 @@ def _create_default_schema(category: DockStyleCategory) -> Any:
     schema = _SCHEMA_MAP[category]()
     if category in BASE_DOCK_DEFAULTS:
         for key, val in copy.deepcopy(BASE_DOCK_DEFAULTS[category]).items():
-            setattr(schema, key, val)
+            # Store colours natively as QColor (converted once here) so reads
+            # are free; non-colour scalars pass through unchanged.
+            setattr(schema, key, deep_to_qcolor(val))
     return schema
 
 
@@ -106,6 +73,10 @@ class DockStyleManager(QObject):
             cat: None for cat in DockStyleCategory
         }
         self._suppress_signals = False
+        # Monotonic counter bumped on every mutation; lets consumers cache
+        # resolved colour snapshots and invalidate them cheaply (see
+        # dock_palette_bridge.resolve_dock_colors).
+        self.generation = 0
 
     def _reset_to_defaults(self) -> None:
         """Resets all schemas back to the hardcoded defaults."""
@@ -114,6 +85,7 @@ class DockStyleManager(QObject):
         }
         for cat in DockStyleCategory:
             self._dict_cache[cat] = None
+        self.generation += 1
 
     def apply_theme(self, theme_name: str) -> bool:
         """
@@ -154,36 +126,39 @@ class DockStyleManager(QObject):
                 sub_set.discard(subscriber)
                 
     def get(self, category: DockStyleCategory, key: str, default: Any = None) -> Any:
+        # Values are stored natively (QColor for colours, scalars otherwise),
+        # so reads need no conversion.
         schema = self._schemas.get(category)
         if schema and hasattr(schema, key):
             value = getattr(schema, key)
-            return _deep_convert_for_read(value) if value is not None else default
+            return value if value is not None else default
         return default
-        
+
     def get_all(self, category: DockStyleCategory) -> Dict[str, Any]:
         if self._dict_cache[category] is None:
             schema = self._schemas[category]
-            raw = {f.name: getattr(schema, f.name) for f in fields(schema)}
-            self._dict_cache[category] = {k: _deep_convert_for_read(v) for k, v in raw.items()}
+            self._dict_cache[category] = {f.name: getattr(schema, f.name) for f in fields(schema)}
         return dict(self._dict_cache[category])
-        
+
     def update(self, category: DockStyleCategory, **kwargs) -> Set[str]:
         schema = self._schemas.get(category)
         if not schema:
             return set()
-            
+
         changed = set()
         for key, value in kwargs.items():
             if not hasattr(schema, key):
                 continue
-            store_value = _deep_coerce_for_storage(value)
+            # Convert colours to QColor once, on write.
+            store_value = deep_to_qcolor(value)
             if getattr(schema, key) != store_value:
                 setattr(schema, key, store_value)
                 changed.add(key)
-                
+
         if changed:
             self._dict_cache[category] = None
-            
+            self.generation += 1
+
             if not self._suppress_signals:
                 qt_changes = {k: self.get(category, k) for k in changed}
                 self._notify_subscribers(category, qt_changes)

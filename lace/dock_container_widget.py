@@ -24,7 +24,7 @@ from .enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,
                     DockFlags, DockInsertParam)
 from .dock_splitter import DockSplitter
 from .dock_area_widget import DockAreaWidget
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
@@ -60,7 +60,8 @@ def replace_splitter_widget(splitter: QSplitter, from_: QWidget, to: QWidget):
     splitter.insertWidget(index, to)
 
 
-class DockContainerWidget(QFrame):
+class DockContainerWidget(QFrame, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.CORE,)
     dock_areas_added = Signal()
     dock_areas_removed = Signal()
     dock_area_view_toggled = Signal(DockAreaWidget, bool)
@@ -80,9 +81,7 @@ class DockContainerWidget(QFrame):
         self._top_level_dock_area: DockAreaWidget = None
 
         # --- ADDED: Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.CORE)
-        self.refresh_style()
+        self._init_dock_style()
 
         self._layout.setContentsMargins(0, 1, 0, 1)
         self._layout.setSpacing(0)
@@ -858,6 +857,3 @@ class DockContainerWidget(QFrame):
         # Optional: You can also set a background color here if floating containers 
         # need a specific background behind the splitters.
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        """Callback triggered by DockStyleManager when the theme switches."""
-        self.refresh_style()

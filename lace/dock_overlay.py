@@ -19,12 +19,14 @@ from PySide6.QtWidgets import QFrame, QWidget, QLabel, QGridLayout
 
 # Note: area_alignment removed completely!
 from .enums import OverlayMode, DockWidgetArea
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 
-class DockOverlay(QFrame):
+class DockOverlay(QFrame, DockStyled):
     """Overlay widget for showing drop targets during drag operations."""
+
+    STYLE_CATEGORIES = (DockStyleCategory.OVERLAY,)
 
     def __init__(self, parent: QWidget, mode: OverlayMode):
         super().__init__(parent)
@@ -48,8 +50,7 @@ class DockOverlay(QFrame):
         self.setAttribute(Qt.WA_TranslucentBackground)
         
         # Connect to style manager
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.OVERLAY)
+        self._init_dock_style(refresh=False)
         
         self._cross = DockOverlayCross(self)
         self._cross.setVisible(False)
@@ -63,8 +64,6 @@ class DockOverlay(QFrame):
         self._cached_overlay_color = None
         self.update()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
 
     def _get_cached_style_colors(self) -> tuple[QColor, QColor]:
         """Get cached style colors. Fetch from manager if not yet cached."""
@@ -196,9 +195,11 @@ class DockOverlay(QFrame):
         return self._cross
 
 
-class DockOverlayCross(QWidget):
+class DockOverlayCross(QWidget, DockStyled):
     """Widget that draws the visual indicator for drop areas."""
-    
+
+    STYLE_CATEGORIES = (DockStyleCategory.OVERLAY,)
+
     _all_areas = [
         DockWidgetArea.left,
         DockWidgetArea.right,
@@ -229,8 +230,7 @@ class DockOverlayCross(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         
         # Connect to style manager
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.OVERLAY)
+        self._init_dock_style(refresh=False)
         
         self._grid_layout = QGridLayout()
         self._grid_layout.setSpacing(0)
@@ -250,8 +250,6 @@ class DockOverlayCross(QWidget):
         self.update_overlay_icons()
         self.update()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
 
     def _get_cached_style_colors(self) -> tuple[QColor, QColor, QColor, QColor, QColor]:
         """Get cached style colors. Fetch from manager if not yet cached."""

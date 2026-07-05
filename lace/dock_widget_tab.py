@@ -21,7 +21,7 @@ from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QW
 from .util import start_drag_distance
 from .enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature
 from .eliding_label import ElidingLabel
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
 
@@ -32,7 +32,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockWidgetTab(QFrame, DockMenuMixin):
+class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.TAB,)
     _menu_sections = MenuSection.TAB
 
     active_tab_changed = Signal()
@@ -60,9 +61,7 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         self._create_layout()
 
         # --- ADDED: Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.TAB)
-        self.refresh_style()
+        self._init_dock_style()
 
     def _create_layout(self):
         self._title_label = ElidingLabel(text=self._dock_widget.windowTitle())
@@ -407,5 +406,3 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         if self._title_label:
             self._title_label.setFont(font)
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()

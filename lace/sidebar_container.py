@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from .enums import DockWidgetArea
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .sidebar_title_bar import SideBarTitleBar
 
@@ -28,11 +28,12 @@ _MIN_SIDEBAR_WIDTH = 200
 _MIN_SIDEBAR_HEIGHT = 150
 _MIN_CENTER_GAP = 50  # Minimum space to preserve in center / prevent overlap
 
-class SideBarContainer(QFrame):
+class SideBarContainer(QFrame, DockStyled):
     """
     Animated overlay hosting an active dock widget with dynamic 
     resize tracking and keyboard focus management.
     """
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEPANEL,)
     pin_back_requested = Signal(object)
     drag_unpin_requested = Signal(object)
     close_requested = Signal()
@@ -83,9 +84,7 @@ class SideBarContainer(QFrame):
         self._size_hint = QSize(300, 200)
 
         # --- Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.SIDEPANEL)
-        self.refresh_style()
+        self._init_dock_style()
 
         if parent:
             parent.installEventFilter(self)
@@ -400,5 +399,3 @@ class SideBarContainer(QFrame):
             self._shadow.setColor(shadow_color)
         self._shadow.setBlurRadius(s.get("shadow_blur_radius", 20))
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
