@@ -23,7 +23,6 @@ from .util import (find_parent, hide_empty_parent_splitters,
                    dump_layout as _dump_layout)
 from .enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,
                     DockFlags, DockInsertParam)
-from .dock_container_state import save_container_state, restore_container_state
 from .dock_splitter import DockSplitter
 from .dock_area_widget import DockAreaWidget
 from .dock_styled import DockStyled
@@ -487,12 +486,6 @@ class DockContainerWidget(QFrame, DockStyled):
         splitter = None
 
         return emit_and_exit()
-
-    def save_state(self) -> dict:
-        return save_container_state(self)
-
-    def restore_state(self, state: dict, testing: bool = False) -> bool:
-        return restore_container_state(self, state, testing)
 
     def last_added_dock_area_widget(self, area: DockWidgetArea) -> DockAreaWidget:
         return self._last_added_area_cache.get(area, None)

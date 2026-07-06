@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
 from .enums import DockWidgetFeature, DragState, DockWidgetArea, WidgetState
 from .dock_container_widget import DockContainerWidget
+from .dock_container_state import restore_container_state
 
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
@@ -378,7 +379,7 @@ class FloatingDockContainer(QWidget, DockStyled):
     # ─────────────────────────────────────────────────────────────────────
 
     def restore_state(self, state: dict, testing: bool) -> bool:
-        if not self._dock_container.restore_state(state, testing):
+        if not restore_container_state(self._dock_container, state, testing):
             return False
         self.on_dock_areas_added_or_removed()
         return True

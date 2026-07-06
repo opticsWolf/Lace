@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Dict, Any
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import QRect
 
-from .dock_container_widget import DockContainerWidget
+from .dock_container_state import save_container_state, restore_container_state
 from .floating_dock_container import FloatingDockContainer
 
 if TYPE_CHECKING:
@@ -175,7 +175,7 @@ class LayoutStateBuilder:
             cid = "main" if is_main else str(uuid.uuid4())
             self._transient_id_map[container] = cid
             
-            c_state = DockContainerWidget.save_state(container) if is_main else container.save_state()
+            c_state = save_container_state(container)
             state_dict["containers"].append({
                 "id": cid,
                 "is_main": is_main,
@@ -268,7 +268,7 @@ class LayoutEngine:
             c_data = c_info.get("data", {})
             
             if c_info.get("is_main"):
-                DockContainerWidget.restore_state(self._manager, c_data, testing=False)
+                restore_container_state(self._manager, c_data, testing=False)
             else:
                 fw = floating_pool.pop() if floating_pool else FloatingDockContainer(dock_manager=self._manager)
                 fw.restore_state(c_data, testing=False)
