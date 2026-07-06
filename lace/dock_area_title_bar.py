@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizeP
 
 from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea
 from .util import start_drag_distance
+from .dock_chrome import style_title_bar_buttons
 from .dock_paint import chrome_content_margin, top_rounded_path
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
@@ -307,16 +308,6 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
         btn_hover = styles.get("button_hover_bg")
         disabled_color = core_styles.get("disabled_text_color")
 
-        btn_css = btn_color.name() if btn_color else "palette(text)"
-        btn_hover_css = btn_hover.name() if btn_hover else "palette(mid)"
-        disabled_css = disabled_color.name() if disabled_color else "palette(mid)"
-
-        btn_radius = styles.get("button_corner_radius", 3)
-        btn_padding = styles.get("button_padding", 4)
-        btn_expand_v = styles.get("button_expand_vertical", True)
-        btn_size = styles.get("button_size", 20)
-        btn_icon_size = styles.get("button_icon_size", 16)
-
         # Painted background (rounded on top to nest inside the dock-area card),
         # instead of a square stylesheet background that would clash with the
         # card's rounded corners.  The top radius is the card radius minus the
@@ -330,44 +321,17 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
         self.setAttribute(Qt.WA_StyledBackground, False)
         self.update()
 
-        # Apply button styling individually (unified with sidebar_title_bar)
-        button_css = f"""
-            QToolButton {{
-                color: {btn_css};
-                background: transparent;
-                border: none;
-                border-radius: {btn_radius}px;
-                padding: {btn_padding}px;
-                min-width: {btn_size}px;
-                min-height: {btn_size}px;
-            }}
-            QToolButton:hover {{
-                background-color: {btn_hover_css};
-            }}
-            QToolButton:disabled {{
-                color: {disabled_css};
-            }}
-        """
-        
-        # Apply size policy based on vertical expansion setting
-        v_policy = QSizePolicy.Expanding if btn_expand_v else QSizePolicy.Fixed
-        icon_size = QSize(btn_icon_size, btn_icon_size)
-        
-        self._tabs_menu_button.setStyleSheet(button_css)
-        self._tabs_menu_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._tabs_menu_button.setIconSize(icon_size)
-        
-        self._pin_button.setStyleSheet(button_css)
-        self._pin_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._pin_button.setIconSize(icon_size)
-        
-        self._undock_button.setStyleSheet(button_css)
-        self._undock_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._undock_button.setIconSize(icon_size)
-        
-        self._close_button.setStyleSheet(button_css)
-        self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._close_button.setIconSize(icon_size)
+        # Shared icon-button styling (see sidebar_title_bar — same call).
+        style_title_bar_buttons(
+            (self._tabs_menu_button, self._pin_button,
+             self._undock_button, self._close_button),
+            color=btn_color, hover_bg=btn_hover, disabled=disabled_color,
+            radius=styles.get("button_corner_radius", 3),
+            padding=styles.get("button_padding", 4),
+            size=styles.get("button_size", 20),
+            icon_size=styles.get("button_icon_size", 16),
+            expand_vertical=styles.get("button_expand_vertical", True),
+        )
 
         # Trigger an update of the icons to ensure they reflect
         # any changes in 'button_color'

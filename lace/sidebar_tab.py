@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 """
 
 from enum import Enum, auto
-from typing import Optional
-
 from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect
 from PySide6.QtGui import (
     QPainter, QFontMetrics, QIcon, QColor, QPen, QMouseEvent, 
@@ -16,7 +14,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QToolButton, QWidget, QSizePolicy
 
-from .util import start_drag_distance
+from .dock_chrome import DragDetector
 from .enums import DockWidgetArea
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
@@ -42,7 +40,6 @@ class VerticalTabButton(QToolButton, DockStyled):
         super().__init__(parent)
         self._text = text
         self._icon = icon or QIcon()
-        self._drag_start: Optional[QPoint] = None
         self._badge_count: int = 0
         self._is_hovered = False
         self._area: DockWidgetArea = DockWidgetArea.left  # Which sidebar this tab belongs to
@@ -72,6 +69,10 @@ class VerticalTabButton(QToolButton, DockStyled):
         # Context menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._on_context_menu)
+
+        # Drag off the sidebar to tear the panel into a floating window.
+        self._drag = DragDetector(self)
+        self._drag.drag_started.connect(lambda _pos: self.drag_started.emit(self))
 
         # --- Style Manager Integration ---
         self._init_dock_style()
@@ -108,26 +109,11 @@ class VerticalTabButton(QToolButton, DockStyled):
         self.context_menu_requested.emit(self, self.mapToGlobal(pos))
     
     def mousePressEvent(self, ev: QMouseEvent):
-        if ev.button() == Qt.LeftButton:
-            self._drag_start = ev.position().toPoint()
-        elif ev.button() == Qt.MiddleButton:
+        if ev.button() == Qt.MiddleButton:
             # Middle click to close/unpin
             self.close_requested.emit(self)
         super().mousePressEvent(ev)
-    
-    def mouseMoveEvent(self, ev: QMouseEvent):
-        if (self._drag_start is not None
-                and (ev.position().toPoint() - self._drag_start).manhattanLength()
-                >= start_drag_distance()):
-            self._drag_start = None
-            self.drag_started.emit(self)
-            return
-        super().mouseMoveEvent(ev)
-    
-    def mouseReleaseEvent(self, ev: QMouseEvent):
-        self._drag_start = None
-        super().mouseReleaseEvent(ev)
-    
+
     def sizeHint(self) -> QSize:
         fm = QFontMetrics(self.font())
         text_w = fm.horizontalAdvance(self._text)

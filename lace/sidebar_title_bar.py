@@ -11,14 +11,13 @@ Standalone title bar for the sidebar overlay panel, with context menu,
 drag-to-detach, and unified action naming / icons.
 """
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import Qt, Signal, QPoint, QSize
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtCore import Qt, Signal, QPoint
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu, QSizePolicy
+    QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
 )
 from .enums import DockWidgetFeature
+from .dock_chrome import style_title_bar_buttons, DragDetector
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
-from .util import start_drag_distance
 from .dock_theme import DockStyleCategory
 from .dock_styled import DockStyled
 
@@ -49,9 +48,12 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
         self.setAutoFillBackground(True)
 
         self._active_widget: Optional['DockWidget'] = None
-        self._drag_start: Optional[QPoint] = None
 
         self._setup_ui()
+
+        # Drag the title bar to detach the pinned panel into a floating window.
+        self._drag = DragDetector(self)
+        self._drag.drag_started.connect(self._on_drag_started)
 
         # Style Manager Integration
         self._init_dock_style()
@@ -116,24 +118,11 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
             self._reattach_btn.setVisible(True)
             self._float_btn.setVisible(True)
 
-    # --- Mouse & Drag Logic ---
+    # --- Drag Logic ---
 
-    def mousePressEvent(self, ev: QMouseEvent):
-        if ev.button() == Qt.LeftButton:
-            self._drag_start = ev.globalPosition().toPoint()
-        super().mousePressEvent(ev)
-    
-    def mouseMoveEvent(self, ev: QMouseEvent):
-        if self._drag_start:
-            if (ev.globalPosition().toPoint() - self._drag_start).manhattanLength() >= start_drag_distance():
-                self._drag_start = None
-                if self._active_widget:
-                    self.detach_requested.emit(self._active_widget)
-        super().mouseMoveEvent(ev)
-    
-    def mouseReleaseEvent(self, ev: QMouseEvent):
-        self._drag_start = None
-        super().mouseReleaseEvent(ev)
+    def _on_drag_started(self, _global_pos: QPoint):
+        if self._active_widget:
+            self.detach_requested.emit(self._active_widget)
 
     # --- Menu Logic ---
 
@@ -230,18 +219,13 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
 
         # Resolve Colors with fallbacks
         bg = styles.get("bg_normal")
-        frame = sidebar_styles.get("border_color")
         title_text = styles.get("title_text_color")
         btn_color = styles.get("button_color")
         btn_hover = styles.get("button_hover_bg")
         disabled_color = core_styles.get("disabled_text_color")
 
         bg_css = bg.name() if bg else "palette(window)"
-        frame_css = frame.name() if frame else "palette(mid)"
         title_css = title_text.name() if title_text else "palette(text)"
-        btn_css = btn_color.name() if btn_color else "palette(text)"
-        btn_hover_css = btn_hover.name() if btn_hover else "palette(mid)"
-        disabled_css = disabled_color.name() if disabled_color else "palette(mid)"
 
         # Title bar container styling
         # self.setStyleSheet(f"""
@@ -278,36 +262,14 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
         font.setBold(bold)
         self._title_label.setFont(font)
 
-        # Button styling
-        btn_radius = styles.get("button_corner_radius", 3)
-        btn_padding = styles.get("button_padding", 2)
-        btn_size = styles.get("button_size", 18)
-        btn_icon_size = styles.get("button_icon_size", 16)
-        btn_expand_v = styles.get("button_expand_vertical", False)
-
-        button_css = f"""
-            QToolButton {{
-                color: {btn_css};
-                background: transparent;
-                border: none;
-                border-radius: {btn_radius}px;
-                padding: {btn_padding}px;
-                min-width: {btn_size}px;
-                min-height: {btn_size}px;
-            }}
-            QToolButton:hover {{
-                background-color: {btn_hover_css};
-            }}
-            QToolButton:disabled {{
-                color: {disabled_css};
-            }}
-        """
-
-        v_policy = QSizePolicy.Expanding if btn_expand_v else QSizePolicy.Fixed
-        icon_size = QSize(btn_icon_size, btn_icon_size)
-
-        for btn in (self._reattach_btn, self._float_btn, self._close_btn):
-            btn.setStyleSheet(button_css)
-            btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
-            btn.setIconSize(icon_size)
+        # Shared icon-button styling (see dock_area_title_bar — same call).
+        style_title_bar_buttons(
+            (self._reattach_btn, self._float_btn, self._close_btn),
+            color=btn_color, hover_bg=btn_hover, disabled=disabled_color,
+            radius=styles.get("button_corner_radius", 3),
+            padding=styles.get("button_padding", 2),
+            size=styles.get("button_size", 18),
+            icon_size=styles.get("button_icon_size", 16),
+            expand_vertical=styles.get("button_expand_vertical", False),
+        )
 
