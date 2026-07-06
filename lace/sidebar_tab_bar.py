@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer, QRectF
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QPainter, QPen, QPalette, QPainterPath
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
 
 from .enums import DockWidgetArea, DockWidgetFeature
@@ -20,6 +20,54 @@ from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
     from .dock_widget import DockWidget
+
+class _DropLine(QWidget):
+    """Thin drop-position line, painted (robust against the scroll container's
+    ``background: transparent`` stylesheet, which would defeat a palette fill)."""
+    def __init__(self, color: QColor, parent: QWidget = None):
+        super().__init__(parent)
+        self._color = color
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.fillRect(self.rect(), self._color)
+        p.end()
+
+
+class _CounterBadge(QLabel):
+    """Overflow "+N" counter with a painted rounded background (no hex QSS).
+
+    The rounded fill is painted; the digit is drawn by ``QLabel`` in the
+    palette ``WindowText`` colour.  Replaces the old ``border-radius`` stylesheet.
+    """
+    _MARGIN = 2.0  # matches the old QSS margin:2px inset
+
+    def __init__(self, text: str = "", parent: QWidget = None):
+        super().__init__(text, parent)
+        self._bg: Optional[QColor] = None
+        self._radius = 4.0
+
+    def set_badge(self, bg: Optional[QColor], text_color: Optional[QColor], radius: float):
+        self._bg = bg
+        self._radius = max(0.0, radius)
+        if text_color is not None:
+            pal = self.palette()
+            pal.setColor(QPalette.WindowText, text_color)
+            self.setPalette(pal)
+        self.update()
+
+    def paintEvent(self, event):
+        if self._bg is not None and self._bg.alpha() > 0:
+            p = QPainter(self)
+            p.setRenderHint(QPainter.Antialiasing, True)
+            rect = QRectF(self.rect()).adjusted(self._MARGIN, self._MARGIN,
+                                                -self._MARGIN, -self._MARGIN)
+            path = QPainterPath()
+            path.addRoundedRect(rect, self._radius, self._radius)
+            p.fillPath(path, self._bg)
+            p.end()
+        super().paintEvent(event)   # draws the digit in the palette colour
+
 
 class SideTabBar(QFrame, DockMenuMixin, DockStyled):
     """Advanced sidebar with drag-drop reordering, drop zones, unified menus, and overflow scrolling."""
@@ -68,7 +116,7 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
         self._scroll_next_btn.setAutoRaise(True)
         
         # --- 3. Total Items Counter ---
-        self._counter_lbl = QLabel("0")
+        self._counter_lbl = _CounterBadge("0")
         self._counter_lbl.setAlignment(Qt.AlignCenter)
 
         self._scroll_prev_btn.setArrowType(Qt.UpArrow)
@@ -441,10 +489,7 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
     
     def _show_drop_indicator(self):
         # Attach drop indicator directly to the inner scroll container
-        self._drop_indicator = QLabel(self._scroll_container)
-        self._drop_indicator.setStyleSheet(
-            f"background-color: {self._drop_indicator_color.name()};"
-        )
+        self._drop_indicator = _DropLine(self._drop_indicator_color, self._scroll_container)
         self._drop_indicator.setFixedSize(3, 30)
         self._drop_indicator.show()
     
@@ -490,27 +535,20 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
         self._layout.setContentsMargins(pad, pad, pad, pad + 2)
         self._layout.setSpacing(s.get("tab_margin", 2))
 
-        # Counter label (uses subtle sidebar colors, badge font metrics)
+        # Counter badge (painted rounded bg + palette text — see _CounterBadge).
         counter_bg = s.get("tab_bg_hover_start")
-        counter_bg_css = counter_bg.name() if counter_bg else "palette(mid)"
         counter_text = s.get("tab_text_normal")
-        counter_text_css = counter_text.name() if counter_text else "palette(text)"
         badge_radius = s.get("badge_radius", 6)
         badge_font = s.get("badge_font_family", "Segoe UI")
         badge_size = s.get("badge_font_size", 8)
 
-        self._counter_lbl.setStyleSheet(f"""
-            QLabel {{
-                font-weight: bold;
-                font-size: {badge_size + 2}px;
-                font-family: "{badge_font}";
-                color: {counter_text_css};
-                background: {counter_bg_css};
-                border-radius: {badge_radius - 2}px;
-                margin: 2px;
-                padding: 2px;
-            }}
-        """)
+        font = self._counter_lbl.font()
+        font.setFamily(badge_font)
+        font.setPixelSize(badge_size + 2)   # old QSS used px, not pt
+        font.setBold(True)
+        self._counter_lbl.setContentsMargins(2, 2, 2, 2)   # old QSS padding:2px
+        self._counter_lbl.setFont(font)
+        self._counter_lbl.set_badge(counter_bg, counter_text, badge_radius - 2)
 
         # Drop indicator color
         ind = s.get("indicator_color")
