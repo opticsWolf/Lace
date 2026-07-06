@@ -19,7 +19,8 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QGridLayout, QSplitter, QWidget
 
 from .util import (find_parent, hide_empty_parent_splitters,
-                   emit_top_level_event_for_widget, find_child, find_children)
+                   emit_top_level_event_for_widget, find_child, find_children,
+                   dump_layout as _dump_layout)
 from .enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,
                     DockFlags, DockInsertParam)
 from .dock_splitter import DockSplitter
@@ -792,41 +793,8 @@ class DockContainerWidget(QFrame, DockStyled):
     def is_floating(self) -> bool:
         return self._is_floating
 
-    def _dump_recursive(self, level: int, widget: QWidget):
-        indent = ' ' * level * 4
-        if isinstance(widget, QSplitter):
-            splitter = widget
-            logger.debug(
-                "%sSplitter %s v: %s c: %s",
-                indent,
-                ('|' if splitter.orientation() == Qt.Vertical else '--'),
-                (' ' if splitter.isHidden() else 'v'),
-                splitter.count()
-            )
-
-            for i in range(splitter.count()):
-                self._dump_recursive(level + 1, splitter.widget(i))
-        elif isinstance(widget, DockAreaWidget):
-            dock_area = widget
-            logger.debug('%sDockArea', indent)
-            logger.debug('%s%s %s DockArea', indent,
-                         ' ' if dock_area.isHidden() else 'v',
-                         ' ' if dock_area.open_dock_widgets_count() > 0 else 'c')
-
-            indent = ' ' * (level + 1) * 4
-            for i, dock_widget in enumerate(dock_area.dock_widgets()):
-                logger.debug('%s%s%s%s %s', indent,
-                             '*' if i == dock_area.current_index() else ' ',
-                             ' ' if i == dock_widget.isHidden() else 'v',
-                             'c' if i == dock_widget.is_closed() else ' ',
-                             dock_widget.windowTitle())
-
     def dump_layout(self):
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-        logger.debug("--------------------------")
-        self._dump_recursive(0, self._root_splitter)
-        logger.debug("--------------------------\n\n")
+        _dump_layout(self)
 
     def features(self) -> DockWidgetFeature:
         features = DockWidgetFeature.all_features
