@@ -112,7 +112,25 @@ class DockTabStyleSchema:
 
 
 @dataclass
-class DockTitleBarStyleSchema:
+class _ActionButtonFields:
+    """Shared action-button styling for title bars and the sidebar panel.
+
+    Composed via dataclass inheritance so the field names stay flat
+    (``button_color`` etc.); ``button_spacing`` differs per host and is
+    declared by each schema.
+    """
+    button_color: Optional[List[int]] = None
+    button_disable_clr: Optional[List[int]] = None
+    button_hover_bg: Optional[List[int]] = None
+    button_corner_radius: int = 3
+    button_padding: int = 2
+    button_expand_vertical: bool = False
+    button_size: int = 18
+    button_icon_size: int = 16
+
+
+@dataclass
+class DockTitleBarStyleSchema(_ActionButtonFields):
     """Dock area title bars."""
     # Backgrounds & Borders
     bg_normal: Optional[List[int]] = None
@@ -142,15 +160,7 @@ class DockTitleBarStyleSchema:
     font_italic: bool = False
     font_underline: bool = False
 
-    # Action Buttons (unified with overlay)
-    button_color: Optional[List[int]] = None
-    button_disable_clr: Optional[List[int]] = None
-    button_hover_bg: Optional[List[int]] = None
-    button_corner_radius: int = 3
-    button_padding: int = 2
-    button_expand_vertical: bool = False
-    button_size: int = 18
-    button_icon_size: int = 16
+    # Action Buttons — shared block via _ActionButtonFields; only spacing differs.
     button_spacing: int = 4
 
 
@@ -201,7 +211,7 @@ class DockSidebarStyleSchema:
     badge_radius: int = 6
 
 @dataclass
-class DockSidePanelStyleSchema:
+class DockSidePanelStyleSchema(_ActionButtonFields):
     # Sidebar dock panel
     bg_normal: Optional[List[int]] = None
     height: int = 30
@@ -214,15 +224,7 @@ class DockSidePanelStyleSchema:
     title_font_weight: Union[str, int, QFont.Weight] = "bold"
     
 
-    # Action Buttons (unified with title bar)
-    button_color: Optional[List[int]] = None
-    button_disable_clr: Optional[List[int]] = None
-    button_hover_bg: Optional[List[int]] = None
-    button_corner_radius: int = 3
-    button_padding: int = 2
-    button_expand_vertical: bool = False
-    button_size: int = 18
-    button_icon_size: int = 16
+    # Action Buttons — shared block via _ActionButtonFields; only spacing differs.
     button_spacing: int = 2
 
     # Panel geometry
