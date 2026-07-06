@@ -12,9 +12,9 @@ Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 """
 
 import logging
-from typing import TYPE_CHECKING, List, Dict, Tuple, Optional
+from typing import TYPE_CHECKING, List, Dict, Optional
 
-from PySide6.QtCore import (QByteArray, QEvent, QPoint, Qt, Signal)
+from PySide6.QtCore import (QEvent, QPoint, Qt, Signal)
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QGridLayout, QSplitter, QWidget
 
@@ -23,6 +23,7 @@ from .util import (find_parent, hide_empty_parent_splitters,
                    dump_layout as _dump_layout)
 from .enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,
                     DockFlags, DockInsertParam)
+from .dock_container_state import save_container_state, restore_container_state
 from .dock_splitter import DockSplitter
 from .dock_area_widget import DockAreaWidget
 from .dock_styled import DockStyled
@@ -488,163 +489,10 @@ class DockContainerWidget(QFrame, DockStyled):
         return emit_and_exit()
 
     def save_state(self) -> dict:
-        """Phase 2: Modernized dict-based state saving."""
-        logger.debug('DockContainerWidget.saveState isFloating %s', self.is_floating())
-        state = {
-            "type": "Container",
-            "floating": self.is_floating(),
-            "geometry": "",
-            "root_splitter": self._save_child_nodes_state(self._root_splitter)
-        }
-        if self.is_floating():
-            floating_widget = self.floating_widget()
-            geometry = floating_widget.saveGeometry()
-            state["geometry"] = geometry.toHex(ord(' ')).data().decode()
-        return state
-
-    def _save_child_nodes_state(self, widget: QWidget) -> dict:
-        if isinstance(widget, QSplitter):
-            splitter = widget
-            orientation = "-" if splitter.orientation() == Qt.Horizontal else "|"
-            return {
-                "type": "Splitter",
-                "orientation": orientation,
-                "count": splitter.count(),
-                "sizes": splitter.sizes(),
-                "children": [self._save_child_nodes_state(splitter.widget(i)) for i in range(splitter.count())]
-            }
-        elif isinstance(widget, DockAreaWidget):
-            return widget.save_state()
-        return {}
+        return save_container_state(self)
 
     def restore_state(self, state: dict, testing: bool = False) -> bool:
-        """Phase 2: Use dict for state deserialization instead of stream."""
-        is_floating = state.get("floating", False)
-        logger.debug('Restore DockContainerWidget Floating %s', is_floating)
-
-        if not testing:
-            self._visible_dock_area_count = -1
-            self._dock_areas.clear()
-            self._last_added_area_cache.clear()
-
-        if is_floating:
-            logger.debug('Restore floating widget')
-            geometry_string = state.get("geometry", "")
-            if not geometry_string:
-                return False
-
-            geometry = QByteArray.fromHex(geometry_string.encode())
-            if geometry.isEmpty():
-                return False
-
-            if not testing:
-                floating_widget = self.floating_widget()
-                floating_widget.restoreGeometry(geometry)
-
-        root_splitter_state = state.get("root_splitter", {})
-        res, new_root_splitter = self._restore_child_nodes(root_splitter_state, testing)
-        if not res:
-            return False
-
-        if testing:
-            return True
-
-        if not new_root_splitter:
-            new_root_splitter = self._new_splitter(Qt.Horizontal)
-
-        self._layout.replaceWidget(self._root_splitter, new_root_splitter)
-        old_root = self._root_splitter
-        self._root_splitter = new_root_splitter
-        old_root.deleteLater()
-        return True
-
-    def _restore_child_nodes(self, state: dict, testing: bool) -> Tuple[bool, Optional[QWidget]]:
-        node_type = state.get("type")
-        if node_type == "Splitter":
-            return self._restore_splitter(state, testing)
-        elif node_type == "Area":
-            return self._restore_dock_area(state, testing)
-        return True, None
-
-    def _restore_splitter(self, state: dict, testing: bool) -> Tuple[bool, Optional[QWidget]]:
-        orientation_str = state.get("orientation", "-")
-        orientation = Qt.Horizontal if orientation_str == "-" else Qt.Vertical
-        
-        widget_count = state.get("count", 0)
-        if not widget_count:
-            return False, None
-
-        logger.debug('Restore NodeSplitter Orientation: %s  WidgetCount: %s', orientation, widget_count)
-
-        splitter = None if testing else self._new_splitter(orientation)
-        visible = False
-        sizes = state.get("sizes", [])
-
-        for child_state in state.get("children", []):
-            result, child_node = self._restore_child_nodes(child_state, testing)
-            if not result:
-                return False, None
-            
-            if splitter is not None and child_node is not None:
-                logger.debug('ChildNode isVisible %s isVisibleTo %s', child_node.isVisible(), child_node.isVisibleTo(splitter))
-                splitter.addWidget(child_node)
-                visible |= child_node.isVisibleTo(splitter)
-
-        if len(sizes) != widget_count:
-            return False, None
-
-        if testing:
-            splitter = None
-        else:
-            if not splitter.count():
-                splitter.deleteLater()
-                splitter = None
-            else:
-                splitter.setSizes(sizes)
-                splitter.setVisible(visible)
-
-        return True, splitter
-
-    def _restore_dock_area(self, state: dict, testing: bool) -> Tuple[bool, Optional[QWidget]]:
-        tabs = state.get("tabs", 0)
-        current_dock_widget = state.get("current", "")
-        logger.debug('Restore NodeDockArea Tabs: %s current: %s', tabs, current_dock_widget)
-        
-        dock_area = None
-        if not testing:
-            dock_area = DockAreaWidget(self._dock_manager, self)
-
-        for widget_state in state.get("widgets", []):
-            if widget_state.get("type") != "Widget":
-                continue
-            
-            object_name = widget_state.get("name")
-            if not object_name:
-                return False, None
-            
-            closed = widget_state.get("closed", False)
-            dock_widget = self._dock_manager.find_dock_widget(object_name)
-            
-            if dock_widget and dock_area:
-                logger.debug('Dock Widget found - parent %s', dock_widget.parent())
-                dock_area.hide()
-                dock_area.add_dock_widget(dock_widget)
-                dock_widget.set_toggle_view_action_checked(not closed)
-                dock_widget.set_closed_state(closed)
-                dock_widget.setProperty("closed", closed)
-                dock_widget.setProperty("dirty", False)
-
-        if testing:
-            return True, None
-
-        if not dock_area.dock_widgets_count():
-            dock_area.deleteLater()
-            dock_area = None
-        else:
-            dock_area.setProperty("currentDockWidget", current_dock_widget)
-            self._append_dock_areas(dock_area)
-
-        return True, dock_area
+        return restore_container_state(self, state, testing)
 
     def last_added_dock_area_widget(self, area: DockWidgetArea) -> DockAreaWidget:
         return self._last_added_area_cache.get(area, None)
