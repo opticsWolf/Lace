@@ -213,12 +213,7 @@ class SidebarManager(QObject):
         if dock_area is not None:
             dock_area.remove_dock_widget(dock_widget)
         
-        tab_widget = getattr(dock_widget, 'tab_widget', lambda: None)()
-        if tab_widget is not None:
-            try:
-                tab_widget.setParent(None)
-            except RuntimeError:
-                pass
+        self._detach_tab_widget(dock_widget)
         
         dock_widget.set_dock_area(None)
         
@@ -252,26 +247,15 @@ class SidebarManager(QObject):
             )
 
         if overlay_visible:
-            # Synchronously detach from the overlay to prevent the delayed 
-            # animation cleanup from ripping the widget out of its new home
-            self._overlay._current_widgets.remove(dock_widget)
-            dock_widget.hide() # FIX: Hide before setting parent to None
-            dock_widget.setParent(None)
-            if not self._overlay._current_widgets:
-                self._overlay.hide_widget(animate=True)
-            self._uncheck_all()
-            self._active_button = None
-        
+            # Synchronously detach from the overlay to prevent the delayed
+            # animation cleanup from ripping the widget out of its new home.
+            self._detach_from_overlay(dock_widget, hide=True)
+
         sidebar.remove_tab(dock_widget)
         dock_widget.set_dock_area(None)
         
         # FIX: Protect the tab from being destroyed
-        tab_widget = getattr(dock_widget, 'tab_widget', lambda: None)()
-        if tab_widget is not None:
-            try:
-                tab_widget.setParent(None)
-            except RuntimeError:
-                pass
+        self._detach_tab_widget(dock_widget)
         
         # Determine the closest dock edge.
         if area is not None:
@@ -313,13 +297,8 @@ class SidebarManager(QObject):
             # Capture geometry before hiding the overlay
             size = self._overlay.size()
             origin = self._overlay.mapToGlobal(QPoint(0, 0))
-            
-            self._overlay._current_widgets.remove(dock_widget)
-            dock_widget.setParent(None)
-            if not self._overlay._current_widgets:
-                self._overlay.hide_widget(animate=True)
-            self._uncheck_all()
-            self._active_button = None
+
+            self._detach_from_overlay(dock_widget)
         else:
             state = self._state_manager.load_state(sidebar.area)
             size = QSize(state.width, state.height)
@@ -330,12 +309,7 @@ class SidebarManager(QObject):
         dock_widget.set_dock_area(None)
 
         # FIX: Protect the tab from being destroyed
-        tab_widget = getattr(dock_widget, 'tab_widget', lambda: None)()
-        if tab_widget is not None:
-            try:
-                tab_widget.setParent(None)
-            except RuntimeError:
-                pass
+        self._detach_tab_widget(dock_widget)
         
         from .floating_dock_container import FloatingDockContainer
         dock_widget.set_dock_manager(self._dock_manager)
@@ -365,6 +339,29 @@ class SidebarManager(QObject):
                 floating.move(origin)
             floating.show()
     
+    def _detach_tab_widget(self, dock_widget: 'DockWidget'):
+        """Reparent the widget's tab away so it survives the widget being
+        moved between the sidebar, a dock area, or a floating window."""
+        tab_widget = getattr(dock_widget, 'tab_widget', lambda: None)()
+        if tab_widget is not None:
+            try:
+                tab_widget.setParent(None)
+            except RuntimeError:
+                pass
+
+    def _detach_from_overlay(self, dock_widget: 'DockWidget', hide: bool = False):
+        """Remove ``dock_widget`` from the live overlay and reset overlay
+        activation.  ``hide`` hides it while still parented (avoids (0,0)
+        ghosting) for callers that don't hide it themselves afterwards."""
+        self._overlay._current_widgets.remove(dock_widget)
+        if hide:
+            dock_widget.hide()
+        dock_widget.setParent(None)
+        if not self._overlay._current_widgets:
+            self._overlay.hide_widget(animate=True)
+        self._uncheck_all()
+        self._active_button = None
+
     def move_widget_to_area(self, dock_widget: 'DockWidget', new_area: DockWidgetArea):
         if dock_widget not in self._pinned:
             return
