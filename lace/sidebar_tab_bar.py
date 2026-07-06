@@ -8,8 +8,8 @@ SPDX-License-Identifier: Apache-2.0
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer, QRectF
+from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
 
 from .enums import DockWidgetArea, DockWidgetFeature
@@ -46,7 +46,12 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
         self._widget_map: Dict['DockWidget', VerticalTabButton] = {}
         self._drop_indicator: Optional[QLabel] = None
         self._context_menu_widget: Optional['DockWidget'] = None
-        
+
+        # Container chrome painted in paintEvent (no hex QSS on the frame itself).
+        self._bg_color: Optional[QColor] = None
+        self._border_color: Optional[QColor] = None
+        self._border_w: float = 0.0
+
         self.setObjectName("sideTabBar")
         self.setProperty("area", area.name)
         
@@ -461,19 +466,15 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
         """Apply SIDEBAR styles to the tab bar container and its decorations."""
         s = self._style_mgr.get_all(DockStyleCategory.SIDEBAR)
 
-        # Container background
-        bg = s.get("bg_color")
-        bg_css = bg.name() if bg else "transparent"
-        border = s.get("border_color")
-        border_css = border.name() if border else "transparent"
-        border_w = s.get("border_width", 1.0)
-
-        self.setStyleSheet(f"""
-            QFrame#sideTabBar {{
-                background-color: {bg_css};
-                border: {border_w}px solid {border_css};
-            }}
-        """)
+        # Container background + border are painted (see paintEvent). The border
+        # width is mirrored into the outer layout margin so it reserves the same
+        # 1px content inset the old QSS `border` did — content must not shift.
+        self._bg_color = s.get("bg_color")
+        self._border_color = s.get("border_color")
+        self._border_w = s.get("border_width", 1.0)
+        reserve = round(self._border_w)
+        self._main_layout.setContentsMargins(reserve, reserve, reserve, reserve)
+        self.update()
 
         # Keep scroll internals transparent
         self._scroll_area.setStyleSheet("background: transparent;")
@@ -515,4 +516,20 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
         ind = s.get("indicator_color")
         if ind:
             self._drop_indicator_color = ind
+
+    def paintEvent(self, event):
+        # Painted container chrome replaces the old `QFrame#sideTabBar` hex QSS.
+        bg = self._bg_color
+        if bg is not None and bg.alpha() > 0:
+            p = QPainter(self)
+            p.fillRect(self.rect(), bg)
+            bc = self._border_color
+            bw = self._border_w
+            if bc is not None and bc.alpha() > 0 and bw > 0:
+                inset = bw / 2.0
+                p.setPen(QPen(bc, bw))
+                p.setBrush(Qt.NoBrush)
+                p.drawRect(QRectF(self.rect()).adjusted(inset, inset, -inset, -inset))
+            p.end()
+        super().paintEvent(event)
 

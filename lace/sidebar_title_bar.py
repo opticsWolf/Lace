@@ -12,6 +12,7 @@ drag-to-detach, and unified action naming / icons.
 """
 from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import Qt, Signal, QPoint
+from PySide6.QtGui import QColor, QPainter, QPalette
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
 )
@@ -45,7 +46,9 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
         super().__init__(parent)
         self.setObjectName("overlayTitleBar")
         self.setFixedHeight(32)
-        self.setAutoFillBackground(True)
+        self.setAutoFillBackground(False)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self._bg_color: Optional[QColor] = None   # painted in paintEvent (no hex QSS)
 
         self._active_widget: Optional['DockWidget'] = None
 
@@ -224,21 +227,10 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
         btn_hover = styles.get("button_hover_bg")
         disabled_color = core_styles.get("disabled_text_color")
 
-        bg_css = bg.name() if bg else "palette(window)"
-        title_css = title_text.name() if title_text else "palette(text)"
-
-        # Title bar container styling
-        # self.setStyleSheet(f"""
-        #     #overlayTitleBar {{
-        #         background-color: {bg_css};
-        #         border-bottom: 1px solid {frame_css};
-        #     }}
-        # """)
-        self.setStyleSheet(f"""
-            #overlayTitleBar {{
-                background-color: {bg_css};
-            }}
-        """)
+        # Painted background (square — the overlay panel has no rounded card),
+        # mirroring dock_area_title_bar's paint path instead of a hex QSS sheet.
+        self._bg_color = bg
+        self.update()
 
         # Title label styling
         font_family = styles.get("title_font_family", "Segoe UI")
@@ -246,15 +238,13 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
         font_weight = styles.get("title_font_weight", "bold")
         bold = font_weight in ("bold", 700)
 
-        self._title_label.setStyleSheet(f"""
-            #overlayTitleLabel {{
-                color: {title_css};
-                font-weight: {"bold" if bold else "normal"};
-                font-family: "{font_family}";
-                font-size: {font_size}pt;
-                background: transparent;
-            }}
-        """)
+        # Label colour via palette (QLabel foreground is WindowText); the label is
+        # transparent by default, so no background rule is needed.
+        if title_text is not None:
+            lbl_pal = self._title_label.palette()
+            lbl_pal.setColor(QPalette.WindowText, title_text)
+            lbl_pal.setColor(QPalette.Text, title_text)
+            self._title_label.setPalette(lbl_pal)
 
         font = self._title_label.font()
         font.setFamily(font_family)
@@ -272,4 +262,11 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
             icon_size=styles.get("button_icon_size", 16),
             expand_vertical=styles.get("button_expand_vertical", False),
         )
+
+    def paintEvent(self, event):
+        bg = self._bg_color
+        if bg is not None and bg.alpha() > 0:
+            p = QPainter(self)
+            p.fillRect(self.rect(), bg)
+            p.end()
 

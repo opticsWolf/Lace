@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 from typing import TYPE_CHECKING, List
 
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QRect, QPoint, QEvent
-from PySide6.QtGui import QMouseEvent, QColor
+from PySide6.QtGui import QMouseEvent, QColor, QPainter
 from PySide6.QtWidgets import (
     QFrame, QSplitter, QVBoxLayout, QGraphicsDropShadowEffect, QWidget
 )
@@ -50,6 +50,7 @@ class SideBarContainer(QFrame, DockStyled):
         self._current_widgets: List['DockWidget'] = []
         self._area = DockWidgetArea.left
         self._is_resizing = False
+        self._bg: QColor | None = None   # painted in paintEvent (no hex QSS)
         
         # Shadow effect
         self._shadow = QGraphicsDropShadowEffect(self)
@@ -381,17 +382,20 @@ class SideBarContainer(QFrame, DockStyled):
 
     # --- Style Manager ---
 
+    def paintEvent(self, event):
+        # Overlay background is painted (not hex QSS) so it re-colours live on
+        # theme change without the DockThemeBridge stylesheet "nudge".
+        if self._bg is not None:
+            p = QPainter(self)
+            p.fillRect(self.rect(), self._bg)
+            p.end()
+        super().paintEvent(event)
+
     def refresh_style(self):
         s = self._style_mgr.get_all(DockStyleCategory.SIDEPANEL)
 
-        bg = s.get("bg_normal")
-        bg_css = bg.name() if bg else "palette(window)"
-
-        self.setStyleSheet(f"""
-            #autoHideOverlay {{
-                background-color: {bg_css};
-            }}
-        """)
+        self._bg = s.get("bg_normal")   # QColor | None
+        self.update()
 
         # Shadow
         shadow_color = s.get("shadow_color")
