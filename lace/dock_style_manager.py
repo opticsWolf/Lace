@@ -147,13 +147,14 @@ class DockStyleManager(QObject):
 
         changed = set()
         for key, value in kwargs.items():
-            if not hasattr(schema, key):
+            # Grouped sugar: button={"hover_bg": x, "size": 20} expands to the flat
+            # tokens button_hover_bg / button_size. Schema fields are always flat
+            # scalars/colours, so a dict value unambiguously means a group.
+            if isinstance(value, dict):
+                for sub_key, sub_val in value.items():
+                    self._set_field(schema, f"{key}_{sub_key}", sub_val, changed)
                 continue
-            # Convert colours to QColor once, on write.
-            store_value = deep_to_qcolor(value)
-            if getattr(schema, key) != store_value:
-                setattr(schema, key, store_value)
-                changed.add(key)
+            self._set_field(schema, key, value, changed)
 
         if changed:
             self._dict_cache[category] = None
@@ -164,6 +165,16 @@ class DockStyleManager(QObject):
                 self._notify_subscribers(category, qt_changes)
                     
         return changed
+
+    def _set_field(self, schema: Any, key: str, value: Any, changed: Set[str]) -> None:
+        """Coerce and write one flat field; record it in ``changed`` if it moved."""
+        if not hasattr(schema, key):
+            return
+        # Convert colours to QColor once, on write.
+        store_value = deep_to_qcolor(value)
+        if getattr(schema, key) != store_value:
+            setattr(schema, key, store_value)
+            changed.add(key)
 
     def _notify_subscribers(self, category: DockStyleCategory, changes: Dict[str, Any]) -> None:
         """Internal helper to safely broadcast updates to all listeners."""

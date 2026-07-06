@@ -10,7 +10,7 @@ import colorsys
 import enum
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Union
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor
 
 class DockStyleCategory(enum.Enum):
     """Namespaces for different dock component style groups."""
@@ -23,8 +23,28 @@ class DockStyleCategory(enum.Enum):
     SPLITTER = enum.auto()
     OVERLAY = enum.auto()
 
+
 @dataclass
-class DockCoreStyleSchema:
+class _FontFields:
+    """Shared typography block for schemas exposing bare ``font_*`` tokens.
+
+    Composed via dataclass inheritance (like :class:`_ActionButtonFields`) so the
+    field names stay flat (``font_family`` etc.) and every ``styles.get("font_*")``
+    consumer is untouched. Subclasses re-declare only a differing default
+    (TITLE_BAR uses ``font_weight="bold"``) or add fields (TAB adds
+    ``active_font_weight``). Schemas that prefix their fonts (``tab_font_*`` in the
+    sidebar, ``title_font_*`` in the side panel) can't share this block because
+    consumers read the flat names verbatim.
+    """
+    font_family: str = "Segoe UI"
+    font_size: int = 10
+    font_weight: Union[str, int, QFont.Weight] = "normal"
+    font_italic: bool = False
+    font_underline: bool = False
+
+
+@dataclass
+class DockCoreStyleSchema(_FontFields):
     """Global colors and palette basics for the dock system."""
     canvas_bg: Optional[List[int]] = None    #App / Window main background
     border_color: Optional[List[int]] = None #Dock Area Widget Accent accent / highlight color
@@ -37,14 +57,9 @@ class DockCoreStyleSchema:
     margin: int = 0 #to be kept at zero
     padding: int = 0 #probably not even used, need to check or connect
 
-    # Typography
+    # Typography — font_* provided by _FontFields
     text_color: Optional[List[int]] = None
     disabled_text_color: Optional[List[int]] = None
-    font_family: str = "Segoe UI"
-    font_size: int = 10
-    font_weight: Union[str, int, QFont.Weight] = "normal"
-    font_italic: bool = False
-    font_underline: bool = False
 
 @dataclass
 class DockPanelStyleSchema:
@@ -73,7 +88,7 @@ class DockPanelStyleSchema:
     margin: int = 0
 
 @dataclass
-class DockTabStyleSchema:
+class DockTabStyleSchema(_FontFields):
     """Standard dock area tabs (horizontal)."""
     # Backgrounds & Borders
     bg_normal: Optional[List[int]] = None
@@ -87,15 +102,10 @@ class DockTabStyleSchema:
     padding: int = 10
     margin: int = 0
 
-    # Typography
+    # Typography — bare font_* provided by _FontFields; tabs add an active weight.
     text_normal: Optional[List[int]] = None
     text_active: Optional[List[int]] = None
-    font_family: str = "Segoe UI"
-    font_size: int = 10
-    font_weight: Union[str, int, QFont.Weight] = "normal"
     active_font_weight: Union[str, int, QFont.Weight] = "normal"
-    font_italic: bool = False
-    font_underline: bool = False
 
     # Visual Indicators
     indicator_color: Optional[List[int]] = None
@@ -130,7 +140,7 @@ class _ActionButtonFields:
 
 
 @dataclass
-class DockTitleBarStyleSchema(_ActionButtonFields):
+class DockTitleBarStyleSchema(_ActionButtonFields, _FontFields):
     """Dock area title bars."""
     # Backgrounds & Borders
     bg_normal: Optional[List[int]] = None
@@ -151,14 +161,10 @@ class DockTitleBarStyleSchema(_ActionButtonFields):
     padding: int = 4 #distance for the tab from edge
     margin: int = 0
 
-    # Typography
+    # Typography — bare font_* provided by _FontFields; title bars default to bold.
     text_normal: Optional[List[int]] = None
     text_active: Optional[List[int]] = None
-    font_family: str = "Segoe UI"
-    font_size: int = 10
     font_weight: Union[str, int, QFont.Weight] = "bold"
-    font_italic: bool = False
-    font_underline: bool = False
 
     # Action Buttons — shared block via _ActionButtonFields; only spacing differs.
     button_spacing: int = 4
@@ -255,6 +261,37 @@ class DockOverlayStyleSchema:
 # ============================================================================
 # Theme Builder
 # ============================================================================
+
+@dataclass(frozen=True)
+class ThemeSpec:
+    """Declarative 3-colour theme input for :func:`build_theme`.
+
+    Replaces the 6 positional args of :func:`_build_theme` at call sites.
+    ``base``/``accent``/``text`` accept either an ``[r, g, b, a]`` list or a
+    ``QColor``; both funnel into the same list-based colour math.
+    """
+    base: Union[QColor, List[int]]
+    accent: Union[QColor, List[int]]
+    text: Union[QColor, List[int]]
+    is_light: bool = False
+    title_mode: str = "darker"   # "darker" | "lighter" relative to panel
+    hover_mode: str = "lighter"  # "darker" | "lighter" relative to panel
+
+
+def _as_rgba(col: Union[QColor, List[int]]) -> List[int]:
+    """Normalise a QColor or list to an ``[r, g, b, a]`` list for the colour math."""
+    if isinstance(col, QColor):
+        return [col.red(), col.green(), col.blue(), col.alpha()]
+    return list(col)
+
+
+def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
+    """Build a complete dock theme from a :class:`ThemeSpec` (public API)."""
+    return _build_theme(
+        _as_rgba(spec.base), _as_rgba(spec.accent), _as_rgba(spec.text),
+        is_light=spec.is_light, title_mode=spec.title_mode, hover_mode=spec.hover_mode,
+    )
+
 
 def _build_theme(
     base: list, 
@@ -429,8 +466,8 @@ def _adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):
 # -------------------------------------------------------------------------
 # VS CODE 2026 DARK (Default Theme)
 # -------------------------------------------------------------------------
-BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = _build_theme(
+BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = build_theme(ThemeSpec(
     base   = [20, 20, 20, 255],
     accent = [0, 120, 212, 255],
     text   = [204, 204, 204, 255],
-)
+))
