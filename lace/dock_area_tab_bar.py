@@ -359,20 +359,18 @@ class DockAreaTabBar(QScrollArea, DockStyled):
 
     def refresh_style(self):
         styles = self._style_mgr.get_all(DockStyleCategory.TAB)
-        
+
         # Update spacing between individual tabs
         self._tabs_layout.setSpacing(styles.get("margin", 0))
-        
-        # Update background behind the tabs
-        bg_color = styles.get("bg_normal").name()
-        self.setStyleSheet(f"""
-            DockAreaTabBar {{
-                background-color: {bg_color};
-                border: none;
-            }}
-            QWidget#tabsContainerWidget {{
-                background-color: {bg_color};
-            }}
+
+        # The tab bar is transparent: the dock-area title bar paints the strip
+        # background (rounded to match the card), and individual tabs paint
+        # their own state.  A square opaque bar here would clash with the
+        # card's rounded corners.
+        self.setStyleSheet("""
+            DockAreaTabBar { background: transparent; border: none; }
+            QWidget#tabsContainerWidget { background: transparent; }
         """)
+        self.viewport().setAutoFillBackground(False)
 
 

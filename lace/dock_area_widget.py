@@ -16,12 +16,14 @@ from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QRect, Signal
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame
+from PySide6.QtWidgets import QAbstractButton, QBoxLayout
 
 from .util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget)
 from .enums import TitleBarButton, DockWidgetFeature
 from .dock_area_layout import DockAreaLayout
+from .dock_chrome import ChromeFrame
+from .dock_paint import ChromeTokens
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
@@ -31,7 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockAreaWidget(QFrame, DockStyled):
+class DockAreaWidget(ChromeFrame, DockStyled):
     STYLE_CATEGORIES = (DockStyleCategory.CORE, DockStyleCategory.PANEL)
     tab_bar_clicked = Signal(int)
     current_changing = Signal(int)
@@ -320,30 +322,26 @@ class DockAreaWidget(QFrame, DockStyled):
         self.dock_container().close_other_areas(self)
 
     def refresh_style(self):
-        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
-        panel_styles = self._style_mgr.get_all(DockStyleCategory.PANEL) # Fetch the panel schema
-        
-        # 1. Assign the panel background to the Area's palette for children to inherit
-        bg_color = panel_styles.get("bg_normal")
-        if bg_color:
+        core = self._style_mgr.get_all(DockStyleCategory.CORE)
+        panel = self._style_mgr.get_all(DockStyleCategory.PANEL)
+
+        panel_bg = panel.get("bg_normal")
+
+        # Painted chrome: rounded panel_bg fill + optional outline, with the
+        # focus outline as a colour swap.  This is the artifact-free
+        # replacement for the border/radius stylesheet that had to be disabled.
+        self.set_chrome(ChromeTokens(
+            bg=panel_bg,
+            border=core.get("border_color"),
+            border_width=core.get("border_width", 0.0),
+            radius=core.get("corner_radius", 0),
+            focus_border=core.get("focus_border_color"),
+        ))
+
+        # Propagate the panel background to children via the Window palette
+        # role so standard Qt widgets inside the area inherit it.
+        if panel_bg:
             pal = self.palette()
-            pal.setColor(QPalette.ColorRole.Window, bg_color)
+            pal.setColor(QPalette.ColorRole.Window, panel_bg)
             self.setPalette(pal)
-            
-        # 2. Tell Qt Native painting NOT to fill this specific widget's background
-        self.setAutoFillBackground(False)
-        
-        border_color = core_styles.get("border_color").name()
-        border_width = core_styles.get("border_width", 1.0)
-        radius = core_styles.get("corner_radius", 0)
-        
-        ## 3. Enforce the transparent background in CSS so the style engine 
-        ## doesn't accidentally invent a background color when drawing the border.
-        #self.setStyleSheet(f"""
-        #    DockAreaWidget {{
-        #        border: {border_width}px solid {border_color};
-        #        border-radius: {radius}px;
-        #        background-color: transparent;
-        #    }}
-        #""")
 

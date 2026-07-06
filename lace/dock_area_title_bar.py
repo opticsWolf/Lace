@@ -14,12 +14,13 @@ Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 from typing import TYPE_CHECKING, Optional
 import logging
 
-from PySide6.QtCore import QPoint, Qt, Signal, QSize
-from PySide6.QtGui import QAction, QCursor, QMouseEvent
+from PySide6.QtCore import QPoint, Qt, Signal, QSize, QRectF
+from PySide6.QtGui import QAction, QCursor, QMouseEvent, QPainter
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy, QToolButton
 
 from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea
 from .util import start_drag_distance
+from .dock_paint import chrome_content_margin, top_rounded_path
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
@@ -305,26 +306,30 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
         btn_color = styles.get("button_color")
         btn_hover = styles.get("button_hover_bg")
         disabled_color = core_styles.get("disabled_text_color")
-        
-        bg_css = bg.name() if bg else "palette(window)"
+
         btn_css = btn_color.name() if btn_color else "palette(text)"
         btn_hover_css = btn_hover.name() if btn_hover else "palette(mid)"
         disabled_css = disabled_color.name() if disabled_color else "palette(mid)"
-        
+
         btn_radius = styles.get("button_corner_radius", 3)
         btn_padding = styles.get("button_padding", 4)
         btn_expand_v = styles.get("button_expand_vertical", True)
         btn_size = styles.get("button_size", 20)
         btn_icon_size = styles.get("button_icon_size", 16)
-        
-        # Title bar container styling only
-        self.setStyleSheet(f"""
-            DockAreaTitleBar {{
-                background-color: {bg_css};
-                border: none;
-            }}
-        """)
-        
+
+        # Painted background (rounded on top to nest inside the dock-area card),
+        # instead of a square stylesheet background that would clash with the
+        # card's rounded corners.  The top radius is the card radius minus the
+        # inset the card applies to its children, so the curves stay parallel.
+        card_radius = core_styles.get("corner_radius", 0)
+        card_border = core_styles.get("border_width", 0.0)
+        margin = chrome_content_margin(card_border, card_radius)
+        self._bg_color = bg
+        self._top_radius = max(0.0, card_radius - margin)
+        self.setAutoFillBackground(False)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self.update()
+
         # Apply button styling individually (unified with sidebar_title_bar)
         button_css = f"""
             QToolButton {{
@@ -364,9 +369,17 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
         self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
         self._close_button.setIconSize(icon_size)
 
-        # Trigger an update of the icons to ensure they reflect 
+        # Trigger an update of the icons to ensure they reflect
         # any changes in 'button_color'
         self.update_button_states()
+
+    def paintEvent(self, event):
+        bg = getattr(self, "_bg_color", None)
+        if bg is not None and bg.alpha() > 0:
+            p = QPainter(self)
+            p.setRenderHint(QPainter.Antialiasing, True)
+            radius = getattr(self, "_top_radius", 0.0)
+            p.fillPath(top_rounded_path(QRectF(self.rect()), radius), bg)
 
 
     def on_tabs_menu_about_to_show(self):

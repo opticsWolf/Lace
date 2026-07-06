@@ -14,13 +14,14 @@ Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 from typing import TYPE_CHECKING
 import logging
 
-from PySide6.QtCore import QEvent, QPoint, QSize, Qt, Signal
-from PySide6.QtGui import QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent
+from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter
 from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget, QPushButton
 
 from .util import start_drag_distance
 from .enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature
 from .eliding_label import ElidingLabel
+from .dock_paint import paint_tab
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
@@ -57,6 +58,17 @@ class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
         self._floating_widget: 'FloatingDockContainer' = None
         self._icon = QIcon()
         self._close_button = None
+
+        # Painted-chrome state (populated by refresh_style).
+        self._hovered = False
+        self._bg_normal = None
+        self._bg_active = None
+        self._bg_hover = None
+        self._indicator = None
+        self._ind_width = 2
+        self._ind_top = False
+        self._radius = 0.0
+        self.setAttribute(Qt.WA_Hover, True)
 
         self._create_layout()
 
@@ -338,42 +350,27 @@ class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
         return super().event(e)
 
     def refresh_style(self):
-        """Applies TAB styles including indicator position and rounded top corners."""
+        """Cache TAB colours for the painted background/indicator and style the
+        child label and close button (the only remaining stylesheet)."""
         styles = self._style_mgr.get_all(DockStyleCategory.TAB)
-        
-        # 1. Determine state-specific colors
         is_active = self._is_active_tab
-        bg_color = styles.get("bg_active").name() if is_active else styles.get("bg_normal").name()
-        text_color = styles.get("text_active").name() if is_active else styles.get("text_normal").name()
-        hover_bg = styles.get("bg_hover").name()
-        
-        # 2. Setup the visual indicator and corner radius
-        indicator = styles.get("indicator_color").name()
-        ind_width = styles.get("indicator_width", 2)
-        ind_pos = styles.get("indicator_position", "bottom")
-        
-        # Fetch corner radius from the TAB schema
-        radius = styles.get("corner_radius", 0)
-        
-        # Build border and radius CSS
-        # We only round the top corners so the bottom remains flush with the dock area
-        radius_css = f"border-top-left-radius: {radius}px; border-top-right-radius: {radius}px;"
-        
-        border_css = "border: none;"
-        if is_active:
-            side = "top" if ind_pos == "top" else "bottom"
-            border_css = f"border-{side}: {ind_width}px solid {indicator};"
-        
-        # 3. Apply Stylesheet
+
+        # 1. Painted-chrome state (consumed by paintEvent).
+        self._bg_normal = styles.get("bg_normal")
+        self._bg_active = styles.get("bg_active")
+        self._bg_hover = styles.get("bg_hover")
+        self._indicator = styles.get("indicator_color")
+        self._ind_width = styles.get("indicator_width", 2)
+        self._ind_top = styles.get("indicator_position", "bottom") == "top"
+        self._radius = styles.get("corner_radius", 0)
+        self.setAutoFillBackground(False)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+
+        # 2. Child widgets keep stylesheets — no rounded-corner artifact there.
+        text_color = (styles.get("text_active") if is_active else styles.get("text_normal")).name()
+        close_hover = styles.get("close_btn_bg_hover").name()
+        close_radius = styles.get("close_btn_corner_radius", 3)
         self.setStyleSheet(f"""
-            DockWidgetTab {{
-                background-color: {bg_color};
-                {border_css}
-                {radius_css}
-            }}
-            DockWidgetTab:hover {{
-                background-color: {bg_color if is_active else hover_bg};
-            }}
             QLabel#dockWidgetTabLabel {{
                 color: {text_color};
                 background: transparent;
@@ -382,27 +379,53 @@ class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
             QPushButton#tabCloseButton {{
                 background: transparent;
                 border: none;
-                border-radius: {styles.get("close_btn_corner_radius", 3)}px;
+                border-radius: {close_radius}px;
             }}
             QPushButton#tabCloseButton:hover {{
-                background-color: {styles.get("close_btn_bg_hover").name()};
+                background-color: {close_hover};
             }}
         """)
-        
+
         btn_size = styles.get("close_btn_size", 20)
         icon_size_val = styles.get("close_btn_icon_size", 16)
         self._close_button.setFixedSize(QSize(btn_size, btn_size))
         self._close_button.setIconSize(QSize(icon_size_val, icon_size_val))
-        
-        # 4. Apply Typography
+
+        # 3. Typography.
         font = self.font()
         font.setFamily(styles.get("font_family", "Segoe UI"))
         font.setPointSize(styles.get("font_size", 10))
-        
         weight = styles.get("active_font_weight" if is_active else "font_weight", "normal")
         font.setBold(weight in ("bold", 700))
-        
         self.setFont(font)
         if self._title_label:
             self._title_label.setFont(font)
+        self.update()
+
+    def paintEvent(self, event):
+        if self._bg_active is None:
+            return  # not styled yet
+        if self._is_active_tab:
+            fill = self._bg_active
+        elif self._hovered:
+            fill = self._bg_hover
+        else:
+            fill = self._bg_normal
+        p = QPainter(self)
+        paint_tab(
+            p, QRectF(self.rect()),
+            bg=fill, radius=self._radius,
+            indicator=self._indicator if self._is_active_tab else None,
+            indicator_width=self._ind_width, indicator_top=self._ind_top,
+        )
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.update()
+        super().leaveEvent(event)
 
