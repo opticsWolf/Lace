@@ -7,14 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 """
 
 from enum import Enum, auto
-from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect
+from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect, QRectF
 from PySide6.QtGui import (
-    QPainter, QFontMetrics, QIcon, QColor, QPen, QMouseEvent, 
-    QFont, QLinearGradient, QBrush
+    QPainter, QFontMetrics, QIcon, QColor, QPen, QMouseEvent, QFont
 )
 from PySide6.QtWidgets import QToolButton, QWidget, QSizePolicy
 
 from .dock_chrome import DragDetector
+from .dock_paint import paint_tab
 from .enums import DockWidgetArea
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
@@ -128,30 +128,19 @@ class VerticalTabButton(QToolButton, DockStyled):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        
-        # 1. Background and Hover
+
+        # 1+2. Background/hover + selection indicator via the shared paint_tab
+        # (square: radius 0; the vertical sidebar indicator hugs a Left/Right edge).
+        rect = QRectF(self.rect())
         if self.isChecked():
-            p.fillRect(self.rect(), self._bg_active)
+            paint_tab(p, rect, bg=self._bg_active,
+                      indicator=self._highlight_color,
+                      indicator_width=self._indicator_width,
+                      indicator_edge=self._indicator_edge())
         elif self._is_hovered:
-            gradient = QLinearGradient(0, 0, self.width(), 0)
-            gradient.setColorAt(0, self._bg_hover_start)
-            gradient.setColorAt(1, self._bg_hover_end)
-            p.fillRect(self.rect(), QBrush(gradient))
-        else:
-            p.fillRect(self.rect(), QColor(0, 0, 0, 0))
-        
-        # 2. Selection Indicator (mirrored for right sidebar)
-        if self.isChecked():
-            is_right_sidebar = self._area == DockWidgetArea.right
-            if self._indicator_position == "right":
-                # "right" = outer edge: right for left sidebar, left for right sidebar
-                x = 0 if is_right_sidebar else self.width() - self._indicator_width
-            else:  # "left" (default)
-                # "left" = inner edge: left for left sidebar, right for right sidebar
-                x = self.width() - self._indicator_width if is_right_sidebar else 0
-            p.fillRect(x, 0, self._indicator_width, self.height(),
-                       self._highlight_color)
-        
+            paint_tab(p, rect, bg_gradient=(self._bg_hover_start, self._bg_hover_end))
+        # else: idle — transparent, nothing painted
+
         # 3. Centered Content (Icon + Text)
         p.save()
         # Rotate coordinates: Move to top-right and rotate 90 deg clockwise
@@ -195,6 +184,17 @@ class VerticalTabButton(QToolButton, DockStyled):
             
         p.end()
     
+    def _indicator_edge(self) -> Qt.Edge:
+        """Which edge the active-tab indicator hugs, mirrored per sidebar side.
+
+        ``indicator_position`` "right" = outer edge, "left" = inner edge; on the
+        right-hand sidebar both flip.  (Preserves the pre-paint_tab mapping.)
+        """
+        is_right = self._area == DockWidgetArea.right
+        if self._indicator_position == "right":
+            return Qt.Edge.LeftEdge if is_right else Qt.Edge.RightEdge
+        return Qt.Edge.RightEdge if is_right else Qt.Edge.LeftEdge
+
     def _draw_badge(self, p: QPainter, rect: QRect):
         """Draw notification badge."""
         if self._badge_count == 0:

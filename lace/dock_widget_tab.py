@@ -412,7 +412,8 @@ class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
             p, QRectF(self.rect()),
             bg=fill, radius=self._radius,
             indicator=self._indicator if self._is_active_tab else None,
-            indicator_width=self._ind_width, indicator_top=self._ind_top,
+            indicator_width=self._ind_width,
+            indicator_edge=Qt.Edge.TopEdge if self._ind_top else Qt.Edge.BottomEdge,
         )
 
     def enterEvent(self, event):

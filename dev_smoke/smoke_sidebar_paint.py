@@ -1,0 +1,271 @@
+"""Renders the sidebar auto-hide overlay offscreen and samples pixels to verify
+its chrome (container bg + title bar) matches the resolved SIDEPANEL tokens.
+
+Objective substitute for eyeballing a screenshot: grab() -> QImage -> pixelColor.
+Run before and after the QSS->painted-chrome conversion; the visible result must
+be identical (the container bg is mostly occluded by the title bar + content).
+"""
+import sys, logging
+logging.disable(logging.CRITICAL)
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QSize
+app = QApplication(sys.argv)
+
+from PySide6.QtGui import QPalette
+from demo_app import DemoMainWindow
+from lace.enums import DockWidgetArea
+from lace.dock_theme import DockStyleCategory
+from lace.dock_style_manager import get_dock_style_manager, apply_dock_theme
+
+win = DemoMainWindow(); win.resize(1000, 700); win.show(); app.processEvents()
+dm = win.dock_manager
+side = dm.sidebar_manager
+sm = get_dock_style_manager()
+
+
+def sample(theme: str):
+    apply_dock_theme(theme)
+    dw = list(dm.dock_widgets_map().values())[0]
+    if not side.is_pinned(dw):
+        side.pin_widget(dw, area=DockWidgetArea.left)
+    app.processEvents()
+    overlay = side._overlay
+    overlay.show_widget(dw, DockWidgetArea.left, animate=False, size=QSize(300, 500))
+    app.processEvents()
+    img = overlay.grab().toImage()
+    tb = overlay._title_bar
+    tb_h = tb.height()
+
+    def px(x, y):
+        c = img.pixelColor(x, y)
+        return (c.red(), c.green(), c.blue())
+
+    bg = sm.get(DockStyleCategory.SIDEPANEL, "bg_normal")
+    exp = bg.getRgb()[:3] if bg else None
+    # x=3 is left of the title label (padding_left=10) -> pure title-bar bg
+    title_px = px(3, tb_h // 2)
+
+    # Label text colour now comes from the palette (was hex QSS).
+    tcol = sm.get(DockStyleCategory.SIDEPANEL, "title_text_color")
+    exp_text = tcol.getRgb()[:3] if tcol else None
+    lbl_pal = tb._title_label.palette().color(QPalette.WindowText).getRgb()[:3]
+
+    # Scan the title-bar band for a rendered glyph pixel in the text colour,
+    # proving the palette actually paints the label (not just set-and-ignored).
+    text_rendered = False
+    if exp_text is not None:
+        for y in range(2, tb_h - 2):
+            for x in range(8, min(img.width(), 140)):
+                if all(abs(a - b) <= 6 for a, b in zip(px(x, y), exp_text)):
+                    text_rendered = True
+                    break
+            if text_rendered:
+                break
+
+    result = {
+        "overlay": (overlay.width(), overlay.height()),
+        "title_px": title_px,
+        "expected_bg": exp,
+        "corner_px": px(2, 2),
+        "lbl_pal": lbl_pal,
+        "expected_text": exp_text,
+        "text_rendered": text_rendered,
+    }
+    side.unpin_widget(dw)
+    app.processEvents()
+    return result
+
+
+def sample_strip(theme: str):
+    """Sample the always-visible SideTabBar strip: bg pixel + first-button pos."""
+    apply_dock_theme(theme)
+    dw = list(dm.dock_widgets_map().values())[0]
+    if not side.is_pinned(dw):
+        side.pin_widget(dw, area=DockWidgetArea.left)
+    app.processEvents()
+    bar = side._sidebars[DockWidgetArea.left]
+    img = bar.grab().toImage()
+    c = img.pixelColor(1, 1)
+    bg = sm.get(DockStyleCategory.SIDEBAR, "bg_color")
+    exp = bg.getRgb()[:3] if bg else None
+    g = bar._scroll_area.geometry()   # content inset shifts if the border reserve changes
+    res = {"strip": (bar.width(), bar.height()), "bg_px": (c.red(), c.green(), c.blue()),
+           "expected": exp, "scroll_geo": (g.x(), g.y(), g.width(), g.height())}
+    side.unpin_widget(dw)
+    app.processEvents()
+    return res
+
+
+print("--- SideTabBar strip baseline ---")
+for theme in ("default", "light", "monokai"):
+    s = sample_strip(theme)
+    print(f"[{theme}] strip={s['strip']} bg_px={s['bg_px']} expected={s['expected']} scroll_geo={s['scroll_geo']}")
+    assert s["expected"] is not None
+    for got, want in zip(s["bg_px"], s["expected"]):
+        assert abs(got - want) <= 2, f"{theme}: strip bg {s['bg_px']} != {s['expected']}"
+    # content inset must stay put (border reserve preserved)
+    assert s["scroll_geo"] == (1, 1, 28, 681), f"{theme}: scroll geo shifted -> {s['scroll_geo']}"
+
+def sample_decorations(theme: str):
+    """Force the overflow counter badge + drop indicator visible and pixel-check
+    them (both were hex QSS, now painted / palette)."""
+    apply_dock_theme(theme)
+    dw = list(dm.dock_widgets_map().values())[0]
+    if not side.is_pinned(dw):
+        side.pin_widget(dw, area=DockWidgetArea.left)
+    app.processEvents()
+    bar = side._sidebars[DockWidgetArea.left]
+
+    # Counter badge
+    bar._counter_lbl.setText("9")
+    bar._counter_lbl.setFixedSize(24, 18)
+    bar._counter_lbl.show()
+    app.processEvents()
+    cimg = bar._counter_lbl.grab().toImage()
+    cc = cimg.pixelColor(5, cimg.height() // 2)          # left of the centred digit -> bg fill
+    ct = cimg.pixelColor(cimg.width() // 2, cimg.height() // 2)  # digit -> text colour
+    counter_bg = sm.get(DockStyleCategory.SIDEBAR, "tab_bg_hover_start")
+    exp_cbg = counter_bg.getRgb()[:3] if counter_bg else None
+    counter_text = sm.get(DockStyleCategory.SIDEBAR, "tab_text_normal")
+    exp_ctext = counter_text.getRgb()[:3] if counter_text else None
+
+    # Drop indicator
+    bar._show_drop_indicator()
+    app.processEvents()
+    dimg = bar._drop_indicator.grab().toImage()
+    dc = dimg.pixelColor(1, dimg.height() // 2)
+    ind = sm.get(DockStyleCategory.SIDEBAR, "indicator_color")
+    exp_ind = ind.getRgb()[:3] if ind else None
+    bar._hide_drop_indicator()
+
+    res = {"counter_px": (cc.red(), cc.green(), cc.blue()), "exp_cbg": exp_cbg,
+           "counter_text_px": (ct.red(), ct.green(), ct.blue()), "exp_ctext": exp_ctext,
+           "drop_px": (dc.red(), dc.green(), dc.blue()), "exp_ind": exp_ind}
+    side.unpin_widget(dw)
+    app.processEvents()
+    return res
+
+
+def sample_buttons(theme: str):
+    """ChromeToolButton: exact size preserved + painted hover fill (forced flag)."""
+    apply_dock_theme(theme)
+    dw = list(dm.dock_widgets_map().values())[0]
+    if not side.is_pinned(dw):
+        side.pin_widget(dw, area=DockWidgetArea.left)
+    app.processEvents()
+    overlay = side._overlay
+    overlay.show_widget(dw, DockWidgetArea.left, animate=False, size=QSize(300, 500))
+    app.processEvents()
+    btn = overlay._title_bar._close_btn
+    size = (btn.width(), btn.height())
+
+    hb = sm.get(DockStyleCategory.SIDEPANEL, "button_hover_bg")
+    exp_hb = hb.getRgb()[:3] if hb else None
+    btn.set_hovered(True)
+    app.processEvents()
+    himg = btn.grab().toImage()
+    hpx = himg.pixelColor(2, 2)          # corner: hover fill (radius is small)
+    btn.setDown(True)                    # pressed state
+    app.processEvents()
+    pimg = btn.grab().toImage()
+    ppx = pimg.pixelColor(2, 2)
+    btn.setDown(False)
+    btn.set_hovered(False)
+    app.processEvents()
+    nimg = btn.grab().toImage()
+    npx = nimg.pixelColor(2, 2)          # corner: no fill -> not the hover colour
+
+    res = {"size": size, "hover_px": (hpx.red(), hpx.green(), hpx.blue()),
+           "exp_hb": exp_hb, "idle_px": (npx.red(), npx.green(), npx.blue()),
+           "pressed_px": (ppx.red(), ppx.green(), ppx.blue())}
+    side.unpin_widget(dw)
+    app.processEvents()
+    return res
+
+
+print("--- ChromeToolButton (size + painted hover) ---")
+for theme in ("default", "light", "monokai"):
+    b = sample_buttons(theme)
+    print(f"[{theme}] size={b['size']} hover={b['hover_px']}/{b['exp_hb']} "
+          f"pressed={b['pressed_px']} idle={b['idle_px']}")
+    assert b["size"] == (25, 25), f"{theme}: button size changed -> {b['size']}"
+    for got, want in zip(b["hover_px"], b["exp_hb"]):
+        assert abs(got - want) <= 2, f"{theme}: hover fill {b['hover_px']} != {b['exp_hb']}"
+    # pressed reads distinctly from hover (translucent dark wash on top)
+    pdist = sum(abs(a - c) for a, c in zip(b["pressed_px"], b["hover_px"]))
+    assert pdist >= 15, f"{theme}: pressed {b['pressed_px']} ~ hover {b['hover_px']} (dist {pdist})"
+    # fill appears only on hover: idle corner differs from the hover fill —
+    # but only checkable when the hover colour differs from the transparent
+    # grab background (black); monokai's hover resolves to black, so skip there.
+    if max(b["exp_hb"]) > 8:
+        assert tuple(b["idle_px"]) != tuple(b["exp_hb"]), f"{theme}: idle shows hover fill"
+
+def check_vertical_tab():
+    """VerticalTabButton bg/indicator go through the shared paint_tab now —
+    verify the active indicator hugs the correct (mirrored) edge and the hover
+    gradient runs start->end horizontally."""
+    from lace.sidebar_tab import VerticalTabButton
+    apply_dock_theme("default")
+    hs = sm.get(DockStyleCategory.SIDEBAR, "tab_bg_hover_start").getRgb()[:3]
+    he = sm.get(DockStyleCategory.SIDEBAR, "tab_bg_hover_end").getRgb()[:3]
+    ind = sm.get(DockStyleCategory.SIDEBAR, "indicator_color").getRgb()[:3]
+
+    def px(b, x, y):
+        c = b.grab().toImage().pixelColor(x, y)
+        return (c.red(), c.green(), c.blue())
+
+    def mk(area, checked, hovered, pos):
+        b = VerticalTabButton("Panel"); b.set_area(area)
+        b.resize(30, 120); b.setChecked(checked); b._is_hovered = hovered
+        b.refresh_style(); b._indicator_position = pos
+        return b
+
+    def near(a, b, tol=3):
+        return all(abs(x - y) <= tol for x, y in zip(a, b))
+
+    # active, left sidebar, pos "left" -> indicator on LEFT edge (solid)
+    b = mk(DockWidgetArea.left, True, False, "left")
+    assert px(b, 1, 60) == ind, f"left/left indicator {px(b,1,60)} != {ind}"
+    # active, right sidebar, pos "left" -> mirrored to RIGHT edge
+    b = mk(DockWidgetArea.right, True, False, "left")
+    assert px(b, 28, 60) == ind, f"right/left indicator {px(b,28,60)} != {ind}"
+    # hover -> horizontal gradient start(left) .. end(right); ~1 off the pure
+    # endpoints one pixel in, so allow a small tolerance.
+    b = mk(DockWidgetArea.left, False, True, "left")
+    assert near(px(b, 1, 60), hs), f"hover start {px(b,1,60)} != {hs}"
+    assert near(px(b, 28, 60), he), f"hover end {px(b,28,60)} != {he}"
+
+
+check_vertical_tab()
+print("VERTICAL TAB OK")
+
+print("--- SideTabBar decorations (counter + drop indicator) ---")
+for theme in ("default", "light", "monokai"):
+    d = sample_decorations(theme)
+    print(f"[{theme}] counter_bg={d['counter_px']}/{d['exp_cbg']} "
+          f"counter_text={d['counter_text_px']}/{d['exp_ctext']} "
+          f"drop={d['drop_px']}/{d['exp_ind']}")
+    for got, want in zip(d["counter_px"], d["exp_cbg"]):
+        assert abs(got - want) <= 3, f"{theme}: counter bg {d['counter_px']} != {d['exp_cbg']}"
+    for got, want in zip(d["counter_text_px"], d["exp_ctext"]):
+        assert abs(got - want) <= 6, f"{theme}: counter text {d['counter_text_px']} != {d['exp_ctext']}"
+    for got, want in zip(d["drop_px"], d["exp_ind"]):
+        assert abs(got - want) <= 2, f"{theme}: drop {d['drop_px']} != {d['exp_ind']}"
+
+print("--- Overlay ---")
+for theme in ("default", "light", "monokai"):
+    r = sample(theme)
+    print(f"[{theme}] overlay={r['overlay']} title_px={r['title_px']} "
+          f"expected_bg={r['expected_bg']} lbl_pal={r['lbl_pal']} "
+          f"expected_text={r['expected_text']} text_rendered={r['text_rendered']}")
+    # title-bar background must match the resolved SIDEPANEL bg token (±2 for AA/rounding)
+    assert r["expected_bg"] is not None, f"{theme}: no bg token"
+    for got, want in zip(r["title_px"], r["expected_bg"]):
+        assert abs(got - want) <= 2, f"{theme}: title_px {r['title_px']} != bg {r['expected_bg']}"
+    # label palette carries the resolved title-text token, and it actually renders
+    if r["expected_text"] is not None:
+        for got, want in zip(r["lbl_pal"], r["expected_text"]):
+            assert abs(got - want) <= 2, f"{theme}: lbl_pal {r['lbl_pal']} != {r['expected_text']}"
+        assert r["text_rendered"], f"{theme}: no glyph pixel in title colour {r['expected_text']}"
+
+print("SIDEBAR PAINT OK")

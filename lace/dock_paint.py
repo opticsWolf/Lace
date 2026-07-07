@@ -27,7 +27,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 from PySide6.QtCore import Qt, QRectF
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPainterPath, QPen
+
+from typing import Tuple
 
 _INV_SQRT2 = 1.0 / sqrt(2.0)
 
@@ -120,23 +122,43 @@ def paint_panel(p: QPainter, rect: QRectF, c: ChromeTokens,
         p.drawPath(path)
 
 
-def paint_tab(p: QPainter, rect: QRectF, *, bg: QColor, radius: float = 0.0,
-              indicator: Optional[QColor] = None, indicator_width: int = 0,
-              indicator_top: bool = False) -> None:
-    """Paint a tab: top-rounded background + optional active-edge indicator.
+def _edge_strip(rect: QRectF, edge: Qt.Edge, width: float) -> QRectF:
+    """Rect for an indicator strip of ``width`` along one ``edge`` of ``rect``."""
+    w = float(width)
+    if edge == Qt.Edge.TopEdge:
+        return QRectF(rect.left(), rect.top(), rect.width(), w)
+    if edge == Qt.Edge.LeftEdge:
+        return QRectF(rect.left(), rect.top(), w, rect.height())
+    if edge == Qt.Edge.RightEdge:
+        return QRectF(rect.right() - w, rect.top(), w, rect.height())
+    return QRectF(rect.left(), rect.bottom() - w, rect.width(), w)   # BottomEdge
 
-    The indicator strip is clipped to the tab path so it follows the rounded
-    corners.  ``indicator_top`` selects the top edge (default: bottom edge).
+
+def paint_tab(p: QPainter, rect: QRectF, *, bg: Optional[QColor] = None,
+              bg_gradient: Optional[Tuple[QColor, QColor]] = None,
+              radius: float = 0.0,
+              indicator: Optional[QColor] = None, indicator_width: int = 0,
+              indicator_edge: Qt.Edge = Qt.Edge.BottomEdge) -> None:
+    """Paint a tab: top-rounded background (solid ``bg`` or a horizontal
+    ``bg_gradient``) + an optional active-edge indicator strip.
+
+    The strip is clipped to the tab path so it follows the rounded corners.
+    ``indicator_edge`` selects which of the four edges it hugs — Top/Bottom for
+    horizontal dock tabs, Left/Right for the vertical sidebar tabs.
     """
     p.setRenderHint(QPainter.Antialiasing, True)
     path = top_rounded_path(rect, radius)
 
-    if bg is not None and bg.alpha() > 0:
+    if bg_gradient is not None:
+        g = QLinearGradient(rect.topLeft(), rect.topRight())
+        g.setColorAt(0.0, bg_gradient[0])
+        g.setColorAt(1.0, bg_gradient[1])
+        p.fillPath(path, QBrush(g))
+    elif bg is not None and bg.alpha() > 0:
         p.fillPath(path, bg)
 
     if indicator is not None and indicator_width > 0:
         p.save()
         p.setClipPath(path)
-        y = rect.top() if indicator_top else rect.bottom() - indicator_width
-        p.fillRect(QRectF(rect.left(), y, rect.width(), float(indicator_width)), indicator)
+        p.fillRect(_edge_strip(rect, indicator_edge, indicator_width), indicator)
         p.restore()
