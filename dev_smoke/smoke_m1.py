@@ -5,9 +5,8 @@ from PySide6.QtGui import QColor
 app = QApplication(sys.argv)
 
 from lace.dock_style_manager import get_dock_style_manager, apply_dock_theme
-from lace.dock_theme import DockStyleCategory
-from lace.dock_palette_bridge import resolve_dock_colors
-from lace.dock_custome_theme import DOCK_THEMES
+from lace.dock_theme import DockStyleCategory, resolve_dock_colors
+from lace.dock_custom_theme import DOCK_THEMES
 
 sm = get_dock_style_manager()
 

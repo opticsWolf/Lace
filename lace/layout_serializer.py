@@ -16,7 +16,8 @@ import json
 import uuid
 import errno
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Any
+from dataclasses import dataclass, asdict
+from typing import TYPE_CHECKING, Dict, Any, List
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import QRect
@@ -170,7 +171,7 @@ class LayoutStateBuilder:
         }
         
         for container in self._manager.dock_containers():
-            is_main = (container is self._manager)
+            is_main = (container is self._manager or container is getattr(self._manager, '_root', None))
             # Generate a transient linking ID solely for this JSON document
             cid = "main" if is_main else str(uuid.uuid4())
             self._transient_id_map[container] = cid
@@ -268,7 +269,7 @@ class LayoutEngine:
             c_data = c_info.get("data", {})
             
             if c_info.get("is_main"):
-                restore_container_state(self._manager, c_data, testing=False)
+                restore_container_state(getattr(self._manager, '_root', None) or self._manager, c_data, testing=False)
             else:
                 fw = floating_pool.pop() if floating_pool else FloatingDockContainer(dock_manager=self._manager)
                 fw.restore_state(c_data, testing=False)
@@ -471,3 +472,75 @@ class LayoutSerializer:
             )
 
         self._engine.apply_state(state_dict)
+
+
+# ---------------------------------------------------------------------------
+# Sidebar State Persistence (formerly sidebar_state.py)
+# ---------------------------------------------------------------------------
+@dataclass
+class SidebarState:
+    """Persistent state for sidebars."""
+    width: int = 280
+    height: int = 250
+    expanded_tabs: List[str] = None
+    
+    def __post_init__(self):
+        if self.expanded_tabs is None:
+            self.expanded_tabs = []
+    
+    def to_dict(self):
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(**data)
+
+
+class SidebarStateManager:
+    """Manages persistence of sidebar states."""
+    
+    def __init__(self, save_path: str = None):
+        self._save_path = Path(save_path) if save_path else None
+        self._states: Dict[str, SidebarState] = {}
+    
+    def save_state(self, key, state: SidebarState):
+        key_str = key.name if hasattr(key, 'name') else str(key)
+        self._states[key_str] = state
+
+    def load_state(self, key) -> SidebarState:
+        key_str = key.name if hasattr(key, 'name') else str(key)
+        return self._states.get(key_str, SidebarState())
+    
+    def export_all(self) -> Dict[str, dict]:
+        """Export all states as a serializable dict."""
+        return {k: v.to_dict() for k, v in self._states.items()}
+    
+    def import_all(self, data: Dict[str, dict]):
+        """Import states from a dict (e.g., from JSON deserialization)."""
+        self._states.clear()
+        for k, v in data.items():
+            try:
+                self._states[k] = SidebarState.from_dict(v)
+            except Exception as e:
+                logger.warning(f"Failed to import sidebar state for '{k}': {e}")
+    
+    def _persist(self):
+        if not self._save_path:
+            return
+        
+        try:
+            data = {k: v.to_dict() for k, v in self._states.items()}
+            self._save_path.write_text(json.dumps(data, indent=2))
+        except Exception as e:
+            logger.error(f"Failed to save sidebar state: {e}")
+    
+    def restore(self):
+        if not self._save_path or not self._save_path.exists():
+            return
+        
+        try:
+            data = json.loads(self._save_path.read_text())
+            for k, v in data.items():
+                self._states[k] = SidebarState.from_dict(v)
+        except Exception as e:
+            logger.error(f"Failed to restore sidebar state: {e}")

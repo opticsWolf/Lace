@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QApplication
 app = QApplication(sys.argv)
 from demo_app import DemoMainWindow
 from lace.dock_style_manager import apply_dock_theme
-from lace.dock_custome_theme import DOCK_THEMES
+from lace.dock_custom_theme import DOCK_THEMES
 win = DemoMainWindow()
 win.show()
 for name in DOCK_THEMES:

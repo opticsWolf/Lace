@@ -14,12 +14,11 @@ from weakref import WeakSet
 
 from PySide6.QtCore import QObject, Signal
 
-from .dock_colors import deep_to_qcolor
 from .dock_theme import (
     DockStyleCategory, DockCoreStyleSchema, DockTabStyleSchema,
     DockTitleBarStyleSchema, DockSidebarStyleSchema,
     DockSidePanelStyleSchema, DockSplitterStyleSchema, DockOverlayStyleSchema,
-    DockPanelStyleSchema, BASE_DOCK_DEFAULTS
+    DockPanelStyleSchema, BASE_DOCK_DEFAULTS, deep_to_qcolor
 )
 
 logger = logging.getLogger(__name__)
@@ -92,7 +91,7 @@ class DockStyleManager(QObject):
         Applies a theme from dock_custom_theme.py. 
         Resets to defaults before applying overrides so that missing keys revert cleanly.
         """
-        from .dock_custome_theme import DOCK_THEMES
+        from .dock_custom_theme import DOCK_THEMES
         if theme_name not in DOCK_THEMES:
             logger.warning(f"Theme '{theme_name}' not found in DOCK_THEMES.")
             return False

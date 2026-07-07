@@ -10,7 +10,7 @@ import colorsys
 import enum
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Union
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont, QColor, QPalette
 
 class DockStyleCategory(enum.Enum):
     """Namespaces for different dock component style groups."""
@@ -492,3 +492,206 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = build_theme(ThemeS
     accent = [0, 120, 212, 255],
     text   = [204, 204, 204, 255],
 ))
+
+
+# -------------------------------------------------------------------------
+# Canonical Colour Conversion (formerly dock_colors.py)
+# -------------------------------------------------------------------------
+def to_qcolor(val: Any) -> QColor:
+    """Canonical converter: ``QColor`` | ``'#hex'`` / colour name | ``[r,g,b(,a)]`` -> ``QColor``."""
+    if isinstance(val, QColor):
+        return QColor(val)
+    if isinstance(val, str):
+        return QColor(val)  # handles '#rgb', '#rrggbb', '#aarrggbb', SVG names
+    if isinstance(val, (list, tuple)) and len(val) >= 3:
+        return QColor(
+            int(val[0]), int(val[1]), int(val[2]),
+            int(val[3]) if len(val) > 3 else 255,
+        )
+    return QColor(0, 0, 0)
+
+
+def qcolor_to_list(c: QColor) -> List[int]:
+    """Inverse of :func:`to_qcolor` for the list form (JSON-safe)."""
+    return [c.red(), c.green(), c.blue(), c.alpha()]
+
+
+def is_color_list(val: Any) -> bool:
+    """True for a 3- or 4-element list/tuple of numbers (an ``[r,g,b(,a)]`` colour)."""
+    return (
+        isinstance(val, (list, tuple))
+        and 3 <= len(val) <= 4
+        and all(isinstance(c, (int, float)) for c in val)
+    )
+
+
+def deep_to_qcolor(value: Any) -> Any:
+    """Recursively convert colour lists / hex strings to ``QColor``."""
+    if isinstance(value, QColor):
+        return value
+    if is_color_list(value):
+        return to_qcolor(value)
+    if isinstance(value, str):
+        return to_qcolor(value) if value.startswith("#") else value
+    if isinstance(value, dict):
+        return {k: deep_to_qcolor(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [deep_to_qcolor(v) for v in value]
+    return value
+
+
+def deep_to_serializable(value: Any) -> Any:
+    """Recursively convert ``QColor`` back to JSON-safe ``[r,g,b,a]`` lists."""
+    if isinstance(value, QColor):
+        return qcolor_to_list(value)
+    if isinstance(value, dict):
+        return {k: deep_to_serializable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [deep_to_serializable(v) for v in value]
+    return value
+
+
+# -------------------------------------------------------------------------
+# Palette Construction & Bridge (formerly dock_palette_bridge.py)
+# -------------------------------------------------------------------------
+_snapshot_cache: Optional[tuple[int, "DockThemeColors"]] = None
+
+
+@dataclass(frozen=True, slots=True)
+class DockThemeColors:
+    """All resolved colours needed to build a dock widget palette."""
+    canvas_bg:        QColor
+    title_bg:         QColor
+    panel_bg:         QColor
+    text_color:       QColor
+    accent_color:     QColor
+    border_color:     QColor
+    input_bg:         QColor
+    alternate_base:   QColor
+    button_bg:        QColor
+    color_light:      QColor
+    color_mid:        QColor
+    color_dark:       QColor
+    color_shadow:     QColor
+    disabled_text:    QColor
+    placeholder_text: QColor
+
+
+def resolve_dock_colors() -> DockThemeColors:
+    """Return the current resolved dock colours, cached by manager generation."""
+    global _snapshot_cache
+    from .dock_style_manager import get_dock_style_manager
+    sm = get_dock_style_manager()
+    if _snapshot_cache is not None and _snapshot_cache[0] == sm.generation:
+        return _snapshot_cache[1]
+    colors = _resolve_uncached(sm)
+    _snapshot_cache = (sm.generation, colors)
+    return colors
+
+
+def _resolve_uncached(sm) -> DockThemeColors:
+    canvas_bg = to_qcolor(sm.get(DockStyleCategory.CORE, "canvas_bg", [20, 20, 20]))
+    title_bg = to_qcolor(sm.get(DockStyleCategory.TITLE_BAR, "bg_normal", [37, 37, 38]))
+    panel_bg = to_qcolor(sm.get(DockStyleCategory.PANEL, "bg_normal", [30, 30, 30]))
+    text_color = to_qcolor(sm.get(DockStyleCategory.CORE, "text_color", [204, 204, 204]))
+    accent = to_qcolor(sm.get(DockStyleCategory.CORE, "accent_color", [0, 120, 212]))
+    border = to_qcolor(sm.get(DockStyleCategory.CORE, "border_color", [45, 45, 45]))
+    
+    input_bg_raw = sm.get(DockStyleCategory.PANEL, "input_bg")
+    if input_bg_raw:
+        input_bg = to_qcolor(input_bg_raw)
+    else:
+        input_bg = QColor(panel_bg).darker(115)
+    
+    alternate_base_raw = sm.get(DockStyleCategory.PANEL, "alternate_base")
+    if alternate_base_raw:
+        alternate_base = to_qcolor(alternate_base_raw)
+    else:
+        alternate_base = QColor(input_bg).lighter(112)
+    
+    button_bg_raw = sm.get(DockStyleCategory.PANEL, "button_bg")
+    if button_bg_raw:
+        button_bg = to_qcolor(button_bg_raw)
+    else:
+        button_bg = QColor(panel_bg).lighter(120)
+    
+    color_light_raw = sm.get(DockStyleCategory.PANEL, "color_light")
+    if color_light_raw:
+        color_light = to_qcolor(color_light_raw)
+    else:
+        color_light = QColor(panel_bg).lighter(140)
+    
+    color_mid_raw = sm.get(DockStyleCategory.PANEL, "color_mid")
+    if color_mid_raw:
+        color_mid = to_qcolor(color_mid_raw)
+    else:
+        color_mid = QColor(panel_bg).darker(115)
+    
+    color_dark_raw = sm.get(DockStyleCategory.PANEL, "color_dark")
+    if color_dark_raw:
+        color_dark = to_qcolor(color_dark_raw)
+    else:
+        color_dark = QColor(panel_bg).darker(130)
+    
+    color_shadow_raw = sm.get(DockStyleCategory.PANEL, "color_shadow")
+    if color_shadow_raw:
+        color_shadow = to_qcolor(color_shadow_raw)
+    else:
+        color_shadow = QColor(0, 0, 0, 80)
+
+    disabled_text = QColor(text_color)
+    disabled_text.setAlpha(max(0, text_color.alpha() // 3))
+
+    placeholder_text = QColor(text_color)
+    placeholder_text.setAlpha(max(0, text_color.alpha() // 2))
+
+    return DockThemeColors(
+        canvas_bg=canvas_bg, title_bg=title_bg, panel_bg=panel_bg,
+        text_color=text_color, accent_color=accent, border_color=border,
+        input_bg=input_bg, alternate_base=alternate_base,
+        button_bg=button_bg, color_light=color_light, color_mid=color_mid,
+        color_dark=color_dark, color_shadow=color_shadow,
+        disabled_text=disabled_text, placeholder_text=placeholder_text
+    )
+
+
+def _apply_shared_roles(pal: QPalette, c: DockThemeColors):
+    """Applies palette roles that are identical across all dock contexts."""
+    pal.setColor(QPalette.ColorRole.Highlight, c.accent_color)
+    pal.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+    pal.setColor(QPalette.ColorRole.ToolTipBase, c.title_bg)
+    pal.setColor(QPalette.ColorRole.ToolTipText, c.text_color)
+    pal.setColor(QPalette.ColorRole.PlaceholderText, c.placeholder_text)
+    
+    for role in (QPalette.ColorRole.Text, QPalette.ColorRole.WindowText, QPalette.ColorRole.ButtonText):
+        pal.setColor(QPalette.ColorGroup.Disabled, role, c.disabled_text)
+
+
+def build_dock_palette(
+    is_panel: bool = False, 
+    base_palette: Optional[QPalette] = None, 
+    colors: Optional[DockThemeColors] = None
+) -> QPalette:
+    """Constructs a QPalette for the docking system."""
+    c = colors or resolve_dock_colors()
+    pal = QPalette(base_palette) if base_palette else QPalette()
+
+    primary_bg = c.panel_bg if is_panel else c.canvas_bg
+
+    pal.setColor(QPalette.ColorRole.Window, primary_bg)
+    pal.setColor(QPalette.ColorRole.WindowText, c.text_color)
+
+    pal.setColor(QPalette.ColorRole.Base, c.input_bg)
+    pal.setColor(QPalette.ColorRole.AlternateBase, c.alternate_base)
+    pal.setColor(QPalette.ColorRole.Text, c.text_color)
+
+    pal.setColor(QPalette.ColorRole.Button, c.button_bg)
+    pal.setColor(QPalette.ColorRole.ButtonText, c.text_color)
+
+    pal.setColor(QPalette.ColorRole.Light, c.color_light)
+    pal.setColor(QPalette.ColorRole.Mid, c.color_mid)
+    pal.setColor(QPalette.ColorRole.Dark, c.color_dark)
+    pal.setColor(QPalette.ColorRole.Shadow, c.color_shadow)
+
+    _apply_shared_roles(pal, c)
+    return pal

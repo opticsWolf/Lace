@@ -18,11 +18,12 @@ from PySide6.QtGui import QKeySequence, QShortcut, QCursor
 from PySide6.QtWidgets import QApplication, QMainWindow
 
 from .enums import DockWidgetArea, WidgetState
-from .dock_context_menu import find_closest_dock_area
-from .sidebar_state import SidebarStateManager, SidebarState
+from .dock_menu import find_closest_dock_area
+from .layout_serializer import SidebarStateManager, SidebarState
 from .sidebar_tab import VerticalTabButton
 from .sidebar_container import SideBarContainer
 from .sidebar_tab_bar import SideTabBar
+from ._trace import trace
 
 if TYPE_CHECKING:
     from .dock_widget import DockWidget
@@ -78,7 +79,7 @@ class SidebarManager(QObject):
         self._keep_open: bool = False
         
         self._sidebars: Dict[DockWidgetArea, SideTabBar] = {}
-        self._overlay = SideBarContainer(dock_manager)
+        self._overlay = SideBarContainer(getattr(dock_manager, '_root', None) or dock_manager)
         
         # Connect overlay signals
         self._overlay.pin_back_requested.connect(self._on_overlay_pin_back)
@@ -120,7 +121,7 @@ class SidebarManager(QObject):
         if area in self._sidebars:
             return self._sidebars[area]
         
-        bar = SideTabBar(area, self._dock_manager)
+        bar = SideTabBar(area, getattr(self._dock_manager, '_root', None) or self._dock_manager)
         self._dock_manager._add_sidebar_to_layout(bar, area)
         
         bar.tab_clicked.connect(self._on_tab_clicked)
@@ -224,6 +225,7 @@ class SidebarManager(QObject):
         # 5. Add to the correct sidebar
         sidebar.add_tab(dock_widget)
         self._pinned[dock_widget] = sidebar
+        trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="docked", to_state="pinned")
         self.update_badge(dock_widget, 0)
     
     def unpin_widget(self, dock_widget: 'DockWidget', 
@@ -253,7 +255,8 @@ class SidebarManager(QObject):
 
         sidebar.remove_tab(dock_widget)
         dock_widget.set_dock_area(None)
-        
+        trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="pinned", to_state="docked")
+
         # FIX: Protect the tab from being destroyed
         self._detach_tab_widget(dock_widget)
         
@@ -265,7 +268,7 @@ class SidebarManager(QObject):
             # Use the overlay's on-screen centre to find the nearest edge.
             try:
                 target_area = find_closest_dock_area(
-                    overlay_center, self._dock_manager)
+                    overlay_center, getattr(self._dock_manager, '_root', None) or self._dock_manager)
             except Exception:
                 target_area = sidebar.area
         else:
@@ -307,6 +310,7 @@ class SidebarManager(QObject):
         sidebar.remove_tab(dock_widget)
         dock_widget.hide()
         dock_widget.set_dock_area(None)
+        trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="pinned", to_state="floating")
 
         # FIX: Protect the tab from being destroyed
         self._detach_tab_widget(dock_widget)
@@ -407,6 +411,7 @@ class SidebarManager(QObject):
     
     def close_overlay(self):
         """Safely closes the overlay and stops pending animations."""
+        trace("sidebar.overlay", action="hide", area="overlay", size=0)
         #self._switch_timer.stop()
         #self._pending_button = None
         
@@ -438,6 +443,8 @@ class SidebarManager(QObject):
         
         # Queue the switch
         self._pending_button = button
+        dw = button.property("_dock_widget")
+        trace("sidebar.hover", action="enter", button=dw.objectName() if dw else "button")
         
         if self._overlay.isVisible() and self._animations_enabled:
             self._switch_timer.start()
@@ -447,6 +454,8 @@ class SidebarManager(QObject):
     def _on_tab_hover_leave(self, button: VerticalTabButton):
         if not self._auto_show_on_hover or self._keep_open:
             return
+        dw = button.property("_dock_widget")
+        trace("sidebar.hover", action="leave", button=dw.objectName() if dw else "button")
         self._hide_timer.start()
     
     def _process_pending_switch(self):
@@ -454,6 +463,7 @@ class SidebarManager(QObject):
         button = self._pending_button
         if not button:
             return
+        trace("sidebar.timer", kind="switch", fire=True)
         self._pending_button = None
 
         dock_widget = button.property("_dock_widget")
@@ -473,6 +483,7 @@ class SidebarManager(QObject):
     def _on_hide_timeout(self):
         if self._keep_open or self._overlay.underMouse():
             return
+        trace("sidebar.timer", kind="hide", fire=True)
         self.close_overlay()
     
     # def _on_tab_clicked(self, button: VerticalTabButton):
@@ -526,6 +537,7 @@ class SidebarManager(QObject):
         self._last_active_area = area
         
         # Respect the animation toggle
+        trace("sidebar.overlay", action="show", area=getattr(area, 'name', str(area)), size=size.width())
         self._overlay.show_widget(dock_widget, area, size=size, animate=self._animations_enabled)
         dock_widget.set_widget_state(WidgetState.pinned_shown) # <-- NEW STATE
     
@@ -546,6 +558,7 @@ class SidebarManager(QObject):
         self.unpin_widget_floating(dock_widget)
     
     def _on_resize_finished(self):
+        trace("sidebar.overlay", action="resize", area="overlay", size=self._overlay.width() if self._overlay else 0)
         # Save the size specifically for the active dock widget, not just the area
         if self._active_button:
             dock_widget = self._active_button.property("_dock_widget")
@@ -577,7 +590,7 @@ class SidebarManager(QObject):
             return
 
         dock_area = dock_widget.dock_area_widget()
-        main_widget = self._dock_manager
+        main_widget = getattr(self._dock_manager, '_root', None) or self._dock_manager
 
         if dock_area is not None and main_widget is not None:
             try:

@@ -27,6 +27,7 @@ from .dock_splitter import DockSplitter
 from .dock_area_widget import DockAreaWidget
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
+from ._trace import trace
 
 if TYPE_CHECKING:
     from . import DockManager, DockWidget, FloatingDockContainer
@@ -61,6 +62,192 @@ def replace_splitter_widget(splitter: QSplitter, from_: QWidget, to: QWidget):
     splitter.insertWidget(index, to)
 
 
+class DropController:
+    """Manages resolving and executing drag-and-drop operations for a DockContainerWidget."""
+    def __init__(self, container: 'DockContainerWidget'):
+        self._c = container
+
+    def drop_floating_widget(self, floating_widget: 'FloatingDockContainer', target_pos: QPoint):
+        logger.debug('DockContainerWidget.dropFloatingWidget')
+        dock_area = self._c.dock_area_at(target_pos)
+        drop_area = DockWidgetArea.invalid
+        container_drop_area = self._c._dock_manager.container_overlay().drop_area_under_cursor()
+        floating_top_level_dock_widget = floating_widget.top_level_dock_widget()
+        top_level_dock_widget = self._c.top_level_dock_widget()
+
+        if dock_area is not None:
+            drop_overlay = self._c._dock_manager.dock_area_overlay()
+            drop_overlay.set_allowed_areas(DockWidgetArea.all_dock_areas)
+            drop_area = drop_overlay.show_overlay(dock_area)
+            if (container_drop_area not in (DockWidgetArea.invalid, drop_area)):
+                drop_area = DockWidgetArea.invalid
+
+            if drop_area != DockWidgetArea.invalid:
+                logger.debug('Dock Area Drop Content: %s', drop_area)
+                trace("drop.resolve", target_area=dock_area.objectName() or dock_area.__class__.__name__, floating=floating_widget.objectName() or "floating", into=getattr(drop_area, 'name', str(drop_area)))
+                self._drop_into_section(floating_widget, dock_area, drop_area)
+
+        if DockWidgetArea.invalid == drop_area:
+            drop_area = container_drop_area
+            logger.debug('Container Drop Content: %s', drop_area)
+            if drop_area != DockWidgetArea.invalid:
+                trace("drop.resolve", target_area="container", floating=floating_widget.objectName() or "floating", into=getattr(drop_area, 'name', str(drop_area)))
+                self._drop_into_container(floating_widget, drop_area)
+
+        if top_level_dock_widget is not None:
+            top_level_dock_widget.emit_top_level_changed(False)
+
+        if floating_top_level_dock_widget is not None:
+            floating_top_level_dock_widget.emit_top_level_changed(False)
+
+    def _drop_into_container(self, floating_widget: 'FloatingDockContainer', area: DockWidgetArea):
+        insert_param = dock_area_insert_parameters(area)
+        floating_dock_container = floating_widget.dock_container()
+
+        new_dock_areas = find_children(
+            floating_dock_container, DockAreaWidget, '', Qt.FindChildrenRecursively)
+
+        single_dropped_dock_widget = floating_dock_container.top_level_dock_widget()
+        single_dock_widget = self._c.top_level_dock_widget()
+        splitter = self._c._root_splitter
+        trace("drop.insert", splitter=splitter.objectName() or "root_splitter", index="container")
+        
+        if len(self._c._dock_areas) <= 1:
+            splitter.setOrientation(insert_param.orientation)
+        elif splitter.orientation() != insert_param.orientation:
+            new_splitter = self._c._new_splitter(insert_param.orientation)
+            self._c._layout.replaceWidget(splitter, new_splitter)
+            new_splitter.addWidget(splitter)
+            splitter = new_splitter
+
+        floating_splitter = floating_dock_container.root_splitter()
+        if floating_splitter.count() == 1:
+            insert_widget_into_splitter(splitter, floating_splitter.widget(0), insert_param.append)
+        elif floating_splitter.orientation() == insert_param.orientation:
+            while floating_splitter.count():
+                insert_widget_into_splitter(splitter, floating_splitter.widget(0), insert_param.append)
+        else:
+            insert_widget_into_splitter(splitter, floating_splitter, insert_param.append)
+
+        self._c._root_splitter = splitter
+        self._c._add_dock_areas_to_list(new_dock_areas)
+        floating_widget.deleteLater()
+
+        emit_top_level_event_for_widget(single_dropped_dock_widget, False)
+        emit_top_level_event_for_widget(single_dock_widget, False)
+
+        if not splitter.isVisible():
+            splitter.show()
+
+        self._c.dump_layout()
+
+    def _resolve_section_insertion(self, target_area: DockAreaWidget, insert_param: DockInsertParam) -> tuple[QSplitter, int]:
+        target_area_splitter = find_parent(QSplitter, target_area)
+
+        if not target_area_splitter:
+            splitter = self._c._new_splitter(insert_param.orientation)
+            self._c._layout.replaceWidget(target_area, splitter)
+            splitter.addWidget(target_area)
+            target_area_splitter = splitter
+
+        area_index = target_area_splitter.indexOf(target_area)
+        return target_area_splitter, area_index
+
+    def _insert_into_section_splitter(self, target_area_splitter: QSplitter, area_index: int,
+                                      target_area: DockAreaWidget, floating_splitter: QWidget, insert_param: DockInsertParam):
+        if target_area_splitter.orientation() == insert_param.orientation:
+            sizes = target_area_splitter.sizes()
+            target_area_size = (target_area.width()
+                                if insert_param.orientation == Qt.Horizontal
+                                else target_area.height())
+            adjust_splitter_sizes = True
+            if (floating_splitter.orientation() != insert_param.orientation
+                    and floating_splitter.count() > 1):
+                target_area_splitter.insertWidget(
+                    area_index + insert_param.insert_offset,
+                    floating_splitter)
+            else:
+                adjust_splitter_sizes = (floating_splitter.count() == 1)
+                insert_index = area_index + insert_param.insert_offset
+                while floating_splitter.count():
+                    insert_index += 1
+                    target_area_splitter.insertWidget(insert_index,
+                                                      floating_splitter.widget(0))
+
+            if adjust_splitter_sizes:
+                size = (target_area_size - target_area_splitter.handleWidth()) / 2
+                sizes[area_index] = size
+                sizes.insert(area_index, size)
+                target_area_splitter.setSizes(sizes)
+
+        else:
+            new_splitter = self._c._new_splitter(insert_param.orientation)
+            target_area_size = (target_area.width()
+                                if insert_param.orientation == Qt.Horizontal
+                                else target_area.height())
+            adjust_splitter_sizes = True
+            if (floating_splitter.orientation() != insert_param.orientation) and floating_splitter.count() > 1:
+                new_splitter.addWidget(floating_splitter)
+            else:
+                adjust_splitter_sizes = (floating_splitter.count() == 1)
+                while floating_splitter.count():
+                    new_splitter.addWidget(floating_splitter.widget(0))
+
+            sizes = target_area_splitter.sizes()
+            insert_widget_into_splitter(new_splitter, target_area, not insert_param.append)
+            if adjust_splitter_sizes:
+                size = target_area_size / 2
+                new_splitter.setSizes((size, size))
+
+            target_area_splitter.insertWidget(area_index, new_splitter)
+            target_area_splitter.setSizes(sizes)
+
+    def _drop_into_section(self, floating_widget: 'FloatingDockContainer',
+                           target_area: DockAreaWidget, area: DockWidgetArea):
+        if area == DockWidgetArea.center:
+            self._drop_into_center_of_section(floating_widget, target_area)
+            return
+
+        insert_param = dock_area_insert_parameters(area)
+
+        new_dock_areas = find_children(
+            floating_widget.dock_container(), DockAreaWidget, '', Qt.FindChildrenRecursively)
+
+        target_area_splitter, area_index = self._resolve_section_insertion(target_area, insert_param)
+        trace("drop.insert", splitter=target_area_splitter.objectName() or "section_splitter", index=area_index)
+
+        floating_splitter = find_child(
+            floating_widget.dock_container(), QWidget, '', Qt.FindDirectChildrenOnly)
+
+        self._insert_into_section_splitter(target_area_splitter, area_index, target_area, floating_splitter, insert_param)
+
+        logger.debug('Deleting floating_widget %s', floating_widget)
+        floating_widget.deleteLater()
+        self._c._add_dock_areas_to_list(new_dock_areas)
+        self._c.dump_layout()
+
+    def _drop_into_center_of_section(self, floating_widget: 'FloatingDockContainer',
+                                     target_area: DockAreaWidget):
+        trace("drop.insert", splitter=target_area.objectName() or "center_area", index="center")
+        floating_container = floating_widget.dock_container()
+        new_dock_widgets = floating_container.dock_widgets()
+        top_level_dock_area = floating_container.top_level_dock_area()
+        new_current_index = -1
+
+        if top_level_dock_area is not None:
+            new_current_index = top_level_dock_area.current_index()
+
+        for i, dock_widget in enumerate(new_dock_widgets):
+            target_area.insert_dock_widget(i, dock_widget, False)
+
+            if new_current_index < 0 and not dock_widget.is_closed():
+                new_current_index = i
+
+        target_area.set_current_index(new_current_index)
+        floating_widget.deleteLater()
+        target_area.update_title_bar_visibility()
+
+
 class DockContainerWidget(QFrame, DockStyled):
     STYLE_CATEGORIES = (DockStyleCategory.CORE,)
     dock_areas_added = Signal()
@@ -80,6 +267,7 @@ class DockContainerWidget(QFrame, DockStyled):
         self._last_added_area_cache: Dict[DockWidgetArea, DockAreaWidget] = {}
         self._visible_dock_area_count = -1
         self._top_level_dock_area: DockAreaWidget = None
+        self._drop_controller = DropController(self)
 
         # --- ADDED: Style Manager Integration ---
         self._init_dock_style()
@@ -213,177 +401,22 @@ class DockContainerWidget(QFrame, DockStyled):
         new_dock_area.destroyed.connect(self.remove_dock_area)
 
     def drop_floating_widget(self, floating_widget: 'FloatingDockContainer', target_pos: QPoint):
-        logger.debug('DockContainerWidget.dropFloatingWidget')
-        dock_area = self.dock_area_at(target_pos)
-        drop_area = DockWidgetArea.invalid
-        container_drop_area = self._dock_manager.container_overlay().drop_area_under_cursor()
-        floating_top_level_dock_widget = floating_widget.top_level_dock_widget()
-        top_level_dock_widget = self.top_level_dock_widget()
-
-        if dock_area is not None:
-            drop_overlay = self._dock_manager.dock_area_overlay()
-            drop_overlay.set_allowed_areas(DockWidgetArea.all_dock_areas)
-            drop_area = drop_overlay.show_overlay(dock_area)
-            if (container_drop_area not in (DockWidgetArea.invalid, drop_area)):
-                drop_area = DockWidgetArea.invalid
-
-            if drop_area != DockWidgetArea.invalid:
-                logger.debug('Dock Area Drop Content: %s', drop_area)
-                self._drop_into_section(floating_widget, dock_area, drop_area)
-
-        if DockWidgetArea.invalid == drop_area:
-            drop_area = container_drop_area
-            logger.debug('Container Drop Content: %s', drop_area)
-            if drop_area != DockWidgetArea.invalid:
-                self._drop_into_container(floating_widget, drop_area)
-
-        if top_level_dock_widget is not None:
-            top_level_dock_widget.emit_top_level_changed(False)
-
-        if floating_top_level_dock_widget is not None:
-            floating_top_level_dock_widget.emit_top_level_changed(False)
-
-        # Removed the conflicting OS FOCUS TRANSFER LOGIC here.
-        # The floating window's 100ms deferred _claim_focus_safely() now handles it natively.
+        self._drop_controller.drop_floating_widget(floating_widget, target_pos)
 
     def _drop_into_container(self, floating_widget: 'FloatingDockContainer', area: DockWidgetArea):
-        insert_param = dock_area_insert_parameters(area)
-        floating_dock_container = floating_widget.dock_container()
-
-        new_dock_areas = find_children(
-            floating_dock_container, DockAreaWidget, '', Qt.FindChildrenRecursively)
-
-        single_dropped_dock_widget = floating_dock_container.top_level_dock_widget()
-        single_dock_widget = self.top_level_dock_widget()
-        splitter = self._root_splitter
-        
-        if len(self._dock_areas) <= 1:
-            splitter.setOrientation(insert_param.orientation)
-        elif splitter.orientation() != insert_param.orientation:
-            new_splitter = self._new_splitter(insert_param.orientation)
-            self._layout.replaceWidget(splitter, new_splitter)
-            new_splitter.addWidget(splitter)
-            splitter = new_splitter
-
-        floating_splitter = floating_dock_container.root_splitter()
-        if floating_splitter.count() == 1:
-            insert_widget_into_splitter(splitter, floating_splitter.widget(0), insert_param.append)
-        elif floating_splitter.orientation() == insert_param.orientation:
-            while floating_splitter.count():
-                insert_widget_into_splitter(splitter, floating_splitter.widget(0), insert_param.append)
-        else:
-            insert_widget_into_splitter(splitter, floating_splitter, insert_param.append)
-
-        self._root_splitter = splitter
-        self._add_dock_areas_to_list(new_dock_areas)
-        floating_widget.deleteLater()
-
-        emit_top_level_event_for_widget(single_dropped_dock_widget, False)
-        emit_top_level_event_for_widget(single_dock_widget, False)
-
-        if not splitter.isVisible():
-            splitter.show()
-
-        self.dump_layout()
+        self._drop_controller._drop_into_container(floating_widget, area)
 
     def _drop_into_section(self, floating_widget: 'FloatingDockContainer',
                            target_area: DockAreaWidget, area: DockWidgetArea):
-        if area == DockWidgetArea.center:
-            self._drop_into_center_of_section(floating_widget, target_area)
-            return
-
-        insert_param = dock_area_insert_parameters(area)
-
-        new_dock_areas = find_children(
-            floating_widget.dock_container(), DockAreaWidget, '', Qt.FindChildrenRecursively)
-
-        target_area_splitter = find_parent(QSplitter, target_area)
-
-        if not target_area_splitter:
-            splitter = self._new_splitter(insert_param.orientation)
-            self._layout.replaceWidget(target_area, splitter)
-            splitter.addWidget(target_area)
-            target_area_splitter = splitter
-
-        area_index = target_area_splitter.indexOf(target_area)
-
-        floating_splitter = find_child(
-            floating_widget.dock_container(), QWidget, '', Qt.FindDirectChildrenOnly)
-
-        if target_area_splitter.orientation() == insert_param.orientation:
-            sizes = target_area_splitter.sizes()
-            target_area_size = (target_area.width()
-                                if insert_param.orientation == Qt.Horizontal
-                                else target_area.height())
-            adjust_splitter_sizes = True
-            if (floating_splitter.orientation() != insert_param.orientation
-                    and floating_splitter.count() > 1):
-                target_area_splitter.insertWidget(
-                    area_index + insert_param.insert_offset,
-                    floating_splitter)
-            else:
-                adjust_splitter_sizes = (floating_splitter.count() == 1)
-                insert_index = area_index + insert_param.insert_offset
-                while floating_splitter.count():
-                    insert_index += 1
-                    target_area_splitter.insertWidget(insert_index,
-                                                      floating_splitter.widget(0))
-
-            if adjust_splitter_sizes:
-                size = (target_area_size - target_area_splitter.handleWidth()) / 2
-                sizes[area_index] = size
-                sizes.insert(area_index, size)
-                target_area_splitter.setSizes(sizes)
-
-        else:
-            new_splitter = self._new_splitter(insert_param.orientation)
-            target_area_size = (target_area.width()
-                                if insert_param.orientation == Qt.Horizontal
-                                else target_area.height())
-            adjust_splitter_sizes = True
-            if (floating_splitter.orientation() != insert_param.orientation) and floating_splitter.count() > 1:
-                new_splitter.addWidget(floating_splitter)
-            else:
-                adjust_splitter_sizes = (floating_splitter.count() == 1)
-                while floating_splitter.count():
-                    new_splitter.addWidget(floating_splitter.widget(0))
-
-            sizes = target_area_splitter.sizes()
-            insert_widget_into_splitter(new_splitter, target_area, not insert_param.append)
-            if adjust_splitter_sizes:
-                size = target_area_size / 2
-                new_splitter.setSizes((size, size))
-
-            target_area_splitter.insertWidget(area_index, new_splitter)
-            target_area_splitter.setSizes(sizes)
-
-        logger.debug('Deleting floating_widget %s', floating_widget)
-        floating_widget.deleteLater()
-        self._add_dock_areas_to_list(new_dock_areas)
-        self.dump_layout()
+        self._drop_controller._drop_into_section(floating_widget, target_area, area)
 
     def _drop_into_center_of_section(self, floating_widget: 'FloatingDockContainer',
                                      target_area: DockAreaWidget):
-        floating_container = floating_widget.dock_container()
-        new_dock_widgets = floating_container.dock_widgets()
-        top_level_dock_area = floating_container.top_level_dock_area()
-        new_current_index = -1
-
-        if top_level_dock_area is not None:
-            new_current_index = top_level_dock_area.current_index()
-
-        for i, dock_widget in enumerate(new_dock_widgets):
-            target_area.insert_dock_widget(i, dock_widget, False)
-
-            if new_current_index < 0 and not dock_widget.is_closed():
-                new_current_index = i
-
-        target_area.set_current_index(new_current_index)
-        floating_widget.deleteLater()
-        target_area.update_title_bar_visibility()
+        self._drop_controller._drop_into_center_of_section(floating_widget, target_area)
 
     def add_dock_area(self, dock_area_widget: DockAreaWidget,
                       area: DockWidgetArea = DockWidgetArea.center):
+        trace("manager.add_dock_area", area=getattr(area, 'name', str(area)), dock_area=dock_area_widget.objectName() or dock_area_widget.__class__.__name__)
         container = dock_area_widget.dock_container()
         if container and container is not self:
             container.remove_dock_area(dock_area_widget)
@@ -413,6 +446,7 @@ class DockContainerWidget(QFrame, DockStyled):
             dock_area.view_toggled.connect(self._on_dock_area_view_toggled)
 
     def remove_dock_area(self, area: DockAreaWidget):
+        trace("manager.remove_dock_area", dock_area=area.objectName() or area.__class__.__name__)
         def emit_and_exit():
             top_level_widget = self.top_level_dock_widget()
             emit_top_level_event_for_widget(top_level_widget, True)

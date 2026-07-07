@@ -25,7 +25,11 @@ from .dock_paint import paint_tab
 from .dock_chrome import ChromeToolButton
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
-from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
+from .dock_menu import (
+    MenuSection, dock_icon, MenuContext, build_dock_context_menu,
+    dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
+    menu_default_pin_all, menu_default_reattach
+)
 
 
 if TYPE_CHECKING:
@@ -34,7 +38,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
+class DockWidgetTab(QFrame, DockStyled):
     STYLE_CATEGORIES = (DockStyleCategory.TAB,)
     _menu_sections = MenuSection.TAB
 
@@ -233,51 +237,83 @@ class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
         menu.triggered.connect(self.dispatch_dock_action)
         menu.exec(self.mapToGlobal(ev.pos()))
 
-    # ── DockMenuMixin interface ───────────────────────────────────────────
+    # ── MenuActionTarget & Menu Builder ───────────────────────────────────
+    def _menu_is_floating(self) -> bool:
+        container = self._dock_area.dock_container() if self._dock_area else None
+        return container is not None and container.is_floating()
 
-    def _menu_dock_area(self):
-        return self._dock_area
+    def _menu_is_pinned(self) -> bool:
+        if not self._dock_widget:
+            return False
+        state = self._dock_widget.widget_state()
+        return state in (WidgetState.pinned_shown, WidgetState.pinned_hidden)
 
-    def _menu_dock_widget(self):
+    def _menu_has_sidebars(self) -> bool:
+        try:
+            return self._dock_area.dock_manager().sidebar_manager.has_sidebars
+        except (AttributeError, RuntimeError):
+            return False
+
+    def _gather_menu_context(self, tab_bar: Optional['DockAreaTabBar'] = None) -> MenuContext:
+        count = self._dock_area.open_dock_widgets_count() if self._dock_area else 1
+        is_floating = self._menu_is_floating()
+        show_close_others = (not is_floating) and (count > 1)
+        is_pinnable = bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.pinnable))
+
+        return MenuContext(
+            widget_type="DockWidgetTab",
+            sections=MenuSection.TAB,
+            category=DockStyleCategory.TAB,
+            widget=self._dock_widget,
+            area=self._dock_area,
+            tab_bar=tab_bar,
+            count=count,
+            is_closable=self.is_closable(),
+            is_floatable=self._floatable,
+            is_pinnable=is_pinnable,
+            is_pinned=self._menu_is_pinned(),
+            is_floating=is_floating,
+            has_sidebars=self._menu_has_sidebars(),
+            show_close_others=show_close_others,
+            label_overrides={
+                "close": "Close",
+                "close_others": "Close Others",
+                "float": "Float",
+                "dock": "Dock",
+            }
+        )
+
+    def build_dock_menu(self, menu: QMenu, tab_bar: Optional['DockAreaTabBar'] = None) -> None:
+        context = self._gather_menu_context(tab_bar)
+        build_dock_context_menu(context, menu)
+
+    def dispatch_dock_action(self, action: QAction) -> None:
+        dispatch_dock_context_menu(action, self, fallback_widget_type="DockWidgetTab")
+
+    # ── MenuActionTarget Protocol Implementation ──────────────────────────
+    def menu_target_widget(self) -> Optional['DockWidget']:
         return self._dock_widget
 
-    def _menu_is_closable(self) -> bool:
-        return self.is_closable()
+    def menu_pin_target(self) -> None:
+        menu_default_pin(self._dock_widget, self._dock_area)
 
-    def _menu_is_floatable(self) -> bool:
-        return self._floatable
+    def menu_unpin_target(self) -> None:
+        menu_default_unpin(self._dock_widget, self._dock_area)
 
-    def _menu_show_close_others(self) -> bool:
-        if self._menu_is_floating():
-            return False
-        area = self._menu_dock_area()
-        return area is not None and area.open_dock_widgets_count() > 1
+    def menu_pin_all_target(self) -> None:
+        menu_default_pin_all(self._dock_area)
 
-    def _menu_detach(self):
+    def menu_float_target(self) -> None:
         self.on_detach_action_triggered()
 
-    def _menu_close(self):
+    def menu_dock_target(self) -> None:
+        menu_default_reattach(self._dock_area)
+
+    def menu_close_target(self) -> None:
         self.close_requested.emit()
 
-    def _menu_close_others(self):
+    def menu_close_others_target(self) -> None:
         self.close_other_tabs_requested.emit()
-
-    # ── Context-aware label overrides for single-tab actions ──────────────
-    # The tab context menu always acts on *this* single widget, never on
-    # the whole group, so we keep the labels in singular form regardless
-    # of how many tabs are in the area.
-
-    def _label_close(self, count: int) -> str:
-        return "Close"
-
-    def _label_close_others(self, count: int) -> str:
-        return "Close Others"
-
-    def _label_float(self, count: int) -> str:
-        return "Float"
-
-    def _label_dock(self, count: int) -> str:
-        return "Dock"
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         if (self._floatable and self._dock_area and self._dock_area.dock_container() and

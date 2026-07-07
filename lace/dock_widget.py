@@ -21,8 +21,7 @@ from PySide6.QtWidgets import (QBoxLayout, QFrame, QScrollArea,
 
 # --- ADDED IMPORTS ---
 from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
-from .dock_palette_bridge import resolve_dock_colors, build_dock_palette
+from .dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
 from .enums import (DockWidgetFeature, WidgetState, ToggleViewActionMode,
                     InsertMode)
 from .util import find_parent, emit_top_level_event_for_widget
@@ -200,8 +199,9 @@ class DockWidget(QFrame, DockStyled):
 
     def flag_as_unassigned(self):
         self._closed = True
-        logger.debug('flag_as_unassigned %s -> setParent %s', self, self._dock_manager)
-        self.setParent(self._dock_manager)
+        parent_widget = getattr(self._dock_manager, '_root', None) or self._dock_manager
+        logger.debug('flag_as_unassigned %s -> setParent %s', self, parent_widget)
+        self.setParent(parent_widget)
         self.setVisible(False)
         self.set_dock_area(None)
 

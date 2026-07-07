@@ -49,7 +49,7 @@ class FloatingDockContainer(QWidget, DockStyled):
         if dock_manager is None:
             raise ValueError('Must pass in either dock_area, dock_widget, or dock_manager')
 
-        super().__init__(dock_manager)
+        super().__init__(getattr(dock_manager, '_root', None) or dock_manager)
         
         # Apply application icon
         app_icon = QApplication.instance().windowIcon()

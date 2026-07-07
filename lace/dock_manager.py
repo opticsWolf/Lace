@@ -15,7 +15,7 @@ import logging
 import pathlib
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QObject, Signal, QPoint, QRect
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
 
 from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode
@@ -31,11 +31,12 @@ from .sidebar_manager import SidebarManager
 from .layout_serializer import LayoutSerializer, LayoutError, LayoutPersistenceManager
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme_bridge import DockThemeBridge
+from ._trace import trace
 
 logger = logging.getLogger(__name__)
 
 
-class DockManager(DockContainerWidget):
+class DockManager(QObject):
     """
     The main Facade for the Advanced Docking System.
     Manages dock containers, floating widgets, sidebars, and state serialization.
@@ -48,48 +49,50 @@ class DockManager(DockContainerWidget):
     perspective_opened = Signal(str)
 
     def __init__(self, parent: QWidget):
-        super().__init__(self, parent)
+        super().__init__(parent)
 
         # 1. Initialize Styles (Grab the singleton so children can use it)
         self.style_manager = get_dock_style_manager()
 
         # 2. Flattened Internal State
         self._floating_widgets: List[FloatingDockContainer] = []
-        self._containers: List['DockContainerWidget'] = [self]
+        self._containers: List['DockContainerWidget'] = []
         self._dock_widgets_map: Dict[str, 'DockWidget'] = {}
         self._perspectives: Dict[str, str] = {}  # Now stores JSON strings instead of QByteArray
-        
-        self._view_menu_groups: Dict[str, QMenu] = {}
-        self._view_menu = QMenu("Show View", self)
-        self._menu_insertion_order = InsertionOrder.by_spelling
         
         self._config_flags = DockFlags.default_config
         self._is_restoring_state = False
 
-        # 2. Global Event Bus (Phase 5)
+        # 3. Root Container (Composition over Inheritance)
+        self._root = DockContainerWidget(self, parent)
+        
+        self._view_menu_groups: Dict[str, QMenu] = {}
+        self._view_menu = QMenu("Show View", self._root)
+        self._menu_insertion_order = InsertionOrder.by_spelling
+
+        # 4. Global Event Bus (Phase 5)
         self.signals = DockSignals()
         self.signals.request_overlay_show.connect(self._handle_request_overlay_show)
         self.signals.request_overlay_hide.connect(self._handle_request_overlay_hide)
         self.signals.floating_widget_dropped.connect(self._handle_floating_widget_dropped)
 
-        # 3. Overlays
-        self._dock_area_overlay = DockOverlay(self, OverlayMode.dock_area)
-        self._container_overlay = DockOverlay(self, OverlayMode.container)
+        # 5. Overlays
+        self._dock_area_overlay = DockOverlay(self._root, OverlayMode.dock_area)
+        self._container_overlay = DockOverlay(self._root, OverlayMode.container)
 
-        # 4. Base Layout Setup
-        self.create_root_splitter()
+        # 6. Base Layout Setup
         if isinstance(parent, QMainWindow):
-            parent.setCentralWidget(self)
+            parent.setCentralWidget(self._root)
 
-        # 5. Modular Sub-systems (Phase 3 & 4)
+        # 7. Modular Sub-systems (Phase 3 & 4)
         self._serializer = LayoutSerializer(self)
         self._persistence = LayoutPersistenceManager(pathlib.Path.cwd())
         self.sidebar_manager = SidebarManager(self)
 
-        # 6. Theme Bridge — pushes QPalette to this widget tree so
+        # 8. Theme Bridge — pushes QPalette to the root container tree so
         #    standard Qt children (spinboxes, combos, tree-views) inside
         #    dock panels match the active dock theme automatically.
-        self._theme_bridge = DockThemeBridge(target=self, style_name="", parent=self)
+        self._theme_bridge = DockThemeBridge(target=self._root, style_name="", parent=self)
 
         if isinstance(parent, QMainWindow):
             self.sidebar_manager.setup_shortcuts(parent)
@@ -100,12 +103,14 @@ class DockManager(DockContainerWidget):
 
     def add_dock_widget(self, area: DockWidgetArea, dock_widget: 'DockWidget', 
                         target_area: 'DockAreaWidget' = None) -> 'DockAreaWidget':
+        trace("manager.add_dock_widget", area=getattr(area, 'name', str(area)), widget=dock_widget.objectName())
         self._dock_widgets_map[dock_widget.objectName()] = dock_widget
-        return super().add_dock_widget(area, dock_widget, target_area)
+        return self._root.add_dock_widget(area, dock_widget, target_area)
 
     def remove_dock_widget(self, widget: 'DockWidget'):
+        trace("manager.remove_dock_widget", widget=widget.objectName())
         self._dock_widgets_map.pop(widget.objectName(), None)
-        super().remove_dock_widget(widget)
+        self._root.remove_dock_widget(widget)
 
     def find_dock_widget(self, object_name: str) -> Optional['DockWidget']:
         return self._dock_widgets_map.get(object_name)
@@ -125,7 +130,7 @@ class DockManager(DockContainerWidget):
 
     def _add_sidebar_to_layout(self, sidebar: QWidget, area: DockWidgetArea):
         """Places the sidebar at the correct edge of the main grid layout."""
-        layout = self.layout()
+        layout = self._root.layout()
         
         # Ensure we have a grid layout to work with
         if hasattr(layout, 'addWidget'):
@@ -151,9 +156,9 @@ class DockManager(DockContainerWidget):
         if self._is_restoring_state:
             return False
 
-        is_hidden = self.isHidden()
+        is_hidden = self._root.isHidden()
         if not is_hidden:
-            self.hide()
+            self._root.hide()
 
         try:
             self._is_restoring_state = True
@@ -172,7 +177,7 @@ class DockManager(DockContainerWidget):
             self.state_restored.emit()
         
         if not is_hidden:
-            self.show()
+            self._root.show()
 
         return success
 
@@ -273,10 +278,13 @@ class DockManager(DockContainerWidget):
 
     def register_dock_container(self, dock_container: DockContainerWidget):
         if dock_container not in self._containers:
+            if len(self._containers) > 0:
+                trace("manager.register_container", container=dock_container.objectName() or dock_container.__class__.__name__)
             self._containers.append(dock_container)
 
     def remove_dock_container(self, dock_container: DockContainerWidget):
-        if self is not dock_container and dock_container in self._containers:
+        if dock_container is not getattr(self, '_root', None) and dock_container in self._containers:
+            trace("manager.remove_container", container=dock_container.objectName() or dock_container.__class__.__name__)
             self._containers.remove(dock_container)
 
     def dock_containers(self) -> List[DockContainerWidget]:
@@ -287,6 +295,139 @@ class DockManager(DockContainerWidget):
     @property
     def view_menu(self) -> QMenu:
         return self._view_menu
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  Delegated Root Container Surface (Composition Facade)
+    # ─────────────────────────────────────────────────────────────────────
+
+    def dock_manager(self) -> 'DockManager':
+        return self
+
+    def root_container(self) -> DockContainerWidget:
+        return self._root
+
+    def add_dock_area(self, dock_area_widget: 'DockAreaWidget',
+                      area: DockWidgetArea = DockWidgetArea.invalid,
+                      target_dock_area: 'DockAreaWidget' = None):
+        return self._root.add_dock_area(dock_area_widget, area, target_dock_area)
+
+    def remove_dock_area(self, area: 'DockAreaWidget'):
+        self._root.remove_dock_area(area)
+
+    def dock_area(self, index: int) -> 'DockAreaWidget':
+        return self._root.dock_area(index)
+
+    def dock_area_count(self) -> int:
+        return self._root.dock_area_count()
+
+    def opened_dock_areas(self) -> list:
+        return self._root.opened_dock_areas()
+
+    def dock_area_at(self, global_pos: QPoint) -> 'DockAreaWidget':
+        return self._root.dock_area_at(global_pos)
+
+    def is_floating(self) -> bool:
+        return self._root.is_floating()
+
+    def top_level_dock_area(self) -> 'DockAreaWidget':
+        return self._root.top_level_dock_area()
+
+    def top_level_dock_widget(self) -> 'DockWidget':
+        return self._root.top_level_dock_widget()
+
+    def has_top_level_dock_widget(self) -> bool:
+        return self._root.has_top_level_dock_widget()
+
+    def dock_widgets(self) -> list:
+        return self._root.dock_widgets()
+
+    def features(self) -> DockFlags:
+        return self._root.features()
+
+    def floating_widget(self) -> Optional['FloatingDockContainer']:
+        return self._root.floating_widget()
+
+    def close_other_areas(self, keep_open_area: 'DockAreaWidget'):
+        self._root.close_other_areas(keep_open_area)
+
+    def refresh_style(self):
+        self._root.refresh_style()
+
+    def dump_layout(self):
+        self._root.dump_layout()
+
+    def root_splitter(self):
+        return self._root.root_splitter()
+
+    def last_added_dock_area_widget(self, area: DockWidgetArea) -> 'DockAreaWidget':
+        return self._root.last_added_dock_area_widget(area)
+
+    def z_order_index(self) -> int:
+        return self._root.z_order_index()
+
+    def is_in_front_of(self, other: 'DockContainerWidget') -> bool:
+        return self._root.is_in_front_of(other)
+
+    def drop_floating_widget(self, floating_widget: 'FloatingDockContainer', target_pos: QPoint):
+        self._root.drop_floating_widget(floating_widget, target_pos)
+
+    def _drop_into_container(self, floating_widget: 'FloatingDockContainer', area: DockWidgetArea):
+        self._root._drop_into_container(floating_widget, area)
+
+    def _drop_into_section(self, floating_widget: 'FloatingDockContainer', area: 'DockAreaWidget', drop_area: DockWidgetArea):
+        self._root._drop_into_section(floating_widget, area, drop_area)
+
+    def _drop_into_center_of_section(self, floating_widget: 'FloatingDockContainer', area: 'DockAreaWidget'):
+        self._root._drop_into_center_of_section(floating_widget, area)
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  Delegated QWidget Surface (for compatibility with existing callers)
+    # ─────────────────────────────────────────────────────────────────────
+
+    def layout(self):
+        return self._root.layout()
+
+    def rect(self) -> QRect:
+        return self._root.rect()
+
+    def size(self):
+        return self._root.size()
+
+    def geometry(self) -> QRect:
+        return self._root.geometry()
+
+    def width(self) -> int:
+        return self._root.width()
+
+    def height(self) -> int:
+        return self._root.height()
+
+    def window(self):
+        return self._root.window()
+
+    def mapToGlobal(self, pos: QPoint) -> QPoint:
+        return self._root.mapToGlobal(pos)
+
+    def mapFromGlobal(self, pos: QPoint) -> QPoint:
+        return self._root.mapFromGlobal(pos)
+
+    def isHidden(self) -> bool:
+        return self._root.isHidden()
+
+    def isVisible(self) -> bool:
+        return self._root.isVisible()
+
+    def show(self):
+        self._root.show()
+
+    def hide(self):
+        self._root.hide()
+
+    def update(self):
+        self._root.update()
+
+    def setFocus(self):
+        self._root.setFocus()
 
 
 def _is_widget_alive(widget: QWidget) -> bool:

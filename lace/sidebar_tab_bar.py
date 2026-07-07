@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, Q
 
 from .enums import DockWidgetArea, DockWidgetFeature
 from .sidebar_tab import VerticalTabButton
-from .dock_context_menu import DockMenuMixin, MenuSection
+from .dock_menu import MenuSection, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
@@ -69,7 +69,7 @@ class _CounterBadge(QLabel):
         super().paintEvent(event)   # draws the digit in the palette colour
 
 
-class SideTabBar(QFrame, DockMenuMixin, DockStyled):
+class SideTabBar(QFrame, DockStyled):
     """Advanced sidebar with drag-drop reordering, drop zones, unified menus, and overflow scrolling."""
     STYLE_CATEGORIES = (DockStyleCategory.SIDEBAR,)
     
@@ -222,8 +222,7 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
         super().resizeEvent(event)
         self._update_scroll_visibility()
 
-    # ── DockMenuMixin Interface ───────────────────────────────────────────
-    
+    # ── MenuActionTarget & Menu Builder ───────────────────────────────────
     def count(self) -> int:
         return len(self._buttons)
 
@@ -239,57 +238,72 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
     def tab(self, index: int):
         return self._buttons[index]
 
-    def _menu_on_switch_tab(self, index: int) -> None:
+    def _gather_menu_context(self, tab_bar=None) -> MenuContext:
+        widget = self._context_menu_widget
+        count = self.count()
+        is_closable = bool(widget and (widget.features() & DockWidgetFeature.closable))
+        is_floatable = bool(widget and (widget.features() & DockWidgetFeature.floatable))
+
+        return MenuContext(
+            widget_type="SideTabBar",
+            sections=self._menu_sections,
+            category=DockStyleCategory.SIDEBAR,
+            widget=widget,
+            tab_bar=tab_bar or self,
+            count=count,
+            is_closable=is_closable,
+            is_floatable=is_floatable,
+            is_pinnable=True,
+            is_pinned=True,
+            is_floating=False,
+            has_sidebars=True,
+            show_close_others=(count > 1),
+            label_overrides={
+                "close": "Close",
+            }
+        )
+
+    def build_dock_menu(self, menu: QMenu, tab_bar=None) -> None:
+        context = self._gather_menu_context(tab_bar)
+        build_dock_context_menu(context, menu)
+
+    def dispatch_dock_action(self, action: QAction) -> None:
+        dispatch_dock_context_menu(action, self, fallback_widget_type="SideTabBar")
+
+    # ── MenuActionTarget Protocol Implementation ──────────────────────────
+    def menu_target_widget(self) -> Optional['DockWidget']:
+        return self._context_menu_widget
+
+    def menu_switch_tab_target(self, index: int) -> None:
         if 0 <= index < len(self._buttons):
             self.tab_clicked.emit(self._buttons[index])
 
-    def _menu_dock_area(self):
-        return None  # Sidebars don't have a single backing area
+    def menu_unpin_target(self) -> None:
+        widget = self.menu_target_widget()
+        if widget:
+            manager = self._find_manager()
+            if manager and hasattr(manager, 'sidebar_manager'):
+                manager.sidebar_manager.unpin_widget(widget)
 
-    def _menu_dock_widget(self):
-        return self._context_menu_widget
+    def menu_float_target(self) -> None:
+        widget = self.menu_target_widget()
+        if widget:
+            manager = self._find_manager()
+            if manager and hasattr(manager, 'sidebar_manager'):
+                manager.sidebar_manager.unpin_widget_floating(widget)
 
-    def _menu_is_floating(self) -> bool:
-        return False
-
-    def _menu_tab_count(self) -> int:
-        """Returns the number of tabs in the sidebar for the mixin's hide/disable logic."""
-        return self.count()
-
-    def _menu_is_closable(self) -> bool:
-        """Dynamically check if the clicked sidebar tab is allowed to be closed."""
-        widget = self._menu_dock_widget()
-        return bool(widget and (widget.features() & DockWidgetFeature.closable))
-
-    def _menu_is_floatable(self) -> bool:
-        widget = self._menu_dock_widget()
-        return bool(widget and (widget.features() & DockWidgetFeature.floatable))
-
-    def _menu_show_close_others(self) -> bool:
-        return len(self._buttons) > 1
-
-    def _menu_has_sidebars(self) -> bool:
-        return True
-
-    def _menu_close(self):
-        widget = self._menu_dock_widget()
+    def menu_close_target(self) -> None:
+        widget = self.menu_target_widget()
         if widget:
             self._close_dock_widget(widget)
 
-    def _menu_close_others(self):
-        widget = self._menu_dock_widget()
+    def menu_close_others_target(self) -> None:
+        widget = self.menu_target_widget()
         if widget:
             btn = self.button_for(widget)
             if btn:
                 self._close_others(btn)
 
-    def _menu_detach(self):
-        widget = self._menu_dock_widget()
-        if widget:
-            manager = self._find_manager()
-            if manager and hasattr(manager, 'sidebar_manager'):
-                manager.sidebar_manager.unpin_widget_floating(widget) # FIX: Added .sidebar_manager
-                
     # ─────────────────────────────────────────────────────────────────────
 
     def add_tab(self, dock_widget: 'DockWidget') -> VerticalTabButton:
@@ -395,18 +409,6 @@ class SideTabBar(QFrame, DockMenuMixin, DockStyled):
         menu.triggered.connect(self.dispatch_dock_action)
         
         menu.exec(global_pos)
-
-    def _menu_is_pinned(self) -> bool:
-        """Tell the mixin that widgets in this bar are already pinned."""
-        return True
-
-    def _menu_unpin_current(self):
-        """Handler for the 'Unpin from Sidebar' action triggered by the mixin."""
-        widget = self._menu_dock_widget()
-        if widget:
-            manager = self._find_manager()
-            if manager and hasattr(manager, 'sidebar_manager'):
-                manager.sidebar_manager.unpin_widget(widget)
     
     def _close_dock_widget(self, dock_widget: 'DockWidget'):
         """Safely unpins the widget from the sidebar, then fully closes it."""

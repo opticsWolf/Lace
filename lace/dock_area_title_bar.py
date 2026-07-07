@@ -24,7 +24,11 @@ from .dock_chrome import style_title_bar_buttons, ChromeToolButton
 from .dock_paint import chrome_content_margin, top_rounded_path
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
-from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
+from .dock_menu import (
+    MenuSection, dock_icon, MenuContext, build_dock_context_menu,
+    dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
+    menu_default_pin_all, menu_default_reattach
+)
 
 if TYPE_CHECKING:
     from . import DockAreaWidget, DockAreaTabBar, DockManager
@@ -33,7 +37,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
+class DockAreaTitleBar(QFrame, DockStyled):
     STYLE_CATEGORIES = (DockStyleCategory.TITLE_BAR, DockStyleCategory.CORE)
     _menu_sections    = MenuSection.TITLE_BAR
 
@@ -172,26 +176,98 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
     def _test_config_flag(self, flag: DockFlags) -> bool:
         return flag in self._dock_area.dock_manager().config_flags
 
-    # ── DockMenuMixin interface ───────────────────────────────────────────
+    # ── MenuActionTarget & Menu Builder ───────────────────────────────────
+    def _menu_dock_widget(self):
+        return self._dock_area.current_dock_widget() if self._dock_area else None
 
-    def _menu_dock_area(self):
-        return self._dock_area
+    def _menu_is_floating(self) -> bool:
+        container = self._dock_area.dock_container() if self._dock_area else None
+        return container is not None and container.is_floating()
 
-    def _menu_on_switch_tab(self, index: int):
+    def _menu_is_pinned(self) -> bool:
+        widget = self._menu_dock_widget()
+        if not widget:
+            return False
+        state = widget.widget_state()
+        return state in (WidgetState.pinned_shown, WidgetState.pinned_hidden)
+
+    def _menu_has_sidebars(self) -> bool:
+        try:
+            return self._dock_area.dock_manager().sidebar_manager.has_sidebars
+        except (AttributeError, RuntimeError):
+            return False
+
+    def _gather_menu_context(self, tab_bar: Optional['DockAreaTabBar'] = None) -> MenuContext:
+        widget = self._menu_dock_widget()
+        count = self._dock_area.open_dock_widgets_count() if self._dock_area else 1
+        
+        if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
+            is_closable = bool(widget and (widget.features() & DockWidgetFeature.closable))
+        else:
+            is_closable = bool(self._dock_area and self._dock_area.closable)
+            
+        is_floatable = bool(self._dock_area and self._dock_area.floatable)
+        is_pinnable = bool(widget and (widget.features() & DockWidgetFeature.pinnable))
+        
+        return MenuContext(
+            widget_type="DockAreaTitleBar",
+            sections=MenuSection.TITLE_BAR,
+            category=DockStyleCategory.TITLE_BAR,
+            widget=widget,
+            area=self._dock_area,
+            tab_bar=tab_bar or self._tab_bar,
+            count=count,
+            is_closable=is_closable,
+            is_floatable=is_floatable,
+            is_pinnable=is_pinnable,
+            is_pinned=self._menu_is_pinned(),
+            is_floating=self._menu_is_floating(),
+            has_sidebars=self._menu_has_sidebars(),
+            show_close_others=not self._menu_is_floating(),
+        )
+
+    def build_dock_menu(self, menu: QMenu, tab_bar: Optional['DockAreaTabBar'] = None) -> None:
+        context = self._gather_menu_context(tab_bar)
+        build_dock_context_menu(context, menu)
+
+    def dispatch_dock_action(self, action: QAction) -> None:
+        dispatch_dock_context_menu(action, self, fallback_widget_type="DockAreaTitleBar")
+
+    # ── MenuActionTarget Protocol Implementation ──────────────────────────
+    def menu_target_widget(self) -> Optional['DockWidget']:
+        return self._menu_dock_widget()
+
+    def menu_switch_tab_target(self, index: int) -> None:
         self._tab_bar.set_current_index(index)
         self.tab_bar_clicked.emit(index)
 
-    def _menu_detach(self):
+    def menu_pin_target(self) -> None:
+        self._menu_pin_current()
+
+    def menu_unpin_target(self) -> None:
+        menu_default_unpin(self._menu_dock_widget(), self._dock_area)
+
+    def menu_pin_all_target(self) -> None:
+        menu_default_pin_all(self._dock_area)
+
+    def menu_float_target(self) -> None:
         self.on_undock_button_clicked()
 
-    def _menu_close(self):
+    def menu_dock_target(self) -> None:
+        self._menu_reattach()
+
+    def menu_close_target(self) -> None:
         self.on_close_button_clicked()
 
-    def _menu_is_closable(self) -> bool:
-        if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
-            widget = self._menu_dock_widget()
-            return bool(widget and (widget.features() & DockWidgetFeature.closable))
-        return self._dock_area.closable
+    def menu_close_others_target(self) -> None:
+        if self._dock_area:
+            self._dock_area.close_other_areas()
+
+    def _menu_pin_current(self):
+        menu_default_pin(self._menu_dock_widget(), self._dock_area)
+
+    def _menu_reattach(self):
+        menu_default_reattach(self._dock_area)
 
     # ── Button state management ───────────────────────────────────────────
 

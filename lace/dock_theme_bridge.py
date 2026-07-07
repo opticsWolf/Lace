@@ -58,8 +58,7 @@ from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QApplication, QWidget, QStyleFactory
 
 from .dock_style_manager import get_dock_style_manager
-from .dock_theme import DockStyleCategory
-from .dock_palette_bridge import resolve_dock_colors, build_dock_palette
+from .dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 from .enums import DockWidgetFeature
 from .dock_chrome import style_title_bar_buttons, DragDetector, ChromeToolButton
-from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
+from .dock_menu import MenuSection, dock_icon, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
 from .dock_theme import DockStyleCategory
 from .dock_styled import DockStyled
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from .dock_widget import DockWidget
 
 
-class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
+class SideBarTitleBar(QFrame, DockStyled):
     """
     Standalone Title Bar for the Overlay, managing buttons, titles, 
     context menus, and drag-to-detach behavior.
@@ -129,78 +129,62 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
 
     # --- Menu Logic ---
 
-    def _build_overlay_menu(self, menu: QMenu) -> None:
-        """Build the context / dropdown menu using canonical icons and labels."""
+    def _gather_menu_context(self, tab_bar=None) -> MenuContext:
         widget = self._active_widget
-        if not widget:
-            return
-
-        features = widget.features()
+        features = widget.features() if widget else DockWidgetFeature.none
         is_closable = bool(features & DockWidgetFeature.closable)
         is_floatable = bool(features & DockWidgetFeature.floatable)
         is_pinnable = bool(features & DockWidgetFeature.pinnable)
 
-        # Use dock_icon for proper Normal/Disabled state handling in menus
+        return MenuContext(
+            widget_type="SideBarTitleBar",
+            sections=MenuSection.SIDEBAR_TAB,
+            category=DockStyleCategory.SIDEPANEL,
+            widget=widget,
+            is_closable=is_closable,
+            is_floatable=is_floatable,
+            is_pinnable=is_pinnable,
+            is_pinned=True,
+            is_floating=False,
+            has_sidebars=True,
+            show_close_others=False,
+            label_overrides={
+                "unpin": "Unpin from Sidebar",
+                "float": "Float",
+                "close": "Close",
+            }
+        )
 
-        if is_pinnable:
-            act = menu.addAction(dock_icon("unpin", DockStyleCategory.SIDEPANEL), "Unpin from Sidebar")
-            act.setToolTip("Remove from sidebar and place back in the main layout")
-            act.triggered.connect(self._on_reattach_clicked)
+    def build_dock_menu(self, menu: QMenu, tab_bar=None) -> None:
+        context = self._gather_menu_context(tab_bar)
+        build_dock_context_menu(context, menu)
 
-        if is_floatable:
-            act = menu.addAction(dock_icon("float", DockStyleCategory.SIDEPANEL), "Float")
-            act.setToolTip("Detach into a floating window")
-            act.triggered.connect(self._menu_detach)
-
-        if (is_pinnable or is_floatable) and is_closable:
-            menu.addSeparator()
-
-        if is_closable:
-            act = menu.addAction(dock_icon("close", DockStyleCategory.SIDEPANEL), "Close")
-            act.setToolTip("Hide this panel")
-            act.triggered.connect(self._menu_close)
+    def dispatch_dock_action(self, action: QAction) -> None:
+        dispatch_dock_context_menu(action, self, fallback_widget_type="SideBarTitleBar")
 
     def _show_context_menu(self, pos: QPoint):
         menu = QMenu(self)
-        self._build_overlay_menu(menu)
+        self.build_dock_menu(menu)
+        menu.triggered.connect(self.dispatch_dock_action)
         menu.exec(self.mapToGlobal(pos))
 
     def _on_reattach_clicked(self):
         if self._active_widget:
             self.reattach_requested.emit(self._active_widget)
 
-    # ── DockMenuMixin required interface ──────────────────────────────────
-
-    def _menu_dock_area(self):
-        return None
-
-    def _menu_dock_widget(self):
+    # ── MenuActionTarget Protocol Implementation ──────────────────────────
+    def menu_target_widget(self) -> Optional['DockWidget']:
         return self._active_widget
 
-    def _menu_is_floating(self) -> bool:
-        return False
+    def menu_unpin_target(self) -> None:
+        self._on_reattach_clicked()
 
-    def _menu_is_closable(self) -> bool:
-        return bool(self._active_widget and (self._active_widget.features() & DockWidgetFeature.closable))
-
-    def _menu_is_floatable(self) -> bool:
-        return bool(self._active_widget and (self._active_widget.features() & DockWidgetFeature.floatable))
-
-    def _menu_show_close_others(self) -> bool:
-        return False
-
-    def _menu_has_sidebars(self) -> bool:
-        return True
-
-    def _menu_close(self):
-        self.close_requested.emit()
-
-    def _menu_detach(self):
+    def menu_float_target(self) -> None:
         if self._active_widget:
             self.detach_requested.emit(self._active_widget)
-            
-    def _menu_pin_current(self):
-        self._on_reattach_clicked()
+
+    def menu_close_target(self) -> None:
+        self.close_requested.emit()
 
     # --- Styling ---
 
