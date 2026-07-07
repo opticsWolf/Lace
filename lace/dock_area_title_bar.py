@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizeP
 
 from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea
 from .util import start_drag_distance
-from .dock_chrome import style_title_bar_buttons
+from .dock_chrome import style_title_bar_buttons, ChromeToolButton
 from .dock_paint import chrome_content_margin, top_rounded_path
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
@@ -82,7 +82,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
 
     def _create_buttons(self):
         # ── Tabs menu button (always visible) ─────────────────────────
-        self._tabs_menu_button = QToolButton()
+        self._tabs_menu_button = ChromeToolButton()
         self._tabs_menu_button.setObjectName("tabsMenuButton")
         self._tabs_menu_button.setAutoRaise(True)
         self._tabs_menu_button.setPopupMode(QToolButton.InstantPopup)
@@ -103,7 +103,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
         )
 
         # ── Pin button ────────────────────────────────────────────────
-        self._pin_button = QToolButton()
+        self._pin_button = ChromeToolButton()
         self._pin_button.setObjectName("pinButton")
         self._pin_button.setAutoRaise(True)
         self._pin_button.setToolTip("Pin to Sidebar")
@@ -116,7 +116,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
         self._pin_button.setVisible(self._menu_has_sidebars())
 
         # ── Undock (float) button ─────────────────────────────────────
-        self._undock_button = QToolButton()
+        self._undock_button = ChromeToolButton()
         self._undock_button.setObjectName("undockButton")
         self._undock_button.setAutoRaise(True)
         self._undock_button.setToolTip("Float")
@@ -127,7 +127,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin, DockStyled):
         self._undock_button.clicked.connect(self.on_undock_button_clicked)
 
         # ── Close button ──────────────────────────────────────────────
-        self._close_button = QToolButton()
+        self._close_button = ChromeToolButton()
         self._close_button.setObjectName("closeButton")
         self._close_button.setAutoRaise(True)
         # Use dock_icon for proper Normal/Disabled state handling

@@ -175,20 +175,11 @@ class DockThemeBridge(QObject):
         # 1. Apply the CORE palette to the application/manager (is_panel=False)
         palette = build_dock_palette(is_panel=False, colors=colors)
         self._target.setPalette(palette)
-        
-        # --- STYLESHEET NUDGE ---
-        if isinstance(self._target, QApplication):
-            for window in self._target.topLevelWidgets():
-                if window.isVisible():
-                    current_ss = window.styleSheet()
-                    window.setStyleSheet("/* force style re-evaluation */")
-                    window.setStyleSheet(current_ss)
-                    window.update()
-        else:
-            current_ss = self._target.styleSheet()
-            self._target.setStyleSheet("/* force style re-evaluation */")
-            self._target.setStyleSheet(current_ss)
-            self._target.update()
+
+        # The old "stylesheet nudge" (re-setting each window's stylesheet to force
+        # QSS re-evaluation) is gone: all dock chrome is now painted or
+        # palette-driven, so there is no hex/`palette()` QSS left to go stale on a
+        # theme change.  Verified by dev_smoke/smoke_nudge.py.
 
         # --- RE-APPLY DOCK WIDGET LOCAL PALETTES ---
         from .dock_widget import DockWidget

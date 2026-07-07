@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
 )
 from .enums import DockWidgetFeature
-from .dock_chrome import style_title_bar_buttons, DragDetector
+from .dock_chrome import style_title_bar_buttons, DragDetector, ChromeToolButton
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
 from .dock_theme import DockStyleCategory
 from .dock_styled import DockStyled
@@ -72,21 +72,21 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
         # Use dock_icon for proper Normal/Disabled state handling
 
         # Unpin button
-        self._reattach_btn = QToolButton()
+        self._reattach_btn = ChromeToolButton()
         self._reattach_btn.setAutoRaise(True)
         self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.OVERLAY))
         self._reattach_btn.setToolTip("Unpin from Sidebar")
         self._reattach_btn.clicked.connect(self._on_reattach_clicked)
 
         # Float button
-        self._float_btn = QToolButton()
+        self._float_btn = ChromeToolButton()
         self._float_btn.setAutoRaise(True)
         self._float_btn.setIcon(dock_icon("float", DockStyleCategory.OVERLAY))
         self._float_btn.setToolTip("Float")
         self._float_btn.clicked.connect(lambda: self.detach_requested.emit(self._active_widget) if self._active_widget else None)
 
         # Close Button
-        self._close_btn = QToolButton()
+        self._close_btn = ChromeToolButton()
         self._close_btn.setAutoRaise(True)
         self._close_btn.setIcon(dock_icon("close", DockStyleCategory.OVERLAY))
         self._close_btn.setToolTip("Close")

@@ -15,13 +15,14 @@ from typing import TYPE_CHECKING
 import logging
 
 from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter
+from PySide6.QtGui import QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter, QPalette
 from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget, QPushButton
 
 from .util import start_drag_distance
 from .enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature
 from .eliding_label import ElidingLabel
 from .dock_paint import paint_tab
+from .dock_chrome import ChromeToolButton
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
@@ -81,8 +82,10 @@ class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
         self._title_label.setObjectName("dockWidgetTabLabel")
         self._title_label.setAlignment(Qt.AlignCenter)
         
-        # Use dock_icon for proper Normal/Disabled state handling
-        self._close_button = QPushButton()
+        # Use dock_icon for proper Normal/Disabled state handling.
+        # ChromeToolButton paints its own rounded hover (no :hover QSS); it is
+        # flat by default (autoRaise), matching the old border-less push button.
+        self._close_button = ChromeToolButton()
         self._close_button.setObjectName("tabCloseButton")
         self._close_button.setIcon(dock_icon("close_tab", DockStyleCategory.TAB))
 
@@ -366,25 +369,18 @@ class DockWidgetTab(QFrame, DockMenuMixin, DockStyled):
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
 
-        # 2. Child widgets keep stylesheets — no rounded-corner artifact there.
-        text_color = (styles.get("text_active") if is_active else styles.get("text_normal")).name()
-        close_hover = styles.get("close_btn_bg_hover").name()
-        close_radius = styles.get("close_btn_corner_radius", 3)
-        self.setStyleSheet(f"""
-            QLabel#dockWidgetTabLabel {{
-                color: {text_color};
-                background: transparent;
-                border: none;
-            }}
-            QPushButton#tabCloseButton {{
-                background: transparent;
-                border: none;
-                border-radius: {close_radius}px;
-            }}
-            QPushButton#tabCloseButton:hover {{
-                background-color: {close_hover};
-            }}
-        """)
+        # 2. Label colour via palette; close-button hover painted (no QSS at all
+        #    on the tab, so its painted background is never masked by a sheet and
+        #    the label palette isn't overridden by a parent-stylesheet cascade).
+        text_color = styles.get("text_active") if is_active else styles.get("text_normal")
+        if text_color is not None and self._title_label is not None:
+            pal = self._title_label.palette()
+            pal.setColor(QPalette.WindowText, text_color)
+            self._title_label.setPalette(pal)
+        self._close_button.set_hover_chrome(
+            styles.get("close_btn_bg_hover"),
+            styles.get("close_btn_corner_radius", 3),
+        )
 
         btn_size = styles.get("close_btn_size", 20)
         icon_size_val = styles.get("close_btn_icon_size", 16)
