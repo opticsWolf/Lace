@@ -18,7 +18,7 @@ from enum import Flag, auto
 from typing import TYPE_CHECKING, Dict, Optional, Protocol, Any, List
 
 from PySide6.QtCore import QPoint, QRect, QSize
-from PySide6.QtGui import QAction, QIcon, QPainter
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QMenu, QStyle
 
 from .enums import DockWidgetArea, DockWidgetFeature, WidgetState
@@ -105,7 +105,6 @@ def dock_icon(key: str, category: DockStyleCategory = DockStyleCategory.TITLE_BA
 
     std_icon = style.standardIcon(fallback)
     
-    from PySide6.QtGui import QColor
     def to_color(c):
         if isinstance(c, QColor): return c
         if isinstance(c, str): return QColor(c)

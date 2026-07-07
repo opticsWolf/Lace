@@ -24,12 +24,12 @@ the area outside the rounded path simply shows the parent behind it.
 
 from math import ceil, sqrt
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
-from PySide6.QtCore import Qt, QRectF
-from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPainterPath, QPen
+from PySide6.QtCore import Qt, QRectF, QLineF, QPointF, QSizeF
+from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
 
-from typing import Tuple
+from .enums import DockWidgetArea, OverlayMode
 
 _INV_SQRT2 = 1.0 / sqrt(2.0)
 
@@ -162,3 +162,129 @@ def paint_tab(p: QPainter, rect: QRectF, *, bg: Optional[QColor] = None,
         p.setClipPath(path)
         p.fillRect(_edge_strip(rect, indicator_edge, indicator_width), indicator)
         p.restore()
+
+
+def create_high_dpi_drop_indicator_pixmap(
+        size: QSizeF, area: DockWidgetArea, mode: OverlayMode,
+        colors: Tuple[QColor, QColor, QColor, QColor, QColor],
+        device_pixel_ratio: float = 1.0) -> QPixmap:
+    """Create a high-DPI drop indicator pixmap for the specified area."""
+    border_color, background_color, shadow_color, overlay_color, arrow_color = colors
+
+    pixmap_size = QSizeF(size * device_pixel_ratio)
+    pm = QPixmap(pixmap_size.toSize())
+    pm.fill(QColor(0, 0, 0, 0))
+    p = QPainter(pm)
+    
+    p.setRenderHint(QPainter.Antialiasing)
+
+    shadow_rect = QRectF(pm.rect())
+
+    base_rect = QRectF()
+    base_rect.setSize(shadow_rect.size() * 0.7)
+    base_rect.moveCenter(shadow_rect.center())
+
+    p.fillRect(shadow_rect, shadow_color)
+
+    p.save()
+    
+    area_rect = QRectF()
+    area_line = QLineF()
+    non_area_rect = QRectF()
+
+    if area == DockWidgetArea.top:
+        area_rect = QRectF(base_rect.x(), base_rect.y(), base_rect.width(),
+                           base_rect.height() * .5)
+        non_area_rect = QRectF(base_rect.x(), shadow_rect.height() * .5,
+                               base_rect.width(), base_rect.height() * .5)
+        area_line = QLineF(area_rect.bottomLeft(), area_rect.bottomRight())
+    elif area == DockWidgetArea.right:
+        area_rect = QRectF(shadow_rect.width() * .5, base_rect.y(),
+                           base_rect.width() * .5, base_rect.height())
+        non_area_rect = QRectF(base_rect.x(), base_rect.y(),
+                               base_rect.width() * .5, base_rect.height())
+        area_line = QLineF(area_rect.topLeft(), area_rect.bottomLeft())
+    elif area == DockWidgetArea.bottom:
+        area_rect = QRectF(base_rect.x(), shadow_rect.height() * .5,
+                           base_rect.width(), base_rect.height() * .5)
+        non_area_rect = QRectF(base_rect.x(), base_rect.y(),
+                               base_rect.width(), base_rect.height() * .5)
+        area_line = QLineF(area_rect.topLeft(), area_rect.topRight())
+    elif area == DockWidgetArea.left:
+        area_rect = QRectF(base_rect.x(), base_rect.y(),
+                           base_rect.width() * .5, base_rect.height())
+        non_area_rect = QRectF(shadow_rect.width() * .5, base_rect.y(),
+                               base_rect.width() * .5, base_rect.height())
+        area_line = QLineF(area_rect.topRight(), area_rect.bottomRight())
+
+    baseSize = base_rect.size()
+    
+    if (OverlayMode.container == mode and area != DockWidgetArea.center):
+        base_rect = area_rect
+
+    p.fillRect(base_rect, background_color)
+    
+    if area_rect.isValid():
+        pen = p.pen()
+        pen.setColor(border_color)
+        p.setBrush(overlay_color)
+        p.setPen(Qt.NoPen)
+        p.drawRect(area_rect)
+        
+        pen = p.pen()
+        pen.setWidth(1)
+        pen.setColor(border_color)
+        pen.setStyle(Qt.DashLine)
+        p.setPen(pen)
+        p.drawLine(area_line)
+
+    p.restore()
+    p.save()
+
+    pen = p.pen()
+    pen.setColor(border_color)
+    pen.setWidth(1)
+    p.setBrush(Qt.NoBrush)
+    p.setPen(pen)
+    p.drawRect(base_rect)
+
+    p.setBrush(border_color)
+    frame_rect = QRectF(base_rect.topLeft(),
+                        QSizeF(base_rect.width(), baseSize.height() / 10))
+    p.drawRect(frame_rect)
+    
+    p.restore()
+
+    if (OverlayMode.container == mode and area != DockWidgetArea.center):
+        arrow_rect = QRectF()
+        arrow_rect.setSize(baseSize)
+        arrow_rect.setWidth(arrow_rect.width() / 4.6)
+        arrow_rect.setHeight(arrow_rect.height() / 2)
+        arrow_rect.moveCenter(QPointF(0, 0))
+
+        arrow = QPolygonF()
+        arrow.append(arrow_rect.topLeft())
+        arrow.append(QPointF(arrow_rect.right(), arrow_rect.center().y()))
+        arrow.append(arrow_rect.bottomLeft())
+
+        p.setPen(Qt.NoPen)
+        p.setBrush(arrow_color)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        p.translate(non_area_rect.center().x(), non_area_rect.center().y())
+        
+        if area == DockWidgetArea.top:
+            p.rotate(-90)
+        elif area == DockWidgetArea.right:
+            pass
+        elif area == DockWidgetArea.bottom:
+            p.rotate(90)
+        elif area == DockWidgetArea.left:
+            p.rotate(180)
+
+        p.drawPolygon(arrow)
+
+    p.end()
+
+    pm.setDevicePixelRatio(device_pixel_ratio)
+    return pm
+

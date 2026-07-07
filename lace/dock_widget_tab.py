@@ -11,15 +11,15 @@ Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
 Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import logging
 
 from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter, QPalette
+from PySide6.QtGui import QAction, QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter, QPalette
 from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget, QPushButton
 
 from .util import start_drag_distance
-from .enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature
+from .enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature, WidgetState
 from .eliding_label import ElidingLabel
 from .dock_paint import paint_tab
 from .dock_chrome import ChromeToolButton

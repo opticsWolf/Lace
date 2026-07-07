@@ -167,8 +167,6 @@ class DockThemeBridge(QObject):
 
     def refresh_dock_palette(self) -> None:
         """Build a QPalette from the current dock theme and apply it."""
-        from PySide6.QtWidgets import QWidget, QApplication
-        
         colors = resolve_dock_colors()
         
         # 1. Apply the CORE palette to the application/manager (is_panel=False)

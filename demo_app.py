@@ -112,7 +112,7 @@ class DemoMainWindow(QMainWindow):
 
         # 1. Initialize the DockManager
         self.dock_manager = DockManager(self)
-        self.setCentralWidget(self.dock_manager)
+        self.setCentralWidget(getattr(self.dock_manager, '_root', None) or self.dock_manager)
         
         # 2. Build the UI Components
         self.create_dock_widgets()

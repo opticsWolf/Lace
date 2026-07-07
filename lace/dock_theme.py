@@ -374,80 +374,113 @@ def _build_theme(
     _shadow      = [0, 0, 0, 64 if not is_light else 32]
     
     return {
-        DockStyleCategory.CORE: {
-            "canvas_bg":          base,
-            "border_color":       _adjust_color(base, l_off=-0.02),
-            "accent_color":       accent,
-            "focus_border_color": _accent_bright,
-            "text_color":         text,
-            "disabled_text_color": _text_disabled,
-        },
-        DockStyleCategory.PANEL: {
-            "bg_normal":          _panel,
-            "text_color":         text,
-            "input_bg":           _input_bg,
-            "alternate_base":     _alternate_base,
-            "button_bg":          _button_bg,
-            "color_light":        _color_light,
-            "color_mid":          _color_mid,
-            "color_dark":         _color_dark,
-            "color_shadow":       _color_shadow,
-        },
-        DockStyleCategory.SIDEBAR: {
-            "bg_color":           base,
-            "tab_bg_normal":      _transparent,
-            "tab_bg_hover_start": _hover,
-            "tab_bg_hover_end":   _hover_end,
-            "tab_bg_active":      _panel,
-            "tab_text_normal":    _text_muted,
-            "tab_text_active":    _text_active,
-            "tab_text_disabled":  _text_disabled,
-            "indicator_color":    accent,
-            "badge_bg":           accent,
-            "badge_text":         _text_muted,
-        },
-        DockStyleCategory.SIDEPANEL: {
-            "bg_normal":          _panel,
-            "title_text_color":   text,
-            "button_color":       _text_muted,
-            "button_disable_clr": _btn_disabled,
-            "button_hover_bg":    _btn_hover_panel,
-            "shadow_color":       _shadow,
-        },
-        DockStyleCategory.TAB: {
-            "bg_normal":          _title_bg,
-            "bg_hover":           _hover,
-            "bg_active":          _panel,
-            "text_normal":        _text_muted,
-            "text_active":        _text_active,
-            "indicator_color":    accent,
-            "close_btn_color":    _text_muted,
-            "close_btn_bg_hover": _btn_hover_panel,
-            "close_btn_bg_disable": _btn_disabled,
-            "title_text_color":   text,
-        },
-        DockStyleCategory.TITLE_BAR: {
-            "bg_normal":          _title_bg,
-            "bg_active":          _title_bg,
-            "text_normal":        _text_muted,
-            "text_active":        _text_active,
-            "active_edge_color":  _accent_bright,
-            "button_color":       _text_muted,
-            "button_disable_clr": _btn_disabled,
-            "button_hover_bg":    _btn_hover_title,
-        },
-        DockStyleCategory.SPLITTER: {
-            "handle_color":       base,
-            "handle_hover_color": accent,
-        },
-        DockStyleCategory.OVERLAY: {
-            "frame_color":        _accent_bright,
-            "background_color":   _panel,
-            "overlay_color":      _accent_dim,
-            "arrow_color":        text,
-            "shadow_color":       _shadow,
-        },
+        DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _accent_bright),
+        DockStyleCategory.PANEL: _build_panel(text, _panel, _input_bg, _alternate_base, _button_bg, _color_light, _color_mid, _color_dark, _color_shadow),
+        DockStyleCategory.SIDEBAR: _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent),
+        DockStyleCategory.SIDEPANEL: _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow),
+        DockStyleCategory.TAB: _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel),
+        DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title),
+        DockStyleCategory.SPLITTER: _build_splitter(base, accent),
+        DockStyleCategory.OVERLAY: _build_overlay(text, _panel, _accent_bright, _accent_dim, _shadow),
     }
+
+
+def _build_core(base, accent, text, _text_disabled, _accent_bright):
+    return {
+        "canvas_bg":          base,
+        "border_color":       _adjust_color(base, l_off=-0.02),
+        "accent_color":       accent,
+        "focus_border_color": _accent_bright,
+        "text_color":         text,
+        "disabled_text_color": _text_disabled,
+    }
+
+
+def _build_panel(text, _panel, _input_bg, _alternate_base, _button_bg, _color_light, _color_mid, _color_dark, _color_shadow):
+    return {
+        "bg_normal":          _panel,
+        "text_color":         text,
+        "input_bg":           _input_bg,
+        "alternate_base":     _alternate_base,
+        "button_bg":          _button_bg,
+        "color_light":        _color_light,
+        "color_mid":          _color_mid,
+        "color_dark":         _color_dark,
+        "color_shadow":       _color_shadow,
+    }
+
+
+def _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent):
+    return {
+        "bg_color":           base,
+        "tab_bg_normal":      _transparent,
+        "tab_bg_hover_start": _hover,
+        "tab_bg_hover_end":   _hover_end,
+        "tab_bg_active":      _panel,
+        "tab_text_normal":    _text_muted,
+        "tab_text_active":    _text_active,
+        "tab_text_disabled":  _text_disabled,
+        "indicator_color":    accent,
+        "badge_bg":           accent,
+        "badge_text":         _text_muted,
+    }
+
+
+def _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow):
+    return {
+        "bg_normal":          _panel,
+        "title_text_color":   text,
+        "button_color":       _text_muted,
+        "button_disable_clr": _btn_disabled,
+        "button_hover_bg":    _btn_hover_panel,
+        "shadow_color":       _shadow,
+    }
+
+
+def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel):
+    return {
+        "bg_normal":          _title_bg,
+        "bg_hover":           _hover,
+        "bg_active":          _panel,
+        "text_normal":        _text_muted,
+        "text_active":        _text_active,
+        "indicator_color":    accent,
+        "close_btn_color":    _text_muted,
+        "close_btn_bg_hover": _btn_hover_panel,
+        "close_btn_bg_disable": _btn_disabled,
+        "title_text_color":   text,
+    }
+
+
+def _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title):
+    return {
+        "bg_normal":          _title_bg,
+        "bg_active":          _title_bg,
+        "text_normal":        _text_muted,
+        "text_active":        _text_active,
+        "active_edge_color":  _accent_bright,
+        "button_color":       _text_muted,
+        "button_disable_clr": _btn_disabled,
+        "button_hover_bg":    _btn_hover_title,
+    }
+
+
+def _build_splitter(base, accent):
+    return {
+        "handle_color":       base,
+        "handle_hover_color": accent,
+    }
+
+
+def _build_overlay(text, _panel, _accent_bright, _accent_dim, _shadow):
+    return {
+        "frame_color":        _accent_bright,
+        "background_color":   _panel,
+        "overlay_color":      _accent_dim,
+        "arrow_color":        text,
+        "shadow_color":       _shadow,
+    }
+
 # -------------------------------------------------------------------------
 # Color Helper
 # -------------------------------------------------------------------------

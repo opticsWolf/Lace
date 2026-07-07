@@ -18,7 +18,7 @@ from PySide6.QtCore import QPoint, Qt, Signal, QSize, QRectF
 from PySide6.QtGui import QAction, QCursor, QMouseEvent, QPainter
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy, QToolButton
 
-from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea
+from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea, WidgetState
 from .util import start_drag_distance
 from .dock_chrome import style_title_bar_buttons, ChromeToolButton
 from .dock_paint import chrome_content_margin, top_rounded_path

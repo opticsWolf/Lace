@@ -69,7 +69,6 @@ class DockIconProvider:
             return fallback
 
         # Account for device pixel ratio (HiDPI displays)
-        from PySide6.QtWidgets import QApplication
         dpr = QApplication.instance().devicePixelRatio() if QApplication.instance() else 1.0
         target = max(1, int(round(size * dpr)))
 
@@ -96,57 +95,44 @@ class DockIconProvider:
         pixmap.setDevicePixelRatio(dpr)
         return pixmap
 
-    def _resolve_color(self, category: DockStyleCategory, active: bool = False, disabled: bool = False) -> str:
-        """Fetch the correct tint color from the Style Manager.
+    def _resolve_disabled_color(self, category: DockStyleCategory, styles: dict) -> str:
+        if category == DockStyleCategory.TAB:
+            color = styles.get("close_btn_bg_disable")
+        elif category in (DockStyleCategory.TITLE_BAR, DockStyleCategory.SIDEPANEL):
+            color = styles.get("button_disable_clr")
+        elif category == DockStyleCategory.SIDEBAR:
+            color = styles.get("tab_text_disabled")
+        else:
+            color = None
         
-        Args:
-            category: The style category to fetch colors from.
-            active: Whether the icon is in an active/selected state.
-            disabled: Whether the icon is in a disabled state (takes precedence over active).
+        if color is None or (isinstance(color, QColor) and not color.isValid()):
+            core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
+            color = core_styles.get("disabled_text_color")
         
-        Returns:
-            Hex color string for tinting the icon.
-        """
-        styles = self._style_mgr.get_all(category)
-        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
-        
-        # Disabled state takes precedence
-        if disabled:
-            # Check for category-specific disabled color first, then fall back to CORE
-            if category == DockStyleCategory.TAB:
-                color = styles.get("close_btn_bg_disable")
-            elif category == DockStyleCategory.TITLE_BAR:
-                color = styles.get("button_disable_clr")
-            elif category == DockStyleCategory.SIDEPANEL:
-                color = styles.get("button_disable_clr")
-            elif category == DockStyleCategory.SIDEBAR:
-                color = styles.get("tab_text_disabled")
-            else:
-                color = None
-            
-            # Fall back to CORE disabled_text_color if no category-specific color
-            if color is None or (isinstance(color, QColor) and not color.isValid()):
-                color = core_styles.get("disabled_text_color")
-            
-            if isinstance(color, QColor) and color.isValid():
-                return color.name()
-            return self._FALLBACK_COLOR
-        
-        # Map category and state to the specific style key
+        if isinstance(color, QColor) and color.isValid():
+            return color.name()
+        return self._FALLBACK_COLOR
+
+    def _resolve_normal_color(self, category: DockStyleCategory, styles: dict, active: bool) -> str:
         if category == DockStyleCategory.TAB:
             color = styles.get("text_active" if active else "text_normal")
         elif category == DockStyleCategory.SIDEBAR:
             color = styles.get("tab_text_active" if active else "tab_text_normal")
-        elif category == (DockStyleCategory.TITLE_BAR):
-            color = styles.get("button_color" if active else "button_color")
-        elif category == (DockStyleCategory.SIDEPANEL):
-            color = styles.get("button_color" if active else "button_color")
+        elif category in (DockStyleCategory.TITLE_BAR, DockStyleCategory.SIDEPANEL):
+            color = styles.get("button_color")
         else:
             color = styles.get("text_color")
 
         if isinstance(color, QColor) and color.isValid():
             return color.name()
         return self._FALLBACK_COLOR
+
+    def _resolve_color(self, category: DockStyleCategory, active: bool = False, disabled: bool = False) -> str:
+        """Fetch the correct tint color from the Style Manager."""
+        styles = self._style_mgr.get_all(category)
+        if disabled:
+            return self._resolve_disabled_color(category, styles)
+        return self._resolve_normal_color(category, styles, active)
 
     def get(
         self,

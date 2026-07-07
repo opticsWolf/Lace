@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer, QRectF
-from PySide6.QtGui import QColor, QPainter, QPen, QPalette, QPainterPath
+from PySide6.QtGui import QAction, QColor, QPainter, QPen, QPalette, QPainterPath
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
 
 from .enums import DockWidgetArea, DockWidgetFeature

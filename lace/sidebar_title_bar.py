@@ -12,7 +12,7 @@ drag-to-detach, and unified action naming / icons.
 """
 from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import Qt, Signal, QPoint
-from PySide6.QtGui import QColor, QPainter, QPalette
+from PySide6.QtGui import QAction, QColor, QPainter, QPalette
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
 )
