@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Dict, Tuple
 
-from PySide6.QtCore import QByteArray, QSize, Qt
+from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPixmap, QPainter
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication
@@ -71,19 +71,29 @@ class DockIconProvider:
         # Account for device pixel ratio (HiDPI displays)
         from PySide6.QtWidgets import QApplication
         dpr = QApplication.instance().devicePixelRatio() if QApplication.instance() else 1.0
-        
-        # Create pixmap at scaled size for sharp rendering
-        scaled_size = int(size * dpr)
-        pixmap = QPixmap(QSize(scaled_size, scaled_size))
-        pixmap.setDevicePixelRatio(dpr)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        
-        painter = QPainter(pixmap)
+        target = max(1, int(round(size * dpr)))
+
+        # Supersample: render the SVG large, then smooth-downscale. Rendering a
+        # 24px viewBox straight to ~16px rounds thin strokes asymmetrically, which
+        # pushes some glyphs (e.g. the square-x tab-close) ~1px off-centre while
+        # symmetric ones (plain x) land fine. Rendering at 4x and scaling down
+        # keeps every glyph centred and crisp.
+        ss = 4
+        hi = target * ss
+        big = QPixmap(QSize(hi, hi))
+        big.fill(Qt.GlobalColor.transparent)
+
+        painter = QPainter(big)
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-        renderer.render(painter)
+        # Explicit target rect so the viewBox scales to *fill* the pixmap and stays
+        # centred.  Without it, render() draws at the SVG's native 24px in the
+        # top-left corner when the target pixmap is larger than that.
+        renderer.render(painter, QRectF(0, 0, hi, hi))
         painter.end()
-        
+
+        pixmap = big.scaled(target, target, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pixmap.setDevicePixelRatio(dpr)
         return pixmap
 
     def _resolve_color(self, category: DockStyleCategory, active: bool = False, disabled: bool = False) -> str:

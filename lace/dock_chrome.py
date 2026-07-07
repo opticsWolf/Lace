@@ -53,6 +53,22 @@ class DragDetector(QObject):
         return False  # never consume — observers only
 
 
+def _contrast_step(color: QColor, amount: float) -> QColor:
+    """Shift ``color`` by ``amount`` lightness in the contrasting direction
+    (lighten a dark colour, darken a light one) — the same rule the theme uses
+    to derive hover, so pressed continues that direction a little further.
+    """
+    l = color.lightnessF()
+    delta = amount if l < 0.5 else -amount
+    hue = color.hueF()
+    if hue < 0:                     # achromatic (grey): hue is undefined
+        hue = 0.0
+    out = QColor.fromHslF(hue, color.saturationF(),
+                          max(0.0, min(1.0, l + delta)))
+    out.setAlphaF(color.alphaF())
+    return out
+
+
 class ChromeToolButton(QToolButton):
     """Icon tool button that paints its own rounded hover background instead of
     a ``:hover`` stylesheet colour.
@@ -90,13 +106,17 @@ class ChromeToolButton(QToolButton):
         super().leaveEvent(event)
 
     def paintEvent(self, event) -> None:
-        if (self._hovered and self.isEnabled()
+        pressed = self.isDown()
+        if (self.isEnabled() and (self._hovered or pressed)
                 and self._hover_bg is not None and self._hover_bg.alpha() > 0):
             p = QPainter(self)
             p.setRenderHint(QPainter.Antialiasing, True)
             path = QPainterPath()
             path.addRoundedRect(QRectF(self.rect()), self._hover_radius, self._hover_radius)
-            p.fillPath(path, self._hover_bg)
+            # Pressed continues the hover's contrasting direction 0.03 further
+            # (theme-consistent, unlike a flat dark wash); hover is 0.10.
+            fill = _contrast_step(self._hover_bg, 0.03) if pressed else self._hover_bg
+            p.fillPath(path, fill)
             p.end()
         super().paintEvent(event)   # icon (and menu arrow) draw on top
 

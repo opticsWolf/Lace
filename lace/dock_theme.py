@@ -117,7 +117,9 @@ class DockTabStyleSchema(_FontFields):
     close_btn_bg_hover: Optional[List[int]] = None
     close_btn_bg_disable: Optional[List[int]] = None
     close_btn_size: int = 20
-    close_btn_icon_size: int = 16
+    close_btn_icon_size: int = 12   # smaller than the 20px button so the boxed
+                                    # square-x icon sits inside the hover fill
+                                    # with clear margin (no box-in-box crowding)
     close_btn_corner_radius: int = 3
 
 
@@ -330,7 +332,15 @@ def _build_theme(
     _hover      = _adjust_color(base, l_off= h_mode * d * 0.20)
     _hover_end  = _adjust_color(base, l_off= h_mode * d * 0.12)
     _btn_hover  = _adjust_color(base, l_off= h_mode * d * 0.15)
-    
+
+    # Button hover fill, resolved *relative to the container it sits on* so it
+    # always contrasts.  An absolute hover (base-relative) collides with the
+    # title-bar bg (both land near base+0.15), making title-bar button hover
+    # invisible while sidebar hover shows.  _contrasting_hover lightens a dark
+    # surface / darkens a light one, so hover is visible + consistent everywhere.
+    _btn_hover_title = _contrasting_hover(_title_bg)
+    _btn_hover_panel = _contrasting_hover(_panel)
+
     # Input widget backgrounds (for QLineEdit, QTextEdit, tables, etc.)
     _input_bg       = _adjust_color(_panel, l_off=-d * 0.04)  # Slightly darker than panel
     _alternate_base = _adjust_color(_input_bg, l_off=d * 0.06)  # Visible contrast for zebra rows
@@ -401,7 +411,7 @@ def _build_theme(
             "title_text_color":   text,
             "button_color":       _text_muted,
             "button_disable_clr": _btn_disabled,
-            "button_hover_bg":    _btn_hover,
+            "button_hover_bg":    _btn_hover_panel,
             "shadow_color":       _shadow,
         },
         DockStyleCategory.TAB: {
@@ -412,7 +422,7 @@ def _build_theme(
             "text_active":        _text_active,
             "indicator_color":    accent,
             "close_btn_color":    _text_muted,
-            "close_btn_bg_hover": _btn_hover,
+            "close_btn_bg_hover": _btn_hover_panel,
             "close_btn_bg_disable": _btn_disabled,
             "title_text_color":   text,
         },
@@ -424,7 +434,7 @@ def _build_theme(
             "active_edge_color":  _accent_bright,
             "button_color":       _text_muted,
             "button_disable_clr": _btn_disabled,
-            "button_hover_bg":    _btn_hover,
+            "button_hover_bg":    _btn_hover_title,
         },
         DockStyleCategory.SPLITTER: {
             "handle_color":       base,
@@ -441,6 +451,17 @@ def _build_theme(
 # -------------------------------------------------------------------------
 # Color Helper
 # -------------------------------------------------------------------------
+def _contrasting_hover(col, amount: float = 0.10):
+    """Button-hover fill that always contrasts with its container ``col``:
+    lighten a dark surface, darken a light one.  Keeps hover visible even when
+    the theme's derived hover would collide with the container background.
+    """
+    rgb = [x / 255.0 for x in col[:3]]
+    _, l, _ = colorsys.rgb_to_hls(*rgb)
+    direction = 1.0 if l < 0.5 else -1.0
+    return _adjust_color(col, l_off=direction * amount)
+
+
 def _adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):
     # Normalize input and separate alpha
     rgba = [x / 255.0 for x in col]

@@ -74,21 +74,21 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
         # Unpin button
         self._reattach_btn = ChromeToolButton()
         self._reattach_btn.setAutoRaise(True)
-        self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.OVERLAY))
+        self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.SIDEPANEL))
         self._reattach_btn.setToolTip("Unpin from Sidebar")
         self._reattach_btn.clicked.connect(self._on_reattach_clicked)
 
         # Float button
         self._float_btn = ChromeToolButton()
         self._float_btn.setAutoRaise(True)
-        self._float_btn.setIcon(dock_icon("float", DockStyleCategory.OVERLAY))
+        self._float_btn.setIcon(dock_icon("float", DockStyleCategory.SIDEPANEL))
         self._float_btn.setToolTip("Float")
         self._float_btn.clicked.connect(lambda: self.detach_requested.emit(self._active_widget) if self._active_widget else None)
 
         # Close Button
         self._close_btn = ChromeToolButton()
         self._close_btn.setAutoRaise(True)
-        self._close_btn.setIcon(dock_icon("close", DockStyleCategory.OVERLAY))
+        self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL))
         self._close_btn.setToolTip("Close")
         self._close_btn.clicked.connect(self.close_requested.emit)
 
@@ -143,12 +143,12 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
         # Use dock_icon for proper Normal/Disabled state handling in menus
 
         if is_pinnable:
-            act = menu.addAction(dock_icon("unpin", DockStyleCategory.OVERLAY), "Unpin from Sidebar")
+            act = menu.addAction(dock_icon("unpin", DockStyleCategory.SIDEPANEL), "Unpin from Sidebar")
             act.setToolTip("Remove from sidebar and place back in the main layout")
             act.triggered.connect(self._on_reattach_clicked)
 
         if is_floatable:
-            act = menu.addAction(dock_icon("float", DockStyleCategory.OVERLAY), "Float")
+            act = menu.addAction(dock_icon("float", DockStyleCategory.SIDEPANEL), "Float")
             act.setToolTip("Detach into a floating window")
             act.triggered.connect(self._menu_detach)
 
@@ -156,7 +156,7 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
             menu.addSeparator()
 
         if is_closable:
-            act = menu.addAction(dock_icon("close", DockStyleCategory.OVERLAY), "Close")
+            act = menu.addAction(dock_icon("close", DockStyleCategory.SIDEPANEL), "Close")
             act.setToolTip("Hide this panel")
             act.triggered.connect(self._menu_close)
 
@@ -262,6 +262,12 @@ class SideBarTitleBar(QFrame, DockMenuMixin, DockStyled):
             icon_size=styles.get("button_icon_size", 16),
             expand_vertical=styles.get("button_expand_vertical", False),
         )
+
+        # Re-tint icons for the current theme (SIDEPANEL button colour), so they
+        # recolour on theme change — mirrors DockAreaTitleBar.update_button_states.
+        self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.SIDEPANEL))
+        self._float_btn.setIcon(dock_icon("float", DockStyleCategory.SIDEPANEL))
+        self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL))
 
     def paintEvent(self, event):
         bg = self._bg_color
