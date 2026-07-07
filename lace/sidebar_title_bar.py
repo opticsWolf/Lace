@@ -83,7 +83,7 @@ class SideBarTitleBar(QFrame, DockStyled):
         self._float_btn.setAutoRaise(True)
         self._float_btn.setIcon(dock_icon("float", DockStyleCategory.SIDEPANEL))
         self._float_btn.setToolTip("Float")
-        self._float_btn.clicked.connect(lambda: self.detach_requested.emit(self._active_widget) if self._active_widget else None)
+        self._float_btn.clicked.connect(lambda: self.detach_requested.emit(self._active_widget) if self._active_widget and (self._active_widget.features() & DockWidgetFeature.floatable) else None)
 
         # Close Button
         self._close_btn = ChromeToolButton()
@@ -124,7 +124,7 @@ class SideBarTitleBar(QFrame, DockStyled):
     # --- Drag Logic ---
 
     def _on_drag_started(self, _global_pos: QPoint):
-        if self._active_widget:
+        if self._active_widget and (self._active_widget.features() & DockWidgetFeature.floatable):
             self.detach_requested.emit(self._active_widget)
 
     # --- Menu Logic ---
@@ -169,7 +169,7 @@ class SideBarTitleBar(QFrame, DockStyled):
         menu.exec(self.mapToGlobal(pos))
 
     def _on_reattach_clicked(self):
-        if self._active_widget:
+        if self._active_widget and (self._active_widget.features() & DockWidgetFeature.pinnable):
             self.reattach_requested.emit(self._active_widget)
 
     # ── MenuActionTarget Protocol Implementation ──────────────────────────
@@ -180,7 +180,7 @@ class SideBarTitleBar(QFrame, DockStyled):
         self._on_reattach_clicked()
 
     def menu_float_target(self) -> None:
-        if self._active_widget:
+        if self._active_widget and (self._active_widget.features() & DockWidgetFeature.floatable):
             self.detach_requested.emit(self._active_widget)
 
     def menu_close_target(self) -> None:

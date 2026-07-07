@@ -232,9 +232,13 @@ def build_dock_context_menu(context: MenuContext, menu: QMenu) -> None:
     if MenuSection.PIN in sections or MenuSection.UNPIN in sections:
         _sep()
         if is_pinned or MenuSection.UNPIN in sections:
-            act = menu.addAction(_icon("unpin"), _label("unpin", "Unpin from Sidebar"))
-            act.setToolTip("Return this widget to the main dock layout")
-            act.setData(("unpin",))
+            if count == 1 and not is_pinnable:
+                pass
+            else:
+                act = menu.addAction(_icon("unpin"), _label("unpin", "Unpin from Sidebar"))
+                act.setToolTip("Return this widget to the main dock layout")
+                act.setEnabled(is_pinnable)
+                act.setData(("unpin",))
         elif context.has_sidebars and MenuSection.PIN in sections:
             if count == 1 and not is_pinnable:
                 pass

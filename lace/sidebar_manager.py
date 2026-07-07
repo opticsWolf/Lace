@@ -17,7 +17,7 @@ from PySide6.QtCore import QObject, Signal, QTimer, QPoint, QEvent, QSize, QRect
 from PySide6.QtGui import QKeySequence, QShortcut, QCursor
 from PySide6.QtWidgets import QApplication, QMainWindow
 
-from .enums import DockWidgetArea, WidgetState
+from .enums import DockWidgetArea, WidgetState, DockWidgetFeature
 from .dock_menu import find_closest_dock_area
 from .layout_serializer import SidebarStateManager, SidebarState
 from .sidebar_tab import VerticalTabButton
@@ -229,6 +229,8 @@ class SidebarDragController(QObject):
     def on_tab_drag_started(self, button: VerticalTabButton):
         dock_widget = button.property("_dock_widget")
         if dock_widget:
+            if not (dock_widget.features() & DockWidgetFeature.floatable):
+                return
             sidebar = self._manager._pinned.get(dock_widget)
             if sidebar:
                 global_pos = QCursor.pos()
@@ -238,6 +240,8 @@ class SidebarDragController(QObject):
 
     def unpin_widget_floating(self, dock_widget: 'DockWidget'):
         if dock_widget not in self._manager._pinned:
+            return
+        if not (dock_widget.features() & DockWidgetFeature.floatable):
             return
         
         sidebar = self._manager._pinned.pop(dock_widget)
@@ -398,6 +402,8 @@ class SidebarManager(QObject):
     def pin_widget(self, dock_widget: 'DockWidget', 
                    sidebar: Optional['SideTabBar'] = None,
                    area: Optional[DockWidgetArea] = None):
+        if dock_widget.objectName():
+            self._dock_manager._dock_widgets_map[dock_widget.objectName()] = dock_widget
         
         # 1. Intelligent Area Detection based on closest screen edge
         if area is None and sidebar is None:
@@ -459,6 +465,8 @@ class SidebarManager(QObject):
     def unpin_widget(self, dock_widget: 'DockWidget', 
                      area: Optional[DockWidgetArea] = None):
         if dock_widget not in self._pinned:
+            return
+        if not (dock_widget.features() & DockWidgetFeature.pinnable):
             return
         
         sidebar = self._pinned.pop(dock_widget)
@@ -603,9 +611,13 @@ class SidebarManager(QObject):
         self._overlay_controller.show_for_button(button)
 
     def _on_overlay_pin_back(self, dock_widget: 'DockWidget'):
+        if not (dock_widget.features() & DockWidgetFeature.pinnable):
+            return
         self.unpin_widget(dock_widget)
     
     def _on_drag_unpin(self, dock_widget: 'DockWidget'):
+        if not (dock_widget.features() & DockWidgetFeature.floatable):
+            return
         self.unpin_widget_floating(dock_widget)
     
     def _on_resize_finished(self):

@@ -243,6 +243,7 @@ class SideTabBar(QFrame, DockStyled):
         count = self.count()
         is_closable = bool(widget and (widget.features() & DockWidgetFeature.closable))
         is_floatable = bool(widget and (widget.features() & DockWidgetFeature.floatable))
+        is_pinnable = bool(widget and (widget.features() & DockWidgetFeature.pinnable))
 
         return MenuContext(
             widget_type="SideTabBar",
@@ -253,7 +254,7 @@ class SideTabBar(QFrame, DockStyled):
             count=count,
             is_closable=is_closable,
             is_floatable=is_floatable,
-            is_pinnable=True,
+            is_pinnable=is_pinnable,
             is_pinned=True,
             is_floating=False,
             has_sidebars=True,
@@ -280,14 +281,14 @@ class SideTabBar(QFrame, DockStyled):
 
     def menu_unpin_target(self) -> None:
         widget = self.menu_target_widget()
-        if widget:
+        if widget and (widget.features() & DockWidgetFeature.pinnable):
             manager = self._find_manager()
             if manager and hasattr(manager, 'sidebar_manager'):
                 manager.sidebar_manager.unpin_widget(widget)
 
     def menu_float_target(self) -> None:
         widget = self.menu_target_widget()
-        if widget:
+        if widget and (widget.features() & DockWidgetFeature.floatable):
             manager = self._find_manager()
             if manager and hasattr(manager, 'sidebar_manager'):
                 manager.sidebar_manager.unpin_widget_floating(widget)
@@ -385,7 +386,7 @@ class SideTabBar(QFrame, DockStyled):
     def _unpin_tab(self, button: VerticalTabButton):
         """Unpin specific tab (move to main area without closing)."""
         dock_widget = button.property("_dock_widget")
-        if dock_widget:
+        if dock_widget and (dock_widget.features() & DockWidgetFeature.pinnable):
             manager = self._find_manager()
             if manager and hasattr(manager, 'sidebar_manager'):
                 manager.sidebar_manager.unpin_widget(dock_widget) # FIX: Added .sidebar_manager
@@ -415,7 +416,7 @@ class SideTabBar(QFrame, DockStyled):
         if DockWidgetFeature.closable not in dock_widget.features():
             return
         manager = self._find_manager()
-        if manager and hasattr(manager, 'sidebar_manager'):
+        if manager and hasattr(manager, 'sidebar_manager') and (dock_widget.features() & DockWidgetFeature.pinnable):
             manager.sidebar_manager.unpin_widget(dock_widget) # FIX: Added .sidebar_manager
         dock_widget.toggle_view(False)
 
