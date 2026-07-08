@@ -118,6 +118,7 @@ class DemoMainWindow(QMainWindow):
         self.create_dock_widgets()
         
         # 3. Create Menus
+        self.create_view_menu()
         self.create_theme_menu()
         self.create_flags_menu()
 
@@ -173,6 +174,36 @@ class DemoMainWindow(QMainWindow):
         unpinnable_widget.set_widget(unpinnable_content)
         unpinnable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.movable | DockWidgetFeature.floatable)
         self.dock_manager.add_dock_widget(DockWidgetArea.center, unpinnable_widget)
+
+        # --- 6. Locked Sidebar Tool (Permanently Locked in Sidebar) ---
+        locked_sidebar_widget = DockWidget("Locked Sidebar Tool", self)
+        locked_sidebar_content = QLabel("FEATURE TEST:\nI am permanently locked to this sidebar.\n\nI am not draggable/floatable and cannot be unpinned.")
+        locked_sidebar_content.setAlignment(Qt.AlignCenter)
+        locked_sidebar_widget.set_widget(locked_sidebar_content)
+        locked_sidebar_widget.set_features(DockWidgetFeature.closable)
+        self.dock_manager.add_sidebar_widget(DockWidgetArea.left, locked_sidebar_widget)
+
+        # --- 7. Right Locked Panel (Neither floatable, closable, nor unpinnable) ---
+        right_locked_widget = DockWidget("Right Locked Panel", self)
+        right_locked_content = QLabel("FEATURE TEST:\nI am in the right sidebar.\n\nI am neither floatable, closable, nor unpinnable.")
+        right_locked_content.setAlignment(Qt.AlignCenter)
+        right_locked_widget.set_widget(right_locked_content)
+        right_locked_widget.set_features(DockWidgetFeature.movable)
+        self.dock_manager.add_sidebar_widget(DockWidgetArea.right, right_locked_widget)
+
+        # --- 8. Right Pinnable Tool (Not floatable, but pinnable/unpinnable and closable) ---
+        right_pinnable_widget = DockWidget("Right Pinnable Tool", self)
+        right_pinnable_content = QLabel("FEATURE TEST:\nI am in the right sidebar.\n\nI am not floatable, but I am pinnable/unpinnable and closable.")
+        right_pinnable_content.setAlignment(Qt.AlignCenter)
+        right_pinnable_widget.set_widget(right_pinnable_content)
+        right_pinnable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.movable | DockWidgetFeature.pinnable)
+        self.dock_manager.add_sidebar_widget(DockWidgetArea.right, right_pinnable_widget)
+
+    def create_view_menu(self):
+        menubar = self.menuBar()
+        view_menu = menubar.addMenu("View")
+        for name, dock_widget in self.dock_manager.dock_widgets_map().items():
+            view_menu.addAction(dock_widget.toggle_view_action())
 
     def create_theme_menu(self):
         menubar = self.menuBar()

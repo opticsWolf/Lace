@@ -257,7 +257,12 @@ class DockWidgetTab(QFrame, DockStyled):
     def _gather_menu_context(self, tab_bar: Optional['DockAreaTabBar'] = None) -> MenuContext:
         count = self._dock_area.open_dock_widgets_count() if self._dock_area else 1
         is_floating = self._menu_is_floating()
-        show_close_others = (not is_floating) and (count > 1)
+        open_widgets = self._dock_area.opened_dock_widgets() if self._dock_area else []
+        other_closable = sum(
+            1 for dw in open_widgets
+            if dw != self._dock_widget and (dw.features() & DockWidgetFeature.closable)
+        )
+        show_close_others = (not is_floating) and (other_closable > 0)
         is_pinnable = bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.pinnable))
 
         return MenuContext(

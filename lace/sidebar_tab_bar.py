@@ -245,6 +245,11 @@ class SideTabBar(QFrame, DockStyled):
         is_floatable = bool(widget and (widget.features() & DockWidgetFeature.floatable))
         is_pinnable = bool(widget and (widget.features() & DockWidgetFeature.pinnable))
 
+        other_closable = sum(
+            1 for btn in self._buttons
+            if (dw := btn.property("_dock_widget")) and dw != widget and (dw.features() & DockWidgetFeature.closable) and btn.isVisible()
+        )
+
         return MenuContext(
             widget_type="SideTabBar",
             sections=self._menu_sections,
@@ -258,7 +263,7 @@ class SideTabBar(QFrame, DockStyled):
             is_pinned=True,
             is_floating=False,
             has_sidebars=True,
-            show_close_others=(count > 1),
+            show_close_others=(other_closable > 0),
             label_overrides={
                 "close": "Close",
             }
@@ -322,6 +327,11 @@ class SideTabBar(QFrame, DockStyled):
         btn.context_menu_requested.connect(self._on_tab_context_menu)
         btn.close_requested.connect(lambda b=btn: self._close_tab_button(b))
         
+        try:
+            dock_widget.view_toggled.connect(self._on_widget_view_toggled, Qt.UniqueConnection)
+        except (RuntimeError, TypeError):
+            pass
+        
         # FIX: Start the button HIDDEN so it doesn't flash at (0,0)
         btn.hide()
         self._layout.insertWidget(self._layout.count() - 1, btn)
@@ -361,6 +371,11 @@ class SideTabBar(QFrame, DockStyled):
         return QSize(16777215, max(40, hint.height() + 10))
     
     def remove_tab(self, dock_widget: 'DockWidget'):
+        try:
+            dock_widget.view_toggled.disconnect(self._on_widget_view_toggled)
+        except (RuntimeError, TypeError):
+            pass
+            
         btn = self._widget_map.pop(dock_widget, None)
         if btn is None:
             return
@@ -411,13 +426,26 @@ class SideTabBar(QFrame, DockStyled):
         
         menu.exec(global_pos)
     
+    def _on_widget_view_toggled(self, visible: bool, dock_widget: Optional['DockWidget'] = None):
+        if dock_widget is None or not hasattr(dock_widget, 'features'):
+            dock_widget = self.sender()
+        btn = self._widget_map.get(dock_widget)
+        if btn is None:
+            return
+        btn.setVisible(visible)
+        self._update_scroll_visibility()
+        any_visible = any(b.isVisible() for b in self._buttons)
+        self.setVisible(any_visible)
+        if not visible:
+            manager = self._find_manager()
+            if manager and hasattr(manager, 'sidebar_manager'):
+                if manager.sidebar_manager._overlay.isVisible() and dock_widget in manager.sidebar_manager._overlay._current_widgets:
+                    manager.sidebar_manager.close_overlay()
+
     def _close_dock_widget(self, dock_widget: 'DockWidget'):
-        """Safely unpins the widget from the sidebar, then fully closes it."""
+        """Safely closes the dock widget without unpinning it from the sidebar."""
         if DockWidgetFeature.closable not in dock_widget.features():
             return
-        manager = self._find_manager()
-        if manager and hasattr(manager, 'sidebar_manager') and (dock_widget.features() & DockWidgetFeature.pinnable):
-            manager.sidebar_manager.unpin_widget(dock_widget) # FIX: Added .sidebar_manager
         dock_widget.toggle_view(False)
 
     def _close_tab_button(self, button: VerticalTabButton):
@@ -429,13 +457,13 @@ class SideTabBar(QFrame, DockStyled):
         keep_widget = keep_button.property("_dock_widget")
         for btn in list(self._buttons):
             dw = btn.property("_dock_widget")
-            if dw and dw != keep_widget:
+            if dw and dw != keep_widget and (dw.features() & DockWidgetFeature.closable) and btn.isVisible():
                 self._close_dock_widget(dw)
     
     def _close_all(self):
         for btn in list(self._buttons):
             dw = btn.property("_dock_widget")
-            if dw:
+            if dw and (dw.features() & DockWidgetFeature.closable) and btn.isVisible():
                 self._close_dock_widget(dw)
     
     def _move_to_area(self, dock_widget: 'DockWidget', area: DockWidgetArea):

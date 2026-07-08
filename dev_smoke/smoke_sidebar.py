@@ -3,7 +3,7 @@ logging.disable(logging.CRITICAL)
 from PySide6.QtWidgets import QApplication
 app = QApplication(sys.argv)
 from demo_app import DemoMainWindow
-from lace.enums import DockWidgetArea
+from lace.enums import DockWidgetArea, DockWidgetFeature
 
 win = DemoMainWindow(); win.show(); app.processEvents()
 dm = win.dock_manager
@@ -57,4 +57,48 @@ sm.unpin_widget(locked_sidebar_dw)
 app.processEvents()
 assert sm.is_pinned(locked_sidebar_dw), "permanently locked sidebar widget should NOT be unpinnable"
 
+# test Right Locked Panel (neither floatable, closable, nor unpinnable)
+right_locked_dw = dm.dock_widgets_map()["Right Locked Panel"]
+assert sm.is_pinned(right_locked_dw), "right locked panel should start pinned"
+sm.unpin_widget_floating(right_locked_dw)
+app.processEvents()
+assert sm.is_pinned(right_locked_dw), "right locked panel should NOT be floatable"
+sm.unpin_widget(right_locked_dw)
+app.processEvents()
+assert sm.is_pinned(right_locked_dw), "right locked panel should NOT be unpinnable"
+assert DockWidgetFeature.closable not in right_locked_dw.features(), "right locked panel should NOT be closable"
+
+# test Right Pinnable Tool (not floatable, but pinnable/unpinnable and closable)
+right_pinnable_dw = dm.dock_widgets_map()["Right Pinnable Tool"]
+assert sm.is_pinned(right_pinnable_dw), "right pinnable tool should start pinned"
+sm.unpin_widget_floating(right_pinnable_dw)
+app.processEvents()
+assert sm.is_pinned(right_pinnable_dw), "right pinnable tool should NOT be floatable"
+sm.unpin_widget(right_pinnable_dw)
+app.processEvents()
+assert not sm.is_pinned(right_pinnable_dw), "right pinnable tool SHOULD be unpinnable"
+sm.pin_widget(right_pinnable_dw, area=DockWidgetArea.right)
+app.processEvents()
+assert sm.is_pinned(right_pinnable_dw), "right pinnable tool should be re-pinned"
+
+# test closing a sidebar widget hides button without unpinning
+right_sidebar = sm._sidebars[DockWidgetArea.right]
+pinnable_btn = right_sidebar._widget_map[right_pinnable_dw]
+assert pinnable_btn.isVisible(), "tab button should be visible when open"
+right_sidebar._close_dock_widget(right_pinnable_dw)
+app.processEvents()
+assert sm.is_pinned(right_pinnable_dw), "widget should remain pinned when closed"
+assert not pinnable_btn.isVisible(), "tab button should be hidden when closed"
+right_pinnable_dw.toggle_view(True)
+app.processEvents()
+assert pinnable_btn.isVisible(), "tab button should be visible when re-opened"
+
+# test close others only closes closable widgets
+right_sidebar._close_others(pinnable_btn)
+app.processEvents()
+locked_btn = right_sidebar._widget_map[right_locked_dw]
+assert locked_btn.isVisible(), "non-closable widget should NOT be closed by Close Others"
+assert sm.is_pinned(right_locked_dw), "non-closable widget should remain pinned"
+
 print("SIDEBAR SMOKE OK")
+
