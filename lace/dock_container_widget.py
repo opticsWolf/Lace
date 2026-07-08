@@ -664,6 +664,8 @@ class DockContainerWidget(QFrame, DockStyled):
 
         self._on_visible_dock_area_count_changed()
         self.dock_area_view_toggled.emit(dock_area, visible)
+        if visible and hasattr(self, '_dock_manager') and self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+            self._dock_manager.sidebar_manager.raise_overlays()
 
     def is_floating(self) -> bool:
         return self._is_floating

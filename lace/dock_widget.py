@@ -88,6 +88,11 @@ class DockWidget(QFrame, DockStyled):
         return f'<{self.__class__.__name__} title={self.windowTitle()!r}>'
 
     def _show_dock_widget(self):
+        if self.is_in_sidebar():
+            if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+                self._dock_manager.sidebar_manager.show_widget(self)
+            return
+
         from .floating_dock_container import FloatingDockContainer
         if not self._dock_area:
             floating_widget = FloatingDockContainer(dock_widget=self)
@@ -109,7 +114,15 @@ class DockWidget(QFrame, DockStyled):
             floating_widget = find_parent(FloatingDockContainer, container)
             floating_widget.show()
 
+        if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+            self._dock_manager.sidebar_manager.raise_overlays()
+
     def _hide_dock_widget(self):
+        if self.is_in_sidebar():
+            if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+                self._dock_manager.sidebar_manager.hide_widget(self)
+            return
+
         self._tab_widget.hide()
         self._update_parent_dock_area()
 
@@ -173,7 +186,7 @@ class DockWidget(QFrame, DockStyled):
 
     def set_dock_area(self, dock_area: 'DockAreaWidget'):
         self._dock_area = dock_area
-        self._toggle_view_action.setChecked(dock_area is not None and not self.is_closed())
+        self._toggle_view_action.setChecked((dock_area is not None or self.is_in_sidebar()) and not self.is_closed())
         
         # If the widget is moved back to the main window, reset its state to docked
         if dock_area:
@@ -312,6 +325,13 @@ class DockWidget(QFrame, DockStyled):
     def is_in_floating_container(self) -> bool:
         container = self.dock_container()
         return container and container.is_floating()
+
+    def is_in_sidebar(self) -> bool:
+        if self._widget_state in (WidgetState.pinned_shown, WidgetState.pinned_hidden):
+            return True
+        if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+            return self._dock_manager.sidebar_manager.is_pinned(self)
+        return False
 
     def is_closed(self) -> bool:
         return self._closed

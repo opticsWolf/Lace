@@ -296,13 +296,22 @@ def dispatch_dock_context_menu(action: QAction, target: Any, fallback_widget_typ
     data = action.data()
     if not data:
         return
-    key = data[0]
+    if isinstance(data, (tuple, list)):
+        key = data[0]
+        arg = data[1] if len(data) > 1 else None
+    elif isinstance(data, str):
+        key = data
+        arg = None
+    else:
+        key = str(data)
+        arg = None
+
     widget = target.menu_target_widget() if hasattr(target, 'menu_target_widget') else None
     widget_name_or_type = widget.objectName() if widget else (fallback_widget_type or target.__class__.__name__)
     trace("menu.action", widget=widget_name_or_type, action=key)
     
     dispatch = {
-        "switch_tab":   lambda: target.menu_switch_tab_target(data[1]) if hasattr(target, 'menu_switch_tab_target') else None,
+        "switch_tab":   lambda: target.menu_switch_tab_target(arg) if hasattr(target, 'menu_switch_tab_target') else None,
         "pin":          lambda: target.menu_pin_target() if hasattr(target, 'menu_pin_target') else None,
         "unpin":        lambda: target.menu_unpin_target() if hasattr(target, 'menu_unpin_target') else None,
         "pin_all":      lambda: target.menu_pin_all_target() if hasattr(target, 'menu_pin_all_target') else None,

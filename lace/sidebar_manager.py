@@ -182,8 +182,7 @@ class SidebarOverlayController(QObject):
         self._manager._overlay.show_widget(dock_widget, area, size=size, animate=self._manager._animations_enabled)
         dock_widget.set_widget_state(WidgetState.pinned_shown)
     
-        for bar in self._manager._sidebars.values():
-            bar.raise_()
+        self._manager.raise_overlays()
 
     def close_overlay(self):
         trace("sidebar.overlay", action="hide", area="overlay", size=0)
@@ -354,6 +353,7 @@ class SidebarManager(QObject):
             return self._sidebars[area]
         
         bar = SideTabBar(area, getattr(self._dock_manager, '_root', None) or self._dock_manager)
+        bar._dock_manager = self._dock_manager
         self._dock_manager._add_sidebar_to_layout(bar, area)
         
         bar.tab_clicked.connect(self._hover_controller.on_tab_clicked)
@@ -402,6 +402,8 @@ class SidebarManager(QObject):
     def pin_widget(self, dock_widget: 'DockWidget', 
                    sidebar: Optional['SideTabBar'] = None,
                    area: Optional[DockWidgetArea] = None):
+        if self._dock_manager:
+            dock_widget.set_dock_manager(self._dock_manager)
         if dock_widget.objectName():
             self._dock_manager._dock_widgets_map[dock_widget.objectName()] = dock_widget
         
@@ -459,6 +461,7 @@ class SidebarManager(QObject):
         # 5. Add to the correct sidebar
         sidebar.add_tab(dock_widget)
         self._pinned[dock_widget] = sidebar
+        dock_widget.set_toggle_view_action_checked(not dock_widget.is_closed())
         trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="docked", to_state="pinned")
         self.update_badge(dock_widget, 0)
     
@@ -660,6 +663,38 @@ class SidebarManager(QObject):
             closest_area = next(iter(self._sidebars))
 
         self.pin_widget(dock_widget, area=closest_area)
+
+    def raise_overlays(self):
+        """Ensure the sidebar overlay container and tab bars stay on top in the central Z-order."""
+        if hasattr(self, '_overlay') and self._overlay:
+            self._overlay.raise_()
+        for bar in self._sidebars.values():
+            bar.raise_()
+
+    def show_widget(self, dock_widget: 'DockWidget'):
+        """Shows the sidebar overlay for a pinned dock widget and ensures its tab button is visible."""
+        if dock_widget in self._pinned:
+            btn = self._pinned[dock_widget].button_for(dock_widget)
+            if btn:
+                btn.setVisible(True)
+                bar = self._pinned[dock_widget]
+                if any(not b.isHidden() for b in bar._buttons):
+                    bar.setVisible(True)
+                root = getattr(self._dock_manager, '_root', None)
+                if root and root.layout():
+                    root.layout().activate()
+                self._show_for_button(btn)
+        self.raise_overlays()
+
+    def hide_widget(self, dock_widget: 'DockWidget'):
+        """Hides the sidebar overlay if currently showing this widget, and hides its tab button."""
+        if dock_widget in self._pinned:
+            btn = self._pinned[dock_widget].button_for(dock_widget)
+            if self._active_button is btn:
+                self.close_overlay()
+            if btn:
+                btn.setVisible(False)
+            dock_widget.set_widget_state(WidgetState.pinned_hidden)
 
     def is_pinned(self, dock_widget: 'DockWidget') -> bool:
         return dock_widget in self._pinned

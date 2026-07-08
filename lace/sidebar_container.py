@@ -63,6 +63,8 @@ class SideBarContainer(QFrame, DockStyled):
         self._slide_anim = QPropertyAnimation(self, b"geometry")
         self._slide_anim.setDuration(_ANIMATION_DURATION_MS)
         self._slide_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._slide_anim.finished.connect(self._on_anim_finished)
+        self._sliding_in = True
         
         # Content splitter
         self._splitter = QSplitter(Qt.Vertical)
@@ -147,22 +149,21 @@ class SideBarContainer(QFrame, DockStyled):
             end_rect = self._get_visible_geometry()
             self.setGeometry(start_rect)
             self.show()
+            self.raise_()
+            if (bar := self._find_sibling_bar(self._area)):
+                bar.raise_()
             
-            try:
-                self._slide_anim.finished.disconnect(self._focus_inner_widget)
-            except RuntimeError:
-                pass
-                
-            self._slide_anim.finished.connect(self._focus_inner_widget)
+            self._sliding_in = True
             self._slide_anim.setStartValue(start_rect)
             self._slide_anim.setEndValue(end_rect)
             self._slide_anim.start()
         else:
             self.setGeometry(self._get_visible_geometry())
             self.show()
+            self.raise_()
+            if (bar := self._find_sibling_bar(self._area)):
+                bar.raise_()
             self._focus_inner_widget()
-            
-        self.raise_()
 
     def _focus_inner_widget(self):
         """Pass keyboard focus to the actual content."""
@@ -179,10 +180,16 @@ class SideBarContainer(QFrame, DockStyled):
             return
         
         if animate:
+            self._sliding_in = False
             self._slide_anim.setStartValue(self.geometry())
             self._slide_anim.setEndValue(self._get_hidden_geometry())
-            self._slide_anim.finished.connect(self._on_hide_finished)
             self._slide_anim.start()
+        else:
+            self._on_hide_finished()
+
+    def _on_anim_finished(self):
+        if self._sliding_in:
+            self._focus_inner_widget()
         else:
             self._on_hide_finished()
             
@@ -192,11 +199,6 @@ class SideBarContainer(QFrame, DockStyled):
             w.setParent(None)
         self._current_widgets = []
         self._title_bar.set_widget(None)
-        
-        try:
-            self._slide_anim.finished.disconnect(self._on_hide_finished)
-        except RuntimeError:
-            pass
 
     # --- Geometry & Resize ---
 

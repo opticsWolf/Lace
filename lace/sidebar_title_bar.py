@@ -90,7 +90,7 @@ class SideBarTitleBar(QFrame, DockStyled):
         self._close_btn.setAutoRaise(True)
         self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL))
         self._close_btn.setToolTip("Close")
-        self._close_btn.clicked.connect(self.close_requested.emit)
+        self._close_btn.clicked.connect(self._on_close_clicked)
 
         layout.addWidget(self._title_label, 1)
         layout.addWidget(self._reattach_btn)
@@ -176,6 +176,20 @@ class SideBarTitleBar(QFrame, DockStyled):
     def menu_target_widget(self) -> Optional['DockWidget']:
         return self._active_widget
 
+    def dock_manager(self):
+        w = self.parent()
+        while w:
+            if hasattr(w, 'dock_manager') and callable(w.dock_manager):
+                return w.dock_manager()
+            w = w.parent()
+        return None
+
+    def menu_switch_tab_target(self, index: int) -> None:
+        pass
+
+    def menu_pin_target(self) -> None:
+        pass
+
     def menu_unpin_target(self) -> None:
         self._on_reattach_clicked()
 
@@ -184,7 +198,16 @@ class SideBarTitleBar(QFrame, DockStyled):
             self.detach_requested.emit(self._active_widget)
 
     def menu_close_target(self) -> None:
-        self.close_requested.emit()
+        self._on_close_clicked()
+
+    def _on_close_clicked(self):
+        if self._active_widget and (self._active_widget.features() & DockWidgetFeature.closable):
+            self._active_widget.toggle_view(False)
+        else:
+            self.close_requested.emit()
+
+    def menu_close_others_target(self) -> None:
+        pass
 
     # --- Styling ---
 

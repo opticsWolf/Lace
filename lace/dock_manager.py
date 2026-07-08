@@ -104,6 +104,7 @@ class DockManager(QObject):
     def add_dock_widget(self, area: DockWidgetArea, dock_widget: 'DockWidget', 
                         target_area: 'DockAreaWidget' = None) -> 'DockAreaWidget':
         trace("manager.add_dock_widget", area=getattr(area, 'name', str(area)), widget=dock_widget.objectName())
+        dock_widget.set_dock_manager(self)
         self._dock_widgets_map[dock_widget.objectName()] = dock_widget
         return self._root.add_dock_widget(area, dock_widget, target_area)
 
@@ -124,6 +125,7 @@ class DockManager(QObject):
 
     def add_sidebar_widget(self, area: DockWidgetArea, dock_widget: 'DockWidget'):
         """Clean API to pin a widget directly to the auto-hide sidebar."""
+        dock_widget.set_dock_manager(self)
         self._dock_widgets_map[dock_widget.objectName()] = dock_widget
         sidebar = self.sidebar_manager.add_sidebar(area)
         self.sidebar_manager.pin_widget(dock_widget, sidebar)

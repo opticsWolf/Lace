@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 import sys
 import logging
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit, QLabel, QStyle, QMenu
 
 from pathlib import Path
@@ -104,9 +104,17 @@ class DemoMainWindow(QMainWindow):
         except Exception as e:
             logging.error(f"Failed to load icons: {e}")
 
+        # Set application icon with absolute path so floating/detached windows inherit it
+        icon_path = base_path / "icon.ico"
+        if icon_path.exists():
+            app_icon = QIcon(str(icon_path.resolve()))
+            if not app_icon.isNull() and not app_icon.pixmap(16, 16).isNull():
+                QApplication.instance().setWindowIcon(app_icon)
+                self.setWindowIcon(app_icon)
         if self.windowIcon().isNull():
             standard_icon = self.style().standardIcon(QStyle.SP_TitleBarMenuButton)
             self.setWindowIcon(standard_icon)
+            QApplication.instance().setWindowIcon(standard_icon)
 
         self.theme_bridge = DockThemeBridge()
 

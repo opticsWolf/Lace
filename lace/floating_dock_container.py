@@ -51,22 +51,25 @@ class FloatingDockContainer(QWidget, DockStyled):
 
         super().__init__(getattr(dock_manager, '_root', None) or dock_manager)
         
-        # Apply application icon
-        app_icon = QApplication.instance().windowIcon()
-        if not app_icon.isNull():
-            self.setWindowIcon(app_icon)
-        
-        self._dock_container: DockContainerWidget = None
-        global _z_order_counter
-        _z_order_counter += 1
-        self._z_order_index = _z_order_counter
-        
-        self._dock_manager = dock_manager
         self._dragging_state = DragState.inactive
         self._drag_start_mouse_position = QPoint()
         self._drop_container: DockContainerWidget = None
         self._single_dock_area: 'DockAreaWidget' = None
         self._mouse_event_handler: QWidget = None
+        self._dock_container: DockContainerWidget = None
+        global _z_order_counter
+        _z_order_counter += 1
+        self._z_order_index = _z_order_counter
+        self._dock_manager = dock_manager
+        
+        # Apply application icon or fallback to root main window icon
+        app_icon = QApplication.instance().windowIcon()
+        if (app_icon.isNull() or app_icon.pixmap(16, 16).isNull()) and getattr(dock_manager, '_root', None) and hasattr(dock_manager._root, 'windowIcon'):
+            app_icon = dock_manager._root.windowIcon()
+        if not app_icon.isNull() and not app_icon.pixmap(16, 16).isNull():
+            self.setWindowIcon(app_icon)
+            if QApplication.instance().windowIcon().isNull():
+                QApplication.instance().setWindowIcon(app_icon)
 
         dock_container = DockContainerWidget(dock_manager, self)
         self._dock_container = dock_container
@@ -409,7 +412,7 @@ class FloatingDockContainer(QWidget, DockStyled):
 
     def moveEvent(self, event: QMoveEvent):
         super().moveEvent(event)
-        state = self._dragging_state
+        state = getattr(self, '_dragging_state', DragState.inactive)
         if state == DragState.mouse_pressed:
             self._set_state(DragState.floating_widget)
             self._update_drop_overlays(QCursor.pos())
@@ -418,7 +421,7 @@ class FloatingDockContainer(QWidget, DockStyled):
 
     def event(self, e: QEvent) -> bool:
         """Handle native (OS) title-bar drag lifecycle (path B)."""
-        state = self._dragging_state
+        state = getattr(self, '_dragging_state', DragState.inactive)
         if state == DragState.inactive:
             if e.type() == QEvent.NonClientAreaMouseButtonPress:
                 logger.debug('FloatingWidget.event Event.NonClientAreaMouseButtonPress %s', e.type())

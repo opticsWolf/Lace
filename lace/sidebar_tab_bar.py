@@ -94,6 +94,7 @@ class SideTabBar(QFrame, DockStyled):
         self._widget_map: Dict['DockWidget', VerticalTabButton] = {}
         self._drop_indicator: Optional[QLabel] = None
         self._context_menu_widget: Optional['DockWidget'] = None
+        self._dock_manager = None
 
         # Container chrome painted in paintEvent (no hex QSS on the frame itself).
         self._bg_color: Optional[QColor] = None
@@ -247,7 +248,7 @@ class SideTabBar(QFrame, DockStyled):
 
         other_closable = sum(
             1 for btn in self._buttons
-            if (dw := btn.property("_dock_widget")) and dw != widget and (dw.features() & DockWidgetFeature.closable) and btn.isVisible()
+            if (dw := btn.property("_dock_widget")) and dw != widget and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden()
         )
 
         return MenuContext(
@@ -283,6 +284,12 @@ class SideTabBar(QFrame, DockStyled):
     def menu_switch_tab_target(self, index: int) -> None:
         if 0 <= index < len(self._buttons):
             self.tab_clicked.emit(self._buttons[index])
+
+    def menu_pin_target(self) -> None:
+        pass
+
+    def menu_pin_all_target(self) -> None:
+        pass
 
     def menu_unpin_target(self) -> None:
         widget = self.menu_target_widget()
@@ -434,7 +441,7 @@ class SideTabBar(QFrame, DockStyled):
             return
         btn.setVisible(visible)
         self._update_scroll_visibility()
-        any_visible = any(b.isVisible() for b in self._buttons)
+        any_visible = any(not b.isHidden() for b in self._buttons)
         self.setVisible(any_visible)
         if not visible:
             manager = self._find_manager()
@@ -457,13 +464,13 @@ class SideTabBar(QFrame, DockStyled):
         keep_widget = keep_button.property("_dock_widget")
         for btn in list(self._buttons):
             dw = btn.property("_dock_widget")
-            if dw and dw != keep_widget and (dw.features() & DockWidgetFeature.closable) and btn.isVisible():
+            if dw and dw != keep_widget and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden():
                 self._close_dock_widget(dw)
     
     def _close_all(self):
         for btn in list(self._buttons):
             dw = btn.property("_dock_widget")
-            if dw and (dw.features() & DockWidgetFeature.closable) and btn.isVisible():
+            if dw and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden():
                 self._close_dock_widget(dw)
     
     def _move_to_area(self, dock_widget: 'DockWidget', area: DockWidgetArea):
@@ -481,14 +488,41 @@ class SideTabBar(QFrame, DockStyled):
     
     def tab_count(self) -> int:
         return len(self._buttons)
+
+    def count(self) -> int:
+        return len(self._buttons)
+
+    def current_index(self) -> int:
+        for i, btn in enumerate(self._buttons):
+            if btn.isChecked():
+                return i
+        return 0 if self._buttons else -1
+
+    def is_tab_open(self, index: int) -> bool:
+        if 0 <= index < len(self._buttons):
+            return not self._buttons[index].isHidden()
+        return False
+
+    def tab(self, index: int) -> Optional[VerticalTabButton]:
+        return self._buttons[index] if 0 <= index < len(self._buttons) else None
     
+    def dock_manager(self):
+        return self._find_manager()
+
     def _find_manager(self):
-        from .dock_manager import DockManager
-        w = self.parentWidget()
+        if getattr(self, '_dock_manager', None):
+            return self._dock_manager
+        if self._context_menu_widget and hasattr(self._context_menu_widget, 'dock_manager'):
+            return self._context_menu_widget.dock_manager()
+        for btn in self._buttons:
+            dw = btn.property("_dock_widget")
+            if dw and hasattr(dw, 'dock_manager'):
+                return dw.dock_manager()
+        w = self.parent()
         while w:
-            if isinstance(w, DockManager):
-                return w
-            w = w.parentWidget()
+            if hasattr(w, 'sidebar_manager') or hasattr(w, 'dock_manager'):
+                return w if hasattr(w, 'sidebar_manager') else w.dock_manager()
+            w = w.parent()
         return None
     
     def eventFilter(self, obj, event):

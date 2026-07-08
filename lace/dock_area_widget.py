@@ -74,6 +74,9 @@ class DockAreaWidget(ChromeFrame, DockStyled):
     def _tab_bar(self) -> 'DockAreaTabBar':
         return self._title_bar.tab_bar()
 
+    def dock_manager(self) -> 'DockManager':
+        return self._dock_manager
+
     def _update_title_bar_button_states(self):
         """Delegates synchronization of the title bar buttons to the title bar itself."""
         if self.isHidden():
@@ -118,6 +121,8 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         if activate:
             self.set_current_index(index)
 
+        if self._dock_manager:
+            dock_widget.set_dock_manager(self._dock_manager)
         dock_widget.set_dock_area(self)
         self._update_title_bar_button_states()
 
