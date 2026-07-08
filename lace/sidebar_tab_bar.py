@@ -444,7 +444,7 @@ class SideTabBar(QFrame, DockStyled):
 
     def _close_dock_widget(self, dock_widget: 'DockWidget'):
         """Safely closes the dock widget without unpinning it from the sidebar."""
-        if DockWidgetFeature.closable not in dock_widget.features():
+        if not (dock_widget.features() & DockWidgetFeature.closable):
             return
         dock_widget.toggle_view(False)
 

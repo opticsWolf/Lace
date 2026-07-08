@@ -116,11 +116,15 @@ class DockAreaTabBar(QScrollArea, DockStyled):
 
     def on_close_other_tabs_requested(self):
         sender = self.sender()
-
+        tabs_to_close = []
         for i in range(self.count()):
             tab = self.tab(i)
-            if tab.is_closable() and not tab.isHidden() and tab != sender:
-                self.close_tab(i)
+            if tab and tab.is_closable() and not tab.isHidden() and tab != sender:
+                tabs_to_close.append(tab)
+        for tab in tabs_to_close:
+            idx = self._tabs_layout.indexOf(tab)
+            if idx >= 0:
+                self.close_tab(idx)
 
     def on_tab_widget_moved(self, global_pos: QPoint):
         moving_tab = self.sender()

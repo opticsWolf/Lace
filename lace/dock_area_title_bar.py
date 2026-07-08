@@ -209,11 +209,11 @@ class DockAreaTitleBar(QFrame, DockStyled):
         is_floatable = bool(self._dock_area and self._dock_area.floatable)
         is_pinnable = bool(widget and (widget.features() & DockWidgetFeature.pinnable))
         
-        open_widgets = self._dock_area.opened_dock_widgets() if self._dock_area else []
-        other_closable = sum(
-            1 for dw in open_widgets
-            if dw != widget and (dw.features() & DockWidgetFeature.closable)
-        )
+        other_closable_areas = 0
+        if self._dock_area and (container := self._dock_area.dock_container()):
+            for area in container.opened_dock_areas():
+                if area != self._dock_area and any((w.features() & DockWidgetFeature.closable) for w in area.opened_dock_widgets()):
+                    other_closable_areas += 1
         
         return MenuContext(
             widget_type="DockAreaTitleBar",
@@ -229,7 +229,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
             is_pinned=self._menu_is_pinned(),
             is_floating=self._menu_is_floating(),
             has_sidebars=self._menu_has_sidebars(),
-            show_close_others=(not self._menu_is_floating()) and (other_closable > 0),
+            show_close_others=(other_closable_areas > 0),
         )
 
     def build_dock_menu(self, menu: QMenu, tab_bar: Optional['DockAreaTabBar'] = None) -> None:

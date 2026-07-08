@@ -262,7 +262,7 @@ class DockWidgetTab(QFrame, DockStyled):
             1 for dw in open_widgets
             if dw != self._dock_widget and (dw.features() & DockWidgetFeature.closable)
         )
-        show_close_others = (not is_floating) and (other_closable > 0)
+        show_close_others = (other_closable > 0)
         is_pinnable = bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.pinnable))
 
         return MenuContext(

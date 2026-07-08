@@ -682,8 +682,8 @@ class DockContainerWidget(QFrame, DockStyled):
         return find_parent(FloatingDockContainer, self)
 
     def close_other_areas(self, keep_open_area: DockAreaWidget):
-        for dock_area in self._dock_areas:
-            if dock_area != keep_open_area and DockWidgetFeature.closable in dock_area.features():
+        for dock_area in list(self.opened_dock_areas()):
+            if dock_area != keep_open_area:
                 dock_area.close_area()
 
     def refresh_style(self):

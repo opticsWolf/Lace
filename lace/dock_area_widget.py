@@ -315,8 +315,9 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         self.current_changed.emit(index)
 
     def close_area(self):
-        for dock_widget in self.opened_dock_widgets():
-            dock_widget.toggle_view(False)
+        for dock_widget in list(self.opened_dock_widgets()):
+            if dock_widget.features() & DockWidgetFeature.closable:
+                dock_widget.toggle_view(False)
 
     def close_other_areas(self):
         self.dock_container().close_other_areas(self)
