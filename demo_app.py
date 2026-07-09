@@ -8,16 +8,17 @@ SPDX-License-Identifier: Apache-2.0
 
 import sys
 import logging
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit, QLabel, QStyle, QMenu
+from PySide6.QtCore import Qt, QEvent
+from PySide6.QtGui import QAction, QActionGroup, QIcon
+from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit, QLabel, QStyle, QMenu, QFileDialog
 
 from pathlib import Path
 
 # Adjust these imports if your docking framework is in a subfolder
 from lace import (
     DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
-    apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider
+    apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
+    ThemeManager
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -117,6 +118,8 @@ class DemoMainWindow(QMainWindow):
             QApplication.instance().setWindowIcon(standard_icon)
 
         self.theme_bridge = DockThemeBridge()
+        self.theme_manager = ThemeManager(QApplication.instance())
+        self.theme_manager.auto_mode_enabled = False  # Start disabled so default theme shows until user toggles auto
 
         # 1. Initialize the DockManager
         self.dock_manager = DockManager(self)
@@ -132,6 +135,12 @@ class DemoMainWindow(QMainWindow):
 
         # 4. Apply initial theme
         apply_dock_theme("default")
+
+    def changeEvent(self, event):
+        # Whenever Windows changes themes, a PaletteChange event is broadcasted
+        if event.type() == QEvent.Type.PaletteChange and hasattr(self, "theme_manager"):
+            self.theme_manager.sync_theme()
+        super().changeEvent(event)
 
     def create_dock_widgets(self):
         """Creates widgets with specific feature constraints for testing."""
@@ -219,7 +228,13 @@ class DemoMainWindow(QMainWindow):
 
         def add_theme_action(name, theme_key):
             action = QAction(name, self)
-            action.triggered.connect(lambda: apply_dock_theme(theme_key))
+            def on_theme_triggered():
+                if hasattr(self, "theme_manager"):
+                    self.theme_manager.auto_mode_enabled = False
+                    if hasattr(self, "_auto_theme_action"):
+                        self._auto_theme_action.setChecked(False)
+                apply_dock_theme(theme_key)
+            action.triggered.connect(on_theme_triggered)
             theme_menu.addAction(action)
 
         add_theme_action("Default", "default")
@@ -230,6 +245,86 @@ class DemoMainWindow(QMainWindow):
         add_theme_action("Neutral", "neutral")
         add_theme_action("Nordic", "nordic")
         add_theme_action("Warm", "warm")
+
+        theme_menu.addSeparator()
+        self._auto_theme_action = QAction("Auto Theme (OS Sync)", self, checkable=True)
+        self._auto_theme_action.setChecked(self.theme_manager.auto_mode_enabled)
+        def on_auto_toggled(checked):
+            self.theme_manager.auto_mode_enabled = checked
+            if checked:
+                self.theme_manager.sync_theme(force=True)
+        self._auto_theme_action.toggled.connect(on_auto_toggled)
+        theme_menu.addAction(self._auto_theme_action)
+
+        def setup_override_menu(title, is_dark_target):
+            menu = theme_menu.addMenu(title)
+            group = QActionGroup(self)
+            group.setExclusive(True)
+
+            current_target = self.theme_manager.user_dark_theme if is_dark_target else self.theme_manager.user_light_theme
+
+            themes_list = [
+                ("Default", "default"),
+                ("Dark", "dark"),
+                ("Light", "light"),
+                ("Midnight", "midnight"),
+                ("Monokai", "monokai"),
+                ("Neutral", "neutral"),
+                ("Nordic", "nordic"),
+                ("Warm", "warm"),
+            ]
+
+            for name, key in themes_list:
+                act = QAction(name, self, checkable=True)
+                act._theme_key = key
+                group.addAction(act)
+                if current_target == key:
+                    act.setChecked(True)
+
+                def on_selected(checked=False, k=key):
+                    if is_dark_target:
+                        self.theme_manager.user_dark_theme = k
+                    else:
+                        self.theme_manager.user_light_theme = k
+                    if self.theme_manager.auto_mode_enabled:
+                        if self.theme_manager.is_windows_dark_mode() == is_dark_target:
+                            self.theme_manager.sync_theme(force=True)
+                act.triggered.connect(on_selected)
+                menu.addAction(act)
+
+            menu.addSeparator()
+            custom_act = QAction("Custom QSS File...", self, checkable=True)
+            custom_act._theme_key = "custom_qss"
+            group.addAction(custom_act)
+            if current_target not in [k for _, k in themes_list]:
+                custom_act.setChecked(True)
+
+            def on_custom_selected(checked=False):
+                path, _ = QFileDialog.getOpenFileName(
+                    self, f"Select QSS File for {'Dark' if is_dark_target else 'Light'} Theme",
+                    "", "Stylesheet Files (*.qss *.css);;All Files (*)"
+                )
+                if path:
+                    if is_dark_target:
+                        self.theme_manager.user_dark_theme = path
+                    else:
+                        self.theme_manager.user_light_theme = path
+                    custom_act.setChecked(True)
+                    if self.theme_manager.auto_mode_enabled:
+                        if self.theme_manager.is_windows_dark_mode() == is_dark_target:
+                            self.theme_manager.sync_theme(force=True)
+                else:
+                    curr = self.theme_manager.user_dark_theme if is_dark_target else self.theme_manager.user_light_theme
+                    for a in group.actions():
+                        if getattr(a, "_theme_key", None) == curr:
+                            a.setChecked(True)
+                            break
+            custom_act.triggered.connect(on_custom_selected)
+            menu.addAction(custom_act)
+            return menu
+
+        setup_override_menu("Set Light Mode Theme", is_dark_target=False)
+        setup_override_menu("Set Dark Mode Theme", is_dark_target=True)
 
     def create_flags_menu(self):
         """Menu to dynamically toggle DockManager configuration flags."""
