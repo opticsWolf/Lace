@@ -62,6 +62,7 @@ class DockManager(QObject):
         
         self._config_flags = DockFlags.default_config
         self._is_restoring_state = False
+        self._active_dock_area: Optional['DockAreaWidget'] = None
 
         # 3. Root Container (Composition over Inheritance)
         self._root = DockContainerWidget(self, parent)
@@ -176,6 +177,7 @@ class DockManager(QObject):
             self._is_restoring_state = False
 
         if success:
+            self.ensure_active_dock_area()
             self.state_restored.emit()
         
         if not is_hidden:
@@ -450,6 +452,33 @@ class DockManager(QObject):
 
     def setFocus(self):
         self._root.setFocus()
+
+    def set_active_dock_area(self, area: Optional['DockAreaWidget']):
+        if hasattr(self, '_active_dock_area') and self._active_dock_area is area:
+            return
+        old_area = getattr(self, '_active_dock_area', None)
+        self._active_dock_area = area
+        if old_area is not None and _is_widget_alive(old_area):
+            old_area.set_chrome_focused(False)
+        if area is not None and _is_widget_alive(area):
+            area.set_chrome_focused(True)
+
+    def ensure_active_dock_area(self):
+        if getattr(self, '_active_dock_area', None) is not None and _is_widget_alive(self._active_dock_area):
+            try:
+                if not self._active_dock_area.isHidden():
+                    return
+            except RuntimeError:
+                pass
+        from .dock_area_widget import DockAreaWidget
+        for area in self.find_children(DockAreaWidget):
+            try:
+                if not area.isHidden() and area.open_dock_widgets_count() > 0:
+                    self.set_active_dock_area(area)
+                    break
+            except RuntimeError:
+                continue
+
 
 
 def _is_widget_alive(widget: QWidget) -> bool:

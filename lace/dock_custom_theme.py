@@ -196,6 +196,34 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         error_color   = [220, 50, 47, 255],
         info_color    = [42, 161, 152, 255],
     ),
+
+    # -------------------------------------------------------------------------
+    # CYBERPUNK NEON (Vibrant, ultra-contrasty, showcasing all geometry options)
+    # -------------------------------------------------------------------------
+    "cyberpunk_neon": ThemeSpec(
+        base       = [14, 11, 28, 255],     # Deep cyber indigo
+        accent     = [255, 0, 127, 255],    # Electric neon pink
+        text       = [245, 245, 255, 255],  # Crisp white text
+        surface    = [24, 19, 44, 255],     # Rich violet inner panel
+        border     = [0, 240, 255, 255],    # Glowing cyan structural border
+        title_mode = "darker",              # Recessed dark indigo header
+        hover_mode = "lighter",             # Tabs highlight brightly on hover
+        success_color = [57, 255, 20, 255], # Neon green
+        warning_color = [255, 215, 0, 255], # Cyber gold
+        error_color   = [255, 42, 109, 255],# Neon red
+        info_color    = [5, 217, 232, 255], # Cyan
+        
+        # Geometrical Adjustments
+        corner_radius = 10,                 # Distinct rounded card corners
+        border_width = 1.5,                 # Visible glowing 1.5px cyan outline
+        title_height = 32,                  # Roomy 32px title bar height
+        title_padding_left = 0,             # Leftmost tabs sit flush against left edge
+        title_padding_right = 8,            # 8px padding on right side
+        title_button_spacing = 6,           # 6px spacing between action buttons
+        tab_radius = 8,                     # 8px rounded top corners on tabs
+        tab_margin = 3,                     # 3px gap separating adjacent tabs
+        content_margin = (8, 2),            # 8px left/right/bottom, tight 2px top gap under title bar
+    ),
 }
 
 # =============================================================================

@@ -379,7 +379,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         
         # Apply Geometry
         self.setFixedHeight(styles.get("height", 24))
-        pad_left = styles.get("padding_left", 4)
+        pad_left = styles.get("padding_left", 0)
         pad_right = styles.get("padding_right", 4)
         pad_top = styles.get("padding_top", 0)
         

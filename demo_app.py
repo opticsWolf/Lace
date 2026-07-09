@@ -134,7 +134,7 @@ class DemoMainWindow(QMainWindow):
         self.create_flags_menu()
 
         # 4. Apply initial theme
-        apply_dock_theme("default")
+        apply_dock_theme("cyberpunk_neon")
 
     def changeEvent(self, event):
         # Whenever Windows changes themes, a PaletteChange event is broadcasted
@@ -250,6 +250,7 @@ class DemoMainWindow(QMainWindow):
         add_theme_action("Dracula", "dracula")
         add_theme_action("Solarized Dark", "solarized_dark")
         add_theme_action("Solarized Light", "solarized_light")
+        add_theme_action("Cyberpunk Neon", "cyberpunk_neon")
 
         theme_menu.addSeparator()
         self._auto_theme_action = QAction("Auto Theme (OS Sync)", self, checkable=True)
@@ -282,6 +283,7 @@ class DemoMainWindow(QMainWindow):
                 ("Dracula", "dracula"),
                 ("Solarized Dark", "solarized_dark"),
                 ("Solarized Light", "solarized_light"),
+                ("Cyberpunk Neon", "cyberpunk_neon"),
             ]
 
             for name, key in themes_list:

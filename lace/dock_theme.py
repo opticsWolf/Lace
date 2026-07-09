@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 import colorsys
 import enum
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, Tuple
 from PySide6.QtGui import QFont, QColor, QPalette
 
 class DockStyleCategory(enum.Enum):
@@ -161,7 +161,7 @@ class DockTitleBarStyleSchema(_ActionButtonFields, _FontFields):
 
     # Geometry
     height: int = 30
-    padding_left: int = 2
+    padding_left: int = 0
     padding_right: int = 6
     padding_top: int = 0
     border_width: float = 0.0
@@ -292,6 +292,15 @@ class ThemeSpec:
     warning_color: Optional[Union[QColor, List[int]]] = None
     error_color: Optional[Union[QColor, List[int]]] = None
     info_color: Optional[Union[QColor, List[int]]] = None
+    corner_radius: Optional[int] = None
+    border_width: Optional[float] = None
+    title_height: Optional[int] = None
+    title_padding_left: Optional[int] = None
+    title_padding_right: Optional[int] = None
+    title_button_spacing: Optional[int] = None
+    tab_radius: Optional[int] = None
+    tab_margin: Optional[int] = None
+    content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
 
 
 def _as_rgba(col: Union[QColor, List[int]]) -> List[int]:
@@ -312,6 +321,15 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         warning_color=_as_rgba(spec.warning_color) if spec.warning_color is not None else None,
         error_color=_as_rgba(spec.error_color) if spec.error_color is not None else None,
         info_color=_as_rgba(spec.info_color) if spec.info_color is not None else None,
+        corner_radius=spec.corner_radius,
+        border_width=spec.border_width,
+        title_height=spec.title_height,
+        title_padding_left=spec.title_padding_left,
+        title_padding_right=spec.title_padding_right,
+        title_button_spacing=spec.title_button_spacing,
+        tab_radius=spec.tab_radius,
+        tab_margin=spec.tab_margin,
+        content_margin=spec.content_margin,
     )
 
 
@@ -328,6 +346,15 @@ def _build_theme(
     warning_color: Optional[list] = None,
     error_color: Optional[list] = None,
     info_color: Optional[list] = None,
+    corner_radius: Optional[int] = None,
+    border_width: Optional[float] = None,
+    title_height: Optional[int] = None,
+    title_padding_left: Optional[int] = None,
+    title_padding_right: Optional[int] = None,
+    title_button_spacing: Optional[int] = None,
+    tab_radius: Optional[int] = None,
+    tab_margin: Optional[int] = None,
+    content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
     Build a complete dock theme from 3 to 5 primary colors plus status tokens.
@@ -354,6 +381,11 @@ def _build_theme(
     # === DERIVED BACKGROUNDS ===
     _panel      = surface if surface is not None else _adjust_color(base, l_off=d * 0.10)
     _border     = border if border is not None else _adjust_color(base, l_off=-0.02)
+    
+    # Neutral border derived from surface or base depending on light/dark theme
+    _ref_col        = _panel if surface is not None else base
+    _neutral_border = _adjust_color(_ref_col, l_off=(-0.12 if is_light else 0.08))
+    _focus_border   = border if border is not None else _adjust_color(accent, l_off=0.15)
     
     # Title bar / header background: step darker (-0.06) or lighter (+0.06) relative to panel without double-inverting via d
     _title_bg   = _adjust_color(_panel, l_off= t_mode * 0.06)
@@ -403,24 +435,46 @@ def _build_theme(
     _transparent = [0, 0, 0, 0]
     _shadow      = [0, 0, 0, 64 if not is_light else 32]
     
-    return {
-        DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _accent_bright, _border, _success, _warning, _error, _info),
+    theme = {
+        DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_border, _success, _warning, _error, _info),
         DockStyleCategory.PANEL: _build_panel(text, _panel, _input_bg, _alternate_base, _button_bg, _color_light, _color_mid, _color_dark, _color_shadow),
         DockStyleCategory.SIDEBAR: _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent),
         DockStyleCategory.SIDEPANEL: _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow),
-        DockStyleCategory.TAB: _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _border),
-        DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _border),
+        DockStyleCategory.TAB: _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _neutral_border),
+        DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border),
         DockStyleCategory.SPLITTER: _build_splitter(base, accent),
         DockStyleCategory.OVERLAY: _build_overlay(text, _panel, _accent_bright, _accent_dim, _shadow),
     }
 
+    if corner_radius is not None:
+        theme[DockStyleCategory.CORE]["corner_radius"] = corner_radius
+        theme[DockStyleCategory.PANEL]["corner_radius"] = corner_radius
+    if border_width is not None:
+        theme[DockStyleCategory.CORE]["border_width"] = border_width
+    if title_height is not None:
+        theme[DockStyleCategory.TITLE_BAR]["height"] = title_height
+    if title_padding_left is not None:
+        theme[DockStyleCategory.TITLE_BAR]["padding_left"] = title_padding_left
+    if title_padding_right is not None:
+        theme[DockStyleCategory.TITLE_BAR]["padding_right"] = title_padding_right
+    if title_button_spacing is not None:
+        theme[DockStyleCategory.TITLE_BAR]["button_spacing"] = title_button_spacing
+    if tab_radius is not None:
+        theme[DockStyleCategory.TAB]["corner_radius"] = tab_radius
+    if tab_margin is not None:
+        theme[DockStyleCategory.TAB]["margin"] = tab_margin
+    if content_margin is not None:
+        theme[DockStyleCategory.PANEL]["content_margin"] = content_margin
 
-def _build_core(base, accent, text, _text_disabled, _accent_bright, _border, _success, _warning, _error, _info):
+    return theme
+
+
+def _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_border, _success, _warning, _error, _info):
     return {
         "canvas_bg":          base,
-        "border_color":       _border,
+        "border_color":       _neutral_border,
         "accent_color":       accent,
-        "focus_border_color": _accent_bright,
+        "focus_border_color": _focus_border,
         "text_color":         text,
         "disabled_text_color": _text_disabled,
         "success_color":      _success,
@@ -471,12 +525,12 @@ def _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel,
     }
 
 
-def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _border):
+def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _neutral_border):
     return {
         "bg_normal":          _title_bg,
         "bg_hover":           _hover,
         "bg_active":          _panel,
-        "border_color":       _border,
+        "border_color":       _neutral_border,
         "text_normal":        _text_muted,
         "text_active":        _text_active,
         "indicator_color":    accent,
@@ -487,11 +541,11 @@ def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_activ
     }
 
 
-def _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _border):
+def _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border):
     return {
         "bg_normal":          _title_bg,
         "bg_active":          _title_bg,
-        "border_color":       _border,
+        "border_color":       _neutral_border,
         "text_normal":        _text_muted,
         "text_active":        _text_active,
         "active_edge_color":  _accent_bright,

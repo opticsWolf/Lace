@@ -58,6 +58,37 @@ class DockAreaWidget(ChromeFrame, DockStyled):
 
         self._init_dock_style()
 
+        from PySide6.QtWidgets import QApplication
+        qapp = QApplication.instance()
+        if qapp:
+            qapp.focusChanged.connect(self._on_app_focus_changed)
+
+    def _on_app_focus_changed(self, old_widget, new_widget):
+        try:
+            if self.isHidden() or not self.isVisible():
+                return
+            if new_widget is not None:
+                try:
+                    if not new_widget.isVisible():
+                        return
+                except RuntimeError:
+                    return
+                if self.isAncestorOf(new_widget) or (new_widget is self):
+                    if self._dock_manager:
+                        self._dock_manager.set_active_dock_area(self)
+                    else:
+                        self.set_chrome_focused(True)
+        except RuntimeError:
+            return
+
+    def mousePressEvent(self, event):
+        try:
+            if self._dock_manager and not self.isHidden():
+                self._dock_manager.set_active_dock_area(self)
+        except RuntimeError:
+            pass
+        super().mousePressEvent(event)
+
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
 
@@ -312,6 +343,12 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         if index < 0 or index > (tab_bar.count() - 1):
             logger.warning('Invalid index %s', index)
             return
+
+        try:
+            if self._dock_manager and not self._dock_manager.is_restoring_state():
+                self._dock_manager.set_active_dock_area(self)
+        except RuntimeError:
+            pass
 
         self.current_changing.emit(index)
         tab_bar.set_current_index(index)

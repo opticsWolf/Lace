@@ -464,6 +464,19 @@ class DockWidget(QFrame, DockStyled):
         self.setAutoFillBackground(True)
         self.setBackgroundRole(QPalette.ColorRole.Window)
 
+        margin_raw = self._style_mgr.get(DockStyleCategory.PANEL, "content_margin", 6)
+        if isinstance(margin_raw, (int, float)):
+            left = right = top = bottom = int(margin_raw)
+        elif isinstance(margin_raw, (list, tuple)):
+            if len(margin_raw) == 1:
+                left = right = top = bottom = int(margin_raw[0])
+            elif len(margin_raw) >= 2:
+                left = right = bottom = int(margin_raw[0])
+                top = int(margin_raw[1])
+        else:
+            left = right = top = bottom = 6
+        self._layout.setContentsMargins(left, top, right, bottom)
+
         # Force the panel palette onto the immediate content layer
         # so Qt StyleSheets don't sever the inheritance to user widgets.
         if self._scroll_area:
