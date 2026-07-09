@@ -199,3 +199,9 @@ def get_dock_style_manager() -> DockStyleManager:
 
 def apply_dock_theme(theme_name: str) -> bool:
     return DockStyleManager.instance().apply_theme(theme_name)
+
+from .theme_manager import ThemeManager
+__all__ = [
+    "DockStyleCategory", "DockStyleManager", "get_dock_style_manager",
+    "apply_dock_theme", "ThemeManager"
+]

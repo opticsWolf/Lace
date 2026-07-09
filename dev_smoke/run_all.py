@@ -37,6 +37,7 @@ CHECKS = [
     "smoke_roundtrip.py",   # main container save/restore + corrupt payload
     "smoke_float.py",       # floating container save/restore branch
     "smoke_themeswitch.py", # apply all 8 themes on a populated window
+    "smoke_autotheme.py",   # OS-Aware Auto Theme Switcher (registry, QEvent.PaletteChange, QSS/dock overrides)
     "smoke_flags.py",       # global DockFlags configuration checks
 ]
 
