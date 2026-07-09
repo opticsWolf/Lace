@@ -79,6 +79,8 @@ class DockWidgetTab(QFrame, DockStyled):
 
         # --- ADDED: Style Manager Integration ---
         self._init_dock_style()
+        if self._dock_widget and hasattr(self._dock_widget, 'features_changed'):
+            self._dock_widget.features_changed.connect(lambda f: self.update_close_button_visibility())
 
     def _create_layout(self):
         self._title_label = ElidingLabel(text=self._dock_widget.windowTitle())
@@ -123,6 +125,8 @@ class DockWidgetTab(QFrame, DockStyled):
         return self._drag_state == drag_state
 
     def _start_floating(self, dragging_state: DragState = DragState.floating_widget) -> bool:
+        if not self._floatable:
+            return False
         dock_container = self._dock_widget.dock_container()
         if dock_container is None:
             return False
@@ -153,13 +157,23 @@ class DockWidgetTab(QFrame, DockStyled):
         return True
 
     def _test_config_flag(self, flag: DockFlags) -> bool:
-        if not self._dock_area:
-            return False
-        return flag in self._dock_area.dock_manager().config_flags
+        if self._dock_area:
+            return flag in self._dock_area.dock_manager().config_flags
+        elif self._dock_widget and self._dock_widget.dock_manager():
+            return flag in self._dock_widget.dock_manager().config_flags
+        return False
 
     @property
     def _floatable(self):
+        if not self._test_config_flag(DockFlags.floatable_tabs):
+            return False
         return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.floatable))
+
+    @property
+    def _pinnable(self):
+        if not self._test_config_flag(DockFlags.pinnable_tabs):
+            return False
+        return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.pinnable))
 
     def on_detach_action_triggered(self):
         if self._floatable:
@@ -173,9 +187,17 @@ class DockWidgetTab(QFrame, DockStyled):
             self._drag_state = DragState.mouse_pressed
             self.clicked.emit()
             return
+        elif ev.button() == Qt.MiddleButton:
+            if self._test_config_flag(DockFlags.middle_mouse_button_closes_tab) and self.is_closable():
+                ev.accept()
+                self.close_requested.emit()
+                return
         super().mousePressEvent(ev)
 
     def mouseReleaseEvent(self, ev: QMouseEvent):
+        if ev.button() == Qt.MiddleButton:
+            ev.accept()
+            return
         if self._is_dragging_state(DragState.tab) and self._dock_area:
             self.moved.emit(ev.globalPosition().toPoint())
 
@@ -263,7 +285,7 @@ class DockWidgetTab(QFrame, DockStyled):
             if dw != self._dock_widget and (dw.features() & DockWidgetFeature.closable)
         )
         show_close_others = (other_closable > 0)
-        is_pinnable = bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.pinnable))
+        is_pinnable = self._pinnable
 
         return MenuContext(
             widget_type="DockWidgetTab",
@@ -332,14 +354,23 @@ class DockWidgetTab(QFrame, DockStyled):
     def is_active_tab(self) -> bool:
         return self._is_active_tab
 
+    def update_close_button_visibility(self):
+        if not self._dock_widget:
+            return
+        closable = bool(self._dock_widget.features() & DockWidgetFeature.closable)
+        show_tab_close = self._test_config_flag(DockFlags.show_tab_close_button)
+        active_tab_only = self._test_config_flag(DockFlags.active_tab_has_close_button)
+        if not closable or not show_tab_close:
+            self._close_button.setVisible(False)
+        else:
+            self._close_button.setVisible(not active_tab_only or self.is_active_tab())
+
     def set_active_tab(self, active: bool):
-        closable = bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.closable))
-        tab_has_close_button = self._test_config_flag(DockFlags.active_tab_has_close_button)
-        self._close_button.setVisible(active and closable and tab_has_close_button)
-        
         if self._is_active_tab == active:
+            self.update_close_button_visibility()
             return
         self._is_active_tab = active
+        self.update_close_button_visibility()
         self.refresh_style() 
         self.active_tab_changed.emit()
 
@@ -348,6 +379,7 @@ class DockWidgetTab(QFrame, DockStyled):
 
     def set_dock_area_widget(self, dock_area: 'DockAreaWidget'):
         self._dock_area = dock_area
+        self.update_close_button_visibility()
 
     def dock_area_widget(self) -> 'DockAreaWidget':
         return self._dock_area

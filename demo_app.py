@@ -305,7 +305,11 @@ class DemoMainWindow(QMainWindow):
 
     def _refresh_all_areas(self):
         """Force UI updates on all existing areas to reflect the new flags."""
+        from lace.dock_splitter import DockSplitter
+        opaque_resize = DockFlags.opaque_splitter_resize in self.dock_manager.config_flags
         for container in self.dock_manager.dock_containers():
+            for splitter in container.findChildren(DockSplitter):
+                splitter.setOpaqueResize(opaque_resize)
             for area in container.opened_dock_areas():
                 area._update_title_bar_button_states()
                 if hasattr(area._title_bar, 'update_pin_button_visibility'):

@@ -206,8 +206,8 @@ class DockAreaTitleBar(QFrame, DockStyled):
         else:
             is_closable = bool(self._dock_area and self._dock_area.closable)
             
-        is_floatable = bool(self._dock_area and self._dock_area.floatable)
-        is_pinnable = bool(widget and (widget.features() & DockWidgetFeature.pinnable))
+        is_floatable = bool(self._dock_area and self._dock_area.floatable) and self._test_config_flag(DockFlags.floatable_tabs)
+        is_pinnable = bool(widget and (widget.features() & DockWidgetFeature.pinnable)) and self._test_config_flag(DockFlags.pinnable_tabs)
         
         other_closable_areas = 0
         if self._dock_area and (container := self._dock_area.dock_container()):
@@ -298,13 +298,13 @@ class DockAreaTitleBar(QFrame, DockStyled):
         # Tab-level features (current widget)
         tab_features = widget.features()
         tab_closable = bool(tab_features & DockWidgetFeature.closable)
-        tab_floatable = bool(tab_features & DockWidgetFeature.floatable)
-        tab_pinnable = bool(tab_features & DockWidgetFeature.pinnable)
+        tab_floatable = bool(tab_features & DockWidgetFeature.floatable) and self._test_config_flag(DockFlags.floatable_tabs)
+        tab_pinnable = bool(tab_features & DockWidgetFeature.pinnable) and self._test_config_flag(DockFlags.pinnable_tabs)
 
         # Area-level features (aggregated)
         area_features = area.features()
         area_closable = bool(area_features & DockWidgetFeature.closable)
-        area_floatable = bool(area_features & DockWidgetFeature.floatable)
+        area_floatable = bool(area_features & DockWidgetFeature.floatable) and self._test_config_flag(DockFlags.floatable_tabs)
 
         # — Tabs Menu Button —
         # Use dock_icon for proper Normal/Disabled state handling
@@ -350,6 +350,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
                 self._undock_button.setEnabled(tab_floatable)
         else:
             self._undock_button.setVisible(False)
+            self._undock_button.setEnabled(False)
 
         # — Pin / Unpin Button —
         pin_key = "unpin" if is_pinned else "pin"
@@ -366,6 +367,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
             self._pin_button.setEnabled(tab_pinnable)
         else:
             self._pin_button.setVisible(False)
+            self._pin_button.setEnabled(False)
         
     def update_pin_button_visibility(self):
         self._dock_area._update_title_bar_button_states()
@@ -454,10 +456,12 @@ class DockAreaTitleBar(QFrame, DockStyled):
     def on_undock_button_clicked(self):
         if self._menu_is_floating():
             self._menu_reattach()
-        elif self._dock_area.floatable:
+        elif self._dock_area.floatable and self._test_config_flag(DockFlags.floatable_tabs):
             self._tab_bar.make_area_floating(QCursor.pos(), DragState.inactive)
 
     def on_pin_button_clicked(self):
+        if not self._test_config_flag(DockFlags.pinnable_tabs):
+            return
         self._menu_pin_current()
         self.pin_button_clicked.emit()
 
@@ -496,6 +500,8 @@ class DockAreaTitleBar(QFrame, DockStyled):
         return self._drag_state == drag_state
 
     def _start_floating(self, dragging_state: DragState = DragState.floating_widget) -> bool:
+        if not self._test_config_flag(DockFlags.floatable_tabs):
+            return False
         dock_container = self._dock_area.dock_container()
         if dock_container is None:
             return False
@@ -563,13 +569,13 @@ class DockAreaTitleBar(QFrame, DockStyled):
                     floating_window.start_dragging(mapped_start_pos, floating_window.size(), self)
                 return
 
-            if self._dock_area.floatable:
+            if self._dock_area.floatable and self._test_config_flag(DockFlags.floatable_tabs):
                 self._start_floating()
         else:
             return super().mouseMoveEvent(ev)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
-        if (self._dock_area.floatable and self._dock_area.dock_container() and
+        if (self._dock_area.floatable and self._test_config_flag(DockFlags.floatable_tabs) and self._dock_area.dock_container() and
                 (not self._dock_area.dock_container().is_floating()
                  or self._dock_area.dock_container().visible_dock_area_count() > 1)):
             self._drag_start_mouse_position = event.position().toPoint()

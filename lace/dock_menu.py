@@ -21,7 +21,7 @@ from PySide6.QtCore import QPoint, QRect, QSize
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QMenu, QStyle
 
-from .enums import DockWidgetArea, DockWidgetFeature, WidgetState
+from .enums import DockWidgetArea, DockWidgetFeature, WidgetState, DockFlags
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme import DockStyleCategory
 from .dock_icon_provider import get_icon_provider
@@ -333,6 +333,8 @@ def menu_default_pin(widget: Optional['DockWidget'], area: Optional['DockAreaWid
     if area:
         mgr = area.dock_manager()
         if mgr and hasattr(mgr, 'sidebar_manager'):
+            if DockFlags.pinnable_tabs not in mgr.config_flags:
+                return
             mgr.sidebar_manager.pin_to_closest_sidebar(widget)
 
 
@@ -348,6 +350,8 @@ def menu_default_pin_all(area: Optional['DockAreaWidget']) -> None:
         return
     mgr = area.dock_manager()
     if not mgr or not hasattr(mgr, 'sidebar_manager'):
+        return
+    if DockFlags.pinnable_tabs not in mgr.config_flags:
         return
     for widget in list(area.opened_dock_widgets()):
         mgr.sidebar_manager.pin_to_closest_sidebar(widget)

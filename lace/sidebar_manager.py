@@ -17,7 +17,7 @@ from PySide6.QtCore import QObject, Signal, QTimer, QPoint, QEvent, QSize, QRect
 from PySide6.QtGui import QKeySequence, QShortcut, QCursor
 from PySide6.QtWidgets import QApplication, QMainWindow
 
-from .enums import DockWidgetArea, WidgetState, DockWidgetFeature
+from .enums import DockWidgetArea, WidgetState, DockWidgetFeature, DockFlags
 from .dock_menu import find_closest_dock_area
 from .layout_serializer import SidebarStateManager, SidebarState
 from .sidebar_tab import VerticalTabButton
@@ -402,6 +402,8 @@ class SidebarManager(QObject):
     def pin_widget(self, dock_widget: 'DockWidget', 
                    sidebar: Optional['SideTabBar'] = None,
                    area: Optional[DockWidgetArea] = None):
+        if self._dock_manager and DockFlags.pinnable_tabs not in self._dock_manager.config_flags:
+            return
         if self._dock_manager:
             dock_widget.set_dock_manager(self._dock_manager)
         if dock_widget.objectName():
@@ -633,6 +635,8 @@ class SidebarManager(QObject):
         self._hover_controller.on_sidebar_activated()
     
     def pin_to_closest_sidebar(self, dock_widget: 'DockWidget'):
+        if self._dock_manager and DockFlags.pinnable_tabs not in self._dock_manager.config_flags:
+            return
         if not self._sidebars:
             logger.warning('pin_to_closest_sidebar: no sidebars registered')
             return

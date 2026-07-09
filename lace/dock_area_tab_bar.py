@@ -18,7 +18,7 @@ from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QBoxLayout, QFrame, QScrollArea, QSizePolicy, QWidget
 
-from .enums import DragState
+from .enums import DragState, DockFlags
 from .dock_widget_tab import DockWidgetTab
 from .floating_dock_container import FloatingDockContainer
 from .dock_styled import DockStyled
@@ -71,6 +71,20 @@ class DockAreaTabBar(QScrollArea, DockStyled):
 
         # --- ADDED: Style Manager Integration ---
         self._init_dock_style()
+        self._update_tab_bar_visibility()
+
+    def _test_config_flag(self, flag: DockFlags) -> bool:
+        if not self._dock_area:
+            return False
+        return flag in self._dock_area.dock_manager().config_flags
+
+    def _update_tab_bar_visibility(self):
+        if not self._dock_area:
+            return
+        always_show = self._test_config_flag(DockFlags.always_show_tabs)
+        visible = (self.count() > 1) or (always_show and self.count() > 0)
+        if self.isVisibleTo(self.parentWidget()) != visible or self.isHidden() == visible:
+            self.setVisible(visible)
 
     def _update_tabs(self):
         for i in range(self.count()):
@@ -84,6 +98,7 @@ class DockAreaTabBar(QScrollArea, DockStyled):
                 self.ensureWidgetVisible(tab_widget)
             else:
                 tab_widget.set_active_tab(False)
+        self._update_tab_bar_visibility()
 
     def _connect_tab_signals(self, tab: DockWidgetTab):
         tab.clicked.connect(self.on_tab_clicked)
@@ -269,6 +284,8 @@ class DockAreaTabBar(QScrollArea, DockStyled):
         
         if index <= self._current_index:
             self.set_current_index(self._current_index + 1)
+        else:
+            self._update_tab_bar_visibility()
 
     def remove_tab(self, tab: 'DockWidgetTab'):
         if not self.count():

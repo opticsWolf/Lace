@@ -38,6 +38,7 @@ class DockWidget(QFrame, DockStyled):
     closed = Signal()
     title_changed = Signal(str)
     top_level_changed = Signal(bool)
+    features_changed = Signal(DockWidgetFeature)
 
     def __init__(self, title: str, parent: QWidget = None):
         super().__init__(parent)
@@ -297,13 +298,27 @@ class DockWidget(QFrame, DockStyled):
         return self._tab_widget
 
     def set_features(self, features: DockWidgetFeature):
+        if self._features == features:
+            return
         self._features = features
+        self.features_changed.emit(self._features)
+        if self._tab_widget:
+            self._tab_widget.update_close_button_visibility()
+        if self._dock_area:
+            self._dock_area._update_title_bar_button_states()
 
     def set_feature(self, flag: DockWidgetFeature, on: bool = True):
+        old_features = self._features
         if on:
             self._features |= flag
         else:
             self._features &= ~flag
+        if self._features != old_features:
+            self.features_changed.emit(self._features)
+            if self._tab_widget:
+                self._tab_widget.update_close_button_visibility()
+            if self._dock_area:
+                self._dock_area._update_title_bar_button_states()
 
     def features(self) -> DockWidgetFeature:
         return self._features

@@ -91,9 +91,7 @@ class DockFlags(enum.IntFlag):
     """
        
     always_show_tabs = enum.auto()
-    """Tabs are always shown, even if there is only one widget in the area.
-    Currently not in proper use - requires implementation
-    """
+    """Tabs are always shown, even if there is only one widget in the area."""
     
     show_tab_close_button = enum.auto()
     """Tabs display their own close button."""
@@ -120,14 +118,10 @@ class DockFlags(enum.IntFlag):
     """Clicking a tab with the middle mouse button closes it."""
     
     floatable_tabs = enum.auto()
-    """Tabs can be dragged out to float in their own window.
-    Currently not in use - requires implementation
-    """
+    """Tabs can be dragged out to float in their own window."""
     
     pinnable_tabs = enum.auto()
-    """Tabs can be pinned into sidebar.
-    Currently not in use - requires implementation
-    """
+    """Tabs can be pinned into sidebar."""
     
     custom_tab_icons = enum.auto()
     """
@@ -146,7 +140,7 @@ class DockFlags(enum.IntFlag):
         show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |
         dock_area_has_close_button | dock_area_has_undock_button |
         dock_area_has_tabs_menu_button | dock_area_has_pin_button | middle_mouse_button_closes_tab |
-        dock_area_has_pin_button | floatable_tabs | drag_preview_shows_content_pixmap
+        pinnable_tabs | floatable_tabs | drag_preview_shows_content_pixmap
     )
     """The default configuration flags applied to a new DockManager."""
 

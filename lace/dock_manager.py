@@ -260,7 +260,27 @@ class DockManager(QObject):
 
     @config_flags.setter
     def config_flags(self, flags: DockFlags):
+        if self._config_flags == flags:
+            return
         self._config_flags = flags
+        self.notify_config_flags_changed()
+
+    def set_config_flags(self, flags: DockFlags):
+        self.config_flags = flags
+
+    def notify_config_flags_changed(self):
+        for container in self.dock_containers():
+            for dock_area in container.opened_dock_areas():
+                dock_area.update_title_bar_visibility()
+                if dock_area._title_bar:
+                    dock_area._title_bar.update_button_states()
+                    tab_bar = dock_area._title_bar.tab_bar()
+                    if tab_bar:
+                        tab_bar._update_tab_bar_visibility()
+                        for i in range(tab_bar.count()):
+                            tab = tab_bar.tab(i)
+                            if tab:
+                                tab.update_close_button_visibility()
 
     def container_overlay(self) -> DockOverlay:
         return self._container_overlay
