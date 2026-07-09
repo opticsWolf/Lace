@@ -18,7 +18,7 @@ from pathlib import Path
 from lace import (
     DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
-    ThemeManager
+    ThemeManager, SideBarFocusBehavior
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -132,6 +132,7 @@ class DemoMainWindow(QMainWindow):
         self.create_view_menu()
         self.create_theme_menu()
         self.create_flags_menu()
+        self.create_sidebar_menu()
 
         # 4. Apply initial theme
         apply_dock_theme("cyberpunk_neon")
@@ -382,6 +383,34 @@ class DemoMainWindow(QMainWindow):
         
         full_action = presets_menu.addAction("Full (All Buttons)")
         full_action.triggered.connect(self._apply_full_config)
+
+    def create_sidebar_menu(self):
+        """Menu to dynamically configure sidebar overlay behaviors like focus transfer."""
+        menubar = self.menuBar()
+        sidebar_menu = menubar.addMenu("Sidebar")
+        
+        focus_group = QActionGroup(self)
+        focus_group.setExclusive(True)
+        
+        sidebar_menu.addSection("Focus Mode")
+        
+        modes = [
+            ("Take Focus && Restore (Default)", SideBarFocusBehavior.take_focus_and_restore, "Sidebar steals focus on open and returns focus to previous card on close."),
+            ("Take Focus Only", SideBarFocusBehavior.take_focus_only, "Sidebar steals focus on open without restoring focus on close."),
+            ("No Focus Transfer", SideBarFocusBehavior.no_focus_transfer, "Sidebar does not steal focus when sliding out or in.")
+        ]
+        
+        for text, behavior, tooltip in modes:
+            action = sidebar_menu.addAction(text)
+            action.setCheckable(True)
+            action.setToolTip(tooltip)
+            if behavior == self.dock_manager.sidebar_focus_behavior:
+                action.setChecked(True)
+            focus_group.addAction(action)
+            
+            action.triggered.connect(
+                lambda checked=False, b=behavior: setattr(self.dock_manager, "sidebar_focus_behavior", b)
+            )
 
     def _add_flag_action(self, menu: QMenu, flag: DockFlags):
         """Add a checkable action for a DockFlag."""

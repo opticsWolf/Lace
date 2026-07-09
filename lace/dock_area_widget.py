@@ -381,6 +381,19 @@ class DockAreaWidget(ChromeFrame, DockStyled):
             focus_border=core.get("focus_border_color"),
         ))
 
+        title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+        title_margin = title_styles.get("margin")
+        if self._layout is not None:
+            m_card = self.chrome().content_margin()
+            if title_margin is not None:
+                from math import ceil
+                bw = self.chrome().border_width
+                bw_int = ceil(bw) if bw > 0 else 0
+                m_title = bw_int + max(0, int(title_margin))
+                self._layout.setContentsMargins(bw_int, m_title, bw_int, bw_int)
+            else:
+                self._layout.setContentsMargins(m_card, m_card, m_card, m_card)
+
         # Propagate the panel background to children via the Window palette
         # role so standard Qt widgets inside the area inherit it.
         if panel_bg:

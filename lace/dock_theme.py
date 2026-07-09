@@ -298,6 +298,10 @@ class ThemeSpec:
     title_padding_left: Optional[int] = None
     title_padding_right: Optional[int] = None
     title_button_spacing: Optional[int] = None
+    title_margin: Optional[int] = None
+    title_border_width: Optional[float] = None
+    title_border_bottom: Optional[float] = None
+    title_border_color: Optional[Union[QColor, List[int]]] = None
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
@@ -327,6 +331,10 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         title_padding_left=spec.title_padding_left,
         title_padding_right=spec.title_padding_right,
         title_button_spacing=spec.title_button_spacing,
+        title_margin=spec.title_margin,
+        title_border_width=spec.title_border_width,
+        title_border_bottom=spec.title_border_bottom,
+        title_border_color=_as_rgba(spec.title_border_color) if spec.title_border_color is not None else None,
         tab_radius=spec.tab_radius,
         tab_margin=spec.tab_margin,
         content_margin=spec.content_margin,
@@ -352,6 +360,10 @@ def _build_theme(
     title_padding_left: Optional[int] = None,
     title_padding_right: Optional[int] = None,
     title_button_spacing: Optional[int] = None,
+    title_margin: Optional[int] = None,
+    title_border_width: Optional[float] = None,
+    title_border_bottom: Optional[float] = None,
+    title_border_color: Optional[list] = None,
     tab_radius: Optional[int] = None,
     tab_margin: Optional[int] = None,
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None,
@@ -439,7 +451,7 @@ def _build_theme(
         DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_border, _success, _warning, _error, _info),
         DockStyleCategory.PANEL: _build_panel(text, _panel, _input_bg, _alternate_base, _button_bg, _color_light, _color_mid, _color_dark, _color_shadow),
         DockStyleCategory.SIDEBAR: _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent),
-        DockStyleCategory.SIDEPANEL: _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow),
+        DockStyleCategory.SIDEPANEL: _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow, _focus_border, _neutral_border),
         DockStyleCategory.TAB: _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _neutral_border),
         DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border),
         DockStyleCategory.SPLITTER: _build_splitter(base, accent),
@@ -449,8 +461,10 @@ def _build_theme(
     if corner_radius is not None:
         theme[DockStyleCategory.CORE]["corner_radius"] = corner_radius
         theme[DockStyleCategory.PANEL]["corner_radius"] = corner_radius
+        theme[DockStyleCategory.SIDEPANEL]["corner_radius"] = corner_radius
     if border_width is not None:
         theme[DockStyleCategory.CORE]["border_width"] = border_width
+        theme[DockStyleCategory.SIDEPANEL]["border_width"] = border_width
     if title_height is not None:
         theme[DockStyleCategory.TITLE_BAR]["height"] = title_height
     if title_padding_left is not None:
@@ -459,6 +473,14 @@ def _build_theme(
         theme[DockStyleCategory.TITLE_BAR]["padding_right"] = title_padding_right
     if title_button_spacing is not None:
         theme[DockStyleCategory.TITLE_BAR]["button_spacing"] = title_button_spacing
+    if title_margin is not None:
+        theme[DockStyleCategory.TITLE_BAR]["margin"] = title_margin
+    if title_border_width is not None:
+        theme[DockStyleCategory.TITLE_BAR]["border_width"] = title_border_width
+    if title_border_bottom is not None:
+        theme[DockStyleCategory.TITLE_BAR]["border_bottom"] = title_border_bottom
+    if title_border_color is not None:
+        theme[DockStyleCategory.TITLE_BAR]["border_color"] = title_border_color
     if tab_radius is not None:
         theme[DockStyleCategory.TAB]["corner_radius"] = tab_radius
     if tab_margin is not None:
@@ -514,7 +536,7 @@ def _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_
     }
 
 
-def _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow):
+def _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow, _focus_border, _neutral_border):
     return {
         "bg_normal":          _panel,
         "title_text_color":   text,
@@ -522,6 +544,8 @@ def _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel,
         "button_disable_clr": _btn_disabled,
         "button_hover_bg":    _btn_hover_panel,
         "shadow_color":       _shadow,
+        "border_color":       _neutral_border,
+        "focus_border_color": _focus_border,
     }
 
 

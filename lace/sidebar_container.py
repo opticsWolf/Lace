@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QFrame, QSplitter, QVBoxLayout, QGraphicsDropShadowEffect, QWidget
 )
 
-from .enums import DockWidgetArea
+from .enums import DockWidgetArea, SideBarFocusBehavior
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .sidebar_title_bar import SideBarTitleBar
@@ -33,7 +33,7 @@ class SideBarContainer(QFrame, DockStyled):
     Animated overlay hosting an active dock widget with dynamic 
     resize tracking and keyboard focus management.
     """
-    STYLE_CATEGORIES = (DockStyleCategory.SIDEPANEL,)
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEPANEL, DockStyleCategory.CORE, DockStyleCategory.SIDEBAR, DockStyleCategory.TITLE_BAR)
     pin_back_requested = Signal(object)
     drag_unpin_requested = Signal(object)
     close_requested = Signal()
@@ -51,6 +51,13 @@ class SideBarContainer(QFrame, DockStyled):
         self._area = DockWidgetArea.left
         self._is_resizing = False
         self._bg: QColor | None = None   # painted in paintEvent (no hex QSS)
+        self._focus_behavior = SideBarFocusBehavior.take_focus_and_restore
+        self.setFocusPolicy(Qt.StrongFocus)
+        self._sidebar_focused = False
+        from PySide6.QtWidgets import QApplication
+        qapp = QApplication.instance()
+        if qapp:
+            qapp.focusChanged.connect(self._on_app_focus_changed)
         
         # Shadow effect
         self._shadow = QGraphicsDropShadowEffect(self)
@@ -121,8 +128,38 @@ class SideBarContainer(QFrame, DockStyled):
 
     # --- Presentation & Focus ---
 
+    @property
+    def focus_behavior(self) -> SideBarFocusBehavior:
+        return self._focus_behavior
+
+    @focus_behavior.setter
+    def focus_behavior(self, behavior: SideBarFocusBehavior):
+        self._focus_behavior = behavior
+
     def show_widget(self, dock_widget: 'DockWidget', area: DockWidgetArea, 
                     animate: bool = True, size: QSize = None):
+        if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
+            from PySide6.QtWidgets import QApplication
+            fw = QApplication.focusWidget()
+            last_dw = None
+            if fw and not self.isAncestorOf(fw):
+                self._last_focused_widget = fw
+                from .dock_widget import DockWidget
+                curr = fw
+                while curr:
+                    if isinstance(curr, DockWidget):
+                        last_dw = curr
+                        break
+                    curr = curr.parentWidget()
+            if last_dw is None and hasattr(self, '_dock_manager') and getattr(self, '_dock_manager', None):
+                active_area = getattr(self._dock_manager, '_active_dock_area', None)
+                if active_area and active_area.current_dock_widget():
+                    last_dw = active_area.current_dock_widget()
+            self._last_focused_dock_widget = last_dw
+        else:
+            self._last_focused_widget = None
+            self._last_focused_dock_widget = None
+
         if size:
             self._size_hint = size
         
@@ -154,6 +191,8 @@ class SideBarContainer(QFrame, DockStyled):
                 bar.raise_()
             
             self._sliding_in = True
+            if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
+                self._focus_inner_widget()
             self._slide_anim.setStartValue(start_rect)
             self._slide_anim.setEndValue(end_rect)
             self._slide_anim.start()
@@ -163,7 +202,23 @@ class SideBarContainer(QFrame, DockStyled):
             self.raise_()
             if (bar := self._find_sibling_bar(self._area)):
                 bar.raise_()
-            self._focus_inner_widget()
+            if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
+                self._focus_inner_widget()
+
+    def _on_app_focus_changed(self, old_widget, new_widget):
+        try:
+            if not self.isVisible() or new_widget is None:
+                if getattr(self, '_sidebar_focused', False):
+                    self._sidebar_focused = False
+                    self.update()
+                return
+            
+            is_ours = self.isAncestorOf(new_widget) or (new_widget is self)
+            if is_ours != getattr(self, '_sidebar_focused', False):
+                self._sidebar_focused = is_ours
+                self.update()
+        except RuntimeError:
+            pass
 
     def _focus_inner_widget(self):
         """Pass keyboard focus to the actual content."""
@@ -171,9 +226,17 @@ class SideBarContainer(QFrame, DockStyled):
             dock_widget = self._current_widgets[0]
             inner = dock_widget.widget()
             if inner:
-                inner.setFocus()
+                if inner.focusPolicy() == Qt.NoFocus:
+                    inner.setFocusPolicy(Qt.StrongFocus)
+                inner.setFocus(Qt.OtherFocusReason)
             else:
-                dock_widget.setFocus()
+                if dock_widget.focusPolicy() == Qt.NoFocus:
+                    dock_widget.setFocusPolicy(Qt.StrongFocus)
+                dock_widget.setFocus(Qt.OtherFocusReason)
+            from PySide6.QtWidgets import QApplication
+            fw = QApplication.focusWidget()
+            if not self.isAncestorOf(fw) and fw is not self:
+                self.setFocus(Qt.OtherFocusReason)
 
     def hide_widget(self, animate: bool = True):
         if not self.isVisible():
@@ -189,7 +252,8 @@ class SideBarContainer(QFrame, DockStyled):
 
     def _on_anim_finished(self):
         if self._sliding_in:
-            self._focus_inner_widget()
+            if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
+                self._focus_inner_widget()
         else:
             self._on_hide_finished()
             
@@ -199,6 +263,65 @@ class SideBarContainer(QFrame, DockStyled):
             w.setParent(None)
         self._current_widgets = []
         self._title_bar.set_widget(None)
+        if self._focus_behavior == SideBarFocusBehavior.take_focus_and_restore:
+            self._restore_previous_focus()
+        else:
+            self._last_focused_widget = None
+            self._last_focused_dock_widget = None
+
+    def _restore_previous_focus(self):
+        target_restored = False
+        if getattr(self, "_last_focused_widget", None):
+            try:
+                w = self._last_focused_widget
+                if w and w.isVisible() and not self.isAncestorOf(w):
+                    if w.focusPolicy() == Qt.NoFocus:
+                        w.setFocusPolicy(Qt.StrongFocus)
+                    w.setFocus(Qt.OtherFocusReason)
+                    target_restored = True
+            except RuntimeError:
+                pass
+
+        if not target_restored and getattr(self, "_last_focused_dock_widget", None):
+            try:
+                dw = self._last_focused_dock_widget
+                if dw and dw.isVisible() and not self.isAncestorOf(dw):
+                    inner = dw.widget()
+                    if inner and inner.isVisible():
+                        if inner.focusPolicy() == Qt.NoFocus:
+                            inner.setFocusPolicy(Qt.StrongFocus)
+                        inner.setFocus(Qt.OtherFocusReason)
+                    else:
+                        if dw.focusPolicy() == Qt.NoFocus:
+                            dw.setFocusPolicy(Qt.StrongFocus)
+                        dw.setFocus(Qt.OtherFocusReason)
+                    area = dw.dock_area_widget()
+                    if area and hasattr(area, '_dock_manager') and area._dock_manager:
+                        area._dock_manager.set_active_dock_area(area)
+                    target_restored = True
+            except RuntimeError:
+                pass
+
+        if not target_restored and self.parentWidget():
+            from .dock_area_widget import DockAreaWidget
+            for child in self.parentWidget().findChildren(DockAreaWidget):
+                if child.isVisible() and child.current_dock_widget():
+                    dw = child.current_dock_widget()
+                    if not self.isAncestorOf(dw) and dw.isVisible():
+                        inner = dw.widget()
+                        if inner and inner.isVisible():
+                            if inner.focusPolicy() == Qt.NoFocus:
+                                inner.setFocusPolicy(Qt.StrongFocus)
+                            inner.setFocus(Qt.OtherFocusReason)
+                        else:
+                            if dw.focusPolicy() == Qt.NoFocus:
+                                dw.setFocusPolicy(Qt.StrongFocus)
+                            dw.setFocus(Qt.OtherFocusReason)
+                        if hasattr(child, '_dock_manager') and child._dock_manager:
+                            child._dock_manager.set_active_dock_area(child)
+                        break
+        self._last_focused_widget = None
+        self._last_focused_dock_widget = None
 
     # --- Geometry & Resize ---
 
@@ -385,18 +508,76 @@ class SideBarContainer(QFrame, DockStyled):
     # --- Style Manager ---
 
     def paintEvent(self, event):
-        # Overlay background is painted (not hex QSS) so it re-colours live on
-        # theme change without the DockThemeBridge stylesheet "nudge".
-        if self._bg is not None:
-            p = QPainter(self)
-            p.fillRect(self.rect(), self._bg)
-            p.end()
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QPainterPath, QPen
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+
+        r = QRectF(self.rect())
+        radius = getattr(self, "_corner_radius", 0.0)
+        bw = getattr(self, "_border_width", 0.0)
+
+        if radius > 0 or bw > 0:
+            if bw > 0:
+                inset = bw / 2.0
+                r = r.adjusted(inset, inset, -inset, -inset)
+            path = QPainterPath()
+            if radius > 0:
+                path.addRoundedRect(r, radius, radius)
+            else:
+                path.addRect(r)
+
+            if self._bg is not None and self._bg.alpha() > 0:
+                p.fillPath(path, self._bg)
+
+            if bw > 0:
+                bcolor = getattr(self, "_focus_border_color", None) if getattr(self, "_sidebar_focused", False) else getattr(self, "_border_color", None)
+                if bcolor is None:
+                    bcolor = getattr(self, "_border_color", None)
+                if isinstance(bcolor, QColor) and bcolor.alpha() > 0:
+                    pen = QPen(bcolor, bw)
+                    p.setPen(pen)
+                    p.drawPath(path)
+        else:
+            if self._bg is not None and self._bg.alpha() > 0:
+                p.fillRect(self.rect(), self._bg)
+        p.end()
         super().paintEvent(event)
 
     def refresh_style(self):
         s = self._style_mgr.get_all(DockStyleCategory.SIDEPANEL)
+        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
+        title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
 
-        self._bg = s.get("bg_normal")   # QColor | None
+        self._bg = s.get("bg_normal")
+
+        card_radius = s.get("corner_radius")
+        if card_radius is None:
+            card_radius = core_styles.get("corner_radius", 0)
+        self._corner_radius = float(card_radius) if card_radius is not None else 0.0
+
+        card_border = s.get("border_width")
+        if card_border is None:
+            card_border = core_styles.get("border_width", 0.0)
+        self._border_width = float(card_border) if card_border is not None else 0.0
+
+        bcolor = s.get("border_color")
+        if bcolor is None:
+            bcolor = core_styles.get("border_color")
+        self._border_color = bcolor
+
+        fcolor = s.get("focus_border_color")
+        if fcolor is None:
+            fcolor = core_styles.get("focus_border_color")
+        self._focus_border_color = fcolor
+
+        title_margin = title_styles.get("margin")
+        from math import ceil
+        bw_int = ceil(self._border_width) if self._border_width > 0 else 0
+
+        m_top = bw_int + (int(title_margin) if title_margin is not None else 0)
+        self._content_layout.setContentsMargins(bw_int, m_top, bw_int, bw_int)
+
         self.update()
 
         # Shadow

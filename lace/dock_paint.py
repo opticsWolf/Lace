@@ -68,6 +68,30 @@ def top_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
     return path
 
 
+def bottom_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
+    """Path for a rect with only its two bottom corners rounded.
+
+    Used for surfaces that sit at the bottom of a rounded card (DockWidget):
+    the bottom corners follow the enclosing card, the top stays square.
+    """
+    path = QPainterPath()
+    r = max(0.0, radius)
+    if r <= 0:
+        path.addRect(rect)
+        return path
+    left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
+    d = 2.0 * r
+    path.moveTo(left, top)
+    path.lineTo(right, top)
+    path.lineTo(right, bottom - r)
+    path.arcTo(right - d, bottom - d, d, d, 0.0, -90.0)       # bottom-right
+    path.lineTo(left + r, bottom)
+    path.arcTo(left, bottom - d, d, d, 270.0, -90.0)         # bottom-left
+    path.closeSubpath()
+    return path
+
+
+
 @dataclass(frozen=True)
 class ChromeTokens:
     """Everything needed to paint a rounded, optionally outlined panel."""

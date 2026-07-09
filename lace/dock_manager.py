@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 from PySide6.QtCore import QObject, Signal, QPoint, QRect
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
 
-from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode
+from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior
 from .dock_container_widget import DockContainerWidget
 from .dock_overlay import DockOverlay
 from .floating_dock_container import FloatingDockContainer
@@ -98,6 +98,11 @@ class DockManager(QObject):
         if isinstance(parent, QMainWindow):
             self.sidebar_manager.setup_shortcuts(parent)
 
+        from PySide6.QtWidgets import QApplication
+        qapp = QApplication.instance()
+        if qapp:
+            qapp.focusChanged.connect(self._on_app_focus_changed)
+
     # ─────────────────────────────────────────────────────────────────────
     #  FACADE API: Core Docking
     # ─────────────────────────────────────────────────────────────────────
@@ -130,6 +135,16 @@ class DockManager(QObject):
         self._dock_widgets_map[dock_widget.objectName()] = dock_widget
         sidebar = self.sidebar_manager.add_sidebar(area)
         self.sidebar_manager.pin_widget(dock_widget, sidebar)
+
+    @property
+    def sidebar_focus_behavior(self) -> SideBarFocusBehavior:
+        """Get the current focus behavior when sliding sidebar overlays out and in."""
+        return self.sidebar_manager.focus_behavior
+
+    @sidebar_focus_behavior.setter
+    def sidebar_focus_behavior(self, behavior: SideBarFocusBehavior):
+        """Set the focus behavior when sliding sidebar overlays out and in."""
+        self.sidebar_manager.focus_behavior = behavior
 
     def _add_sidebar_to_layout(self, sidebar: QWidget, area: DockWidgetArea):
         """Places the sidebar at the correct edge of the main grid layout."""
@@ -452,6 +467,24 @@ class DockManager(QObject):
 
     def setFocus(self):
         self._root.setFocus()
+
+    def _on_app_focus_changed(self, old_widget, new_widget):
+        if new_widget is None:
+            return
+        try:
+            if not _is_widget_alive(new_widget) or not new_widget.isVisible():
+                return
+        except RuntimeError:
+            return
+
+        if hasattr(self, 'sidebar_manager') and self.sidebar_manager and hasattr(self.sidebar_manager, '_overlay') and self.sidebar_manager._overlay:
+            overlay = self.sidebar_manager._overlay
+            try:
+                if _is_widget_alive(overlay) and overlay.isVisible() and (overlay.isAncestorOf(new_widget) or new_widget is overlay):
+                    self.set_active_dock_area(None)
+                    return
+            except RuntimeError:
+                pass
 
     def set_active_dock_area(self, area: Optional['DockAreaWidget']):
         if hasattr(self, '_active_dock_area') and self._active_dock_area is area:

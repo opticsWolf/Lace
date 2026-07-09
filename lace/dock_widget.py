@@ -14,7 +14,7 @@ Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 import logging
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QEvent, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, Signal, QRectF
 from PySide6.QtGui import QAction, QIcon, QPalette, QShowEvent
 from PySide6.QtWidgets import (QBoxLayout, QFrame, QScrollArea,
                                QSplitter, QToolBar, QWidget)
@@ -283,6 +283,7 @@ class DockWidget(QFrame, DockStyled):
 
         self._widget = widget
         self._widget.setProperty("dockWidgetContent", True)
+        self._update_bottom_mask()
 
     def take_widget(self):
         self._scroll_area.takeWidget()
@@ -459,10 +460,20 @@ class DockWidget(QFrame, DockStyled):
         """
         colors = resolve_dock_colors()
         pal = build_dock_palette(is_panel=True, colors=colors)
-        
         self.setPalette(pal)
-        self.setAutoFillBackground(True)
-        self.setBackgroundRole(QPalette.ColorRole.Window)
+
+        card_radius = self._style_mgr.get(DockStyleCategory.CORE, "corner_radius", 0)
+        card_border = self._style_mgr.get(DockStyleCategory.CORE, "border_width", 0.0)
+        from math import ceil
+        bw_int = ceil(card_border) if card_border > 0 else 0
+        if card_radius > 0 and not self.is_floating():
+            self._bottom_radius = max(0.0, float(card_radius - bw_int))
+            self.setAutoFillBackground(False)
+            self.setAttribute(Qt.WA_StyledBackground, False)
+        else:
+            self._bottom_radius = 0.0
+            self.setAutoFillBackground(True)
+            self.setBackgroundRole(QPalette.ColorRole.Window)
 
         margin_raw = self._style_mgr.get(DockStyleCategory.PANEL, "content_margin", 6)
         if isinstance(margin_raw, (int, float)):
@@ -485,6 +496,65 @@ class DockWidget(QFrame, DockStyled):
                 self._scroll_area.widget().setPalette(pal)
         elif self._widget:
             self._widget.setPalette(pal)
+
+        self.update()
+        self._update_bottom_mask()
+
+    def paintEvent(self, event) -> None:
+        from PySide6.QtGui import QPainter
+        from .dock_paint import bottom_rounded_path
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        bg = self.palette().color(QPalette.ColorRole.Window)
+        if bg.alpha() > 0:
+            if getattr(self, "_bottom_radius", 0.0) > 0.0:
+                path = bottom_rounded_path(QRectF(self.rect()), self._bottom_radius)
+                p.fillPath(path, bg)
+            else:
+                p.fillRect(self.rect(), bg)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._update_bottom_mask()
+
+    def _update_bottom_mask(self) -> None:
+        target = self._scroll_area or self._widget
+        if not target:
+            return
+        radius = getattr(self, "_bottom_radius", 0.0)
+        m_bottom = self._layout.contentsMargins().bottom()
+        target_radius = max(0.0, radius - m_bottom) if radius > 0.0 else 0.0
+        
+        current_cache = (target.rect().size(), target_radius)
+        if getattr(self, "_last_mask_cache", None) == current_cache:
+            return
+
+        if not getattr(self, "_mask_scheduled", False):
+            self._mask_scheduled = True
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, self._apply_bottom_mask)
+
+    def _apply_bottom_mask(self) -> None:
+        self._mask_scheduled = False
+        target = self._scroll_area or self._widget
+        if not target or not self.isVisible() or not target.isVisible():
+            return
+        radius = getattr(self, "_bottom_radius", 0.0)
+        m_bottom = self._layout.contentsMargins().bottom()
+        target_radius = max(0.0, radius - m_bottom) if radius > 0.0 else 0.0
+
+        current_cache = (target.rect().size(), target_radius)
+        if getattr(self, "_last_mask_cache", None) == current_cache:
+            return
+        self._last_mask_cache = current_cache
+
+        if target_radius > 0.0 and target.width() > 0 and target.height() > 0:
+            from PySide6.QtGui import QRegion
+            from .dock_paint import bottom_rounded_path
+            path = bottom_rounded_path(QRectF(target.rect()), target_radius)
+            target.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        else:
+            target.clearMask()
 
     def on_style_changed(self, category: DockStyleCategory, changes: dict):
         """Callback triggered by DockStyleManager when the theme switches."""

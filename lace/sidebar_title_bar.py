@@ -34,7 +34,7 @@ class SideBarTitleBar(QFrame, DockStyled):
     Provides float, unpin, and close functionality with unified iconography
     and consistent interaction patterns.
     """
-    STYLE_CATEGORIES = (DockStyleCategory.SIDEPANEL, DockStyleCategory.SIDEBAR, DockStyleCategory.CORE, DockStyleCategory.OVERLAY)
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEPANEL, DockStyleCategory.SIDEBAR, DockStyleCategory.CORE, DockStyleCategory.OVERLAY, DockStyleCategory.TITLE_BAR)
     
     _menu_sections = MenuSection.DETACH | MenuSection.CLOSE
 
@@ -234,8 +234,24 @@ class SideBarTitleBar(QFrame, DockStyled):
         btn_hover = styles.get("button_hover_bg")
         disabled_color = core_styles.get("disabled_text_color")
 
-        # Painted background (square — the overlay panel has no rounded card),
-        # mirroring dock_area_title_bar's paint path instead of a hex QSS sheet.
+        title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+        card_radius = styles.get("corner_radius")
+        if card_radius is None:
+            card_radius = core_styles.get("corner_radius", 0)
+        card_border = styles.get("border_width")
+        if card_border is None:
+            card_border = core_styles.get("border_width", 0.0)
+        title_margin = title_styles.get("margin")
+        from math import ceil
+        bw_int = ceil(card_border) if card_border > 0 else 0
+        if title_margin is not None:
+            self._top_radius = max(0.0, float(card_radius - bw_int - float(title_margin)))
+        else:
+            self._top_radius = max(0.0, float(card_radius - bw_int))
+
+        self._title_border_bottom = title_styles.get("title_border_bottom")
+        self._title_border_color = title_styles.get("title_border_color")
+
         self._bg_color = bg
         self.update()
 
@@ -277,9 +293,30 @@ class SideBarTitleBar(QFrame, DockStyled):
         self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL))
 
     def paintEvent(self, event):
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QPen
+        from .dock_paint import top_rounded_path
         bg = self._bg_color
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
         if bg is not None and bg.alpha() > 0:
-            p = QPainter(self)
-            p.fillRect(self.rect(), bg)
-            p.end()
+            top_radius = getattr(self, "_top_radius", 0.0)
+            if top_radius > 0:
+                path = top_rounded_path(QRectF(self.rect()), top_radius)
+                p.fillPath(path, bg)
+            else:
+                p.fillRect(self.rect(), bg)
+
+        border_bottom = getattr(self, "_title_border_bottom", None)
+        if border_bottom and border_bottom > 0:
+            bcolor = getattr(self, "_title_border_color", None)
+            if not bcolor:
+                colors = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+                bcolor = colors.get("border_color")
+            if bcolor and isinstance(bcolor, QColor) and bcolor.alpha() > 0:
+                pen = QPen(bcolor, float(border_bottom))
+                p.setPen(pen)
+                y = self.height() - float(border_bottom) / 2.0
+                p.drawLine(0, int(y), self.width(), int(y))
+        p.end()
 

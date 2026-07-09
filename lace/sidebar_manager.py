@@ -17,7 +17,7 @@ from PySide6.QtCore import QObject, Signal, QTimer, QPoint, QEvent, QSize, QRect
 from PySide6.QtGui import QKeySequence, QShortcut, QCursor
 from PySide6.QtWidgets import QApplication, QMainWindow
 
-from .enums import DockWidgetArea, WidgetState, DockWidgetFeature, DockFlags
+from .enums import DockWidgetArea, WidgetState, DockWidgetFeature, DockFlags, SideBarFocusBehavior
 from .dock_menu import find_closest_dock_area
 from .layout_serializer import SidebarStateManager, SidebarState
 from .sidebar_tab import VerticalTabButton
@@ -718,6 +718,14 @@ class SidebarManager(QObject):
     @property
     def overlay(self) -> 'SideBarContainer':
         return self._overlay
+
+    @property
+    def focus_behavior(self) -> SideBarFocusBehavior:
+        return self._overlay.focus_behavior
+
+    @focus_behavior.setter
+    def focus_behavior(self, behavior: SideBarFocusBehavior):
+        self._overlay.focus_behavior = behavior
 
     @property
     def has_sidebars(self) -> bool:

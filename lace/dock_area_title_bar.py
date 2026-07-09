@@ -14,8 +14,8 @@ Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 from typing import TYPE_CHECKING, Optional
 import logging
 
-from PySide6.QtCore import QPoint, Qt, Signal, QSize, QRectF
-from PySide6.QtGui import QAction, QCursor, QMouseEvent, QPainter
+from PySide6.QtCore import QPoint, QPointF, Qt, Signal, QSize, QRectF
+from PySide6.QtGui import QAction, QCursor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy, QToolButton
 
 from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea, WidgetState
@@ -398,9 +398,18 @@ class DockAreaTitleBar(QFrame, DockStyled):
         # inset the card applies to its children, so the curves stay parallel.
         card_radius = core_styles.get("corner_radius", 0)
         card_border = core_styles.get("border_width", 0.0)
-        margin = chrome_content_margin(card_border, card_radius)
+        title_margin = styles.get("margin")
+        from math import ceil
+        bw_int = ceil(card_border) if card_border > 0 else 0
+        if title_margin is not None:
+            margin = bw_int + float(title_margin)
+        else:
+            margin = chrome_content_margin(card_border, card_radius)
         self._bg_color = bg
         self._top_radius = max(0.0, card_radius - margin)
+        self._border_width = styles.get("border_width", 0.0)
+        self._border_bottom = styles.get("border_bottom", self._border_width)
+        self._border_color = styles.get("border_color", core_styles.get("border_color"))
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
         self.update()
@@ -423,11 +432,28 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
     def paintEvent(self, event):
         bg = getattr(self, "_bg_color", None)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        radius = getattr(self, "_top_radius", 0.0)
+        path = top_rounded_path(QRectF(self.rect()), radius)
+
         if bg is not None and bg.alpha() > 0:
-            p = QPainter(self)
-            p.setRenderHint(QPainter.Antialiasing, True)
-            radius = getattr(self, "_top_radius", 0.0)
-            p.fillPath(top_rounded_path(QRectF(self.rect()), radius), bg)
+            p.fillPath(path, bg)
+
+        bw = getattr(self, "_border_width", 0.0)
+        bb = getattr(self, "_border_bottom", 0.0)
+        bc = getattr(self, "_border_color", None)
+        if bc is not None and (bw > 0 or bb > 0):
+            if bw > 0:
+                inset = bw / 2.0
+                stroke_path = top_rounded_path(QRectF(self.rect()).adjusted(inset, inset, -inset, -inset), max(0.0, radius - inset))
+                p.setPen(QPen(bc, bw))
+                p.setBrush(Qt.NoBrush)
+                p.drawPath(stroke_path)
+            elif bb > 0:
+                p.setPen(QPen(bc, bb))
+                r = QRectF(self.rect())
+                p.drawLine(QPointF(r.left(), r.bottom() - bb / 2.0), QPointF(r.right(), r.bottom() - bb / 2.0))
 
 
     def on_tabs_menu_about_to_show(self):

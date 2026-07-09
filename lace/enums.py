@@ -246,3 +246,17 @@ class ToggleViewActionMode(enum.Enum):
     
     show = enum.auto()
     """The action only makes the widget visible; clicking while visible does nothing."""
+
+
+class SideBarFocusBehavior(enum.Enum):
+    """
+    Controls keyboard focus transfer when sliding a sidebar overlay panel out or in.
+    """
+    take_focus_and_restore = enum.auto()
+    """Sidebar automatically takes focus when sliding out and restores focus to previous card when sliding in."""
+    
+    no_focus_transfer = enum.auto()
+    """Sidebar does not steal focus when sliding out or transfer focus when sliding in."""
+    
+    take_focus_only = enum.auto()
+    """Sidebar automatically takes focus when sliding out, but does not restore focus when sliding in."""
