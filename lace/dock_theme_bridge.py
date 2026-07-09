@@ -111,6 +111,9 @@ class DockThemeBridge(QObject):
         sm.register(self, DockStyleCategory.CORE)
         sm.register(self, DockStyleCategory.TITLE_BAR)
         sm.register(self, DockStyleCategory.TAB)
+        sm.register(self, DockStyleCategory.PANEL)
+        sm.register(self, DockStyleCategory.SIDEBAR)
+        sm.register(self, DockStyleCategory.SIDEPANEL)
 
         # Initial palette push.
         self.refresh_dock_palette()

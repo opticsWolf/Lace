@@ -51,6 +51,12 @@ class DockCoreStyleSchema(_FontFields):
     accent_color: Optional[List[int]] = None #App / Window Accent accent / highlight color
     focus_border_color: Optional[List[int]] = None
 
+    # Semantic / Status Colors
+    success_color: Optional[List[int]] = None
+    warning_color: Optional[List[int]] = None
+    error_color: Optional[List[int]] = None
+    info_color: Optional[List[int]] = None
+
     # Geometry
     border_width: float = 0.0 #Dock Area Widget border
     corner_radius: int = 2.0 #Dock Area Widget corner radius
@@ -266,18 +272,26 @@ class DockOverlayStyleSchema:
 
 @dataclass(frozen=True)
 class ThemeSpec:
-    """Declarative 3-colour theme input for :func:`build_theme`.
+    """Declarative 5-colour (or 3-colour) theme input for :func:`build_theme`.
 
-    Replaces the 6 positional args of :func:`_build_theme` at call sites.
+    Replaces the positional args of :func:`_build_theme` at call sites.
     ``base``/``accent``/``text`` accept either an ``[r, g, b, a]`` list or a
     ``QColor``; both funnel into the same list-based colour math.
+    Optional ``surface`` and ``border`` provide separate control over inner
+    panel surfaces and structural borders.
     """
     base: Union[QColor, List[int]]
     accent: Union[QColor, List[int]]
     text: Union[QColor, List[int]]
+    surface: Optional[Union[QColor, List[int]]] = None
+    border: Optional[Union[QColor, List[int]]] = None
     is_light: bool = False
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
     hover_mode: str = "lighter"  # "darker" | "lighter" relative to panel
+    success_color: Optional[Union[QColor, List[int]]] = None
+    warning_color: Optional[Union[QColor, List[int]]] = None
+    error_color: Optional[Union[QColor, List[int]]] = None
+    info_color: Optional[Union[QColor, List[int]]] = None
 
 
 def _as_rgba(col: Union[QColor, List[int]]) -> List[int]:
@@ -292,6 +306,12 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
     return _build_theme(
         _as_rgba(spec.base), _as_rgba(spec.accent), _as_rgba(spec.text),
         is_light=spec.is_light, title_mode=spec.title_mode, hover_mode=spec.hover_mode,
+        surface=_as_rgba(spec.surface) if spec.surface is not None else None,
+        border=_as_rgba(spec.border) if spec.border is not None else None,
+        success_color=_as_rgba(spec.success_color) if spec.success_color is not None else None,
+        warning_color=_as_rgba(spec.warning_color) if spec.warning_color is not None else None,
+        error_color=_as_rgba(spec.error_color) if spec.error_color is not None else None,
+        info_color=_as_rgba(spec.info_color) if spec.info_color is not None else None,
     )
 
 
@@ -301,16 +321,24 @@ def _build_theme(
     text: list, 
     is_light: bool = False,
     title_mode: str = "darker", # "lighter" or "darker" relative to panel
-    hover_mode: str = "lighter"    # "lighter" or "darker" relative to panel
+    hover_mode: str = "lighter",    # "lighter" or "darker" relative to panel
+    surface: Optional[list] = None,
+    border: Optional[list] = None,
+    success_color: Optional[list] = None,
+    warning_color: Optional[list] = None,
+    error_color: Optional[list] = None,
+    info_color: Optional[list] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
-    Build a complete dock theme from 3 primary colors.
+    Build a complete dock theme from 3 to 5 primary colors plus status tokens.
     
     Args:
         base:     Darkest background color [R, G, B, A]
         accent:   Primary accent/highlight color [R, G, B, A]
         text:     Primary text color [R, G, B, A]
         is_light: If True, adjustments go darker instead of lighter
+        surface:  Optional inner content area background [R, G, B, A]
+        border:   Optional structural border/divider color [R, G, B, A]
     """
     # Direction multiplier: light themes darken, dark themes lighten
     d = -1 if is_light else 1
@@ -320,26 +348,24 @@ def _build_theme(
     else:
         t_mode = 1.0
     
-    if hover_mode == "darker":
-        h_mode = -1.0
-    else:
-        h_mode = 1.0
+    # hover_amount: "darker" mode yields a balanced subtle hover (8%), "lighter" mode yields clear tactile hover (12%)
+    hover_amt = 0.08 if hover_mode == "darker" else 0.12
     
     # === DERIVED BACKGROUNDS ===
-    _panel      = _adjust_color(base, l_off=d * 0.10)
-    _title_bg   =  _adjust_color(_panel, l_off= h_mode * d * 0.05)
-    _surface    = _adjust_color(base, l_off=d * 0.05)
-    _hover      = _adjust_color(base, l_off= h_mode * d * 0.20)
-    _hover_end  = _adjust_color(base, l_off= h_mode * d * 0.12)
-    _btn_hover  = _adjust_color(base, l_off= h_mode * d * 0.15)
+    _panel      = surface if surface is not None else _adjust_color(base, l_off=d * 0.10)
+    _border     = border if border is not None else _adjust_color(base, l_off=-0.02)
+    
+    # Title bar / header background: step darker (-0.06) or lighter (+0.06) relative to panel without double-inverting via d
+    _title_bg   = _adjust_color(_panel, l_off= t_mode * 0.06)
+    
+    # Interactive hovers: always step in the direction of high contrast (lighter on dark containers, darker on light containers)
+    _hover      = _contrasting_hover(base, amount=hover_amt)
+    _hover_end  = _contrasting_hover(base, amount=max(0.04, hover_amt * 0.65))
+    _btn_hover  = _contrasting_hover(base, amount=hover_amt)
 
-    # Button hover fill, resolved *relative to the container it sits on* so it
-    # always contrasts.  An absolute hover (base-relative) collides with the
-    # title-bar bg (both land near base+0.15), making title-bar button hover
-    # invisible while sidebar hover shows.  _contrasting_hover lightens a dark
-    # surface / darkens a light one, so hover is visible + consistent everywhere.
-    _btn_hover_title = _contrasting_hover(_title_bg)
-    _btn_hover_panel = _contrasting_hover(_panel)
+    # Button hover fill, resolved *relative to the container it sits on* so it always contrasts reliably.
+    _btn_hover_title = _contrasting_hover(_title_bg, amount=hover_amt)
+    _btn_hover_panel = _contrasting_hover(_panel, amount=hover_amt)
 
     # Input widget backgrounds (for QLineEdit, QTextEdit, tables, etc.)
     _input_bg       = _adjust_color(_panel, l_off=-d * 0.04)  # Slightly darker than panel
@@ -354,8 +380,6 @@ def _build_theme(
     _color_dark   = _adjust_color(_panel, l_off=-d * 0.12)  # Shadow edge
     _color_shadow = [0, 0, 0, 72 if not is_light else 48]   # Drop shadow
     
-    
-    
     # === DERIVED TEXT ===
     _text_muted    = _adjust_color(text, l_off=-d * 0.10)
     _text_disabled = _adjust_color(text, l_off=-d * 0.30)
@@ -369,30 +393,40 @@ def _build_theme(
     _accent_bright = _adjust_color(accent, l_off=0.15)
     _accent_dim    = _adjust_color(accent, a_off=-0.75)
     
+    # === STATUS COLORS ===
+    _success = success_color if success_color is not None else ([78, 201, 112, 255] if not is_light else [34, 134, 58, 255])
+    _warning = warning_color if warning_color is not None else ([230, 167, 0, 255] if not is_light else [179, 134, 0, 255])
+    _error   = error_color if error_color is not None else ([241, 76, 76, 255] if not is_light else [203, 36, 49, 255])
+    _info    = info_color if info_color is not None else ([55, 148, 255, 255] if not is_light else [0, 102, 214, 255])
+    
     # === UTILITY ===
     _transparent = [0, 0, 0, 0]
     _shadow      = [0, 0, 0, 64 if not is_light else 32]
     
     return {
-        DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _accent_bright),
+        DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _accent_bright, _border, _success, _warning, _error, _info),
         DockStyleCategory.PANEL: _build_panel(text, _panel, _input_bg, _alternate_base, _button_bg, _color_light, _color_mid, _color_dark, _color_shadow),
         DockStyleCategory.SIDEBAR: _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent),
         DockStyleCategory.SIDEPANEL: _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow),
-        DockStyleCategory.TAB: _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel),
-        DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title),
+        DockStyleCategory.TAB: _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _border),
+        DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _border),
         DockStyleCategory.SPLITTER: _build_splitter(base, accent),
         DockStyleCategory.OVERLAY: _build_overlay(text, _panel, _accent_bright, _accent_dim, _shadow),
     }
 
 
-def _build_core(base, accent, text, _text_disabled, _accent_bright):
+def _build_core(base, accent, text, _text_disabled, _accent_bright, _border, _success, _warning, _error, _info):
     return {
         "canvas_bg":          base,
-        "border_color":       _adjust_color(base, l_off=-0.02),
+        "border_color":       _border,
         "accent_color":       accent,
         "focus_border_color": _accent_bright,
         "text_color":         text,
         "disabled_text_color": _text_disabled,
+        "success_color":      _success,
+        "warning_color":      _warning,
+        "error_color":        _error,
+        "info_color":         _info,
     }
 
 
@@ -437,11 +471,12 @@ def _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel,
     }
 
 
-def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel):
+def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _border):
     return {
         "bg_normal":          _title_bg,
         "bg_hover":           _hover,
         "bg_active":          _panel,
+        "border_color":       _border,
         "text_normal":        _text_muted,
         "text_active":        _text_active,
         "indicator_color":    accent,
@@ -452,10 +487,11 @@ def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_activ
     }
 
 
-def _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title):
+def _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _border):
     return {
         "bg_normal":          _title_bg,
         "bg_active":          _title_bg,
+        "border_color":       _border,
         "text_normal":        _text_muted,
         "text_active":        _text_active,
         "active_edge_color":  _accent_bright,
@@ -521,9 +557,13 @@ def _adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):
 # VS CODE 2026 DARK (Default Theme)
 # -------------------------------------------------------------------------
 BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = build_theme(ThemeSpec(
-    base   = [20, 20, 20, 255],
+    base   = [24, 24, 24, 255],
     accent = [0, 120, 212, 255],
     text   = [204, 204, 204, 255],
+    surface    = [31, 31, 31, 255],
+    border     = [41, 41, 41, 255],
+    title_mode = "lighter",
+    hover_mode = "lighter",
 ))
 
 
@@ -590,6 +630,21 @@ def deep_to_serializable(value: Any) -> Any:
 _snapshot_cache: Optional[tuple[int, "DockThemeColors"]] = None
 
 
+def _get_contrasting_text_color(col: Union[QColor, List[int]]) -> QColor:
+    """Computes relative luminance to determine whether white or dark text
+    provides readable contrast against the given background/accent colour."""
+    qcol = to_qcolor(col)
+    r = qcol.redF()
+    g = qcol.greenF()
+    b = qcol.blueF()
+    def _lin(v):
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    L = 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
+    if L > 0.4:
+        return QColor(20, 20, 20)
+    return QColor(255, 255, 255)
+
+
 @dataclass(frozen=True, slots=True)
 class DockThemeColors:
     """All resolved colours needed to build a dock widget palette."""
@@ -608,6 +663,11 @@ class DockThemeColors:
     color_shadow:     QColor
     disabled_text:    QColor
     placeholder_text: QColor
+    highlighted_text: QColor
+    success_color:    QColor
+    warning_color:    QColor
+    error_color:      QColor
+    info_color:       QColor
 
 
 def resolve_dock_colors() -> DockThemeColors:
@@ -678,20 +738,32 @@ def _resolve_uncached(sm) -> DockThemeColors:
     placeholder_text = QColor(text_color)
     placeholder_text.setAlpha(max(0, text_color.alpha() // 2))
 
+    highlighted_text = _get_contrasting_text_color(accent)
+    success = to_qcolor(sm.get(DockStyleCategory.CORE, "success_color", [78, 201, 112]))
+    warning = to_qcolor(sm.get(DockStyleCategory.CORE, "warning_color", [230, 167, 0]))
+    error = to_qcolor(sm.get(DockStyleCategory.CORE, "error_color", [241, 76, 76]))
+    info = to_qcolor(sm.get(DockStyleCategory.CORE, "info_color", [55, 148, 255]))
+
     return DockThemeColors(
         canvas_bg=canvas_bg, title_bg=title_bg, panel_bg=panel_bg,
         text_color=text_color, accent_color=accent, border_color=border,
         input_bg=input_bg, alternate_base=alternate_base,
         button_bg=button_bg, color_light=color_light, color_mid=color_mid,
         color_dark=color_dark, color_shadow=color_shadow,
-        disabled_text=disabled_text, placeholder_text=placeholder_text
+        disabled_text=disabled_text, placeholder_text=placeholder_text,
+        highlighted_text=highlighted_text, success_color=success,
+        warning_color=warning, error_color=error, info_color=info
     )
 
 
 def _apply_shared_roles(pal: QPalette, c: DockThemeColors):
     """Applies palette roles that are identical across all dock contexts."""
     pal.setColor(QPalette.ColorRole.Highlight, c.accent_color)
-    pal.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+    pal.setColor(QPalette.ColorRole.HighlightedText, c.highlighted_text)
+    if hasattr(QPalette.ColorRole, "Link"):
+        pal.setColor(QPalette.ColorRole.Link, c.accent_color)
+    if hasattr(QPalette.ColorRole, "LinkVisited"):
+        pal.setColor(QPalette.ColorRole.LinkVisited, c.accent_color)
     pal.setColor(QPalette.ColorRole.ToolTipBase, c.title_bg)
     pal.setColor(QPalette.ColorRole.ToolTipText, c.text_color)
     pal.setColor(QPalette.ColorRole.PlaceholderText, c.placeholder_text)

@@ -16,7 +16,8 @@ import sys
 from pathlib import Path
 from typing import Optional, Any
 
-from PySide6.QtCore import QObject, QSettings, QEvent, Signal
+from PySide6.QtCore import QObject, QSettings, QEvent, Signal, Qt
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
 logger = logging.getLogger(__name__)
@@ -26,9 +27,9 @@ class ThemeManager(QObject):
     """
     OS-Aware Auto Theme Switcher.
 
-    Monitors system theme changes (e.g., Windows Dark/Light mode flips or Qt
-    PaletteChange events) and applies the corresponding dark/light theme to the
-    application or target window.
+    Monitors system theme changes (e.g., Windows Dark/Light mode flips, Qt 6.5+
+    colorSchemeChanged, or Qt PaletteChange events) and applies the corresponding
+    dark/light theme to the application or target window.
     """
     theme_changed = Signal(str, bool)  # (applied_theme, is_dark_mode)
 
@@ -46,7 +47,19 @@ class ThemeManager(QObject):
         self._last_applied_theme: Optional[str] = None
 
     def is_windows_dark_mode(self) -> bool:
-        """Reads the Windows registry to check if Dark Mode is active."""
+        """Checks if OS Dark Mode is active via Qt 6.5+ styleHints, Windows registry, or palette fallback."""
+        # Check modern Qt 6.5+ styleHints colorScheme (macOS, Windows 11, Linux Portal)
+        app = QGuiApplication.instance()
+        if app is not None and hasattr(app, "styleHints"):
+            hints = app.styleHints()
+            if hasattr(hints, "colorScheme"):
+                scheme = hints.colorScheme()
+                if hasattr(Qt, "ColorScheme"):
+                    if scheme == Qt.ColorScheme.Dark:
+                        return True
+                    if scheme == Qt.ColorScheme.Light:
+                        return False
+
         if sys.platform == "win32":
             try:
                 settings = QSettings(
@@ -162,20 +175,42 @@ class ThemeManager(QObject):
             self.sync_theme()
         return super().eventFilter(obj, event)
 
+    def _on_color_scheme_changed(self, *args: Any) -> None:
+        """Slot invoked when Qt 6.5+ styleHints colorSchemeChanged emits."""
+        self.sync_theme()
+
     def install_listener(self, target: Optional[QObject] = None) -> None:
         """
         Installs this ThemeManager as an event filter on target (or self.app or
-        QApplication.instance()) to automatically catch system palette changes.
+        QApplication.instance()) and connects to Qt 6.5+ colorSchemeChanged.
         """
         obj = target or self.app or QApplication.instance()
         if obj is not None and isinstance(obj, QObject):
             obj.installEventFilter(self)
 
+        app = QGuiApplication.instance()
+        if app is not None and hasattr(app, "styleHints"):
+            hints = app.styleHints()
+            if hasattr(hints, "colorSchemeChanged"):
+                try:
+                    hints.colorSchemeChanged.connect(self._on_color_scheme_changed)
+                except Exception as e:
+                    logger.debug(f"Could not connect to colorSchemeChanged: {e}")
+
     def remove_listener(self, target: Optional[QObject] = None) -> None:
-        """Removes the event filter listener from target."""
+        """Removes the event filter listener and colorSchemeChanged signal."""
         obj = target or self.app or QApplication.instance()
         if obj is not None and isinstance(obj, QObject):
             obj.removeEventFilter(self)
+
+        app = QGuiApplication.instance()
+        if app is not None and hasattr(app, "styleHints"):
+            hints = app.styleHints()
+            if hasattr(hints, "colorSchemeChanged"):
+                try:
+                    hints.colorSchemeChanged.disconnect(self._on_color_scheme_changed)
+                except Exception:
+                    pass
 
 
 __all__ = ["ThemeManager"]

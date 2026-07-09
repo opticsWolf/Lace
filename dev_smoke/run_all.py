@@ -36,7 +36,8 @@ CHECKS = [
     "smoke_nudge.py",       # theme recolour works without the stylesheet nudge
     "smoke_roundtrip.py",   # main container save/restore + corrupt payload
     "smoke_float.py",       # floating container save/restore branch
-    "smoke_themeswitch.py", # apply all 8 themes on a populated window
+    "smoke_themeswitch.py", # apply all 13 themes on a populated window
+    "smoke_theme_palette.py", # verify 5-color ThemeSpec, status tokens, WCAG contrast, and bridge refresh
     "smoke_autotheme.py",   # OS-Aware Auto Theme Switcher (registry, QEvent.PaletteChange, QSS/dock overrides)
     "smoke_flags.py",       # global DockFlags configuration checks
 ]

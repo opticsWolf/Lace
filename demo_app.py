@@ -245,6 +245,11 @@ class DemoMainWindow(QMainWindow):
         add_theme_action("Neutral", "neutral")
         add_theme_action("Nordic", "nordic")
         add_theme_action("Warm", "warm")
+        add_theme_action("Tokyo Night", "tokyo_night")
+        add_theme_action("Catppuccin", "catppuccin")
+        add_theme_action("Dracula", "dracula")
+        add_theme_action("Solarized Dark", "solarized_dark")
+        add_theme_action("Solarized Light", "solarized_light")
 
         theme_menu.addSeparator()
         self._auto_theme_action = QAction("Auto Theme (OS Sync)", self, checkable=True)
@@ -272,6 +277,11 @@ class DemoMainWindow(QMainWindow):
                 ("Neutral", "neutral"),
                 ("Nordic", "nordic"),
                 ("Warm", "warm"),
+                ("Tokyo Night", "tokyo_night"),
+                ("Catppuccin", "catppuccin"),
+                ("Dracula", "dracula"),
+                ("Solarized Dark", "solarized_dark"),
+                ("Solarized Light", "solarized_light"),
             ]
 
             for name, key in themes_list:
