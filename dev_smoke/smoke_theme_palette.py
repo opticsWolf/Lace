@@ -38,7 +38,8 @@ spec = ThemeSpec(
 )
 theme_dict = build_theme(spec)
 assert theme_dict[DockStyleCategory.CORE]["canvas_bg"] == [10, 10, 10, 255]
-assert theme_dict[DockStyleCategory.CORE]["border_color"] == [50, 10, 10, 255]
+assert theme_dict[DockStyleCategory.CORE]["focus_border_color"] == [50, 10, 10, 255]
+assert theme_dict[DockStyleCategory.CORE]["border_color"] == [47, 47, 63, 255]
 assert theme_dict[DockStyleCategory.PANEL]["bg_normal"] == [30, 30, 40, 255]
 assert theme_dict[DockStyleCategory.CORE]["success_color"] == [100, 250, 100, 255]
 assert theme_dict[DockStyleCategory.CORE]["error_color"] == [250, 50, 50, 255]

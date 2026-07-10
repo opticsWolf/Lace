@@ -3,7 +3,7 @@
 Lace: Advanced PySide6 Docking System
 Copyright (c) 2026 opticsWolf
 
-SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: Apache-2.0  G
 """
 
 import sys

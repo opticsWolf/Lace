@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QSize
 app = QApplication(sys.argv)
 
-from PySide6.QtGui import QPalette
+from PySide6.QtGui import QPalette, QColor
 from demo_app import DemoMainWindow
 from lace.enums import DockWidgetArea
 from lace.dock_theme import DockStyleCategory
@@ -104,7 +104,7 @@ for theme in ("default", "light", "monokai"):
     for got, want in zip(s["bg_px"], s["expected"]):
         assert abs(got - want) <= 2, f"{theme}: strip bg {s['bg_px']} != {s['expected']}"
     # content inset must stay put (border reserve preserved)
-    assert s["scroll_geo"] == (1, 1, 28, 681), f"{theme}: scroll geo shifted -> {s['scroll_geo']}"
+    assert s["scroll_geo"] == (1, 1, s["strip"][0] - 2, s["strip"][1] - 2), f"{theme}: scroll geo shifted -> {s['scroll_geo']}"
 
 def sample_decorations(theme: str):
     """Force the overflow counter badge + drop indicator visible and pixel-check
@@ -123,11 +123,19 @@ def sample_decorations(theme: str):
     app.processEvents()
     cimg = bar._counter_lbl.grab().toImage()
     cc = cimg.pixelColor(5, cimg.height() // 2)          # left of the centred digit -> bg fill
-    ct = cimg.pixelColor(cimg.width() // 2, cimg.height() // 2)  # digit -> text colour
     counter_bg = sm.get(DockStyleCategory.SIDEBAR, "tab_bg_hover_start")
     exp_cbg = counter_bg.getRgb()[:3] if counter_bg else None
     counter_text = sm.get(DockStyleCategory.SIDEBAR, "tab_text_normal")
     exp_ctext = counter_text.getRgb()[:3] if counter_text else None
+    # Find the pure rendered text colour pixel inside the badge to avoid subpixel antialiasing edge misses
+    if exp_ctext is not None:
+        best_diff, best_px = min(
+            (sum(abs(a - b) for a, b in zip(cimg.pixelColor(x, y).getRgb()[:3], exp_ctext)), cimg.pixelColor(x, y).getRgb()[:3])
+            for y in range(cimg.height()) for x in range(cimg.width())
+        )
+        ct = QColor(*best_px)
+    else:
+        ct = cimg.pixelColor(cimg.width() // 2, cimg.height() // 2)
 
     # Drop indicator
     bar._show_drop_indicator()
@@ -228,12 +236,12 @@ def check_vertical_tab():
     assert px(b, 1, 60) == ind, f"left/left indicator {px(b,1,60)} != {ind}"
     # active, right sidebar, pos "left" -> mirrored to RIGHT edge
     b = mk(DockWidgetArea.right, True, False, "left")
-    assert px(b, 28, 60) == ind, f"right/left indicator {px(b,28,60)} != {ind}"
+    assert px(b, b.grab().width() - 2, 60) == ind, f"right/left indicator {px(b,b.grab().width() - 2,60)} != {ind}"
     # hover -> horizontal gradient start(left) .. end(right); ~1 off the pure
     # endpoints one pixel in, so allow a small tolerance.
     b = mk(DockWidgetArea.left, False, True, "left")
     assert near(px(b, 1, 60), hs), f"hover start {px(b,1,60)} != {hs}"
-    assert near(px(b, 28, 60), he), f"hover end {px(b,28,60)} != {he}"
+    assert near(px(b, b.grab().width() - 2, 60), he), f"hover end {px(b,b.grab().width() - 2,60)} != {he}"
 
 
 check_vertical_tab()

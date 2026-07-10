@@ -349,6 +349,9 @@ class DockWidget(QFrame, DockStyled):
             return self._dock_manager.sidebar_manager.is_pinned(self)
         return False
 
+    def is_pinned(self) -> bool:
+        return self.is_in_sidebar()
+
     def is_closed(self) -> bool:
         return self._closed
 
@@ -462,8 +465,16 @@ class DockWidget(QFrame, DockStyled):
         pal = build_dock_palette(is_panel=True, colors=colors)
         self.setPalette(pal)
 
-        card_radius = self._style_mgr.get(DockStyleCategory.CORE, "corner_radius", 0)
-        card_border = self._style_mgr.get(DockStyleCategory.CORE, "border_width", 0.0)
+        if self.is_in_sidebar():
+            card_radius = self._style_mgr.get(DockStyleCategory.SIDEPANEL, "corner_radius")
+            if card_radius is None:
+                card_radius = self._style_mgr.get(DockStyleCategory.CORE, "corner_radius", 0)
+            card_border = self._style_mgr.get(DockStyleCategory.SIDEPANEL, "border_width")
+            if card_border is None:
+                card_border = self._style_mgr.get(DockStyleCategory.CORE, "border_width", 0.0)
+        else:
+            card_radius = self._style_mgr.get(DockStyleCategory.CORE, "corner_radius", 0)
+            card_border = self._style_mgr.get(DockStyleCategory.CORE, "border_width", 0.0)
         from math import ceil
         bw_int = ceil(card_border) if card_border > 0 else 0
         if card_radius > 0 and not self.is_floating():

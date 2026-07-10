@@ -169,7 +169,7 @@ class SideBarContainer(QFrame, DockStyled):
         # Update title bar content
         self._title_bar.set_widget(dock_widget)
         
-        self._update_resize_margins()
+        self._update_layout_margins()
         self._update_shadow_direction()
         
         while self._splitter.count():
@@ -179,6 +179,10 @@ class SideBarContainer(QFrame, DockStyled):
         
         self._splitter.addWidget(dock_widget)
         dock_widget.show()
+        if hasattr(dock_widget, 'refresh_style'):
+            dock_widget.refresh_style()
+        if hasattr(self._title_bar, 'refresh_style'):
+            self._title_bar.refresh_style()
         self._update_geometry()
         
         if animate and not self.isVisible():
@@ -363,16 +367,34 @@ class SideBarContainer(QFrame, DockStyled):
     def _update_geometry(self):
         self.setGeometry(self._get_visible_geometry())
 
-    def _update_resize_margins(self):
-        m = _RESIZE_HANDLE_WIDTH
+    def _update_layout_margins(self):
+        from math import ceil
+        bw = getattr(self, "_border_width", 0.0)
+        bw_int = ceil(bw + 0.5) if bw > 0 else 0
+
+        title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+        title_margin = title_styles.get("margin")
+        m_top = bw_int + (int(title_margin) if title_margin is not None else 0)
+
+        left = bw_int
+        right = bw_int
+        top = m_top
+        bottom = bw_int
+
+        m = max(bw_int, _RESIZE_HANDLE_WIDTH)
         if self._area == DockWidgetArea.left:
-            self._content_layout.setContentsMargins(0, 0, m, 0)
+            right = m
         elif self._area == DockWidgetArea.right:
-            self._content_layout.setContentsMargins(m, 0, 0, 0)
+            left = m
         elif self._area == DockWidgetArea.bottom:
-            self._content_layout.setContentsMargins(0, m, 0, 0)
-        else:
-            self._content_layout.setContentsMargins(0, 0, 0, 0)
+            top = max(m_top, m)
+        elif self._area == DockWidgetArea.top:
+            bottom = max(bw_int, m)
+
+        self._content_layout.setContentsMargins(left, top, right, bottom)
+
+    def _update_resize_margins(self):
+        self._update_layout_margins()
 
     def _update_shadow_direction(self):
         if self._area == DockWidgetArea.left:
@@ -519,7 +541,7 @@ class SideBarContainer(QFrame, DockStyled):
 
         if radius > 0 or bw > 0:
             if bw > 0:
-                inset = bw / 2.0
+                inset = (bw / 2.0) + 0.5
                 r = r.adjusted(inset, inset, -inset, -inset)
             path = QPainterPath()
             if radius > 0:
@@ -557,9 +579,11 @@ class SideBarContainer(QFrame, DockStyled):
         self._corner_radius = float(card_radius) if card_radius is not None else 0.0
 
         card_border = s.get("border_width")
-        if card_border is None:
+        if card_border is None or card_border <= 0.0:
             card_border = core_styles.get("border_width", 0.0)
-        self._border_width = float(card_border) if card_border is not None else 0.0
+        if card_border is None or card_border <= 0.0:
+            card_border = 1.0
+        self._border_width = float(card_border)
 
         bcolor = s.get("border_color")
         if bcolor is None:
@@ -571,12 +595,7 @@ class SideBarContainer(QFrame, DockStyled):
             fcolor = core_styles.get("focus_border_color")
         self._focus_border_color = fcolor
 
-        title_margin = title_styles.get("margin")
-        from math import ceil
-        bw_int = ceil(self._border_width) if self._border_width > 0 else 0
-
-        m_top = bw_int + (int(title_margin) if title_margin is not None else 0)
-        self._content_layout.setContentsMargins(bw_int, m_top, bw_int, bw_int)
+        self._update_layout_margins()
 
         self.update()
 

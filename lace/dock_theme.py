@@ -285,6 +285,7 @@ class ThemeSpec:
     text: Union[QColor, List[int]]
     surface: Optional[Union[QColor, List[int]]] = None
     border: Optional[Union[QColor, List[int]]] = None
+    focus_border_color: Optional[Union[QColor, List[int]]] = None
     is_light: bool = False
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
     hover_mode: str = "lighter"  # "darker" | "lighter" relative to panel
@@ -321,6 +322,7 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         is_light=spec.is_light, title_mode=spec.title_mode, hover_mode=spec.hover_mode,
         surface=_as_rgba(spec.surface) if spec.surface is not None else None,
         border=_as_rgba(spec.border) if spec.border is not None else None,
+        focus_border_color=_as_rgba(spec.focus_border_color) if spec.focus_border_color is not None else None,
         success_color=_as_rgba(spec.success_color) if spec.success_color is not None else None,
         warning_color=_as_rgba(spec.warning_color) if spec.warning_color is not None else None,
         error_color=_as_rgba(spec.error_color) if spec.error_color is not None else None,
@@ -350,6 +352,7 @@ def _build_theme(
     hover_mode: str = "lighter",    # "lighter" or "darker" relative to panel
     surface: Optional[list] = None,
     border: Optional[list] = None,
+    focus_border_color: Optional[list] = None,
     success_color: Optional[list] = None,
     warning_color: Optional[list] = None,
     error_color: Optional[list] = None,
@@ -397,7 +400,7 @@ def _build_theme(
     # Neutral border derived from surface or base depending on light/dark theme
     _ref_col        = _panel if surface is not None else base
     _neutral_border = _adjust_color(_ref_col, l_off=(-0.12 if is_light else 0.08))
-    _focus_border   = border if border is not None else _adjust_color(accent, l_off=0.15)
+    _focus_border   = focus_border_color if focus_border_color is not None else (border if border is not None else _adjust_color(accent, l_off=0.15))
     
     # Title bar / header background: step darker (-0.06) or lighter (+0.06) relative to panel without double-inverting via d
     _title_bg   = _adjust_color(_panel, l_off= t_mode * 0.06)
@@ -546,6 +549,7 @@ def _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel,
         "shadow_color":       _shadow,
         "border_color":       _neutral_border,
         "focus_border_color": _focus_border,
+        "border_width":       1.0,
     }
 
 

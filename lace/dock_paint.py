@@ -129,7 +129,7 @@ def paint_panel(p: QPainter, rect: QRectF, c: ChromeTokens,
     p.setRenderHint(QPainter.Antialiasing, True)
 
     w = c.border_width
-    inset = w / 2.0
+    inset = (w / 2.0) + 0.5 if w > 0 else 0.0
     r = QRectF(rect).adjusted(inset, inset, -inset, -inset)
     radius = max(0.0, c.radius - inset)
 
