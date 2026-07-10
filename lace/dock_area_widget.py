@@ -119,6 +119,9 @@ class DockAreaWidget(ChromeFrame, DockStyled):
 
         self._update_title_bar_buttons = False
 
+    def update_title_bar_button_states(self):
+        self._update_title_bar_button_states()
+
     def on_tab_close_requested(self, index: int):
         logger.debug('DockAreaWidget.onTabCloseRequested %s', index)
         self.dock_widget(index).toggle_view(False)

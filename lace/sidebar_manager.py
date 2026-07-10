@@ -228,6 +228,8 @@ class SidebarDragController(QObject):
     def on_tab_drag_started(self, button: VerticalTabButton):
         dock_widget = button.property("_dock_widget")
         if dock_widget:
+            if not (dock_widget.features() & DockWidgetFeature.movable):
+                return
             if not (dock_widget.features() & DockWidgetFeature.floatable):
                 return
             sidebar = self._manager._pinned.get(dock_widget)

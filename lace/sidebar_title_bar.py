@@ -124,7 +124,7 @@ class SideBarTitleBar(QFrame, DockStyled):
     # --- Drag Logic ---
 
     def _on_drag_started(self, _global_pos: QPoint):
-        if self._active_widget and (self._active_widget.features() & DockWidgetFeature.floatable):
+        if self._active_widget and (self._active_widget.features() & DockWidgetFeature.movable) and (self._active_widget.features() & DockWidgetFeature.floatable):
             self.detach_requested.emit(self._active_widget)
 
     # --- Menu Logic ---

@@ -18,7 +18,7 @@ from pathlib import Path
 from lace import (
     DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
-    ThemeManager, SideBarFocusBehavior
+    ThemeManager, SideBarFocusBehavior, InsertionOrder
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -82,6 +82,10 @@ DOCK_FLAGS_INFO = [
     (DockFlags.hide_disabled_title_bar_icons,
      "Hide Disabled Title Bar Icons",
      "Hides disabled icons in the title bar instead of showing them grayed out."),
+    
+    (DockFlags.custom_tab_icons,
+     "Custom Tab Icons",
+     "Use custom icons via user config instead of widget defaults."),
     
     (DockFlags.drag_preview_shows_content_pixmap,
      "Drag Preview Shows Content",
@@ -153,6 +157,8 @@ class DemoMainWindow(QMainWindow):
 
         # --- 1. Standard Widget (All Features) ---
         standard_widget = DockWidget("Standard Editor", self)
+        standard_widget.set_default_icon_name("dock")
+        standard_widget.set_custom_icon_name("pin")
         standard_content = QTextEdit()
         standard_content.setPlaceholderText("I can be moved, closed, and floated.")
         standard_widget.set_widget(standard_content)
@@ -161,6 +167,8 @@ class DemoMainWindow(QMainWindow):
 
         # --- 2. Unclosable Widget ---
         unclosable_widget = DockWidget("Unclosable Logger", self)
+        unclosable_widget.set_default_icon_name("tab_list")
+        unclosable_widget.set_custom_icon_name("float")
         unclosable_content = QTextEdit()
         unclosable_content.setReadOnly(True)
         unclosable_content.setText("FEATURE TEST:\nI cannot be closed via tab or title bar.\n\nTry grouping me with the Standard Editor!")
@@ -170,11 +178,21 @@ class DemoMainWindow(QMainWindow):
 
         # --- 3. Unfloatable Widget ---
         unfloatable_widget = DockWidget("Unfloatable Tool", self)
+        unfloatable_widget.set_default_icon_name("pin")
+        unfloatable_widget.set_custom_icon_name("unpin")
         unfloatable_content = QLabel("FEATURE TEST:\nI can be closed, but I cannot be detached into a floating window.\n\nNotice the Detach icon is disabled.")
         unfloatable_content.setAlignment(Qt.AlignCenter)
         unfloatable_widget.set_widget(unfloatable_content)
         unfloatable_widget.set_features(DockWidgetFeature.movable | DockWidgetFeature.closable | DockWidgetFeature.pinnable)
         self.dock_manager.add_dock_widget(DockWidgetArea.right, unfloatable_widget)
+
+        # --- 3b. Immovable Widget ---
+        immovable_widget = DockWidget("Immovable Tool", self)
+        immovable_content = QLabel("FEATURE TEST:\nI can be closed, floated, or pinned, but I CANNOT be moved/dragged between dock areas.")
+        immovable_content.setAlignment(Qt.AlignCenter)
+        immovable_widget.set_widget(immovable_content)
+        immovable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.floatable | DockWidgetFeature.pinnable)
+        self.dock_manager.add_dock_widget(DockWidgetArea.top, immovable_widget)
 
         # --- 4. Locked Widget (No Features) ---
         locked_widget = DockWidget("Locked Panel", self)
@@ -219,9 +237,32 @@ class DemoMainWindow(QMainWindow):
 
     def create_view_menu(self):
         menubar = self.menuBar()
-        view_menu = menubar.addMenu("View")
-        for name, dock_widget in self.dock_manager.dock_widgets_map().items():
-            view_menu.addAction(dock_widget.toggle_view_action())
+        view_menu = self.dock_manager.view_menu
+        view_menu.setTitle("View")
+        menubar.addMenu(view_menu)
+
+        view_menu.addSeparator()
+        order_menu = view_menu.addMenu("Insertion Order")
+        order_group = QActionGroup(self)
+        order_group.setExclusive(True)
+
+        spelling_act = order_menu.addAction("By Spelling (Alphabetical)")
+        spelling_act.setCheckable(True)
+        spelling_act.setChecked(self.dock_manager.menu_insertion_order == InsertionOrder.by_spelling)
+        def on_spelling_toggled(checked):
+            if checked:
+                self.dock_manager.menu_insertion_order = InsertionOrder.by_spelling
+        spelling_act.triggered.connect(on_spelling_toggled)
+        order_group.addAction(spelling_act)
+
+        insertion_act = order_menu.addAction("By Insertion (Chronological)")
+        insertion_act.setCheckable(True)
+        insertion_act.setChecked(self.dock_manager.menu_insertion_order == InsertionOrder.by_insertion)
+        def on_insertion_toggled(checked):
+            if checked:
+                self.dock_manager.menu_insertion_order = InsertionOrder.by_insertion
+        insertion_act.triggered.connect(on_insertion_toggled)
+        order_group.addAction(insertion_act)
 
     def create_theme_menu(self):
         menubar = self.menuBar()
@@ -361,6 +402,7 @@ class DemoMainWindow(QMainWindow):
         self._add_flag_action(flags_menu, DockFlags.middle_mouse_button_closes_tab)
         self._add_flag_action(flags_menu, DockFlags.floatable_tabs)
         self._add_flag_action(flags_menu, DockFlags.pinnable_tabs)
+        self._add_flag_action(flags_menu, DockFlags.custom_tab_icons)
         
         # Group: Title bar buttons
         flags_menu.addSection("Title Bar")

@@ -11,6 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 logging.disable(logging.CRITICAL)
 from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtCore import QPoint
 app = QApplication(sys.argv)
 from demo_app import DemoMainWindow
 from lace.dock_widget import DockWidget
@@ -60,6 +61,18 @@ app.processEvents()
 assert sm.is_pinned(w_immovable), "w_immovable should be pinned to right sidebar"
 sm.move_widget_to_area(w_immovable, DockWidgetArea.left)
 app.processEvents()
-assert w_immovable in sm._sidebars[DockWidgetArea.right]._widget_map, "w_immovable should remain in right sidebar when move_widget_to_area is called"
+# 6. Verify dragging an immovable tab button from the sidebar does not trigger floating/unpinning
+tab_btn_immovable = sm._sidebars[DockWidgetArea.right]._widget_map[w_immovable]
+sm._drag_controller.on_tab_drag_started(tab_btn_immovable)
+app.processEvents()
+assert sm.is_pinned(w_immovable), "w_immovable must remain pinned when tab drag is attempted without movable flag"
+assert not w_immovable.is_floating(), "w_immovable must not detach to floating when dragged from sidebar tab"
+
+# 7. Verify dragging the slide-out panel title bar for immovable widget does not trigger detach_requested
+detached_emitted = []
+sm._overlay._title_bar.detach_requested.connect(lambda w: detached_emitted.append(w))
+sm._overlay._title_bar.set_widget(w_immovable)
+sm._overlay._title_bar._on_drag_started(QPoint(10, 10))
+assert len(detached_emitted) == 0, "SideBarTitleBar must not emit detach_requested on drag when widget is immovable"
 
 print("SMOKE MOVABLE OK")

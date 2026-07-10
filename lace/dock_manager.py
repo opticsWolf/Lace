@@ -378,6 +378,13 @@ class DockManager(QObject):
         if action in menu.actions():
             menu.removeAction(action)
 
+        def _append_to_menu(m: QMenu, act: QAction):
+            before_act = next((a for a in m.actions() if a.isSeparator() or a.menu()), None)
+            if before_act:
+                m.insertAction(before_act, act)
+            else:
+                m.addAction(act)
+
         if self._menu_insertion_order == InsertionOrder.by_spelling:
             action_text = action.text().lower()
             inserted = False
@@ -389,9 +396,9 @@ class DockManager(QObject):
                     inserted = True
                     break
             if not inserted:
-                menu.addAction(action)
+                _append_to_menu(menu, action)
         else: # by_insertion
-            menu.addAction(action)
+            _append_to_menu(menu, action)
 
     def _rebuild_view_menu(self):
         """Re-sorts all actions in `_view_menu` and `_view_menu_groups` according to current menu_insertion_order."""
@@ -400,19 +407,26 @@ class DockManager(QObject):
             for a in existing_actions:
                 target_menu.removeAction(a)
 
+            def _append(act: QAction):
+                before_act = next((a for a in target_menu.actions() if a.isSeparator() or a.menu()), None)
+                if before_act:
+                    target_menu.insertAction(before_act, act)
+                else:
+                    target_menu.addAction(act)
+
             if self._menu_insertion_order == InsertionOrder.by_insertion:
                 # Re-insert in registration (chronological) order from dock_widgets_map
                 for name, widget in self._dock_widgets_map.items():
                     act = widget.toggle_view_action()
                     if act and act in existing_actions:
-                        target_menu.addAction(act)
+                        _append(act)
                 # Also add any leftover actions that weren't from dock_widgets_map
                 for a in existing_actions:
                     if a not in target_menu.actions():
-                        target_menu.addAction(a)
+                        _append(a)
             else: # by_spelling
                 for a in sorted(existing_actions, key=lambda act: act.text().lower()):
-                    target_menu.addAction(a)
+                    _append(a)
 
         _sort_menu(self._view_menu)
         for group_menu in self._view_menu_groups.values():

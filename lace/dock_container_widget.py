@@ -436,7 +436,7 @@ class DockContainerWidget(QFrame, DockStyled):
                 close.setVisible(True)
             pin = dock_area.title_bar_button(TitleBarButton.pin)
             if pin:
-                dock_area.update_title_bar_button_states()
+                dock_area._update_title_bar_button_states()
 
         if count_before == 1:
             self._dock_areas[0].update_title_bar_visibility()
@@ -644,7 +644,7 @@ class DockContainerWidget(QFrame, DockStyled):
                     TitleBarButton.close).setVisible(True)
                 pin_button = top_level_dock_area.title_bar_button(TitleBarButton.pin)
                 if pin_button:
-                    top_level_dock_area.update_title_bar_button_states()
+                    top_level_dock_area._update_title_bar_button_states()
 
         elif self._top_level_dock_area:
             self._top_level_dock_area.title_bar_button(
