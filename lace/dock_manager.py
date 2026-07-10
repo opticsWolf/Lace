@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import QObject, Signal, QPoint, QRect
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
+from PySide6.QtGui import QAction
 
 from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior
 from .dock_container_widget import DockContainerWidget
@@ -112,11 +113,17 @@ class DockManager(QObject):
         trace("manager.add_dock_widget", area=getattr(area, 'name', str(area)), widget=dock_widget.objectName())
         dock_widget.set_dock_manager(self)
         self._dock_widgets_map[dock_widget.objectName()] = dock_widget
+        self.add_toggle_view_action_to_menu(dock_widget.toggle_view_action())
         return self._root.add_dock_widget(area, dock_widget, target_area)
 
     def remove_dock_widget(self, widget: 'DockWidget'):
         trace("manager.remove_dock_widget", widget=widget.objectName())
         self._dock_widgets_map.pop(widget.objectName(), None)
+        action = widget.toggle_view_action()
+        if action:
+            self._view_menu.removeAction(action)
+            for group_menu in self._view_menu_groups.values():
+                group_menu.removeAction(action)
         self._root.remove_dock_widget(widget)
 
     def find_dock_widget(self, object_name: str) -> Optional['DockWidget']:
@@ -133,6 +140,7 @@ class DockManager(QObject):
         """Clean API to pin a widget directly to the auto-hide sidebar."""
         dock_widget.set_dock_manager(self)
         self._dock_widgets_map[dock_widget.objectName()] = dock_widget
+        self.add_toggle_view_action_to_menu(dock_widget.toggle_view_action())
         sidebar = self.sidebar_manager.add_sidebar(area)
         self.sidebar_manager.pin_widget(dock_widget, sidebar)
 
@@ -298,6 +306,7 @@ class DockManager(QObject):
                             tab = tab_bar.tab(i)
                             if tab:
                                 tab.update_close_button_visibility()
+                                tab.update_icon()
 
     def container_overlay(self) -> DockOverlay:
         return self._container_overlay
@@ -334,6 +343,80 @@ class DockManager(QObject):
     @property
     def view_menu(self) -> QMenu:
         return self._view_menu
+
+    @property
+    def menu_insertion_order(self) -> InsertionOrder:
+        """Get the insertion order (`by_spelling` or `by_insertion`) for dynamic view menus."""
+        return self._menu_insertion_order
+
+    @menu_insertion_order.setter
+    def menu_insertion_order(self, order: InsertionOrder):
+        """Set the insertion order and rebuild view menu sorting if changed."""
+        if self._menu_insertion_order != order:
+            self._menu_insertion_order = order
+            self._rebuild_view_menu()
+
+    def add_toggle_view_action_to_menu(self, action: QAction, group: str = None, menu: QMenu = None):
+        """
+        Inserts a dock widget's toggle view action into a menu respecting self._menu_insertion_order.
+        If `menu` is None and `group` is given, inserts into a group submenu of `_view_menu`.
+        If both are None, inserts directly into `_view_menu`.
+        """
+        if not action:
+            return
+
+        if menu is None:
+            if group is not None:
+                if group not in self._view_menu_groups:
+                    group_menu = self._view_menu.addMenu(group)
+                    self._view_menu_groups[group] = group_menu
+                menu = self._view_menu_groups[group]
+            else:
+                menu = self._view_menu
+
+        # If action is already in menu, remove it so it can be inserted cleanly in the right spot
+        if action in menu.actions():
+            menu.removeAction(action)
+
+        if self._menu_insertion_order == InsertionOrder.by_spelling:
+            action_text = action.text().lower()
+            inserted = False
+            for existing_action in menu.actions():
+                if existing_action.isSeparator() or not existing_action.text() or existing_action.menu():
+                    continue
+                if action_text < existing_action.text().lower():
+                    menu.insertAction(existing_action, action)
+                    inserted = True
+                    break
+            if not inserted:
+                menu.addAction(action)
+        else: # by_insertion
+            menu.addAction(action)
+
+    def _rebuild_view_menu(self):
+        """Re-sorts all actions in `_view_menu` and `_view_menu_groups` according to current menu_insertion_order."""
+        def _sort_menu(target_menu: QMenu):
+            existing_actions = [a for a in target_menu.actions() if not a.menu() and not a.isSeparator()]
+            for a in existing_actions:
+                target_menu.removeAction(a)
+
+            if self._menu_insertion_order == InsertionOrder.by_insertion:
+                # Re-insert in registration (chronological) order from dock_widgets_map
+                for name, widget in self._dock_widgets_map.items():
+                    act = widget.toggle_view_action()
+                    if act and act in existing_actions:
+                        target_menu.addAction(act)
+                # Also add any leftover actions that weren't from dock_widgets_map
+                for a in existing_actions:
+                    if a not in target_menu.actions():
+                        target_menu.addAction(a)
+            else: # by_spelling
+                for a in sorted(existing_actions, key=lambda act: act.text().lower()):
+                    target_menu.addAction(a)
+
+        _sort_menu(self._view_menu)
+        for group_menu in self._view_menu_groups.values():
+            _sort_menu(group_menu)
 
     # ─────────────────────────────────────────────────────────────────────
     #  Delegated Root Container Surface (Composition Facade)

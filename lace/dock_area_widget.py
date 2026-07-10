@@ -319,8 +319,16 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         return bool(self.features() & DockWidgetFeature.closable)
 
     @property
+    def movable(self):
+        return bool(self.features() & DockWidgetFeature.movable)
+
+    @property
     def floatable(self):
         return bool(self.features() & DockWidgetFeature.floatable)
+
+    @property
+    def pinnable(self):
+        return bool(self.features() & DockWidgetFeature.pinnable)
 
     def features(self) -> DockWidgetFeature:
         # --- FIX: Only intersect the features of OPEN dock widgets! ---

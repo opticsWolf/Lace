@@ -125,8 +125,11 @@ class FloatingDockContainer(QWidget, DockStyled):
 
         self._set_state(DragState.inactive)
 
-        if not self._drop_container:
-            logger.debug("[FDC._finalize_drag] No drop container — surviving as independent window.")
+        if not self._drop_container or not self._is_movable():
+            logger.debug("[FDC._finalize_drag] No drop container or not movable — surviving as independent window.")
+            if self._dock_manager:
+                self._dock_manager.container_overlay().hide_overlay()
+                self._dock_manager.dock_area_overlay().hide_overlay()
             self._activate_window()
             return
 
@@ -186,8 +189,22 @@ class FloatingDockContainer(QWidget, DockStyled):
     #  Drop overlay tracking (shared by both drag paths via moveEvent)
     # ─────────────────────────────────────────────────────────────────────
 
+    def _is_movable(self) -> bool:
+        if not self._dock_container:
+            return False
+        try:
+            top_area = self._dock_container.top_level_dock_area()
+            if top_area is not None:
+                return top_area.movable
+            for area in self._dock_container.opened_dock_areas():
+                if not area.movable:
+                    return False
+            return True
+        except RuntimeError:
+            return False
+
     def _update_drop_overlays(self, global_pos: QPoint):
-        if not self.isVisible() or not self._dock_manager:
+        if not self.isVisible() or not self._dock_manager or not self._is_movable():
             return
 
         top_container = None

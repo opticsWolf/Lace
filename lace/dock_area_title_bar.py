@@ -488,7 +488,10 @@ class DockAreaTitleBar(QFrame, DockStyled):
     def on_pin_button_clicked(self):
         if not self._test_config_flag(DockFlags.pinnable_tabs):
             return
-        self._menu_pin_current()
+        if self._menu_is_pinned():
+            self.menu_unpin_target()
+        else:
+            self._menu_pin_current()
         self.pin_button_clicked.emit()
 
     def show_context_menu(self, global_pos: QPoint):
@@ -527,6 +530,8 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
     def _start_floating(self, dragging_state: DragState = DragState.floating_widget) -> bool:
         if not self._test_config_flag(DockFlags.floatable_tabs):
+            return False
+        if dragging_state == DragState.floating_widget and not self._dock_area.movable:
             return False
         dock_container = self._dock_area.dock_container()
         if dock_container is None:
@@ -570,6 +575,10 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
     def mouseMoveEvent(self, ev: QMouseEvent):
         if not (ev.buttons() & Qt.LeftButton) or self._is_dragging_state(DragState.inactive):
+            self._drag_state = DragState.inactive
+            return super().mouseMoveEvent(ev)
+
+        if not self._dock_area.movable:
             self._drag_state = DragState.inactive
             return super().mouseMoveEvent(ev)
 

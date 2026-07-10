@@ -40,6 +40,8 @@ CHECKS = [
     "smoke_theme_palette.py", # verify 5-color ThemeSpec, status tokens, WCAG contrast, and bridge refresh
     "smoke_autotheme.py",   # OS-Aware Auto Theme Switcher (registry, QEvent.PaletteChange, QSS/dock overrides)
     "smoke_flags.py",       # global DockFlags configuration checks
+    "smoke_movable.py",     # DockWidgetFeature.movable property and drag blocking checks
+    "smoke_pin_button.py",  # TitleBarButton.pin visibility, enablement, and pin/unpin toggling checks
 ]
 
 failed = []

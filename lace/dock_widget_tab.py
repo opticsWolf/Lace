@@ -11,7 +11,7 @@ Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
 Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 import logging
 
 from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, Signal
@@ -30,6 +30,8 @@ from .dock_menu import (
     dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
     menu_default_pin_all, menu_default_reattach
 )
+from .dock_icon_provider import get_icon_provider
+from .dock_style_manager import get_dock_style_manager
 
 
 if TYPE_CHECKING:
@@ -62,6 +64,10 @@ class DockWidgetTab(QFrame, DockStyled):
         self._drag_state = DragState.inactive
         self._floating_widget: 'FloatingDockContainer' = None
         self._icon = QIcon()
+        self._default_icon = QIcon()
+        self._default_icon_name: str = ""
+        self._custom_icon = QIcon()
+        self._custom_icon_name: str = ""
         self._close_button = None
 
         # Painted-chrome state (populated by refresh_style).
@@ -81,6 +87,7 @@ class DockWidgetTab(QFrame, DockStyled):
         self._init_dock_style()
         if self._dock_widget and hasattr(self._dock_widget, 'features_changed'):
             self._dock_widget.features_changed.connect(lambda f: self.update_close_button_visibility())
+        self.update_icon()
 
     def _create_layout(self):
         self._title_label = ElidingLabel(text=self._dock_widget.windowTitle())
@@ -164,6 +171,10 @@ class DockWidgetTab(QFrame, DockStyled):
         return False
 
     @property
+    def _movable(self):
+        return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.movable))
+
+    @property
     def _floatable(self):
         if not self._test_config_flag(DockFlags.floatable_tabs):
             return False
@@ -208,6 +219,10 @@ class DockWidgetTab(QFrame, DockStyled):
     def mouseMoveEvent(self, ev: QMouseEvent):
         if (not (ev.buttons() & Qt.LeftButton)
                 or self._is_dragging_state(DragState.inactive)):
+            self._drag_state = DragState.inactive
+            return super().mouseMoveEvent(ev)
+
+        if not self._movable:
             self._drag_state = DragState.inactive
             return super().mouseMoveEvent(ev)
 
@@ -384,9 +399,91 @@ class DockWidgetTab(QFrame, DockStyled):
     def dock_area_widget(self) -> 'DockAreaWidget':
         return self._dock_area
 
-    def set_icon(self, icon: QIcon):
+    def set_icon(self, icon: Union[QIcon, str]):
+        if isinstance(icon, str):
+            self._default_icon_name = icon
+            self._default_icon = QIcon()
+        else:
+            self._default_icon = icon if icon else QIcon()
+            self._default_icon_name = ""
+        self.update_icon()
+
+    def set_default_icon_name(self, name: str):
+        self._default_icon_name = name or ""
+        self.update_icon()
+
+    def default_icon_name(self) -> str:
+        return self._default_icon_name
+
+    def set_custom_icon(self, icon: Union[QIcon, str]):
+        if isinstance(icon, str):
+            self._custom_icon_name = icon
+            self._custom_icon = QIcon()
+        else:
+            self._custom_icon = icon if icon else QIcon()
+            self._custom_icon_name = ""
+        self.update_icon()
+
+    def custom_icon(self) -> QIcon:
+        return self._custom_icon
+
+    def set_custom_icon_name(self, name: str):
+        self._custom_icon_name = name or ""
+        self.update_icon()
+
+    def custom_icon_name(self) -> str:
+        return self._custom_icon_name
+
+    def update_icon(self):
+        """
+        Update tab icon respecting DockFlags.custom_tab_icons and DockIconProvider.
+        """
+        icon_to_use = QIcon()
+        sm = get_dock_style_manager()
+        icon_size = sm.get(DockStyleCategory.TAB, "tab_icon_size", 16)
+
+        use_custom = self._test_config_flag(DockFlags.custom_tab_icons)
+
+        if use_custom:
+            if self._custom_icon_name:
+                try:
+                    provider = get_icon_provider()
+                    icon_to_use = provider.get(
+                        self._custom_icon_name,
+                        DockStyleCategory.TAB,
+                        active=self.is_active_tab(),
+                        disabled=not self.isEnabled(),
+                        size=icon_size
+                    )
+                except (ValueError, RuntimeError):
+                    pass
+            elif not self._custom_icon.isNull():
+                icon_to_use = self._custom_icon
+
+        if icon_to_use.isNull():
+            if self._default_icon_name:
+                try:
+                    provider = get_icon_provider()
+                    icon_to_use = provider.get(
+                        self._default_icon_name,
+                        DockStyleCategory.TAB,
+                        active=self.is_active_tab(),
+                        disabled=not self.isEnabled(),
+                        size=icon_size
+                    )
+                except (ValueError, RuntimeError):
+                    pass
+            elif not self._default_icon.isNull():
+                icon_to_use = self._default_icon
+            elif self._dock_widget and not self._dock_widget.windowIcon().isNull():
+                icon_to_use = self._dock_widget.windowIcon()
+
+        self._set_icon_internal(icon_to_use, icon_size)
+
+    def _set_icon_internal(self, icon: QIcon, size: int = 16):
         layout = self.layout()
         if not self._icon_label and icon.isNull():
+            self._icon = icon
             return
 
         if not self._icon_label:
@@ -404,7 +501,8 @@ class DockWidgetTab(QFrame, DockStyled):
 
         self._icon = icon
         if self._icon_label:
-            self._icon_label.setPixmap(icon.pixmap(self.windowHandle(), QSize(16, 16)))
+            pix = icon.pixmap(self.windowHandle(), QSize(size, size)) if self.windowHandle() else icon.pixmap(QSize(size, size))
+            self._icon_label.setPixmap(pix)
             self._icon_label.setVisible(True)
 
     def icon(self) -> QIcon:
@@ -469,6 +567,7 @@ class DockWidgetTab(QFrame, DockStyled):
         self.setFont(font)
         if self._title_label:
             self._title_label.setFont(font)
+        self.update_icon()
         self.update()
 
     def paintEvent(self, event):

@@ -12,7 +12,7 @@ Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 from PySide6.QtCore import QEvent, QSize, Qt, Signal, QRectF
 from PySide6.QtGui import QAction, QIcon, QPalette, QShowEvent
@@ -365,13 +365,37 @@ class DockWidget(QFrame, DockStyled):
         if icon is not None:
             self._toggle_view_action.setIcon(icon)
 
-    def set_icon(self, icon: QIcon):
+    def set_icon(self, icon: Union[QIcon, str]):
         self._tab_widget.set_icon(icon)
-        if not self._toggle_view_action.isCheckable():
-            self._toggle_view_action.setIcon(icon)
+        if not self._toggle_view_action.isCheckable() and self._tab_widget.icon():
+            self._toggle_view_action.setIcon(self._tab_widget.icon())
 
     def icon(self) -> QIcon:
         return self._tab_widget.icon()
+
+    def set_default_icon_name(self, name: str):
+        self._tab_widget.set_default_icon_name(name)
+        if not self._toggle_view_action.isCheckable() and self._tab_widget.icon():
+            self._toggle_view_action.setIcon(self._tab_widget.icon())
+
+    def default_icon_name(self) -> str:
+        return self._tab_widget.default_icon_name()
+
+    def set_custom_icon(self, icon: Union[QIcon, str]):
+        self._tab_widget.set_custom_icon(icon)
+        if not self._toggle_view_action.isCheckable() and self._tab_widget.icon():
+            self._toggle_view_action.setIcon(self._tab_widget.icon())
+
+    def custom_icon(self) -> QIcon:
+        return self._tab_widget.custom_icon()
+
+    def set_custom_icon_name(self, name: str):
+        self._tab_widget.set_custom_icon_name(name)
+        if not self._toggle_view_action.isCheckable() and self._tab_widget.icon():
+            self._toggle_view_action.setIcon(self._tab_widget.icon())
+
+    def custom_icon_name(self) -> str:
+        return self._tab_widget.custom_icon_name()
 
     def tool_bar(self) -> QToolBar:
         return self._tool_bar

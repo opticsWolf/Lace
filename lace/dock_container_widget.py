@@ -429,9 +429,14 @@ class DockContainerWidget(QFrame, DockStyled):
 
         for dock_area in new_dock_areas:
             undock = dock_area.title_bar_button(TitleBarButton.undock)
-            undock.setVisible(True)
+            if undock:
+                undock.setVisible(True)
             close = dock_area.title_bar_button(TitleBarButton.close)
-            close.setVisible(True)
+            if close:
+                close.setVisible(True)
+            pin = dock_area.title_bar_button(TitleBarButton.pin)
+            if pin:
+                dock_area.update_title_bar_button_states()
 
         if count_before == 1:
             self._dock_areas[0].update_title_bar_visibility()
@@ -622,15 +627,33 @@ class DockContainerWidget(QFrame, DockStyled):
                 ) if widget else top_level_dock_area.closable
                 top_level_dock_area.title_bar_button(
                     TitleBarButton.close).setVisible(can_close)
+
+                # Pin button: respect the active widget's pinnable feature & sidebar availability
+                pin_button = top_level_dock_area.title_bar_button(TitleBarButton.pin)
+                if pin_button:
+                    mgr = top_level_dock_area.dock_manager()
+                    has_sidebars = mgr and hasattr(mgr, 'sidebar_manager') and mgr.sidebar_manager.has_sidebars
+                    can_pin = bool(
+                        widget and DockWidgetFeature.pinnable in widget.features()
+                    ) if widget else top_level_dock_area.pinnable
+                    show_pin = can_pin and has_sidebars and mgr and (DockFlags.dock_area_has_pin_button in mgr.config_flags)
+                    pin_button.setVisible(show_pin)
+                    pin_button.setEnabled(can_pin)
             else:
                 top_level_dock_area.title_bar_button(
                     TitleBarButton.close).setVisible(True)
+                pin_button = top_level_dock_area.title_bar_button(TitleBarButton.pin)
+                if pin_button:
+                    top_level_dock_area.update_title_bar_button_states()
 
         elif self._top_level_dock_area:
             self._top_level_dock_area.title_bar_button(
                 TitleBarButton.undock).setVisible(True)
             self._top_level_dock_area.title_bar_button(
                 TitleBarButton.close).setVisible(True)
+            pin_button = self._top_level_dock_area.title_bar_button(TitleBarButton.pin)
+            if pin_button:
+                self._top_level_dock_area._update_title_bar_button_states()
             self._top_level_dock_area = None
 
     def _emit_dock_areas_removed(self):

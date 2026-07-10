@@ -545,6 +545,8 @@ class SidebarManager(QObject):
     def move_widget_to_area(self, dock_widget: 'DockWidget', new_area: DockWidgetArea):
         if dock_widget not in self._pinned:
             return
+        if not (dock_widget.features() & DockWidgetFeature.movable):
+            return
         
         old_sidebar = self._pinned[dock_widget]
         new_sidebar = self._sidebars.get(new_area)
