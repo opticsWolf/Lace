@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 from .enums import DockWidgetArea, WidgetState, DockWidgetFeature, DockFlags, SideBarFocusBehavior
 from .dock_menu import find_closest_dock_area
 from .layout_serializer import SidebarStateManager, SidebarState
-from .sidebar_tab import VerticalTabButton
+from .sidebar_tab import VerticalTabButton, TabBadgePosition
 from .sidebar_container import SideBarContainer
 from .sidebar_tab_bar import SideTabBar
 from ._trace import trace
@@ -315,6 +315,7 @@ class SidebarManager(QObject):
         self._pinned: Dict['DockWidget', SideTabBar] = {}
         self._active_button: Optional[VerticalTabButton] = None
         self._last_active_area: Optional[DockWidgetArea] = None
+        self._badge_position: TabBadgePosition = TabBadgePosition.top_right
         
         self._hover_controller = SidebarHoverController(self)
         self._overlay_controller = SidebarOverlayController(self)
@@ -463,7 +464,9 @@ class SidebarManager(QObject):
         dock_widget.set_widget_state(WidgetState.pinned_hidden) # <-- NEW STAT
         
         # 5. Add to the correct sidebar
-        sidebar.add_tab(dock_widget)
+        btn = sidebar.add_tab(dock_widget)
+        if btn:
+            btn.set_badge_position(self._badge_position)
         self._pinned[dock_widget] = sidebar
         dock_widget.set_toggle_view_action_checked(not dock_widget.is_closed())
         trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="docked", to_state="pinned")
@@ -557,17 +560,33 @@ class SidebarManager(QObject):
             return
         
         old_sidebar.remove_tab(dock_widget)
-        new_sidebar.add_tab(dock_widget)
+        btn = new_sidebar.add_tab(dock_widget)
+        if btn:
+            btn.set_badge_position(self._badge_position)
         self._pinned[dock_widget] = new_sidebar
         
         if self._overlay.isVisible() and dock_widget in self._overlay._current_widgets:
             self._overlay.show_widget(dock_widget, new_area, animate=False)
     
-    def update_badge(self, dock_widget: 'DockWidget', count: int):
+    def update_badge(self, dock_widget: 'DockWidget', value: Any):
         if dock_widget in self._pinned:
             btn = self._pinned[dock_widget].button_for(dock_widget)
             if btn:
-                btn.set_badge(count)
+                btn.set_badge(value)
+
+    @property
+    def badge_position(self) -> TabBadgePosition:
+        return self._badge_position
+
+    @badge_position.setter
+    def badge_position(self, position: TabBadgePosition):
+        self._badge_position = position
+        for sidebar in self._sidebars.values():
+            for btn in sidebar._buttons:
+                btn.set_badge_position(position)
+
+    def set_badge_position(self, position: TabBadgePosition):
+        self.badge_position = position
     
     def toggle_sidebar(self, area: DockWidgetArea):
         sidebar = self._sidebars.get(area)

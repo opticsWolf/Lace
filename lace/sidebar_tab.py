@@ -6,6 +6,7 @@ Copyright (c) 2026 opticsWolf
 SPDX-License-Identifier: Apache-2.0
 """
 
+from typing import Any, Union, Optional
 from enum import Enum, auto
 from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect, QRectF
 from PySide6.QtGui import (
@@ -36,11 +37,12 @@ class VerticalTabButton(QToolButton, DockStyled):
     close_requested = Signal(object)
     
     def __init__(self, text: str, icon: QIcon = None,
-                 parent: QWidget = None):
+                 parent: QWidget = None, badge_position: TabBadgePosition = TabBadgePosition.top_right):
         super().__init__(parent)
         self._text = text
         self._icon = icon or QIcon()
-        self._badge_count: int = 0
+        self._badge_count: Any = 0
+        self._badge_position: TabBadgePosition = badge_position
         self._is_hovered = False
         self._area: DockWidgetArea = DockWidgetArea.left  # Which sidebar this tab belongs to
         
@@ -85,12 +87,28 @@ class VerticalTabButton(QToolButton, DockStyled):
         """Set which sidebar this tab belongs to (for indicator mirroring)."""
         self._area = area
         self.update()    
+
+    @property
+    def badge_position(self) -> TabBadgePosition:
+        return self._badge_position
+
+    def set_badge_position(self, position: TabBadgePosition):
+        self._badge_position = position
+        self.update()
     
-    def set_badge(self, count: int, color: QColor = None):
-        """Set notification badge count."""
-        self._badge_count = max(0, count)
+    def set_badge(self, value: Any, color: QColor = None, position: TabBadgePosition = None):
+        """Set notification badge count or text (e.g., number, '!', '?')."""
+        if isinstance(value, int):
+            self._badge_count = max(0, value)
+        elif isinstance(value, str):
+            self._badge_count = value.strip()
+        else:
+            self._badge_count = 0
+            
         if color:
             self._badge_color = color
+        if position is not None:
+            self._badge_position = position
         self.update()
     
     def clear_badge(self):
@@ -179,7 +197,7 @@ class VerticalTabButton(QToolButton, DockStyled):
         p.restore()
         
         # 4. Notification Badge (Standard physical coordinates)
-        if self._badge_count > 0:
+        if self._badge_count != 0 and self._badge_count != "" and self._badge_count is not None:
             self._draw_badge(p, self.rect())
             
         p.end()
@@ -197,15 +215,22 @@ class VerticalTabButton(QToolButton, DockStyled):
 
     def _draw_badge(self, p: QPainter, rect: QRect):
         """Draw notification badge."""
-        if self._badge_count == 0:
+        if self._badge_count == 0 or self._badge_count == "" or self._badge_count is None:
             return
         
         p.setRenderHint(QPainter.Antialiasing)
         p.setPen(Qt.NoPen)
         p.setBrush(self._badge_color)
         
-        # Position at top-right for vertical tabs
-        badge_rect = QRect(rect.width() - 16, 4, 12, 12)
+        # Position badge dynamically according to self._badge_position
+        if self._badge_position == TabBadgePosition.top_left:
+            badge_rect = QRect(4, 4, 12, 12)
+        elif self._badge_position == TabBadgePosition.bottom_left:
+            badge_rect = QRect(4, rect.height() - 16, 12, 12)
+        elif self._badge_position == TabBadgePosition.bottom_right:
+            badge_rect = QRect(rect.width() - 16, rect.height() - 16, 12, 12)
+        else:  # TabBadgePosition.top_right
+            badge_rect = QRect(rect.width() - 16, 4, 12, 12)
         p.drawEllipse(badge_rect)
         
         # Badge text
@@ -220,7 +245,10 @@ class VerticalTabButton(QToolButton, DockStyled):
         badge_font.setBold(weight in ("bold", 700, QFont.Bold))
         p.setFont(badge_font)
         
-        text = str(min(self._badge_count, 99))
+        if isinstance(self._badge_count, int):
+            text = str(min(self._badge_count, 99))
+        else:
+            text = str(self._badge_count)[:3]
         p.drawText(badge_rect, Qt.AlignCenter, text)
 
     # --- Style Manager ---
@@ -240,6 +268,14 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._tab_corner_radius = s.get("tab_corner_radius", 4)
         self._badge_color = s.get("badge_bg") or self._badge_color
         self._badge_text_color = s.get("badge_text") or self._badge_text_color
+        badge_pos = s.get("badge_position")
+        if isinstance(badge_pos, TabBadgePosition):
+            self._badge_position = badge_pos
+        elif isinstance(badge_pos, str):
+            try:
+                self._badge_position = TabBadgePosition[badge_pos]
+            except KeyError:
+                pass
 
         # Typography
         font = self.font()

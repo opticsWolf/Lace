@@ -208,9 +208,6 @@ class WidgetState(enum.Enum):
     """
     The current visibility and attachment status of a Dock Widget.
     """
-    hidden = enum.auto()
-    """The widget is not visible and not part of the active layout."""
-    
     docked = enum.auto()
     """The widget is attached to a dock area within the main window."""
     

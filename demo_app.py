@@ -18,7 +18,7 @@ from pathlib import Path
 from lace import (
     DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
-    ThemeManager, SideBarFocusBehavior, InsertionOrder
+    ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -234,6 +234,13 @@ class DemoMainWindow(QMainWindow):
         right_pinnable_widget.set_widget(right_pinnable_content)
         right_pinnable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.movable | DockWidgetFeature.pinnable)
         self.dock_manager.add_sidebar_widget(DockWidgetArea.right, right_pinnable_widget)
+
+        # Initialize demonstration badges on sidebar widgets to showcase TabBadgePosition
+        if hasattr(self.dock_manager, 'sidebar_manager'):
+            sm = self.dock_manager.sidebar_manager
+            sm.update_badge(locked_sidebar_widget, 3)
+            sm.update_badge(right_locked_widget, 12)
+            sm.update_badge(right_pinnable_widget, 99)
 
     def create_view_menu(self):
         menubar = self.menuBar()
@@ -453,6 +460,52 @@ class DemoMainWindow(QMainWindow):
             action.triggered.connect(
                 lambda checked=False, b=behavior: setattr(self.dock_manager, "sidebar_focus_behavior", b)
             )
+
+        badge_group = QActionGroup(self)
+        badge_group.setExclusive(True)
+        
+        sidebar_menu.addSection("Badge Position")
+        badge_positions = [
+            ("Top Right (Default)", TabBadgePosition.top_right, "Position badge counter at top-right corner of tab button."),
+            ("Top Left", TabBadgePosition.top_left, "Position badge counter at top-left corner of tab button."),
+            ("Bottom Right", TabBadgePosition.bottom_right, "Position badge counter at bottom-right corner of tab button."),
+            ("Bottom Left", TabBadgePosition.bottom_left, "Position badge counter at bottom-left corner of tab button.")
+        ]
+        
+        for text, pos, tooltip in badge_positions:
+            action = sidebar_menu.addAction(text)
+            action.setCheckable(True)
+            action.setToolTip(tooltip)
+            if pos == getattr(self.dock_manager, "tab_badge_position", TabBadgePosition.top_right):
+                action.setChecked(True)
+            badge_group.addAction(action)
+            
+            action.triggered.connect(
+                lambda checked=False, p=pos: setattr(self.dock_manager, "tab_badge_position", p)
+            )
+
+        sidebar_menu.addSection("Badge Controls")
+        
+        def set_demo_badges(count: int):
+            sm = getattr(self.dock_manager, "sidebar_manager", None)
+            if sm:
+                for dw in sm._pinned.keys():
+                    sm.update_badge(dw, count)
+                    
+        action_badges_3 = sidebar_menu.addAction("Set All Badges to 3")
+        action_badges_3.triggered.connect(lambda: set_demo_badges(3))
+        
+        action_badges_99 = sidebar_menu.addAction("Set All Badges to 99")
+        action_badges_99.triggered.connect(lambda: set_demo_badges(99))
+        
+        action_badges_excl = sidebar_menu.addAction("Set All Badges to '!'")
+        action_badges_excl.triggered.connect(lambda: set_demo_badges("!"))
+        
+        action_badges_quest = sidebar_menu.addAction("Set All Badges to '?'")
+        action_badges_quest.triggered.connect(lambda: set_demo_badges("?"))
+        
+        action_badges_0 = sidebar_menu.addAction("Clear All Badges")
+        action_badges_0.triggered.connect(lambda: set_demo_badges(0))
 
     def _add_flag_action(self, menu: QMenu, flag: DockFlags):
         """Add a checkable action for a DockFlag."""

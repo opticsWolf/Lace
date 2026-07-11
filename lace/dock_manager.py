@@ -13,7 +13,7 @@ Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
 import logging
 import pathlib
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, Union
 
 from PySide6.QtCore import QObject, Signal, QPoint, QRect
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
@@ -29,6 +29,7 @@ from .dock_area_widget import DockAreaWidget
 # New Modular Sub-systems
 from .dock_signals import DockSignals
 from .sidebar_manager import SidebarManager
+from .sidebar_tab import TabBadgePosition
 from .layout_serializer import LayoutSerializer, LayoutError, LayoutPersistenceManager
 from .dock_style_manager import get_dock_style_manager
 from .dock_theme_bridge import DockThemeBridge
@@ -153,6 +154,16 @@ class DockManager(QObject):
     def sidebar_focus_behavior(self, behavior: SideBarFocusBehavior):
         """Set the focus behavior when sliding sidebar overlays out and in."""
         self.sidebar_manager.focus_behavior = behavior
+
+    @property
+    def tab_badge_position(self) -> TabBadgePosition:
+        """Get the current notification badge corner positioning on sidebar tabs."""
+        return self.sidebar_manager.badge_position
+
+    @tab_badge_position.setter
+    def tab_badge_position(self, position: TabBadgePosition):
+        """Set the notification badge corner positioning on sidebar tabs."""
+        self.sidebar_manager.badge_position = position
 
     def _add_sidebar_to_layout(self, sidebar: QWidget, area: DockWidgetArea):
         """Places the sidebar at the correct edge of the main grid layout."""

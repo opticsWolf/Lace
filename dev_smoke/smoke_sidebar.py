@@ -100,5 +100,27 @@ locked_btn = right_sidebar._widget_map[right_locked_dw]
 assert locked_btn.isVisible(), "non-closable widget should NOT be closed by Close Others"
 assert sm.is_pinned(right_locked_dw), "non-closable widget should remain pinned"
 
+# test TabBadgePosition wiring on VerticalTabButton
+from lace.sidebar_tab import TabBadgePosition
+assert pinnable_btn.badge_position == TabBadgePosition.top_right, "default badge_position should be top_right"
+pinnable_btn.set_badge_position(TabBadgePosition.bottom_left)
+assert pinnable_btn.badge_position == TabBadgePosition.bottom_left, "badge_position setter should update position"
+pinnable_btn.set_badge(5, position=TabBadgePosition.top_left)
+assert pinnable_btn.badge_position == TabBadgePosition.top_left, "set_badge should update position when passed"
+# exercise _draw_badge across all 4 positions via grab()
+for pos in TabBadgePosition:
+    pinnable_btn.set_badge_position(pos)
+    app.processEvents()
+    _ = pinnable_btn.grab()  # verify no paint exceptions
+
+# exercise string character badges
+pinnable_btn.set_badge("!")
+app.processEvents()
+_ = pinnable_btn.grab()
+pinnable_btn.set_badge("?")
+app.processEvents()
+_ = pinnable_btn.grab()
+
 print("SIDEBAR SMOKE OK")
+
 

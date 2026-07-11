@@ -223,6 +223,7 @@ class DockSidebarStyleSchema:
     badge_font_size: int = 8
     badge_font_weight: Union[str, int, QFont.Weight] = "bold"
     badge_radius: int = 6
+    badge_position: Any = "top_right"
 
 @dataclass
 class DockSidePanelStyleSchema(_ActionButtonFields):
