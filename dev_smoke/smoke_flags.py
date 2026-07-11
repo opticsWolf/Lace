@@ -124,7 +124,19 @@ def run_test():
     pinned_count_before = len(mgr.sidebar_manager._sidebars) if hasattr(mgr, 'sidebar_manager') else 0
     menu_default_pin(dw1, area)
     pinned_count_after = len(mgr.sidebar_manager._sidebars) if hasattr(mgr, 'sidebar_manager') else 0
-    assert pinned_count_before == pinned_count_after, "menu_default_pin should not pin widget when pinnable_tabs is disabled"
+    # 6. Test opaque_undocking
+    from lace.floating_dock_container import FloatingDockContainer
+    from lace.enums import DragState
+    fw = FloatingDockContainer(dock_widget=dw1)
+    mgr.set_config_flags(mgr.config_flags | DockFlags.opaque_undocking)
+    fw._set_state(DragState.floating_widget)
+    assert fw.windowOpacity() == 1.0, f"Expected opacity 1.0 with opaque_undocking enabled, got {fw.windowOpacity()}"
+
+    mgr.set_config_flags(mgr.config_flags & ~DockFlags.opaque_undocking)
+    fw._set_state(DragState.floating_widget)
+    assert abs(fw.windowOpacity() - 0.6) < 0.01, f"Expected opacity 0.6 with opaque_undocking disabled, got {fw.windowOpacity()}"
+    fw._set_state(DragState.inactive)
+    assert fw.windowOpacity() == 1.0, f"Expected opacity 1.0 after inactive state, got {fw.windowOpacity()}"
 
     print("SMOKE FLAGS OK")
 

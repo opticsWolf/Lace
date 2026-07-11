@@ -19,7 +19,7 @@ from PySide6.QtCore import (QEvent, QObject, QPoint, QRect,
 from PySide6.QtGui import QCloseEvent, QCursor, QHideEvent, QPalette, QMoveEvent
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
-from .enums import DockWidgetFeature, DragState, DockWidgetArea, WidgetState
+from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
 from .dock_container_widget import DockContainerWidget
 from .dock_container_state import restore_container_state
 
@@ -267,8 +267,18 @@ class FloatingDockContainer(QWidget, DockStyled):
     #  Internal helpers
     # ─────────────────────────────────────────────────────────────────────
 
+    def _test_config_flag(self, flag: DockFlags) -> bool:
+        if self._dock_manager:
+            return flag in self._dock_manager.config_flags
+        return False
+
     def _set_state(self, state_id: DragState):
         self._dragging_state = state_id
+        if state_id == DragState.floating_widget:
+            opaque = self._test_config_flag(DockFlags.opaque_undocking)
+            self.setWindowOpacity(1.0 if opaque else 0.6)
+        elif state_id == DragState.inactive:
+            self.setWindowOpacity(1.0)
 
     def _set_window_title(self, text: str):
         self.setWindowTitle(text)
@@ -361,7 +371,6 @@ class FloatingDockContainer(QWidget, DockStyled):
         self._drag_start_mouse_position = drag_start_mouse_pos
         
         if drag_state == DragState.floating_widget:
-            self.setWindowOpacity(0.6)
             self._mouse_event_handler = mouse_event_handler
             
             # Arm the guard against the OS synthetic release.
