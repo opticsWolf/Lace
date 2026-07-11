@@ -75,9 +75,10 @@ class FloatingDockContainer(QWidget, DockStyled):
         self._dock_container = dock_container
         dock_container.destroyed.connect(self._destroyed)
         dock_container.dock_areas_added.connect(self.on_dock_areas_added_or_removed)
-        dock_container.dock_areas_removed.connect(self.on_dock_areas_added_or_removed)
-
-        self.setWindowFlags(Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+        flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
+        if self._test_config_flag(DockFlags.chromeless_float):
+            flags |= Qt.FramelessWindowHint
+        self.setWindowFlags(flags)
         
         layout = QBoxLayout(QBoxLayout.TopToBottom)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -266,6 +267,16 @@ class FloatingDockContainer(QWidget, DockStyled):
     # ─────────────────────────────────────────────────────────────────────
     #  Internal helpers
     # ─────────────────────────────────────────────────────────────────────
+
+    def update_window_flags_from_config(self):
+        flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
+        if self._test_config_flag(DockFlags.chromeless_float):
+            flags |= Qt.FramelessWindowHint
+        if self.windowFlags() != flags:
+            was_visible = self.isVisible()
+            self.setWindowFlags(flags)
+            if was_visible:
+                self.show()
 
     def _test_config_flag(self, flag: DockFlags) -> bool:
         if self._dock_manager:

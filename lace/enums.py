@@ -132,6 +132,9 @@ class DockFlags(enum.IntFlag):
     hide_disabled_title_bar_icons = enum.auto()
     """Hides disabled icons in the title bar."""
     
+    chromeless_float = enum.auto()
+    """Floating container windows are created without native OS title bars or borders (FramelessWindowHint)."""
+    
     default_config = (
         opaque_splitter_resize | opaque_undocking | always_show_tabs |
         show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |

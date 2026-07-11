@@ -137,6 +137,14 @@ def run_test():
     assert abs(fw.windowOpacity() - 0.6) < 0.01, f"Expected opacity 0.6 with opaque_undocking disabled, got {fw.windowOpacity()}"
     fw._set_state(DragState.inactive)
     assert fw.windowOpacity() == 1.0, f"Expected opacity 1.0 after inactive state, got {fw.windowOpacity()}"
+
+    # 7. Test chromeless_float
+    mgr.set_config_flags(mgr.config_flags | DockFlags.chromeless_float)
+    assert bool(fw.windowFlags() & Qt.FramelessWindowHint), "Expected Qt.FramelessWindowHint when chromeless_float is enabled"
+
+    mgr.set_config_flags(mgr.config_flags & ~DockFlags.chromeless_float)
+    assert not bool(fw.windowFlags() & Qt.FramelessWindowHint), "Expected no Qt.FramelessWindowHint when chromeless_float is disabled"
+
     fw.deleteLater()
 
     print("SMOKE FLAGS OK")

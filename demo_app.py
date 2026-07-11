@@ -86,6 +86,10 @@ DOCK_FLAGS_INFO = [
     (DockFlags.custom_tab_icons,
      "Custom Tab Icons",
      "Use custom icons via user config instead of widget defaults."),
+    
+    (DockFlags.chromeless_float,
+     "Chromeless Float",
+     "Floating container windows are created without native OS title bars or borders (FramelessWindowHint)."),
 ]
 
 
@@ -395,6 +399,7 @@ class DemoMainWindow(QMainWindow):
         flags_menu.addSection("Drag && Resize")
         self._add_flag_action(flags_menu, DockFlags.opaque_splitter_resize)
         self._add_flag_action(flags_menu, DockFlags.opaque_undocking)
+        self._add_flag_action(flags_menu, DockFlags.chromeless_float)
         
         # Group: Tab behavior
         flags_menu.addSection("Tabs")
@@ -583,7 +588,8 @@ class DemoMainWindow(QMainWindow):
             DockFlags.dock_area_has_tabs_menu_button |
             DockFlags.middle_mouse_button_closes_tab |
             DockFlags.floatable_tabs |
-            DockFlags.pinnable_tabs
+            DockFlags.pinnable_tabs |
+            DockFlags.chromeless_float
         )
         self._sync_flag_actions()
         self._refresh_all_areas()

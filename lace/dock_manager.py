@@ -305,6 +305,8 @@ class DockManager(QObject):
         self.config_flags = flags
 
     def notify_config_flags_changed(self):
+        for floating_widget in list(self._floating_widgets):
+            floating_widget.update_window_flags_from_config()
         for container in self.dock_containers():
             for dock_area in container.opened_dock_areas():
                 dock_area.update_title_bar_visibility()
