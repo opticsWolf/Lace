@@ -111,6 +111,9 @@ class DockFlags(enum.IntFlag):
     dock_area_has_pin_button = enum.auto()
     """The dock area title bar displays a pin button."""
     
+    dock_area_has_maximize_button = enum.auto()
+    """The dock area title bar displays a maximize/restore button."""
+    
     dock_area_has_tabs_menu_button = enum.auto()
     """The dock area title bar displays a menu button listing all tabs."""
     
@@ -138,7 +141,7 @@ class DockFlags(enum.IntFlag):
     default_config = (
         opaque_splitter_resize | opaque_undocking | always_show_tabs |
         show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |
-        dock_area_has_close_button | dock_area_has_undock_button |
+        dock_area_has_close_button | dock_area_has_undock_button | dock_area_has_maximize_button |
         dock_area_has_tabs_menu_button | dock_area_has_pin_button | middle_mouse_button_closes_tab |
         pinnable_tabs | floatable_tabs
     )
@@ -153,6 +156,9 @@ class TitleBarButton(enum.Enum):
     undock = enum.auto()
     close = enum.auto()
     pin = enum.auto()
+    maximize = enum.auto()
+    minimize = enum.auto()
+    restore = enum.auto()
 
 
 class OverlayMode(enum.Enum):

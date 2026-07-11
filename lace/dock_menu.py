@@ -65,6 +65,9 @@ _ICON_SPECS: Dict[str, tuple] = {
     "close_others": ("window-close",    QStyle.SP_TitleBarCloseButton),
     "close_tab":    ("tab-close",       QStyle.SP_TitleBarCloseButton),
     "tabs_menu":    ("view-list",       QStyle.SP_TitleBarUnshadeButton),
+    "maximize":     ("window-maximize", QStyle.SP_TitleBarMaxButton),
+    "restore":      ("window-restore",  QStyle.SP_TitleBarNormalButton),
+    "minimize":     ("window-restore",  QStyle.SP_TitleBarNormalButton),
 }
 
 
@@ -138,12 +141,13 @@ class MenuSection(Flag):
     PIN          = auto()   # Pin to sidebar actions
     UNPIN        = auto()   # Unpin from sidebar actions
     DETACH       = auto()   # Float or Dock (reattach)
+    MAXIMIZE     = auto()   # Maximize / Restore dock area
     CLOSE        = auto()   # Close (area or individual tab)
     CLOSE_OTHERS = auto()   # Close Other Areas / Close Other Tabs
 
     # Convenient presets
-    TITLE_BAR = TAB_LIST | PIN | DETACH | CLOSE | CLOSE_OTHERS
-    TAB       = PIN | DETACH | CLOSE | CLOSE_OTHERS
+    TITLE_BAR = TAB_LIST | PIN | MAXIMIZE | DETACH | CLOSE | CLOSE_OTHERS
+    TAB       = PIN | MAXIMIZE | DETACH | CLOSE | CLOSE_OTHERS
     SIDEBAR_TAB = UNPIN | DETACH | CLOSE
 
 
@@ -178,6 +182,7 @@ class MenuActionTarget(Protocol):
     def menu_unpin_target(self) -> None: ...
     def menu_pin_all_target(self) -> None: ...
     def menu_close_others_target(self) -> None: ...
+    def menu_maximize_target(self) -> None: ...
     def menu_switch_tab_target(self, index: int) -> None: ...
 
 
@@ -274,6 +279,20 @@ def build_dock_context_menu(context: MenuContext, menu: QMenu) -> None:
                 act.setData(("float",))
             _pending_sep = True
 
+    # ── Maximize / Restore ────────────────────────────────────────
+    if MenuSection.MAXIMIZE in sections:
+        from .enums import DockFlags as _DockFlags
+        mgr = area.dock_manager() if area else None
+        if mgr and _DockFlags.dock_area_has_maximize_button in mgr.config_flags:
+            _sep()
+            if area and area.is_maximized():
+                act = menu.addAction(_icon("restore"), _label("restore", "Restore"))
+                act.setData(("maximize",))
+            else:
+                act = menu.addAction(_icon("maximize"), _label("maximize", "Maximize"))
+                act.setData(("maximize",))
+            _pending_sep = True
+
     # ── Close + Close Others ──────────────────────────────────────
     if MenuSection.CLOSE in sections:
         if count == 1 and not is_closable:
@@ -317,6 +336,7 @@ def dispatch_dock_context_menu(action: QAction, target: Any, fallback_widget_typ
         "pin_all":      lambda: target.menu_pin_all_target() if hasattr(target, 'menu_pin_all_target') else None,
         "float":        lambda: target.menu_float_target() if hasattr(target, 'menu_float_target') else None,
         "dock":         lambda: target.menu_dock_target() if hasattr(target, 'menu_dock_target') else None,
+        "maximize":     lambda: target.menu_maximize_target() if hasattr(target, 'menu_maximize_target') else None,
         "close":        lambda: target.menu_close_target() if hasattr(target, 'menu_close_target') else None,
         "close_others": lambda: target.menu_close_others_target() if hasattr(target, 'menu_close_others_target') else None,
     }

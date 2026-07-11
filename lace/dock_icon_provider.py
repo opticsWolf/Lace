@@ -156,6 +156,8 @@ class DockIconProvider:
             QIcon tinted with the appropriate color for the state.
         """
         key = name.lower()
+        if key == "minimize":
+            key = "restore"
         color = self._resolve_color(category, active, disabled)
         cache_key = (key, color, active, disabled, size)
 

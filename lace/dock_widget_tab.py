@@ -357,6 +357,10 @@ class DockWidgetTab(QFrame, DockStyled):
     def menu_close_others_target(self) -> None:
         self.close_other_tabs_requested.emit()
 
+    def menu_maximize_target(self) -> None:
+        if self._dock_area:
+            self._dock_area.toggle_maximize()
+
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         if (self._floatable and self._dock_area and self._dock_area.dock_container() and
                 (not self._dock_area.dock_container().is_floating()

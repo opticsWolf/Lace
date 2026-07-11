@@ -59,6 +59,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._undock_button: QToolButton = None
         self._close_button: QToolButton = None
         self._pin_button: QToolButton = None
+        self._maximize_button: QToolButton = None
         self._tab_bar: 'DockAreaTabBar' = None
         self._menu_outdated = True
         self._tabs_menu: QMenu = None
@@ -118,6 +119,19 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._pin_button.clicked.connect(self.on_pin_button_clicked)
         # Initially hidden; becomes visible when a sidebar is added
         self._pin_button.setVisible(self._menu_has_sidebars())
+
+        # ── Maximize / Restore button ─────────────────────────────────
+        self._maximize_button = ChromeToolButton()
+        self._maximize_button.setObjectName("maximizeButton")
+        self._maximize_button.setAutoRaise(True)
+        self._maximize_button.setToolTip("Maximize")
+        self._maximize_button.setIcon(dock_icon("maximize", DockStyleCategory.TITLE_BAR))
+        self._maximize_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self._top_layout.addWidget(self._maximize_button, 0)
+        self._maximize_button.clicked.connect(self.on_maximize_button_clicked)
+        self._maximize_button.setVisible(
+            self._test_config_flag(DockFlags.dock_area_has_maximize_button)
+        )
 
         # ── Undock (float) button ─────────────────────────────────────
         self._undock_button = ChromeToolButton()
@@ -269,6 +283,10 @@ class DockAreaTitleBar(QFrame, DockStyled):
         if self._dock_area:
             self._dock_area.close_other_areas()
 
+    def menu_maximize_target(self) -> None:
+        if self._dock_area:
+            self._dock_area.toggle_maximize()
+
     def _menu_pin_current(self):
         menu_default_pin(self._menu_dock_widget(), self._dock_area)
 
@@ -352,6 +370,18 @@ class DockAreaTitleBar(QFrame, DockStyled):
             self._undock_button.setVisible(False)
             self._undock_button.setEnabled(False)
 
+        # — Maximize / Restore Button —
+        is_maximized = area.is_maximized()
+        max_key = "restore" if is_maximized else "maximize"
+        self._maximize_button.setIcon(dock_icon(max_key, DockStyleCategory.TITLE_BAR))
+        self._maximize_button.setIconSize(icon_size)
+        self._maximize_button.setToolTip("Restore" if is_maximized else "Maximize")
+
+        if self._test_config_flag(DockFlags.dock_area_has_maximize_button):
+            self._maximize_button.setVisible(True)
+        else:
+            self._maximize_button.setVisible(False)
+
         # — Pin / Unpin Button —
         pin_key = "unpin" if is_pinned else "pin"
         self._pin_button.setIcon(dock_icon(pin_key, DockStyleCategory.TITLE_BAR))
@@ -416,7 +446,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
         # Shared icon-button styling (see sidebar_title_bar — same call).
         style_title_bar_buttons(
-            (self._tabs_menu_button, self._pin_button,
+            (self._tabs_menu_button, self._pin_button, self._maximize_button,
              self._undock_button, self._close_button),
             color=btn_color, hover_bg=btn_hover, disabled=disabled_color,
             radius=styles.get("button_corner_radius", 3),
@@ -485,6 +515,11 @@ class DockAreaTitleBar(QFrame, DockStyled):
         elif self._dock_area.floatable and self._test_config_flag(DockFlags.floatable_tabs):
             self._tab_bar.make_area_floating(QCursor.pos(), DragState.inactive)
 
+    def on_maximize_button_clicked(self):
+        if not self._test_config_flag(DockFlags.dock_area_has_maximize_button):
+            return
+        self._dock_area.toggle_maximize()
+
     def on_pin_button_clicked(self):
         if not self._test_config_flag(DockFlags.pinnable_tabs):
             return
@@ -518,6 +553,8 @@ class DockAreaTitleBar(QFrame, DockStyled):
             return self._close_button
         if which == TitleBarButton.pin:
             return self._pin_button
+        if which in (TitleBarButton.maximize, TitleBarButton.minimize, TitleBarButton.restore):
+            return self._maximize_button
         return None
 
     def setVisible(self, visible: bool):

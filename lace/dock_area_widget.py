@@ -344,6 +344,17 @@ class DockAreaWidget(ChromeFrame, DockStyled):
     def title_bar_button(self, which: TitleBarButton) -> QAbstractButton:
         return self._title_bar.button(which)
 
+    def is_maximized(self) -> bool:
+        """Return True if this area is currently maximized within its container."""
+        container = self.dock_container()
+        return container is not None and container.is_area_maximized(self)
+
+    def toggle_maximize(self):
+        """Toggle the maximize/restore state of this dock area."""
+        container = self.dock_container()
+        if container is not None:
+            container.toggle_maximize_dock_area(self)
+
     def setVisible(self, visible: bool):
         super().setVisible(visible)
         if self._update_title_bar_buttons:

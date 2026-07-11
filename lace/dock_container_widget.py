@@ -268,6 +268,8 @@ class DockContainerWidget(QFrame, DockStyled):
         self._visible_dock_area_count = -1
         self._top_level_dock_area: DockAreaWidget = None
         self._drop_controller = DropController(self)
+        self._maximized_dock_area: DockAreaWidget = None
+        self._pre_maximize_sizes: list = None
 
         # --- ADDED: Style Manager Integration ---
         self._init_dock_style()
@@ -707,9 +709,81 @@ class DockContainerWidget(QFrame, DockStyled):
         return find_parent(FloatingDockContainer, self)
 
     def close_other_areas(self, keep_open_area: DockAreaWidget):
+        self._restore_maximized_area()
         for dock_area in list(self.opened_dock_areas()):
             if dock_area != keep_open_area:
                 dock_area.close_area()
+
+    def is_area_maximized(self, area: DockAreaWidget) -> bool:
+        """Return True if area is the currently-maximized dock area."""
+        return self._maximized_dock_area is not None and self._maximized_dock_area is area
+
+    def toggle_maximize_dock_area(self, area: DockAreaWidget):
+        """Maximize or restore a dock area inside this container.
+
+        - For a solo dock area in a floating window: delegates to OS
+          showMaximized() / showNormal().
+        - For multiple dock areas (main window or multi-dock float):
+          hides sibling areas so the target fills 100%, then restores
+          them with their original splitter sizes on un-maximize.
+        """
+        if self._maximized_dock_area is area:
+            # ── Restore ──────────────────────────────────────────────
+            self._restore_maximized_area()
+            return
+
+        # If another area was maximized, restore it first
+        if self._maximized_dock_area is not None:
+            self._restore_maximized_area()
+
+        # ── Floating: single dock area → OS maximize ─────────────
+        floating = self.floating_widget()
+        if floating and self.visible_dock_area_count() == 1:
+            if floating.isMaximized():
+                floating.showNormal()
+            else:
+                floating.showMaximized()
+            # Update button state for the floating case
+            area._update_title_bar_button_states()
+            return
+
+        # ── Multi-dock: hide siblings ────────────────────────────
+        if self._root_splitter is None:
+            return
+
+        # Save splitter sizes for later restore
+        self._pre_maximize_sizes = self._root_splitter.sizes()
+        self._maximized_dock_area = area
+
+        for dock_area in self._dock_areas:
+            if dock_area is not area:
+                dock_area.setVisible(False)
+
+        # Invalidate visible count cache and update button states
+        self._visible_dock_area_count = -1
+        for dock_area in self._dock_areas:
+            dock_area._update_title_bar_button_states()
+
+    def _restore_maximized_area(self):
+        """Internal: restore all hidden sibling areas from a maximize."""
+        if self._maximized_dock_area is None:
+            return
+
+        self._maximized_dock_area = None
+
+        for dock_area in self._dock_areas:
+            if dock_area.opened_dock_widgets():
+                dock_area.setVisible(True)
+
+        # Restore original splitter proportions
+        if self._pre_maximize_sizes and self._root_splitter:
+            self._root_splitter.setSizes(self._pre_maximize_sizes)
+        self._pre_maximize_sizes = None
+
+        # Invalidate visible count cache and update button states
+        self._visible_dock_area_count = -1
+        for dock_area in self._dock_areas:
+            dock_area._update_title_bar_button_states()
 
     def refresh_style(self):
         """Fetches the latest core styles and applies them to the layout."""
