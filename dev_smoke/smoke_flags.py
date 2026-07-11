@@ -137,6 +137,7 @@ def run_test():
     assert abs(fw.windowOpacity() - 0.6) < 0.01, f"Expected opacity 0.6 with opaque_undocking disabled, got {fw.windowOpacity()}"
     fw._set_state(DragState.inactive)
     assert fw.windowOpacity() == 1.0, f"Expected opacity 1.0 after inactive state, got {fw.windowOpacity()}"
+    fw.deleteLater()
 
     print("SMOKE FLAGS OK")
 

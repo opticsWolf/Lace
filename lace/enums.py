@@ -132,15 +132,12 @@ class DockFlags(enum.IntFlag):
     hide_disabled_title_bar_icons = enum.auto()
     """Hides disabled icons in the title bar."""
     
-    drag_preview_shows_content_pixmap = enum.auto()
-    """Shows a snapshot of the widget content while dragging."""
-
     default_config = (
         opaque_splitter_resize | opaque_undocking | always_show_tabs |
         show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |
         dock_area_has_close_button | dock_area_has_undock_button |
         dock_area_has_tabs_menu_button | dock_area_has_pin_button | middle_mouse_button_closes_tab |
-        pinnable_tabs | floatable_tabs | drag_preview_shows_content_pixmap
+        pinnable_tabs | floatable_tabs
     )
     """The default configuration flags applied to a new DockManager."""
 
