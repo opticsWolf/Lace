@@ -758,6 +758,14 @@ class DockContainerWidget(QFrame, DockStyled):
             if dock_area is not area:
                 dock_area.setVisible(False)
 
+        # Give all available space to the maximized area so its
+        # children resize immediately (Qt splitters don't auto-redistribute)
+        sizes = list(self._root_splitter.sizes())
+        max_idx = self._dock_areas.index(area)
+        total = sum(sizes)
+        sizes = [0 if i != max_idx else total for i in range(len(sizes))]
+        self._root_splitter.setSizes(sizes)
+
         # Invalidate visible count cache and update button states
         self._visible_dock_area_count = -1
         for dock_area in self._dock_areas:
