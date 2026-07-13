@@ -2,6 +2,8 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
+**Version:** 0.2.5
+
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![Framework](https://img.shields.io/badge/framework-PySide6%20%2F%20Qt6-purple)

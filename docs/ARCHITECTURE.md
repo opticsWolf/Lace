@@ -2,6 +2,8 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
+**Version:** 0.2.5
+
 ---
 
 ## 1. System Overview
@@ -132,12 +134,13 @@ Represents a layout container — either the root (embedded in QMainWindow) or a
 |---|---|
 | **Signals** | `dock_areas_added()`, `dock_areas_removed()`, `dock_area_view_toggled(DockAreaWidget, bool)` |
 | **Root** | `create_root_splitter()`, `root_splitter() → DockSplitter` |
-| **Docking** | `add_dock_widget(area, widget, target_area)`, `remove_dock_widget(widget)`, `add_dock_area(area_widget, area, target_area)`, `remove_dock_area(area)`, `_dock_widget_into_container(area, widget)`, `_dock_widget_into_dock_area(area, widget, target_area)` |
+| **Docking** | `add_dock_widget(area, widget, target_area)`, `remove_dock_widget(widget)`, `add_dock_area(area_widget, area, target_area)`, `remove_dock_area(area)` — clears maximized state if removed area was the maximized one |
 | **Drop** | `drop_floating_widget(floating_widget, pos)`, `_drop_into_container()`, `_drop_into_section()`, `_drop_into_center_of_section()` |
 | **Areas** | `dock_area(i)`, `dock_area_count()`, `opened_dock_areas()`, `dock_area_at(pos)`, `visible_dock_area_count()`, `last_added_dock_area_widget(area)` |
 | **Top-level** | `has_top_level_dock_widget()`, `top_level_dock_widget()`, `top_level_dock_area()`, `is_floating()`, `floating_widget() → FloatingDockContainer` |
 | **Widgets** | `dock_widgets() → list`, `features() → DockWidgetFeature` |
-| **Maximize** | `is_area_maximized(area)`, `toggle_maximize_dock_area(area)`, `_restore_maximized_area()` |
+| **Maximize** | `is_area_maximized(area)`, `toggle_maximize_dock_area(area)`, `_restore_maximized_area()`, `_maximize_splitter(splitter, area) → bool`, `_collect_splitter_sizes(splitter)`, `_all_splitters() → generator` (recursive helpers for nested-splitter tree) |
+| **State** | `_maximized_dock_area`, `_pre_maximize_splitter_sizes` (dict: `{id(splitter): sizes_list}`) |
 | **Z-order** | `z_order_index()`, `is_in_front_of(other)` |
 | **Splitter** | `_new_splitter(orientation)` |
 | **Styling** | `refresh_style()` |
@@ -713,6 +716,43 @@ DockWidgetTab/DockAreaTitleBar mouse drag → start_drag_distance exceeded
       → DropController resolves target area
       → Inserts widgets into target splitter hierarchy
       → Deletes floating window
+```
+
+### Maximizing a dock area:
+```
+DockContainerWidget.toggle_maximize_dock_area(area)
+  → If area already maximized → _restore_maximized_area()
+  → If another area maximized → _restore_maximized_area() first
+  → Floating single-area → OS showMaximized()/showNormal()
+  → Multi-area:
+    → _collect_splitter_sizes(root_splitter) → {id(splitter): sizes_list}
+    → Hide all sibling dock areas (setVisible(False))
+    → _maximize_splitter(root_splitter, area)
+      → Recursively walks nested splitter tree
+      → Finds area at its actual nesting level
+      → Zeroes sibling splitters (setSizes([0]))
+      → Hides sibling dock areas
+      → Gives maximized area's parent splitter all available space
+```
+
+### Restoring a maximized dock area:
+```
+DockContainerWidget._restore_maximized_area()
+  → Hide maximized area, show all sibling dock areas
+  → For each splitter in _all_splitters():
+      → setSizes(_pre_maximize_splitter_sizes[id(splitter)])
+  → Clear _pre_maximize_splitter_sizes
+```
+
+### Removing a dock area (maximized state cleanup):
+```
+DockContainerWidget.remove_dock_area(area)
+  → If area is _maximized_dock_area:
+      → Show all sibling dock areas
+      → Clear _maximized_dock_area and _pre_maximize_splitter_sizes
+      → Invalidate visible count cache
+      → Update title bar button states
+  → Proceed with normal removal (disconnect signals, setParent(None), etc.)
 ```
 
 ### Theme change:

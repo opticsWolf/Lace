@@ -2,6 +2,8 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
+**Version:** 0.2.5
+
 ---
 
 ## 1. Installation & Setup
@@ -150,7 +152,7 @@ from lace import DockWidgetArea
 # Add sidebar overlays to left and right edges
 sm = dock_manager.sidebar_manager
 sm.add_sidebar(DockWidgetArea.left)
-sm.add_sidebar(DDockWidgetArea.right)
+sm.add_sidebar(DockWidgetArea.right)
 ```
 
 ### Adding Sidebar Widgets
@@ -366,13 +368,24 @@ for widget in dock_manager.dock_widgets():
 
 ### Maximize/Restore Area
 
+Maximize expands a dock area to fill its parent container by hiding sibling areas and redistributing splitter space.
+
 ```python
-# Via the dock area
-area = widget.dock_area_widget()
-area.toggle_maximize()  # maximize to fill area
-# or
-dock_area_widget.toggle_maximize()
+# Via the container (recommended)
+container = dock_manager.root_container()
+container.toggle_maximize_dock_area(area)  # maximize
+container.toggle_maximize_dock_area(area)  # restore (toggle)
+
+# Via the dock area (delegates to container)
+area.toggle_maximize()  # maximize
+area.toggle_maximize()  # restore (toggle)
+
+# Check state
+area.is_maximized()           # True if this area is maximized
+container.is_area_maximized(area)  # same check on container
 ```
+
+**How it works:** Lace recursively walks the nested splitter tree to find the maximized area at its actual nesting level, zeroes sibling splitters, and gives the maximized area's parent splitter all available space. On restore, all splitter sizes are restored from the saved state dict `{id(splitter): sizes_list}`.
 
 ---
 
