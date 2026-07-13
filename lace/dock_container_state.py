@@ -1,19 +1,12 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-
-dock_container_state — per-container layout (de)serialization
-=============================================================
-
-The recursive splitter/dock-area tree save & restore for a single
-``DockContainerWidget``.  Extracted from the container itself to keep that
-class focused on layout management; the functions take the container as their
-first argument and are exposed on it via thin ``save_state`` / ``restore_state``
-delegates.
-"""
 
 import logging
 from typing import Optional, Tuple

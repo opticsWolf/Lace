@@ -63,6 +63,10 @@ DOCK_FLAGS_INFO = [
      "Dock Area Has Pin Button",
      "The dock area title bar displays a pin button."),
     
+    (DockFlags.dock_area_has_maximize_button,
+     "Dock Area Has Maximize Button",
+     "The dock area title bar displays a maximize/restore button."),
+    
     (DockFlags.dock_area_has_tabs_menu_button,
      "Dock Area Has Tabs Menu",
      "The dock area title bar displays a menu button listing all tabs."),
@@ -417,6 +421,7 @@ class DemoMainWindow(QMainWindow):
         self._add_flag_action(flags_menu, DockFlags.dock_area_close_button_closes_tab)
         self._add_flag_action(flags_menu, DockFlags.dock_area_has_undock_button)
         self._add_flag_action(flags_menu, DockFlags.dock_area_has_pin_button)
+        self._add_flag_action(flags_menu, DockFlags.dock_area_has_maximize_button)
         self._add_flag_action(flags_menu, DockFlags.dock_area_has_tabs_menu_button)
         self._add_flag_action(flags_menu, DockFlags.hide_disabled_title_bar_icons)
         
@@ -585,6 +590,7 @@ class DemoMainWindow(QMainWindow):
             DockFlags.dock_area_has_close_button |
             DockFlags.dock_area_has_undock_button |
             DockFlags.dock_area_has_pin_button |
+            DockFlags.dock_area_has_maximize_button |
             DockFlags.dock_area_has_tabs_menu_button |
             DockFlags.middle_mouse_button_closes_tab |
             DockFlags.floatable_tabs |

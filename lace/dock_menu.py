@@ -1,16 +1,12 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-
-dock_menu.py
-------------
-Stateless context menu builder and MenuActionTarget Protocol for dock widgets.
-Replaces the legacy DockMenuMixin God-mixin.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

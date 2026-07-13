@@ -1,16 +1,12 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-
-dock_context_menu.py
---------------------
-Deprecated: context menu logic and helpers moved to dock_menu.py.
-This file is maintained as a re-export shim for backwards compatibility.
-"""
 from __future__ import annotations
 
 from .dock_menu import (

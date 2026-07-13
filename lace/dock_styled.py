@@ -1,35 +1,12 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-
-dock_styled — DockStyleManager subscription mixin
-=================================================
-
-Collapses the register / on_style_changed / refresh_style boilerplate that
-every themed widget used to repeat.  A subclass declares the categories it
-reads and implements ``refresh_style()``; the mixin handles registration and
-debounced re-styling.
-
-Usage
------
-    class MyBar(QFrame, DockStyled):
-        STYLE_CATEGORIES = (DockStyleCategory.TITLE_BAR, DockStyleCategory.CORE)
-
-        def __init__(self, parent=None):
-            super().__init__(parent)
-            ...                       # build children first
-            self._init_dock_style()   # registers + does the initial refresh
-
-        def refresh_style(self):
-            styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
-            ...
-
-Note the mixin is a plain ``object`` subclass, never a ``QObject`` — Qt allows
-only one ``QObject`` base, which is the concrete widget.
-"""
 
 from typing import Tuple
 

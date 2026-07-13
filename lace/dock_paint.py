@@ -1,26 +1,12 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-
-dock_paint — artifact-free chrome primitives
-=============================================
-
-Pure painting functions (``QPainter`` + rect + tokens in, pixels out) plus the
-token bundles that feed them.  No widget access, no style-manager access — that
-is what lets the same routine paint a dock-area frame, a floating container, a
-sidebar overlay, or a tab.
-
-Why painting instead of QSS
----------------------------
-``border-radius`` in a stylesheet does not clip children, and the corner area
-outside the radius is filled with the widget's own background — so rounded
-corners "bleed" the child colour or show blocky corners against the canvas.
-Painting a ``QPainterPath`` fill + stroke on a transparent widget avoids both:
-the area outside the rounded path simply shows the parent behind it.
-"""
 
 from math import ceil, sqrt
 from dataclasses import dataclass

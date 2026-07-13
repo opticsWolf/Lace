@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-
-Predefined themes for the Advanced Docking System.
-Each theme provides a complete color palette including accent colors,
-active-edge indicators, and overlay panel styling.
-"""
 
 from typing import Dict, Any
 from .dock_theme import DockStyleCategory, ThemeSpec, build_theme

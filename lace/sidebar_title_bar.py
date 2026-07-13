@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-
-sidebar_title_bar.py
---------------------
-Standalone title bar for the sidebar overlay panel, with context menu,
-drag-to-detach, and unified action naming / icons.
-"""
 from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import Qt, Signal, QPoint
 from PySide6.QtGui import QAction, QColor, QPainter, QPalette

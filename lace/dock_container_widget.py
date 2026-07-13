@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
-
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
 
 import logging
 from typing import TYPE_CHECKING, List, Dict, Optional
