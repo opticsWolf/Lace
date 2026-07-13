@@ -304,6 +304,7 @@ class SidebarManager(QObject):
         
         self._sidebars: Dict[DockWidgetArea, SideTabBar] = {}
         self._overlay = SideBarContainer(getattr(dock_manager, '_root', None) or dock_manager)
+        self._overlay._dock_manager = dock_manager
         
         # Connect overlay signals
         self._overlay.pin_back_requested.connect(self._on_overlay_pin_back)

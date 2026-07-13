@@ -41,6 +41,7 @@ class SideBarContainer(QFrame, DockStyled):
     close_requested = Signal()
     resize_started = Signal()
     resize_finished = Signal()
+    maximize_requested = Signal()
     
     def __init__(self, parent: QWidget = None):
         super().__init__(parent)
@@ -85,6 +86,7 @@ class SideBarContainer(QFrame, DockStyled):
         self._title_bar.close_requested.connect(self.close_requested.emit)
         self._title_bar.reattach_requested.connect(self.pin_back_requested.emit)
         self._title_bar.detach_requested.connect(self.drag_unpin_requested.emit)
+        self._title_bar.maximize_requested.connect(self._on_maximize_clicked)
         
         # Layout
         self._content_layout = QVBoxLayout(self)
@@ -94,6 +96,10 @@ class SideBarContainer(QFrame, DockStyled):
         self._content_layout.addWidget(self._splitter, 1)
         
         self._size_hint = QSize(300, 200)
+        
+        # Maximize state
+        self._maximized = False
+        self._pre_maximize_size = QSize()
 
         # --- Style Manager Integration ---
         self._init_dock_style()
@@ -167,6 +173,12 @@ class SideBarContainer(QFrame, DockStyled):
         
         self._area = area
         self._current_widgets = [dock_widget]
+        
+        # Reset maximized state when switching widgets (hover tab switch)
+        if self._maximized:
+            self._maximized = False
+            self._title_bar.update_maximize_state(False)
+            self._pre_maximize_size = QSize()
         
         # Update title bar content
         self._title_bar.set_widget(dock_widget)
@@ -256,6 +268,95 @@ class SideBarContainer(QFrame, DockStyled):
         else:
             self._on_hide_finished()
 
+    def _on_maximize_clicked(self):
+        """Toggle maximize/restore for the sidebar overlay."""
+        if self._maximized:
+            self._restore_maximized()
+        else:
+            self._maximize()
+    
+    def _maximize(self):
+        """Expand the sidebar overlay to fill the center area (like VS Code panel maximize)."""
+        parent = self.parentWidget()
+        if not parent:
+            return
+        
+        # Save current size
+        self._pre_maximize_size = self.size()
+        
+        # Calculate maximized geometry - expand to fill center area only
+        pr = parent.rect()
+        gap = 16  # Small gap around the maximized sidebar
+        
+        # Get tab bar dimensions for constraints
+        left_bar = self._find_sibling_bar(DockWidgetArea.left)
+        left_bar_width = left_bar.width() if left_bar and left_bar.isVisible() else 0
+        
+        right_bar = self._find_sibling_bar(DockWidgetArea.right)
+        right_bar_width = right_bar.width() if right_bar and right_bar.isVisible() else 0
+        
+        bottom_bar = self._find_sibling_bar(DockWidgetArea.bottom)
+        bottom_bar_height = bottom_bar.height() if bottom_bar and bottom_bar.isVisible() else 0
+        
+        if self._area == DockWidgetArea.left:
+            # Expand to fill center area, capped at 8/3× original width or center area (whichever is smaller)
+            center_start = left_bar_width
+            center_width = pr.width() - left_bar_width - right_bar_width - gap
+            max_width = min(int(self._pre_maximize_size.width() * 8 / 3), center_width, pr.width() - gap)
+            new_width = max(_MIN_SIDEBAR_WIDTH, min(max_width, pr.width() - left_bar_width - right_bar_width))
+            geo = QRect(center_start, 0, new_width, pr.height())
+            
+        elif self._area == DockWidgetArea.right:
+            # Expand to fill center area, capped at 8/3× original width or center area (whichever is smaller)
+            center_width = pr.width() - left_bar_width - right_bar_width - gap
+            max_width = min(int(self._pre_maximize_size.width() * 8 / 3), center_width, pr.width() - gap)
+            new_width = max(_MIN_SIDEBAR_WIDTH, min(max_width, pr.width() - left_bar_width - right_bar_width))
+            center_start = pr.width() - right_bar_width - new_width
+            geo = QRect(center_start, 0, new_width, pr.height())
+            
+        elif self._area == DockWidgetArea.bottom:
+            # Expand upward to fill center area
+            center_height = pr.height() - bottom_bar_height - gap
+            geo = QRect(0, 0, pr.width(), max(_MIN_SIDEBAR_HEIGHT, center_height))
+        else:
+            geo = QRect(0, 0, pr.width(), pr.height())
+        
+        self._maximized = True
+        self.setGeometry(geo)
+        # Don't update _size_hint — keep original size so
+        # _get_visible_geometry doesn't miscalculate position
+        self._title_bar.update_maximize_state(True)
+        
+        # Update resize zone cursor
+        if self._area == DockWidgetArea.left:
+            self.setCursor(Qt.SizeHorCursor)
+        elif self._area == DockWidgetArea.right:
+            self.setCursor(Qt.SizeHorCursor)
+        elif self._area == DockWidgetArea.bottom:
+            self.setCursor(Qt.SizeVerCursor)
+    
+    def _restore_maximized(self):
+        """Restore sidebar to its previous size."""
+        if not self._maximized:
+            return
+        
+        self._maximized = False
+        
+        # Restore previous size
+        if self._pre_maximize_size.isValid() and self._pre_maximize_size.width() > 0:
+            size = self._pre_maximize_size
+            # Update _size_hint BEFORE calling _get_visible_geometry so
+            # position calculations use the correct width/height
+            self._size_hint = size
+            geo = self._get_visible_geometry()
+            self.setGeometry(geo)
+        
+        self._title_bar.update_maximize_state(False)
+        self._pre_maximize_size = QSize()
+        
+        # Reset cursor
+        self.setCursor(Qt.ArrowCursor)
+    
     def _on_anim_finished(self):
         if self._sliding_in:
             if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
@@ -265,6 +366,11 @@ class SideBarContainer(QFrame, DockStyled):
             
     def _on_hide_finished(self):
         self.hide()
+        # Reset maximized state so next show starts fresh
+        if self._maximized:
+            self._maximized = False
+            self._title_bar.update_maximize_state(False)
+            self._pre_maximize_size = QSize()
         for w in self._current_widgets:
             w.setParent(None)
         self._current_widgets = []
@@ -527,7 +633,15 @@ class SideBarContainer(QFrame, DockStyled):
             new_y = geo.y() + geo.height() - new_height
             self.setGeometry(geo.x(), new_y, geo.width(), new_height)
         
-        self._size_hint = self.size()
+        # Auto-exit maximized state when resizing
+        if self._maximized:
+            self._maximized = False
+            self._title_bar.update_maximize_state(False)
+            self._size_hint = self.size()
+            self.setCursor(Qt.ArrowCursor)
+            self._pre_maximize_size = QSize()
+        else:
+            self._size_hint = self.size()
 
     # --- Style Manager ---
 
