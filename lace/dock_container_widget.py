@@ -480,6 +480,18 @@ class DockContainerWidget(QFrame, DockStyled):
     
         area.view_toggled.disconnect(self._on_dock_area_view_toggled)
         self._dock_areas.remove(area)
+
+        # ── Restore maximized state if the removed area was the maximized one ──
+        if area is self._maximized_dock_area:
+            for sibling in self._dock_areas:
+                if sibling.opened_dock_widgets():
+                    sibling.setVisible(True)
+            self._maximized_dock_area = None
+            self._pre_maximize_sizes = None
+            self._visible_dock_area_count = -1
+            for dock_area in self._dock_areas:
+                dock_area._update_title_bar_button_states()
+
         splitter = find_parent(DockSplitter, area)
 
         logger.debug('area setParent %s None', area)
