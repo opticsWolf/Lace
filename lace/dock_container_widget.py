@@ -268,7 +268,7 @@ class DockContainerWidget(QFrame, DockStyled):
         self._top_level_dock_area: DockAreaWidget = None
         self._drop_controller = DropController(self)
         self._maximized_dock_area: DockAreaWidget = None
-        self._pre_maximize_sizes: list = None
+        self._pre_maximize_splitter_sizes: dict = None  # {id(splitter): sizes_list}
 
         # --- ADDED: Style Manager Integration ---
         self._init_dock_style()
@@ -487,7 +487,7 @@ class DockContainerWidget(QFrame, DockStyled):
                 if sibling.opened_dock_widgets():
                     sibling.setVisible(True)
             self._maximized_dock_area = None
-            self._pre_maximize_sizes = None
+            self._pre_maximize_splitter_sizes = None
             self._visible_dock_area_count = -1
             for dock_area in self._dock_areas:
                 dock_area._update_title_bar_button_states()
@@ -729,6 +729,59 @@ class DockContainerWidget(QFrame, DockStyled):
         """Return True if area is the currently-maximized dock area."""
         return self._maximized_dock_area is not None and self._maximized_dock_area is area
 
+    def _maximize_splitter(self, splitter: QSplitter, area: DockAreaWidget) -> bool:
+        """Recursively zero out sibling splitters/areas and give all space to *area*.
+
+        Returns True if *area* is a direct child of *splitter*.
+        """
+        count = splitter.count()
+        for i in range(count):
+            child = splitter.widget(i)
+            if isinstance(child, QSplitter):
+                if self._maximize_splitter(child, area):
+                    # This subtree contains the maximized area — zero out
+                    # all other children of this splitter.
+                    for j in range(count):
+                        if j != i:
+                            sib = splitter.widget(j)
+                            if isinstance(sib, QSplitter):
+                                sib.setSizes([0])
+                            elif isinstance(sib, DockAreaWidget):
+                                sib.setVisible(False)
+                    # Give the winning child all available space.
+                    sizes = list(splitter.sizes())
+                    sizes[i] = sum(sizes)
+                    splitter.setSizes(sizes)
+                    return True
+                # Subtree does not contain area — zero it out.
+                if isinstance(child, QSplitter):
+                    child.setSizes([0])
+                elif isinstance(child, DockAreaWidget):
+                    child.setVisible(False)
+            elif isinstance(child, DockAreaWidget) and child is area:
+                # Found the maximized area at this level — give all space to it
+                # and hide all other dock areas at this level.
+                for j in range(count):
+                    if j != i:
+                        sib = splitter.widget(j)
+                        if isinstance(sib, DockAreaWidget):
+                            sib.setVisible(False)
+                sizes = [0] * count
+                sizes[i] = sum(splitter.sizes())
+                splitter.setSizes(sizes)
+                return True
+        return False
+
+    def _collect_splitter_sizes(self, splitter: QSplitter) -> None:
+        """Recursively collect all splitter sizes into _pre_maximize_splitter_sizes."""
+        if self._pre_maximize_splitter_sizes is None:
+            self._pre_maximize_splitter_sizes = {}
+        self._pre_maximize_splitter_sizes[id(splitter)] = list(splitter.sizes())
+        for i in range(splitter.count()):
+            child = splitter.widget(i)
+            if isinstance(child, QSplitter):
+                self._collect_splitter_sizes(child)
+
     def toggle_maximize_dock_area(self, area: DockAreaWidget):
         """Maximize or restore a dock area inside this container.
 
@@ -758,12 +811,13 @@ class DockContainerWidget(QFrame, DockStyled):
             area._update_title_bar_button_states()
             return
 
-        # ── Multi-dock: hide siblings ────────────────────────────
+        # ── Multi-dock: hide siblings & redistribute sizes ───────────
         if self._root_splitter is None:
             return
 
-        # Save splitter sizes for later restore
-        self._pre_maximize_sizes = self._root_splitter.sizes()
+        # Save ALL splitter sizes (root + nested) for later restore
+        self._pre_maximize_splitter_sizes = {}
+        self._collect_splitter_sizes(self._root_splitter)
         self._maximized_dock_area = area
 
         for dock_area in self._dock_areas:
@@ -771,12 +825,11 @@ class DockContainerWidget(QFrame, DockStyled):
                 dock_area.setVisible(False)
 
         # Give all available space to the maximized area so its
-        # children resize immediately (Qt splitters don't auto-redistribute)
-        sizes = list(self._root_splitter.sizes())
-        max_idx = self._dock_areas.index(area)
-        total = sum(sizes)
-        sizes = [0 if i != max_idx else total for i in range(len(sizes))]
-        self._root_splitter.setSizes(sizes)
+        # children resize immediately (Qt splitters don't auto-redistribute).
+        # The maximized area may be nested inside splitters, so we
+        # recursively zero out sibling splitters/areas and give the
+        # maximized area's parent splitter all available space.
+        self._maximize_splitter(self._root_splitter, area)
 
         # Invalidate visible count cache and update button states
         self._visible_dock_area_count = -1
@@ -794,15 +847,32 @@ class DockContainerWidget(QFrame, DockStyled):
             if dock_area.opened_dock_widgets():
                 dock_area.setVisible(True)
 
-        # Restore original splitter proportions
-        if self._pre_maximize_sizes and self._root_splitter:
-            self._root_splitter.setSizes(self._pre_maximize_sizes)
-        self._pre_maximize_sizes = None
+        # Restore original splitter proportions (all splitters, not just root)
+        if self._pre_maximize_splitter_sizes and self._root_splitter:
+            for sp in self._all_splitters():
+                sid = id(sp)
+                if sid in self._pre_maximize_splitter_sizes:
+                    sp.setSizes(self._pre_maximize_splitter_sizes[sid])
+        self._pre_maximize_splitter_sizes = None
 
         # Invalidate visible count cache and update button states
         self._visible_dock_area_count = -1
         for dock_area in self._dock_areas:
             dock_area._update_title_bar_button_states()
+
+    def _all_splitters(self):
+        """Yield all splitters under the root splitter."""
+        if self._root_splitter is None:
+            return
+        yield self._root_splitter
+        stack = [self._root_splitter]
+        while stack:
+            sp = stack.pop()
+            for i in range(sp.count()):
+                child = sp.widget(i)
+                if isinstance(child, QSplitter):
+                    yield child
+                    stack.append(child)
 
     def refresh_style(self):
         """Fetches the latest core styles and applies them to the layout."""
