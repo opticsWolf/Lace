@@ -6,11 +6,12 @@
 #
 # This file is part of Lace.
 # Licensed under the Apache License, Version 2.0.
-
+#
 
 import re
+from importlib import resources
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple, Union
 
 from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPixmap, QPainter
@@ -23,38 +24,97 @@ from .dock_theme import DockStyleCategory
 import logging
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Resource Path Resolution
+# ---------------------------------------------------------------------------
+
+_ICON_PACKAGE = "lace.resources.lace_icons"
+
+
+def _resolve_icon_path(
+    directory: Optional[Union[str, Path]] = None,
+) -> Optional[Union[Path, "resources.Traversable"]]:
+    """Resolve icon directory from a filesystem path or package resources.
+
+    Returns None if the directory cannot be found.
+    """
+    if directory is not None:
+        p = Path(directory)
+        if p.exists():
+            return p
+    # Fallback: use package resources (wheel-compatible)
+    try:
+        return resources.files(_ICON_PACKAGE)
+    except (AttributeError, FileNotFoundError):
+        return None
+
 
 class DockIconProvider:
     """
     Theme-aware SVG icon provider for the docking framework.
     Preloads SVGs and tints them dynamically based on the DockStyleManager.
+
+    Supports both filesystem paths (development) and package resources
+    (importlib.resources, wheel-compatible).
     """
-    
+
     _COLOR_PATTERN = re.compile(r'(fill|stroke)="(?!none\b)([^"]*)"')
     _FALLBACK_COLOR = "#C8CDD7"
 
-    def __init__(self, directory: str | Path):
-        self._path = Path(directory)
+    def __init__(self, directory: Optional[Union[str, Path]] = None):
+        self._path: Optional[Union[Path, "resources.Traversable"]] = _resolve_icon_path(
+            directory
+        )
         self._svg_cache: Dict[str, str] = {}
         self._icon_cache: Dict[Tuple[str, str, bool, bool, int], QIcon] = {}
-        
+
         # Integration with your style manager
         self._style_mgr = get_dock_style_manager()
         # Subscribe to all categories to clear cache on theme switch
         self._style_mgr.register(self, DockStyleCategory.CORE)
-        
-        if self._path.exists():
+
+        if self._path is not None:
             self._preload()
         else:
-            logger.warning(f"Icon directory not found: {self._path}")
+            logger.warning("Icon directory not found")
 
     def _preload(self):
-        """Read every *.svg in the directory into the string cache — O(n)."""
-        for file in sorted(self._path.glob("*.svg")):
-            try:
-                self._svg_cache[file.stem.lower()] = file.read_text(encoding="utf-8")
-            except OSError as exc:
-                logger.warning(f"Could not read icon '{file.name}': {exc}")
+        """Read every *.svg in the directory into the string cache.
+
+        Supports both filesystem paths and package resources
+        (importlib.resources).
+        """
+        if self._path is None:
+            return
+
+        # Detect if this is a package resource (Traversable) vs filesystem Path
+        try:
+            entries = list(self._path.iterdir())
+            is_traversable = not isinstance(entries[0], Path) if entries else False
+        except (TypeError, AttributeError):
+            is_traversable = False
+
+        if is_traversable:
+            # Package resource mode (wheel)
+            for entry in self._path.iterdir():
+                if entry.name.lower().endswith(".svg"):
+                    try:
+                        stem = entry.stem.lower()
+                        with resources.as_file(entry) as file_path:
+                            self._svg_cache[stem] = file_path.read_text(
+                                encoding="utf-8"
+                            )
+                    except OSError as exc:
+                        logger.warning(f"Could not read icon '{entry.name}': {exc}")
+        else:
+            # Filesystem mode (development)
+            for file in sorted(self._path.glob("*.svg")):
+                try:
+                    self._svg_cache[file.stem.lower()] = file.read_text(
+                        encoding="utf-8"
+                    )
+                except OSError as exc:
+                    logger.warning(f"Could not read icon '{file.name}': {exc}")
 
     @classmethod
     def _tint_svg(cls, svg: str, color: str) -> str:
@@ -106,11 +166,11 @@ class DockIconProvider:
             color = styles.get("tab_text_disabled")
         else:
             color = None
-        
+
         if color is None or (isinstance(color, QColor) and not color.isValid()):
             core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
             color = core_styles.get("disabled_text_color")
-        
+
         if isinstance(color, QColor) and color.isValid():
             return color.name()
         return self._FALLBACK_COLOR
@@ -146,14 +206,14 @@ class DockIconProvider:
     ) -> QIcon:
         """
         Get a theme-tinted icon.
-        
+
         Args:
             name: SVG filename (without extension).
             category: Style category determining the tint color.
             active: Whether icon is in active/selected state.
             disabled: Whether icon is in disabled state (takes precedence over active).
             size: Icon size in pixels.
-        
+
         Returns:
             QIcon tinted with the appropriate color for the state.
         """
@@ -172,10 +232,10 @@ class DockIconProvider:
 
         tinted = self._tint_svg(self._svg_cache[key], color)
         pixmap = self._render_svg(tinted.encode("utf-8"), size)
-        
+
         icon = QIcon()
         icon.addPixmap(pixmap)
-        
+
         self._icon_cache[cache_key] = icon
         return icon
 
@@ -183,13 +243,31 @@ class DockIconProvider:
         """Flush the tint cache when the theme changes."""
         self._icon_cache.clear()
 
+
 # --- Singleton Access ---
 _provider_instance = None
 
-def get_icon_provider(directory: str | Path = None) -> DockIconProvider:
+
+def get_icon_provider(directory: Optional[Union[str, Path]] = None) -> DockIconProvider:
+    """Get or create the global icon provider singleton.
+
+    Args:
+        directory: Optional filesystem path to SVG icons. If None, falls back
+            to package resources (lace/resources/lace_icons/).
+
+    Returns:
+        The singleton DockIconProvider instance.
+
+    Raises:
+        ValueError: If no icon directory is found (neither filesystem nor package).
+    """
     global _provider_instance
     if _provider_instance is None:
-        if directory is None:
-            raise ValueError("Must provide directory on first initialization")
-        _provider_instance = DockIconProvider(directory)
+        resolved = _resolve_icon_path(directory)
+        if resolved is None:
+            raise ValueError(
+                "Must provide a valid icon directory, or ensure "
+                "lace/resources/lace_icons/ is installed with the package."
+            )
+        _provider_instance = DockIconProvider(resolved)
     return _provider_instance

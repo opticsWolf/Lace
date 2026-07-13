@@ -6,39 +6,133 @@
 #
 # This file is part of Lace.
 # Licensed under the Apache License, Version 2.0.
+#
 
+"""Lace — Advanced PySide6 Docking System.
+
+Public API is imported explicitly at the top level for discoverability
+and IDE/mypy compatibility.
+"""
+
+# ---------------------------------------------------------------------------
+# Core Classes
+# ---------------------------------------------------------------------------
+from .dock_area_widget import DockAreaWidget
+from .dock_container_widget import DockContainerWidget, DropController
+from .dock_manager import DockManager
+from .dock_widget import DockWidget
+from .dock_widget_tab import DockWidgetTab
+from .dock_splitter import DockSplitter, DockSplitterHandle
+from .floating_dock_container import FloatingDockContainer
+from .dock_icon_provider import DockIconProvider, get_icon_provider
+from .dock_theme import (
+    DockStyleCategory,
+    ThemeSpec,
+    build_theme,
+    deep_to_qcolor,
+    deep_to_serializable,
+)
+from .dock_style_manager import (
+    DockStyleManager,
+    apply_dock_theme,
+    get_dock_style_manager,
+)
+from .dock_theme_bridge import DockThemeBridge
+from .theme_manager import ThemeManager
+from .sidebar_manager import SidebarManager
+from .sidebar_container import SideBarContainer
+from .sidebar_tab import TabBadgePosition, VerticalTabButton
+from .sidebar_tab_bar import SideTabBar
+from .sidebar_title_bar import SideBarTitleBar
+from .dock_area_tab_bar import DockAreaTabBar
+from .dock_area_title_bar import DockAreaTitleBar
+from .dock_chrome import DragDetector, ChromeToolButton, ChromeFrame
+from .dock_overlay import DockOverlay, DockOverlayCross
+from .dock_context_menu import DockMenuMixin, MenuSection, MenuContext, MenuActionTarget
+from .dock_signals import DockSignals
+from .layout_serializer import (
+    LayoutError,
+    LayoutIOError,
+    InvalidFormatError,
+    RestoreFailureError,
+    LayoutPersistenceManager,
+    LayoutSerializer,
+    LayoutStateBuilder,
+)
+from .dock_paint import ChromeTokens
+from .eliding_label import ElidingLabel
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+from .enums import (
+    DockInsertParam,
+    DockWidgetArea,
+    DockFlags,
+    TitleBarButton,
+    OverlayMode,
+    InsertMode,
+)
+
+# ---------------------------------------------------------------------------
+# Utility Functions
+# ---------------------------------------------------------------------------
+from .util import (
+    emit_top_level_event_for_widget,
+    start_drag_distance,
+    create_transparent_pixmap,
+    hide_empty_parent_splitters,
+    find_parent,
+    find_child,
+    find_children,
+    dump_layout,
+)
+
+# ---------------------------------------------------------------------------
+# PEP 562 Lazy Loading (fallback for non-standard attribute access)
+# ---------------------------------------------------------------------------
 
 import importlib
 import logging
-import pkgutil
 from pathlib import Path
 from threading import Lock
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Global State
-# ---------------------------------------------------------------------------
 
 _MODEL_REGISTRY: Dict[str, Any] = {}
 _IS_INITIALIZED: bool = False
 _DISCOVERY_LOCK = Lock()
 
+# Modules to skip during discovery (already imported above)
+_SKIP_MODULES = frozenset(
+    {
+        "__init__",
+        "_trace",
+        "dock_colors",
+        "dock_signals",
+        "dock_paint",
+        "dock_context_menu",
+        "dock_styled",
+        "util",
+        "enums",
+        "eliding_label",
+        "dock_area_layout",
+        "dock_container_state",
+        "dock_theme_bridge",
+        "dock_style_manager",
+        "dock_theme",
+        "theme_manager",
+        "layout_serializer",
+        "dock_icon_provider",
+    }
+)
 
-# ---------------------------------------------------------------------------
-# Internal Discovery Logic
-# ---------------------------------------------------------------------------
 
 def _discover_models() -> None:
     """Discover and register public callables defined in package modules.
 
-    This function:
-    - Iterates over modules in this package directory.
-    - Avoids reloading, thanks to an initialization guard.
-    - Imports modules using relative imports.
-    - Registers public callables that originate from the module itself.
-
+    Uses importlib.resources.files() for Python 3.9+ compatibility.
     Discovery is idempotent and thread-safe.
     """
     global _IS_INITIALIZED
@@ -52,14 +146,32 @@ def _discover_models() -> None:
 
         package_path = [str(Path(__file__).parent)]
 
-        # Deterministic ordering: sort module names before importing
-        discovered = sorted(pkgutil.iter_modules(package_path), key=lambda t: t[1])
+        # Use importlib.resources for reliable module discovery
+        try:
+            from importlib.resources import files as resources_files
+
+            package_dir = resources_files(__name__)
+            discovered = sorted(
+                [
+                    (None, mod.stem, False)
+                    for mod in package_dir.iterdir()
+                    if mod.name.endswith(".py")
+                    and not mod.name.startswith("_")
+                    and mod.stem not in _SKIP_MODULES
+                ],
+                key=lambda t: t[1],
+            )
+        except Exception:
+            # Fallback: direct filesystem scan
+            discovered = []
+            for mod in Path(package_path[0]).glob("*.py"):
+                mod_name = mod.stem
+                if mod_name.startswith("_") or mod_name in _SKIP_MODULES:
+                    continue
+                discovered.append((None, mod_name, False))
 
         for finder, mod_name, is_pkg in discovered:
             if is_pkg:
-                continue
-
-            if mod_name in ("loader", "__init__"):
                 continue
 
             try:
@@ -107,10 +219,6 @@ def __dir__() -> List[str]:
     dynamic = list(_MODEL_REGISTRY.keys())
     return sorted(set(base + dynamic))
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 def get_model_registry() -> Dict[str, Any]:
     """Return the dictionary of discovered model callables.
