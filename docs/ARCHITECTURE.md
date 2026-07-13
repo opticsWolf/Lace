@@ -1,0 +1,755 @@
+# Lace Architecture Overview
+
+**Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
+
+---
+
+## 1. System Overview
+
+Lace provides a complete docking system supporting:
+
+- **Dock areas** — regions within a parent window where dock widgets can be placed (left, right, top, bottom, center)
+- **Tabbed dock widgets** — multiple widgets can share a single dock area as tabs
+- **Floating windows** — dock widgets can be detached into independent top-level windows
+- **Auto-hide sidebars** — VS Code-style slide-out panels with tab buttons
+- **Drag-and-drop layout** — intuitive resizing, reordering, and re-docking via overlays
+- **Perspectives** — save/restore complete layout configurations
+- **JSON serialization** — full layout persistence with atomic file I/O
+- **Theming engine** — 14+ built-in themes with dynamic color computation and live switching
+- **Custom icon provider** — SVG-based icon system with theme-aware tinting
+
+### High-Level Component Map
+
+```
+DockManager (facade)
+├── DockContainerWidget (root + floating)
+│   ├── DockSplitter (nested, orientation-aware)
+│   │   └── DockSplitterHandle (themed resize handles)
+│   └── DockAreaWidget (×N)
+│       ├── DockAreaTitleBar
+│       │   ├── DockAreaTabBar (scrollable tab strip)
+│       │   │   └── DockWidgetTab (×N, painted chrome)
+│       │   └── ChromeToolButton (×5: tabs menu, pin, maximize, undock, close)
+│       └── DockAreaLayout (stacked widget container)
+│           └── DockWidget (×N, one visible at a time)
+│               ├── QToolBar (optional)
+│               └── QScrollArea + user content widget
+├── FloatingDockContainer (top-level window)
+│   └── DockContainerWidget (nested)
+│       └── (same structure as root)
+├── SidebarManager
+│   ├── SideTabBar (vertical tab strip per edge)
+│   │   └── VerticalTabButton (×N, rotated text, badges)
+│   └── SideBarContainer (auto-hide overlay panel)
+│       └── SideBarTitleBar + user widget
+├── LayoutSerializer
+│   ├── LayoutStateBuilder (UI → dict)
+│   ├── LayoutEngine (dict → UI)
+│   └── LayoutPersistenceManager (atomic file I/O)
+├── DockStyleManager (singleton, event-driven theme system)
+├── DockThemeBridge (QPalette push to Qt children)
+├── DockOverlay (×2: container + dock-area drop targets)
+├── DockSignals (internal event bus)
+└── ThemeManager (OS-aware auto dark/light switching)
+```
+
+---
+
+## 2. Core Module Reference
+
+### 2.1 `dock_manager.py` — `DockManager` (Main Facade)
+
+The central orchestrator. All public API flows through this class.
+
+| Category | Members |
+|---|---|
+| **Signals** | `perspective_list_changed`, `perspectives_removed`, `restoring_state`, `state_restored`, `opening_perspective`, `perspective_opened` |
+| **Core Docking** | `add_dock_widget(area, widget, target_area)`, `remove_dock_widget(widget)`, `find_dock_widget(name)` |
+| **Sidebars** | `add_sidebar_widget(area, widget)`, `sidebar_focus_behavior` (prop), `tab_badge_position` (prop) |
+| **State** | `save_state(version)`, `restore_state(json, version)`, `save_layout_to_file(path)`, `load_layout_from_file(path)` |
+| **Themes** | `set_theme(name)` |
+| **Perspectives** | `add_perspective(name)`, `remove_perspective(name)`, `perspective_names()`, `open_perspective(name)` |
+| **Config** | `config_flags` (prop), `notify_config_flags_changed()` |
+| **Overlays** | `container_overlay()`, `dock_area_overlay()` |
+| **Containers** | `dock_containers()`, `register_floating_widget()`, `remove_floating_widget()` |
+| **View Menu** | `view_menu`, `menu_insertion_order`, `add_toggle_view_action_to_menu(action, group)`, `_rebuild_view_menu()` |
+| **Delegated (root)** | `root_container()`, `add_dock_area()`, `remove_dock_area()`, `dock_area(i)`, `dock_area_count()`, `opened_dock_areas()`, `dock_area_at(pos)`, `is_floating()`, `top_level_dock_area()`, `top_level_dock_widget()`, `dock_widgets()`, `features()`, `floating_widget()`, `close_other_areas(area)`, `refresh_style()`, `dump_layout()`, `root_splitter()`, `drop_floating_widget(fw, pos)` |
+| **Internal** | `_handle_request_overlay_show()`, `_handle_request_overlay_hide()`, `_handle_floating_widget_dropped()`, `_on_app_focus_changed()`, `set_active_dock_area(area)`, `ensure_active_dock_area()` |
+
+**Key private state:** `_floating_widgets`, `_containers`, `_dock_widgets_map`, `_perspectives`, `_config_flags`, `_root` (DockContainerWidget), `_serializer`, `_persistence`, `sidebar_manager`, `_theme_bridge`, `_view_menu`, `_dock_area_overlay`, `_container_overlay`, `signals` (DockSignals).
+
+---
+
+### 2.2 `dock_widget.py` — `DockWidget`
+
+The user-facing widget wrapper. Each `DockWidget` owns a user `QWidget` and a `DockWidgetTab`.
+
+| Category | Members |
+|---|---|
+| **Signals** | `view_toggled(bool)`, `closed()`, `title_changed(str)`, `top_level_changed(bool)`, `features_changed(DockWidgetFeature)` |
+| **Content** | `set_widget(widget, insert_mode)`, `take_widget()`, `widget() → QWidget` |
+| **Tab** | `tab_widget() → DockWidgetTab`, `set_icon(icon)`, `icon()`, `set_default_icon_name(name)`, `default_icon_name()`, `set_custom_icon(icon)`, `custom_icon()`, `set_custom_icon_name(name)`, `custom_icon_name()`, `set_tab_tool_tip(text)` |
+| **Toolbar** | `tool_bar() → QToolBar`, `create_default_tool_bar()`, `set_tool_bar(toolbar)`, `set_tool_bar_style(style, state)`, `tool_bar_style(state)`, `set_tool_bar_icon_size(size, state)`, `tool_bar_icon_size(state)`, `set_toolbar_floating_style(floating)` |
+| **Features** | `set_features(flags)`, `set_feature(flag, on)`, `features() → DockWidgetFeature` |
+| **State** | `widget_state() → WidgetState`, `set_widget_state(state)`, `is_floating()`, `is_in_floating_container()`, `is_in_sidebar()`, `is_pinned()`, `is_closed()`, `toggle_view(open_)`, `toggle_view_internal(open_)` |
+| **References** | `dock_manager()`, `dock_container() → DockContainerWidget`, `dock_area_widget() → DockAreaWidget` |
+| **Toggle Action** | `toggle_view_action() → QAction`, `set_toggle_view_action_checked(checked)`, `set_toggle_view_action_mode(mode)` |
+| **Styling** | `refresh_style()`, `paintEvent(event)`, `_update_bottom_mask()`, `_apply_bottom_mask()`, `on_style_changed(category, changes)`, `showEvent(event)` |
+| **State Save** | `save_state() → dict` |
+| **Assignment** | `flag_as_unassigned()` |
+| **Top-level** | `emit_top_level_changed(floating)` |
+| **Internal** | `_show_dock_widget()`, `_hide_dock_widget()`, `_update_parent_dock_area()`, `_setup_tool_bar()`, `_setup_scroll_area()` |
+
+---
+
+### 2.3 `dock_widget_tab.py` — `DockWidgetTab`
+
+The painted-chrome tab button displayed in `DockAreaTabBar`.
+
+| Category | Members |
+|---|---|
+| **Signals** | `active_tab_changed()`, `clicked()`, `close_requested()`, `close_other_tabs_requested()`, `moved(QPoint)` |
+| **Icon/Text** | `set_icon(icon)`, `set_default_icon_name(name)`, `default_icon_name()`, `set_custom_icon(icon)`, `custom_icon()`, `set_custom_icon_name(name)`, `custom_icon_name()`, `update_icon()`, `icon() → QIcon`, `text()`, `set_text(title)` |
+| **Active State** | `is_active_tab()`, `set_active_tab(active)`, `update_close_button_visibility()` |
+| **Float** | `_floatable`, `on_detach_action_triggered()`, `_start_floating(drag_state)` |
+| **Pin** | `_pinnable`, `_menu_is_pinned()` |
+| **Movable** | `_movable` |
+| **Config** | `_test_config_flag(flag)` |
+| **Mouse** | `mousePressEvent()`, `mouseMoveEvent()`, `mouseReleaseEvent()`, `mouseDoubleClickEvent()` |
+| **Menu** | `contextMenuEvent()`, `build_dock_menu(menu, tab_bar)`, `dispatch_dock_action(action)`, `_gather_menu_context(tab_bar)`, `_menu_is_floating()`, `_menu_has_sidebars()` |
+| **MenuActionTarget** | `menu_target_widget()`, `menu_pin_target()`, `menu_unpin_target()`, `menu_pin_all_target()`, `menu_float_target()`, `menu_dock_target()`, `menu_close_target()`, `menu_close_others_target()`, `menu_maximize_target()` |
+| **Styling** | `refresh_style()`, `paintEvent(event)`, `enterEvent()`, `leaveEvent()` |
+| **References** | `dock_widget() → DockWidget`, `set_dock_area_widget(area)`, `dock_area_widget() → DockAreaWidget` |
+| **Closable** | `is_closable()` |
+
+---
+
+### 2.4 `dock_container_widget.py` — `DockContainerWidget`
+
+Represents a layout container — either the root (embedded in QMainWindow) or a floating window.
+
+| Category | Members |
+|---|---|
+| **Signals** | `dock_areas_added()`, `dock_areas_removed()`, `dock_area_view_toggled(DockAreaWidget, bool)` |
+| **Root** | `create_root_splitter()`, `root_splitter() → DockSplitter` |
+| **Docking** | `add_dock_widget(area, widget, target_area)`, `remove_dock_widget(widget)`, `add_dock_area(area_widget, area, target_area)`, `remove_dock_area(area)`, `_dock_widget_into_container(area, widget)`, `_dock_widget_into_dock_area(area, widget, target_area)` |
+| **Drop** | `drop_floating_widget(floating_widget, pos)`, `_drop_into_container()`, `_drop_into_section()`, `_drop_into_center_of_section()` |
+| **Areas** | `dock_area(i)`, `dock_area_count()`, `opened_dock_areas()`, `dock_area_at(pos)`, `visible_dock_area_count()`, `last_added_dock_area_widget(area)` |
+| **Top-level** | `has_top_level_dock_widget()`, `top_level_dock_widget()`, `top_level_dock_area()`, `is_floating()`, `floating_widget() → FloatingDockContainer` |
+| **Widgets** | `dock_widgets() → list`, `features() → DockWidgetFeature` |
+| **Maximize** | `is_area_maximized(area)`, `toggle_maximize_dock_area(area)`, `_restore_maximized_area()` |
+| **Z-order** | `z_order_index()`, `is_in_front_of(other)` |
+| **Splitter** | `_new_splitter(orientation)` |
+| **Styling** | `refresh_style()` |
+| **Debug** | `dump_layout()` |
+| **Internal** | `_append_dock_areas()`, `_add_dock_area()`, `_emit_dock_areas_added()`, `_emit_dock_areas_removed()`, `_on_dock_area_view_toggled()` |
+
+**DropController** (inner class): `drop_floating_widget()`, `_drop_into_container()`, `_drop_into_section()`, `_drop_into_center_of_section()`, `_resolve_section_insertion()`, `_insert_into_section_splitter()`.
+
+---
+
+### 2.5 `dock_area_widget.py` — `DockAreaWidget`
+
+A single tabbed region within a `DockContainerWidget`.
+
+| Category | Members |
+|---|---|
+| **Signals** | `tab_bar_clicked(int)`, `current_changing(int)`, `current_changed(int)`, `view_toggled(bool)` |
+| **Tabs** | `dock_widgets()`, `dock_widgets_count()`, `open_dock_widgets_count()`, `opened_dock_widgets()`, `dock_widget(i)`, `current_index()`, `current_dock_widget()`, `set_current_index(i)`, `set_current_dock_widget(widget)`, `internal_set_current_dock_widget(widget)`, `index(widget)`, `index_of_first_open_dock_widget()`, `next_open_dock_widget(widget)`, `reorder_dock_widget(from, to)` |
+| **Insertion** | `insert_dock_widget(index, widget, activate)`, `add_dock_widget(widget)`, `remove_dock_widget(widget)`, `toggle_dock_widget_view(widget, open_)` |
+| **View** | `toggle_view(open_)`, `hide_area_with_no_visible_content()`, `update_title_bar_visibility()` |
+| **Title bar** | `title_bar_geometry()`, `content_area_geometry()`, `title_bar_button(which) → QAbstractButton`, `update_title_bar_button_states()`, `_update_title_bar_button_states()`, `mark_title_bar_menu_outdated()` |
+| **Features** | `closable`, `movable`, `floatable`, `pinnable`, `features() → DockWidgetFeature` |
+| **Maximize** | `is_maximized()`, `toggle_maximize()` |
+| **Close** | `close_area()`, `close_other_areas()`, `on_tab_close_requested(index)` |
+| **State** | `save_state() → dict` |
+| **Reference** | `dock_manager() → DockManager`, `dock_container() → DockContainerWidget` |
+| **Styling** | `refresh_style()` |
+| **Focus** | `set_chrome_focused(focused)`, `_on_app_focus_changed(old, new)`, `mousePressEvent()` |
+
+---
+
+### 2.6 `dock_splitter.py` — `DockSplitter` + `DockSplitterHandle`
+
+| Class | Members |
+|---|---|
+| **DockSplitter** | `createHandle() → DockSplitterHandle`, `has_visible_content() → bool` |
+| **DockSplitterHandle** | `refresh_style()`, `enterEvent()`, `leaveEvent()`, `sizeHint() → QSize`, `paintEvent(event)` — properties: `_c_handle`, `_c_hover`, `_handle_width`, `_total_width`, `_handle_margin`, `_is_hovered` |
+
+---
+
+### 2.7 `floating_dock_container.py` — `FloatingDockContainer`
+
+Top-level window for detached dock content.
+
+| Category | Members |
+|---|---|
+| **Drag lifecycle** | `start_dragging(pos, size, handler)`, `init_floating_geometry(pos, size)`, `move_floating()`, `_end_programmatic_drag()`, `_finalize_drag()`, `_activate_window()`, `_is_movable()`, `_update_drop_overlays(pos)` |
+| **Config** | `update_window_flags_from_config()`, `_test_config_flag(flag)` |
+| **State** | `restore_state(state, testing)`, `update_window_title()`, `dock_container() → DockContainerWidget`, `has_top_level_dock_widget()`, `top_level_dock_widget()`, `dock_widgets()`, `is_closable()` |
+| **Title** | `on_dock_areas_added_or_removed()`, `on_dock_area_current_changed(index)`, `_set_window_title(text)` |
+| **Qt events** | `changeEvent()`, `moveEvent()`, `event(e)`, `closeEvent()`, `hideEvent()`, `eventFilter(watched, event)` |
+| **Styling** | `refresh_style()` |
+
+---
+
+### 2.8 `dock_overlay.py` — `DockOverlay` + `DockOverlayCross`
+
+Visual drop-target overlays during drag-and-drop.
+
+| Class | Members |
+|---|---|
+| **DockOverlay** | `show_overlay(target) → DockWidgetArea`, `hide_overlay()`, `set_allowed_areas(areas)`, `allowed_areas() → DockWidgetArea`, `drop_area_under_cursor() → DockWidgetArea`, `enable_drop_preview(enable)`, `drop_overlay_rect() → QRect`, `mode → OverlayMode`, `cross → DockOverlayCross`, `refresh_style()`, `paintEvent(e)` |
+| **DockOverlayCross** | `setup_overlay_cross(mode)`, `update_overlay_icons()`, `reset()`, `update_position()`, `cursor_location() → DockWidgetArea`, `set_area_widgets(widgets)`, `reset()` |
+
+---
+
+### 2.9 `dock_chrome.py` — Chrome primitives
+
+| Class/Function | Description |
+|---|---|
+| **DragDetector** | QObject event filter that emits `drag_started` when mouse moves past threshold without consuming events |
+| **ChromeToolButton** | QToolButton with painted rounded hover background; `set_hover_chrome(bg, radius)`, `set_hovered(on)`, `paintEvent()` |
+| **ChromeFrame** | QFrame with painted rounded/outlined panel; `set_chrome(tokens)`, `set_chrome_focused(on)`, `chrome() → ChromeTokens`, `paintEvent()` |
+| **style_title_bar_buttons(buttons, …)** | Applies shared sizing + painted hover to a list of QAbstractButton instances |
+| **_contrast_step(color, amount)** | Shifts color lightness in the contrasting direction |
+
+---
+
+### 2.10 `dock_paint.py` — Painting primitives
+
+| Function | Description |
+|---|---|
+| `chrome_content_margin(border_width, radius) → int` | Inset to keep children clear of border + corner arcs |
+| `top_rounded_path(rect, radius) → QPainterPath` | Path with only top corners rounded |
+| `bottom_rounded_path(rect, radius) → QPainterPath` | Path with only bottom corners rounded |
+| `ChromeTokens(bg, border, border_width, radius, focus_border)` | Frozen dataclass; `content_margin()` method |
+| `paint_panel(p, rect, c, focused)` | Core panel painter: fill + outline + focus swap |
+| `paint_tab(p, rect, bg, bg_gradient, radius, indicator, indicator_width, indicator_edge)` | Tab painter with optional indicator strip |
+| `create_high_dpi_drop_indicator_pixmap(size, area, mode, colors, dpr) → QPixmap` | Drop-zone icon painter |
+
+---
+
+## 3. Theming System
+
+### 3.1 `dock_theme.py` — Theme definitions & color math
+
+| Class | Description |
+|---|---|
+| **DockStyleCategory** (enum) | `CORE`, `PANEL`, `TAB`, `TITLE_BAR`, `SIDEBAR`, `SIDEPANEL`, `SPLITTER`, `OVERLAY` |
+| **_FontFields** (dataclass) | Shared typography: `font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline` |
+| **DockCoreStyleSchema** | canvas_bg, border_color, accent_color, focus_border_color, status colors, geometry (border_width, corner_radius, margin, padding), text colors |
+| **DockPanelStyleSchema** | bg_normal, text_color, input_bg, alternate_base, button_bg, 3D colors (light/mid/dark/shadow), geometry |
+| **DockTabStyleSchema** | bg_normal/hover/active, border, geometry, text_normal/active, active_font_weight, indicator_color/width/position, close_btn_* |
+| **_ActionButtonFields** | button_color/disabled/hover_bg, corner_radius, padding, expand_vertical, size, icon_size |
+| **DockTitleBarStyleSchema** | Inherits _ActionButtonFields + _FontFields; bg_normal/active, active_edge, geometry, text, button_spacing |
+| **DockSidebarStyleSchema** | width, bg/border, tab backgrounds, tab geometry/typography, indicator, badge |
+| **DockSidePanelStyleSchema** | bg_normal, geometry, title text/font, button settings, shadow |
+| **DockSplitterStyleSchema** | handle_color/h_hover_color, handle_width, total_width, handle_margin |
+| **DockOverlayStyleSchema** | frame_color, background_color, overlay_color, arrow_color, shadow_color |
+| **ThemeSpec** (frozen dataclass) | Declarative 3-5 color theme with geometrical tokens; see §3.2 below |
+| **build_theme(spec) → dict** | Public API: builds full theme dict from ThemeSpec |
+| **_build_theme(…)** | Internal: derives all category dicts from base/accent/text + status colors |
+| **_adjust_color(col, l_off, s_off, h_off, a_off)** | HSL color manipulation |
+| **_contrasting_hover(col, amount)** | Hover color that always contrasts with container |
+| **BASE_DOCK_DEFAULTS** | Default "VS Code 2026 Dark" theme |
+| **to_qcolor(val) → QColor** | Converts list/hex/string to QColor |
+| **qcolor_to_list(c) → list** | Inverse |
+| **is_color_list(val) → bool** | Type guard |
+| **deep_to_qcolor(value)** | Recursive list→QColor conversion |
+| **deep_to_serializable(value)** | Recursive QColor→list conversion |
+| **DockThemeColors** (frozen dataclass) | All resolved colors for palette construction |
+| **resolve_dock_colors() → DockThemeColors** | Cached resolution from DockStyleManager |
+| **_resolve_uncached(sm) → DockThemeColors** | Full resolution logic |
+| **_apply_shared_roles(pal, c)** | Applies shared palette roles |
+| **build_dock_palette(is_panel, base_palette, colors) → QPalette** | Constructs QPalette from resolved colors |
+| **_get_contrasting_text_color(col) → QColor** | Luminance-based white/dark text |
+
+### 3.2 `dock_theme.py` — ThemeSpec & Geometrical Tokens
+
+`ThemeSpec` is a frozen dataclass that accepts color palettes (list or `QColor`) alongside optional geometrical and status tokens:
+
+| Field | Type | Description |
+|---|---|---|
+| `base` | `QColor` / `List[int]` | Primary canvas/background color |
+| `accent` | `QColor` / `List[int]` | Accent/highlight color |
+| `text` | `QColor` / `List[int]` | Default text color |
+| `surface` | `QColor` / `List[int]` | Inner panel/card surface color |
+| `border` | `QColor` / `List[int]` | Card outline color (used as `_focus_border` when set) |
+| `is_light` | `bool` | Light-mode flag; controls unfocused border derivation |
+| `title_mode` | `str` | `"darker"` or `"lighter"` — title bar mode relative to panel |
+| `hover_mode` | `str` | `"darker"` or `"lighter"` — tab hover mode relative to panel |
+| `success_color` | `QColor` / `List[int]` | Status: success/green |
+| `warning_color` | `QColor` / `List[int]` | Status: warning/yellow |
+| `error_color` | `QColor` / `List[int]` | Status: error/red |
+| `info_color` | `QColor` / `List[int]` | Status: info/cyan |
+| `corner_radius` | `int` | Rounded corner radius for dock cards |
+| `border_width` | `float` | Stroke width for card outlines |
+| `title_height` | `int` | Height of the title bar |
+| `title_padding_left` | `int` | Left padding of title bar content |
+| `title_padding_right` | `int` | Right padding of title bar content |
+| `title_button_spacing` | `int` | Spacing between title bar action buttons |
+| `title_margin` | `int` | Inset around title bar (0 = flush against outer card edges) |
+| `title_border_width` | `float` | Full outline stroke around title bar |
+| `title_border_bottom` | `float` | Divider stroke underneath title bar |
+| `title_border_color` | `QColor` / `List[int]` | Color for title bar borders |
+| `tab_radius` | `int` | Rounded corner radius for tabs |
+| `tab_margin` | `int` | Gap between adjacent tabs |
+| `content_margin` | `int` / `float` / `List[int]` / `Tuple[int, ...]` | Margin around widget content; single value = all sides, two values = `(left/right/bottom, top)` |
+
+### 3.3 Titlebar Flushness & Borders
+
+When a dock card (`DockAreaWidget`) has rounded corners (`corner_radius`) and an outer `border_width`, the outer card layout applies an inset (`chrome_content_margin`) to its children by default (`4px` in Cyberpunk Neon, `1px` in standard themes) so that square inner children stay inside the curve. This produces a `1-4px` ring of the panel background (`surface`) surrounding the title bar (`DockAreaTitleBar`).
+
+`ThemeSpec` provides full control:
+- **`title_margin`**: Inset around top, left, right of `DockAreaTitleBar`. Set `title_margin = 0` for a **100% flush** title bar — `DockAreaTitleBar` automatically takes the outer `corner_radius` for its top corners, perfectly following the outer card contour without double-padding. Set `title_margin = 2` (or `3`) to create a concentric border.
+- **`title_border_bottom`**: Draws a crisp divider line (`QPen`) across the bottom edge of `DockAreaTitleBar` (`title_border_color` controls its color).
+- **`title_border_width`**: Draws a full outline stroke around `DockAreaTitleBar`.
+
+### 3.4 Titlebar Spacing
+
+By default, `DockTitleBarStyleSchema.padding_left` is `0` (with fallback to `0` in `DockAreaTitleBar.refresh_style()`). This ensures the leftmost tab (`DockWidgetTab`) aligns flush against the inner card border. Because `DockAreaTitleBar` is nested inside `DockAreaWidget` with a `chrome_content_margin` inset (`2px`), `pad_left = 0` eliminates double-padding and produces a clean visual hierarchy.
+
+### 3.5 Dynamic Content Margin
+
+`DockWidget.refresh_style()` parses `content_margin` from `DockStyleCategory.PANEL` using two modes:
+1. **Single Value** (e.g. `content_margin = 6`): Applies equally to all four sides (`left=6, top=6, right=6, bottom=6`).
+2. **Two Values** (e.g. `content_margin = (8, 2)`): The first value (`8`) applies to `left`, `right`, and `bottom`. The second value (`2`) controls the `top` margin immediately beneath the titlebar, enabling tight integration without visual gaps or double borders.
+
+### 3.6 Reactive Border Colors
+
+Card borders (`border_width`) on `DockAreaWidget` panels (`ChromeFrame`) are **reactive to focus**:
+
+1. **Focused** (`_chrome_focused = True`): Only the active dock area displays the vibrant `focus_border_color` (`_focus_border`). If `ThemeSpec.border` is explicitly defined it is used as the high-visibility active outline; otherwise `_accent_bright` is used automatically.
+2. **Unfocused** (`_chrome_focused = False`): All inactive dock areas display a calm, neutral border (`border_color` → `_neutral_border`) derived automatically from the inner card surface (`_panel`) or base canvas (`base`):
+   - **Dark Themes** (`is_light = False`): Stepped slightly lighter (`+0.08`) than the dark panel surface.
+   - **Light Themes** (`is_light = True`): Stepped slightly darker (`-0.12`) than the light panel surface.
+3. **Focus Coordination**: `DockManager.set_active_dock_area(area)` acts as the global coordinator — it calls `set_chrome_focused(True)` on the active area and `set_chrome_focused(False)` on the previously active area whenever any child widget gains keyboard focus (`qapp.focusChanged`), when a tab is selected (`set_current_index`), or upon mouse interaction (`mousePressEvent`).
+
+### 3.7 Example Theme: Cyberpunk Neon
+
+The `cyberpunk_neon` preset demonstrates the full range of both color and geometrical tokens:
+
+```python
+"cyberpunk_neon": ThemeSpec(
+    base       = [14, 11, 28, 255],     # Deep cyber indigo
+    accent     = [255, 0, 127, 255],    # Electric neon pink
+    text       = [245, 245, 255, 255],  # Crisp white text
+    surface    = [24, 19, 44, 255],     # Rich violet inner panel
+    border     = [0, 240, 255, 255],    # Glowing cyan structural border
+    title_mode = "darker",              # Recessed dark indigo header
+    hover_mode = "lighter",             # Tabs highlight brightly on hover
+    success_color = [57, 255, 20, 255], # Neon green
+    warning_color = [255, 215, 0, 255], # Cyber gold
+    error_color   = [255, 42, 109, 255],# Neon red
+    info_color    = [5, 217, 232, 255], # Cyan
+    corner_radius = 10,                 # Distinct rounded card corners
+    border_width = 1.5,                 # Visible glowing 1.5px cyan outline
+    title_height = 32,                  # Roomy 32px title bar height
+    title_padding_left = 0,             # Leftmost tabs sit flush against left edge
+    title_padding_right = 8,            # 8px padding on right side
+    title_button_spacing = 6,           # 6px spacing between action buttons
+    tab_radius = 8,                     # 8px rounded top corners on tabs
+    tab_margin = 3,                     # 3px gap separating adjacent tabs
+    content_margin = (8, 2),            # 8px left/right/bottom, tight 2px top gap under title bar
+)
+```
+
+### 3.8 Architectural Flow
+
+```
+[ThemeSpec in dock_custom_theme.py]
+              │
+              ▼
+   [build_theme() / _build_theme()]
+   ├── _neutral_border (unfocused, derived by light/dark contrast)
+   └── _focus_border   (focused, explicit spec.border or accent)
+              │
+              ▼
+  [Dict of DockStyleCategory schemas]
+   ├── CORE      ──> [ChromeTokens(border=_neutral_border, focus_border=_focus_border)]
+   │                   │
+   │                   ▼
+   │              [DockManager.set_active_dock_area(area)]
+   │              swaps outline dynamically on focus / tab selection
+   │
+   ├── TITLE_BAR ──> [DockAreaTitleBar (height, pad_left=0, button_spacing)]
+   ├── TAB       ──> [DockWidgetTab (corner_radius, margin)]
+   └── PANEL     ──> [DockWidget (content_margin -> setContentsMargins)]
+```
+
+### 3.9 `dock_custom_theme.py` — Theme presets
+
+| Theme | Description |
+|---|---|
+| `dark` | Recessed headers, clean contrast |
+| `light` | High clarity, professional light gray |
+| `midnight` | OLED-friendly, ultra-high contrast |
+| `warm` | Organic, cozy tones |
+| `nordic` | Frosty and crisp |
+| `monokai` | Classic dev look |
+| `neutral` | Silver workstation |
+| `tokyo_night` | Clean neon-accented dark |
+| `catppuccin` | Soothing pastel dark |
+| `dracula` | High-contrast dark with purple |
+| `solarized_dark` | Teal/cyan dark palette |
+| `solarized_light` | Warm cream light palette |
+| `cyberpunk_neon` | Vibrant, ultra-contrasty |
+
+All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
+
+### 3.10 `dock_style_manager.py` — `DockStyleManager` (singleton)
+
+| Category | Members |
+|---|---|
+| **Signals** | `style_changed(category, changes)` |
+| **Singleton** | `instance() → DockStyleManager` |
+| **Theme** | `apply_theme(name) → bool`, `_reset_to_defaults()` |
+| **Subscribers** | `register(subscriber, category)`, `unregister(subscriber, category?)` |
+| **Get** | `get(category, key, default)`, `get_all(category) → dict` |
+| **Update** | `update(category, **kwargs) → set` (returns changed keys) |
+| **Meta** | `generation` (monotonic counter), `_dict_cache`, `_suppress_signals` |
+| **Convenience** | `get_dock_style_manager()`, `apply_dock_theme(name)` |
+
+### 3.11 `dock_theme_bridge.py` — `DockThemeBridge`
+
+Pushes QPalette to the target widget/app so Qt children match the dock theme.
+
+| Category | Members |
+|---|---|
+| **Constructor** | `__init__(target, style_name, parent)` — applies Fusion style, registers for CORE/TAB/TITLE_BAR/PANEL/SIDEBAR/SIDEPANEL |
+| **Callback** | `on_style_changed(category, changes)` — debounced via QTimer |
+| **Refresh** | `refresh_dock_palette()` — builds palette, applies to target, re-applies to all DockWidgets |
+| **Base** | `_apply_base_style(style_name)` |
+
+### 3.12 `theme_manager.py` — `ThemeManager`
+
+OS-aware auto dark/light theme switching.
+
+| Category | Members |
+|---|---|
+| **Signals** | `theme_changed(theme_name, is_dark)` |
+| **OS Detection** | `is_windows_dark_mode()` — checks Qt 6.5+ colorScheme, Windows registry, or palette fallback |
+| **Sync** | `sync_theme(force) → bool` — applies dark/light theme from user preferences |
+| **Events** | `eventFilter(obj, event)`, `_on_color_scheme_changed()`, `install_listener(target)`, `remove_listener(target)` |
+| **User prefs** | `user_light_theme`, `user_dark_theme`, `auto_mode_enabled` |
+
+---
+
+## 4. Sidebar System
+
+### 4.1 `sidebar_manager.py` — `SidebarManager`
+
+VS Code-style auto-hide sidebar with hover, animations, badges, and drag-to-float.
+
+| Category | Members |
+|---|---|
+| **Signals** | `sidebar_toggled(area, bool)`, `widget_unpinned` |
+| **Setup** | `setup_shortcuts(window)`, `add_sidebar(area) → SideTabBar` |
+| **Pin/Unpin** | `pin_widget(widget, sidebar?, area?)`, `unpin_widget(widget, area?)`, `unpin_widget_floating(widget)`, `pin_to_closest_sidebar(widget)`, `move_widget_to_area(widget, area)` |
+| **Toggle** | `toggle_sidebar(area)`, `focus_sidebar(area)` |
+| **Overlay** | `close_overlay()`, `raise_overlays()`, `show_widget(widget)`, `hide_widget(widget)` |
+| **Badges** | `update_badge(widget, value)`, `badge_position` (prop), `set_badge_position(position)` |
+| **Toggles** | `set_auto_show_on_hover(enable)`, `set_animations_enabled(enable)`, `set_keep_open(keep)` |
+| **State** | `save_state() → dict`, `restore_state(dict) → bool` |
+| **Props** | `overlay → SideBarContainer`, `focus_behavior → SideBarFocusBehavior`, `has_sidebars → bool` |
+| **Internal** | `_uncheck_all()`, `_on_tab_hover_enter/leave()`, `_process_pending_switch()`, `_on_hide_timeout()`, `_on_tab_clicked()`, `_show_for_button()`, `_on_overlay_pin_back/drag_unpin/resized()`, `_on_tab_drag_started()`, `_on_sidebar_activated()` |
+
+**Inner controllers:**
+- **SidebarKeyboardHandler** — shortcut registration (Escape), signals: `toggle_sidebar`, `focus_sidebar`, `close_current`
+- **SidebarHoverController** — hover timers (400ms hide, 150ms switch), pending tab switching
+- **SidebarOverlayController** — show/hide/resizing overlay, detach from overlay
+- **SidebarDragController** — drag tab off sidebar → floating window
+- **ClickOutsideFilter** — closes overlay when clicking outside
+- **FloatingDragTracker** — tracks mouse during sidebar tear-off floating
+
+### 4.2 `sidebar_tab.py` — `VerticalTabButton`
+
+Rotated tab button for the sidebar.
+
+| Category | Members |
+|---|---|
+| **Signals** | `drag_started`, `context_menu_requested`, `close_requested` |
+| **Badge** | `set_badge(value, color?, position?)`, `clear_badge()`, `badge_position` (prop), `set_badge_position(position)` |
+| **Paint** | `paintEvent(event)` — rotated icon+text, indicator edge mirroring, badge drawing |
+| **Size** | `sizeHint()`, `minimumSizeHint()` |
+| **Area** | `set_area(area)`, `_indicator_edge() → Qt.Edge` |
+| **Mouse** | `enterEvent()`, `leaveEvent()`, `mousePressEvent()` (middle-click closes) |
+| **Context** | `_on_context_menu(pos)` |
+| **Styling** | `refresh_style()` |
+
+### 4.3 `sidebar_tab_bar.py` — `SideTabBar`
+
+Vertical tab strip with scroll, overflow counter, drag-drop reordering.
+
+| Category | Members |
+|---|---|
+| **Signals** | `tab_hover_enter/leave/clicked/drag_started/moved`, `sidebar_activated` |
+| **Tabs** | `add_tab(widget) → VerticalTabButton`, `remove_tab(widget)`, `count()`, `current_index()`, `is_tab_open(i)`, `tab(i)`, `button_for(widget)`, `uncheck_all()`, `tab_count()` |
+| **Scroll** | `_scroll_by(delta)`, `wheelEvent()`, `_update_scroll_visibility()` |
+| **Drop** | `dragEnterEvent()`, `dragMoveEvent()`, `dragLeaveEvent()`, `dropEvent()`, `_show/update/hide_drop_indicator()` |
+| **Menu** | `build_dock_menu(menu, tab_bar?)`, `dispatch_dock_action(action)`, `_on_tab_context_menu(btn, pos)` |
+| **MenuActionTarget** | `menu_target_widget()`, `menu_switch_tab_target(i)`, `menu_unpin_target()`, `menu_float_target()`, `menu_close_target()`, `menu_close_others_target()` |
+| **Actions** | `_close_dock_widget(widget)`, `_close_tab_button(btn)`, `_close_others(keep_btn)`, `_close_all()`, `_move_to_area(widget, area)`, `_unpin_tab(btn)` |
+| **Style** | `refresh_style()`, `paintEvent(event)` |
+| **Filter** | `eventFilter(obj, event)` — hover enter/leave |
+
+### 4.4 `sidebar_container.py` — `SideBarContainer`
+
+Animated overlay panel hosting a pinned widget.
+
+| Category | Members |
+|---|---|
+| **Signals** | `pin_back_requested`, `drag_unpin_requested`, `close_requested`, `resize_started/finished` |
+| **Show/Hide** | `show_widget(widget, area, animate, size)`, `hide_widget(animate)`, `_on_anim_finished()`, `_on_hide_finished()` |
+| **Geometry** | `_get_visible_geometry()`, `_get_hidden_geometry()`, `_update_geometry()`, `_get_max_width()`, `_get_max_height()` |
+| **Resize** | `mousePressEvent()`, `mouseMoveEvent()`, `mouseReleaseEvent()`, `_is_in_resize_zone(pos)`, `_do_resize(global_pos)`, `resizeEvent()` |
+| **Focus** | `focus_behavior` (prop), `_focus_inner_widget()`, `_restore_previous_focus()`, `_on_app_focus_changed(old, new)` |
+| **Shadow** | `_update_shadow_direction()` |
+| **Layout** | `_update_layout_margins()`, `_update_resize_margins()`, `eventFilter(obj, event)` — parent resize clamping |
+| **Style** | `refresh_style()`, `paintEvent(event)` |
+| **Focus behavior** | `SideBarFocusBehavior.take_focus_and_restore`, `no_focus_transfer`, `take_focus_only` |
+
+### 4.5 `sidebar_title_bar.py` — `SideBarTitleBar`
+
+Title bar inside the overlay panel.
+
+| Category | Members |
+|---|---|
+| **Signals** | `close_requested`, `reattach_requested`, `detach_requested` |
+| **UI** | `set_widget(widget?)` — updates title + button visibility |
+| **Drag** | `_on_drag_started(pos)` — drag to detach |
+| **Menu** | `build_dock_menu(menu, tab_bar?)`, `dispatch_dock_action(action)`, `_show_context_menu(pos)` |
+| **Buttons** | `_on_reattach_clicked()`, `_on_close_clicked()` |
+| **MenuActionTarget** | `menu_target_widget()`, `menu_unpin_target()`, `menu_float_target()`, `menu_close_target()` |
+| **Style** | `refresh_style()`, `paintEvent(event)` |
+
+---
+
+## 5. Layout Serialization
+
+### 5.1 `layout_serializer.py`
+
+| Class | Description |
+|---|---|
+| **LayoutSerializer** (facade) | `serialize(version, formatted) → str`, `deserialize(json, version)` — validates system type and version |
+| **LayoutStateBuilder** | `build_state_dict(version) → dict` — iterates containers, saves geometries, sidebar state, widget states |
+| **LayoutEngine** | `apply_state(dict)` — validates, hides floating widgets, restores containers/areas/widgets, applies geometries, restores sidebar state |
+| **LayoutPersistenceManager** | `save_layout(serializer, filename, version, formatted)` — atomic write (temp file + rename), `load_layout(serializer, filename, version)` |
+
+**Exceptions:** `LayoutError`, `LayoutIOError`, `InvalidFormatError`, `RestoreFailureError`.
+
+**LayoutEngine internals:** `_validate_can_restore()`, `_hide_floating_widgets()`, `_mark_dock_widgets_dirty()`, `_restore_dock_widgets_open_state()`, `_restore_sidebar_state()`, `_restore_dock_areas_indices()`, `_emit_top_level_events()`, `_apply_container_geometry(fw, geo)` — rescues off-screen windows.
+
+### 5.2 `dock_container_state.py`
+
+Low-level container state save/restore (used by LayoutEngine).
+
+| Function | Description |
+|---|---|
+| `save_container_state(c) → dict` | Serializes floating state, geometry, root splitter tree |
+| `restore_container_state(c, state, testing) → bool` | Restores tree structure, splitter orientations, dock areas |
+| `_save_child_nodes_state(c, widget)` | Recursive: QSplitter → orientation/sizes/children, DockAreaWidget → area state |
+| `_restore_child_nodes(c, state, testing)` | Dispatches to `_restore_splitter()` or `_restore_dock_area()` |
+| `_restore_splitter(c, state, testing)` | Rebuilds splitter hierarchy with sizes |
+| `_restore_dock_area(c, state, testing)` | Rebuilds dock area with widgets, closed states, current index |
+
+---
+
+## 6. Signals & Menus
+
+### 6.1 `dock_signals.py` — `DockSignals` (internal event bus)
+
+| Signal | Args |
+|---|---|
+| `request_overlay_show` | `(target_container)` |
+| `request_overlay_hide` | `()` |
+| `floating_widget_dropped` | `(floating_widget, target_pos)` |
+
+### 6.2 `dock_menu.py` — Unified context menu system
+
+| Class/Enum | Description |
+|---|---|
+| **MenuSection** (Flag) | `TAB_LIST`, `PIN`, `UNPIN`, `DETACH`, `MAXIMIZE`, `CLOSE`, `CLOSE_OTHERS`; presets: `TITLE_BAR`, `TAB`, `SIDEBAR_TAB` |
+| **MenuContext** (dataclass) | widget_type, sections, category, widget, area, tab_bar, count, is_closable/floatable/pinnable/pinned/floating/has_sidebars/show_close_others, icon/label overrides |
+| **MenuActionTarget** (Protocol) | Interface: `menu_target_widget()`, `menu_close_target()`, `menu_float_target()`, `menu_dock_target()`, `menu_pin_target()`, `menu_unpin_target()`, `menu_pin_all_target()`, `menu_close_others_target()`, `menu_maximize_target()`, `menu_switch_tab_target(i)` |
+| **dock_icon(key, category) → QIcon** | Resolves from SVG provider → theme icon → standard icon; tints for Normal/Disabled states |
+| **build_dock_context_menu(context, menu)** | Stateless menu builder populates QMenu from context |
+| **dispatch_dock_context_menu(action, target, fallback)** | Routes triggered QAction to target's MenuActionTarget methods |
+| **find_closest_dock_area(global_center, manager) → DockWidgetArea** | Finds nearest outer edge |
+| **menu_default_pin/unpin/pin_all/reattach(area)** | Default action implementations |
+
+---
+
+## 7. Styling Infrastructure
+
+### 7.1 `dock_styled.py` — `DockStyled` mixin
+
+| Method | Description |
+|---|---|
+| `_init_dock_style(refresh=True)` | Registers widget as subscriber for `STYLE_CATEGORIES`, applies initial style |
+| `on_style_changed(category, changes)` | Debounced refresh (single-shot timer) |
+| `_do_refresh()` | Calls `refresh_style()`, catches RuntimeError for deleted widgets |
+| `refresh_style()` | Abstract — must be overridden by subclass |
+
+### 7.2 `dock_icon_provider.py` — `DockIconProvider`
+
+| Category | Members |
+|---|---|
+| **Loading** | `__init__(directory)`, `_preload()` — reads all SVGs into string cache |
+| **Get** | `get(name, category, active, disabled, size) → QIcon` — resolves tint color, caches by (name, color, active, disabled, size) |
+| **Tinting** | `_tint_svg(svg, color)` — replaces fill/stroke with color |
+| **Rendering** | `_render_svg(svg_data, size) → QPixmap` — SVG render at 4× supersample → smooth downscale |
+| **Color resolution** | `_resolve_color(category, active, disabled) → str`, `_resolve_normal_color()`, `_resolve_disabled_color()` |
+| **Callback** | `on_style_changed(category, changes)` — clears tint cache |
+| **Singleton** | `get_icon_provider(directory)` |
+
+---
+
+## 8. Enums & Configuration
+
+### 8.1 `enums.py` — Core System Enums
+
+| Enum | Type | Purpose |
+|---|---|---|
+| **DockInsertParam** (NamedTuple) | `orientation`, `append` | Helper for splitter insertion direction; exposes `insert_offset` property |
+| **DockWidgetArea** (`IntFlag`) | Bitwise flags: `no_area`, `left`, `right`, `top`, `bottom`, `center`, `invalid`; masks: `outer_dock_areas` (15), `all_dock_areas` (31) | Physical layout zones within a `DockContainerWidget` or `SideBarContainer` where widgets can be dropped, split, or docked. Used by `DockContainerWidget` to determine splitter orientation (Horizontal for left/right, Vertical for top/bottom), by `SideBarManager` to map to sidebar overlays, and by `DockOverlay` / `DockPaint` to compute drop-zone hitboxes and paint translucent indicators |
+| **DockFlags** (`IntFlag`) | 16 global config bits: `opaque_splitter_resize`, `opaque_undocking`, `always_show_tabs`, `show_tab_close_button`, `active_tab_has_close_button`, `dock_area_has_close_button`, `dock_area_close_button_closes_tab`, `dock_area_has_undock_button`, `dock_area_has_pin_button`, `dock_area_has_maximize_button`, `dock_area_has_tabs_menu_button`, `middle_mouse_button_closes_tab`, `floatable_tabs`, `pinnable_tabs`, `custom_tab_icons`, `hide_disabled_title_bar_icons`, `chromeless_float`; plus `none_` (0) and `default_config` (combined mask) | Global system configuration controlling tab rendering, button visibility, drag-and-drop behavior, and floating window appearance. Stored on `DockManager.config_flags`. For example: `opaque_undocking` keeps floating windows at 100% opacity during drag (vs 0.6); `chromeless_float` creates frameless top-level windows; `custom_tab_icons` switches between user-configured and default tab icons; `floatable_tabs` / `pinnable_tabs` gate whether tabs can be dragged to float or pinned to sidebars |
+| **TitleBarButton** (Enum) | `tabs_menu`, `undock`, `close`, `pin`, `maximize`, `minimize`, `restore` | Identifiers for standard interactive buttons on dock area title bars. Used by `DockAreaTitleBar.button(which)` to retrieve specific `QToolButton` instances, and by `DockContainerWidget` to dynamically update button visibility/state for floating windows |
+| **OverlayMode** (Enum) | `dock_area`, `container` | Controls how translucent drop indicator crosses (`DockOverlay`) are rendered: `dock_area` targets a specific `DockAreaWidget` (local card split), `container` targets outer margins of `DockContainerWidget` (global edge split). Instantiated in `DockManager.__init__()` as two separate overlays |
+| **DragState** (Enum) | `inactive`, `mouse_pressed`, `tab`, `floating_widget` | State machine tracking drag-and-drop context across `DockWidgetTab`, `DockAreaTitleBar`, and `FloatingDockContainer`. Transitions: `mouse_pressed` → (distance exceeded?) → `tab` (reorder within tab bar) or `floating_widget` (detach to new window) → `inactive` on release |
+| **InsertionOrder** (Enum) | `by_spelling`, `by_insertion` | Governs sorting order of dock widget items in dynamic "Show View" dropdown menus (`DockManager.view_menu`). `by_spelling` = alphabetical by title; `by_insertion` = chronological by widget registration. Runtime-changeable via `DockManager.menu_insertion_order` |
+| **DockWidgetFeature** (`IntFlag`) | Bitwise per-widget: `closable`, `movable`, `floatable`, `pinnable`; mask `all_features` (15) | Fine-grained permission gating defining what actions a user can perform on a specific `DockWidget`. Checked by `DockWidgetTab` / `DockAreaTitleBar` to show/hide close, undock, and pin buttons; by `SidebarManager` to block pin/unpin/move operations on non-pinnable/immovable widgets |
+| **WidgetState** (Enum) | `docked`, `floating`, `pinned_shown`, `pinned_hidden` | Tracks current structural attachment and display mode of a `DockWidget`. Set by `SidebarManager` (pin → `pinned_hidden`, slide_out → `pinned_shown`, unpin → `docked`, detach → `floating`). Inspected by `DockWidget.refresh_style()` to apply correct `DockStyleCategory` token overrides (`SIDEPANEL` vs `CORE`) |
+| **InsertMode** (Enum) | `auto_scroll_area`, `force_scroll_area`, `force_no_scroll_area` | Specifies whether client content inside a `DockWidget` is wrapped in a `QScrollArea`. Default `auto_scroll_area` wraps if widget is not already a scroll area; `force_scroll_area` always wraps; `force_no_scroll_area` adds directly to layout without scrollbars |
+| **ToggleViewActionMode** (Enum) | `toggle`, `show` | Controls behavior of `dock_widget.toggle_view_action()` in menu bars/toolbars. `toggle` = checkable QAction that flips Show/Hide; `show` = non-checkable push that only reveals the widget |
+| **SideBarFocusBehavior** (Enum) | `take_focus_and_restore`, `no_focus_transfer`, `take_focus_only` | Configures keyboard focus stealing when sidebar overlays slide out/in. `take_focus_and_restore` = sidebar takes focus on open, restores previous focus on close; `no_focus_transfer` = no focus change; `take_focus_only` = takes focus on open but does not restore on close. Global setting via `DockManager.sidebar_focus_behavior` |
+
+### 8.2 `sidebar_tab.py` — `TabBadgePosition` (Enum)
+
+| Enum | Values | Purpose |
+|---|---|---|
+| **TabBadgePosition** | `top_left`, `top_right`, `bottom_left`, `bottom_right` | Corner positioning of numerical notification badges on vertical sidebar tabs (`VerticalTabButton`). Default is `top_right`. Exposed via `badge_position` property / `set_badge_position()` setter on both `VerticalTabButton` and `SidebarManager`. Also theme-drivable via `DockSidebarStyleSchema` for per-theme corner overrides |
+
+### 8.3 `dock_theme.py` — `DockStyleCategory` (Enum)
+
+| Enum | Values | Purpose |
+|---|---|---|
+| **DockStyleCategory** | `CORE`, `PANEL`, `TAB`, `TITLE_BAR`, `SIDEBAR`, `SIDEPANEL`, `SPLITTER`, `OVERLAY` | Namespaces component categories for hierarchical style token lookups (`StyleManager.get_all(category)`) and SVG icon color generation (`dock_icon(name, category)`). Every UI component registers its relevant categories via `DockStyled.STYLE_CATEGORIES` (e.g., `VerticalTabButton` → `SIDEBAR`, `DockWidget` → `PANEL`). Used by `DockThemeBridge` to push correct QPalette roles to Qt children |
+
+---
+
+## 9. Utility Modules
+
+| Module | Contents |
+|---|---|
+| **`util.py`** | `emit_top_level_event_for_widget()`, `start_drag_distance()`, `create_transparent_pixmap()`, `set_button_icon()`, `hide_empty_parent_splitters()`, `find_parent()`, `find_child()`, `find_children()`, `_dump_recursive()`, `dump_layout()` |
+| **`eliding_label.py`** | `ElidingLabel` — QLabel with text elision, resize-aware, click/double-click signals |
+| **`_trace.py`** | `trace(event, **fields)` — optional debug tracing (off by default, enabled via `LACE_TRACE=1`) |
+
+---
+
+## 10. Widget Hierarchy (Runtime)
+
+```
+QMainWindow (user's main window)
+└── DockManager
+    └── DockContainerWidget (root)          ← set as central widget
+        ├── SideTabBar (left)                ← sidebar tab strip
+        ├── SideTabBar (right)               ← sidebar tab strip
+        ├── QGridLayout
+        │   ├── cell(0,1): SideTabBar(top)   ← optional top sidebar
+        │   ├── cell(1,0): SideTabBar(left)  ← optional left sidebar
+        │   ├── cell(1,1): DockSplitter      ← main content area
+        │   │   └── DockAreaWidget ×N
+        │   │       ├── DockAreaTitleBar
+        │   │       │   └── DockAreaTabBar
+        │   │       │       └── DockWidgetTab ×N
+        │   │       └── DockAreaLayout
+        │   │           └── DockWidget (visible)
+        │   │               └── QScrollArea
+        │   │                   └── user widget
+        │   ├── cell(1,2): SideTabBar(right) ← optional right sidebar
+        │   ├── cell(2,1): SideTabBar(bottom)← optional bottom sidebar
+        │   └── cell(0,0) / cell(2,0) etc.  ← empty corners
+        └── SideBarContainer (overlay)       ← auto-hide sidebar panel
+            ├── SideBarTitleBar
+            └── QSplitter
+                └── DockWidget (pinned)
+```
+
+Floating windows replace the root `DockContainerWidget` with a `FloatingDockContainer` (top-level Qt window) that wraps its own `DockContainerWidget` with identical internal structure.
+
+---
+
+## 11. Data Flow Summary
+
+### Adding a dock widget:
+```
+DockManager.add_dock_widget(area, widget)
+  → widget.set_dock_manager(self)
+  → widget added to _dock_widgets_map
+  → toggle_view_action added to _view_menu
+  → root.add_dock_widget(area, widget, target_area)
+    → DockContainerWidget._dock_widget_into_container() or _dock_widget_into_dock_area()
+      → Creates DockAreaWidget if needed
+      → Inserts into QGridLayout / DockSplitter hierarchy
+      → Updates title bar visibility
+```
+
+### Floating a widget:
+```
+DockWidgetTab/DockAreaTitleBar mouse drag → start_drag_distance exceeded
+  → FloatingDockContainer(dock_widget=widget)
+    → Creates new DockContainerWidget(parent=floating_window)
+    → Sets widget_state = floating
+    → Shows as top-level window
+  → FloatingDockContainer.start_dragging(pos, size, handler)
+    → Grab mouse, install event filter
+    → move_floating() tracks cursor
+    → _update_drop_overlays() shows drop zones on other containers
+  → Mouse release → _finalize_drag()
+    → drop_floating_widget() → DockContainerWidget.drop_floating_widget()
+      → DropController resolves target area
+      → Inserts widgets into target splitter hierarchy
+      → Deletes floating window
+```
+
+### Theme change:
+```
+DockManager.set_theme(name)
+  → DockStyleManager.apply_theme(name)
+    → _reset_to_defaults()
+    → update(category, **theme_data) for each category
+      → _set_field() converts colors to QColor, records changes
+      → _notify_subscribers(category, changes)
+        → style_changed.emit(category, changes)
+        → For each subscriber: on_style_changed(category, changes) or refresh_style()
+  → DockThemeBridge.on_style_changed()
+    → Debounced QTimer.singleShot(0, refresh_dock_palette)
+    → resolve_dock_colors() → build_dock_palette() → target.setPalette(palette)
+    → Refresh all DockWidget instances
+```
+
+### Layout save/restore:
+```
+DockManager.save_state(version)
+  → LayoutSerializer.serialize(version)
+    → LayoutStateBuilder.build_state_dict(version)
+      → Iterates dock_containers() → save_container_state()
+      → Saves sidebar state, geometries, widget closed states
+      → json.dumps()
+  → LayoutPersistenceManager.save_layout() → atomic file write
+
+DockManager.restore_state(json, version)
+  → LayoutSerializer.deserialize(json, version)
+    → json.loads() → validates type/version
+    → LayoutEngine.apply_state(state_dict)
+      → _validate_can_restore()
+      → Hides floating widgets, marks widgets dirty
+      → Restores containers (root + floating)
+      → Restores widget open/closed states
+      → Restores sidebar state
+      → Sets current indices
+      → Emits top_level_changed events
+```
