@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt, QEvent, QObject, QPoint, QRectF, QSize, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QAbstractButton, QFrame, QSizePolicy, QToolButton, QWidget
 
-from .dock_paint import ChromeTokens, paint_panel
+from .dock_paint import ChromeTokens, paint_panel, paint_panel_bg, paint_panel_border
 from .util import start_drag_distance
 
 
@@ -159,8 +159,25 @@ def style_title_bar_buttons(
         btn.setIconSize(icon)
 
 
+class _ChromeBorderOverlay(QWidget):
+    """Transparent overlay widget that draws the card outline stroke on top of all child widgets
+    to ensure crisp, antialiased corner curves without child clipping or mask staircases."""
+    def __init__(self, parent: 'ChromeFrame'):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self.setAutoFillBackground(False)
+        self._parent = parent
+
+    def paintEvent(self, event) -> None:
+        p = QPainter(self)
+        paint_panel_border(p, QRectF(self.rect()), self._parent._chrome, self._parent._chrome_focused)
+
+
 class ChromeFrame(QFrame):
-    """A ``QFrame`` that paints an antialiased rounded/outlined panel.
+    """Container panel whose visual chrome (background fill + rounded corners
+    + optional outline) is painted by :func:`paint_panel_bg` and `_ChromeBorderOverlay`
+    instead of Qt StyleSheets (`QFrame.setFrameStyle` is deliberately bypassed).
 
     The widget is transparent to Qt's native fill, so the area outside the
     rounded corners shows the *parent's* background — corners stay clean on
@@ -176,6 +193,7 @@ class ChromeFrame(QFrame):
         self.setAutoFillBackground(False)
         self._chrome = ChromeTokens(bg=QColor(0, 0, 0, 0))
         self._chrome_focused = False
+        self._border_overlay = _ChromeBorderOverlay(self)
 
     def set_chrome(self, chrome: ChromeTokens) -> None:
         """Apply new chrome tokens and inset the layout so children never
@@ -185,17 +203,35 @@ class ChromeFrame(QFrame):
         if layout is not None:
             m = chrome.content_margin()
             layout.setContentsMargins(m, m, m, m)
+        if hasattr(self, "_border_overlay") and self._border_overlay is not None:
+            self._border_overlay.setGeometry(self.rect())
+            self._border_overlay.raise_()
+            self._border_overlay.update()
         self.update()
 
     def set_chrome_focused(self, focused: bool) -> None:
         """Swap to the focus outline colour (repaint only; margins constant)."""
         if focused != self._chrome_focused:
             self._chrome_focused = focused
+            if hasattr(self, "_border_overlay") and self._border_overlay is not None:
+                self._border_overlay.update()
             self.update()
 
     def chrome(self) -> ChromeTokens:
         return self._chrome
 
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "_border_overlay") and self._border_overlay is not None:
+            self._border_overlay.setGeometry(self.rect())
+            self._border_overlay.raise_()
+
+    def childEvent(self, event) -> None:
+        super().childEvent(event)
+        if event.type() in (QEvent.ChildAdded, QEvent.ChildPolished) and hasattr(self, "_border_overlay") and self._border_overlay is not None:
+            if event.child() is not self._border_overlay:
+                self._border_overlay.raise_()
+
     def paintEvent(self, event) -> None:
         p = QPainter(self)
-        paint_panel(p, QRectF(self.rect()), self._chrome, self._chrome_focused)
+        paint_panel_bg(p, QRectF(self.rect()), self._chrome)

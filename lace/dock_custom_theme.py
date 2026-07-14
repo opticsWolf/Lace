@@ -20,27 +20,39 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     # DARK (Recessed headers, clean contrast)
     # -------------------------------------------------------------------------
     "dark": ThemeSpec(
-        base       = [20, 23, 30, 255],
-        accent     = [45, 85, 170, 255],    # Boosted saturation
-        text       = [200, 205, 215, 255],
-        surface    = [26, 30, 39, 255],
-        border     = [14, 16, 22, 255],
-        title_mode = "darker",              # Deep, integrated title bars
-        hover_mode = "darker",             # Tabs pop from the panel
+        base               = [20, 23, 30, 255],
+        accent             = [45, 85, 170, 255],    # Boosted saturation
+        text               = [200, 205, 215, 255],
+        surface            = [26, 30, 39, 255],
+        border             = [20, 23, 30, 255],
+        focus_border_color = [45, 85, 170, 255],   # Highlight border
+        title_mode         = "darker",              # Deep, integrated title bars
+        hover_mode         = "darker",              # Tabs pop from the panel
+        corner_radius      = 4,
+        tab_radius         = 4,
+        border_width       = 1.5,
+        title_margin       = 0.5,
+        content_margin     = 0.5,
     ),
 
     # -------------------------------------------------------------------------
     # LIGHT (High clarity, professional light gray)
     # -------------------------------------------------------------------------
     "light": ThemeSpec(
-        base       = [225, 228, 232, 255],  # Slightly deeper base for better highlights
-        accent     = [54, 81, 217, 255],
-        text       = [45, 50, 60, 255],
-        surface    = [242, 244, 247, 255],
-        border     = [205, 210, 216, 255],
-        is_light   = True,
-        title_mode = "darker",              # Title bars feel like part of the frame
-        hover_mode = "darker",              # Recessed inactive tabs
+        base               = [225, 228, 232, 255],  # Slightly deeper base for better highlights
+        accent             = [54, 81, 217, 255],
+        text               = [45, 50, 60, 255],
+        surface            = [242, 244, 247, 255],
+        border             = [225, 228, 232, 255],
+        focus_border_color = [54, 81, 217, 255],    # Highlight border
+        is_light           = True,
+        title_mode         = "darker",              # Title bars feel like part of the frame
+        hover_mode         = "darker",              # Recessed inactive tabs
+        corner_radius      = 4,
+        tab_radius         = 4,
+        border_width       = 1.5,
+        title_margin       = 0.5,
+        content_margin     = 0.5,
     ),
 
     # -------------------------------------------------------------------------
@@ -51,9 +63,15 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         accent     = [60, 100, 255, 255],   # Electric blue
         text       = [210, 215, 230, 255],
         surface    = [14, 18, 26, 255],
-        border     = [4, 5, 8, 255],
+        border     = [14, 15, 18, 255],
+        focus_border_color = [44, 65, 148, 255],
         title_mode = "darker",
         hover_mode = "darker",              # Everything recessed except active content
+        corner_radius      = 0,
+        tab_radius         = 4,
+        border_width       = 0.5,
+        title_margin       = 0.0,
+        content_margin     = 4.0,
     ),
 
     # -------------------------------------------------------------------------
@@ -99,14 +117,20 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     # NEUTRAL (The "Silver" Workstation)
     # -------------------------------------------------------------------------
     "neutral": ThemeSpec(
-        base       = [190, 193, 197, 255],  # Pushed light-gray
-        accent     = [40, 110, 190, 255],
-        text       = [30, 35, 45, 255],
-        surface    = [210, 213, 217, 255],
-        border     = [170, 173, 178, 255],
-        is_light   = True,
-        title_mode = "darker",              # Strong structural separation
-        hover_mode = "lighter",
+        base               = [190, 193, 197, 255],  # Pushed light-gray
+        accent             = [40, 110, 190, 255],
+        text               = [30, 35, 45, 255],
+        surface            = [210, 213, 217, 255],
+        border             = [170, 173, 178, 255],
+        focus_border_color = [40, 110, 190, 255],   # Highlight border
+        is_light           = True,
+        title_mode         = "darker",              # Strong structural separation
+        hover_mode         = "lighter",
+        corner_radius      = 4,
+        tab_radius         = 4,
+        border_width       = 1.5,
+        title_margin       = 0.5,
+        content_margin     = 0.5,
     ),
 
     # -------------------------------------------------------------------------

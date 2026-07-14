@@ -357,3 +357,4 @@ class SideBarTitleBar(QFrame, DockStyled):
                 p.drawLine(0, int(y), self.width(), int(y))
         p.end()
 
+

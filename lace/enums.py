@@ -113,6 +113,9 @@ class DockFlags(enum.IntFlag):
     dock_area_has_maximize_button = enum.auto()
     """The dock area title bar displays a maximize/restore button."""
     
+    sidebar_area_has_maximize_button = enum.auto()
+    """The sidebar title bar displays a maximize/restore button when an overlay panel is open."""
+    
     dock_area_has_tabs_menu_button = enum.auto()
     """The dock area title bar displays a menu button listing all tabs."""
     
@@ -142,7 +145,7 @@ class DockFlags(enum.IntFlag):
         show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |
         dock_area_has_close_button | dock_area_has_undock_button | dock_area_has_maximize_button |
         dock_area_has_tabs_menu_button | dock_area_has_pin_button | middle_mouse_button_closes_tab |
-        pinnable_tabs | floatable_tabs
+        pinnable_tabs | floatable_tabs | sidebar_area_has_maximize_button
     )
     """The default configuration flags applied to a new DockManager."""
 

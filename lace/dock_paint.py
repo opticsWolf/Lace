@@ -100,36 +100,46 @@ class ChromeTokens:
         return chrome_content_margin(self.border_width, self.radius)
 
 
-def paint_panel(p: QPainter, rect: QRectF, c: ChromeTokens,
-                focused: bool = False) -> None:
-    """Paint a rounded panel: fill + optional outline.  THE core primitive.
-
-    Baked-in rules:
-      * the pen is inset by ``border_width / 2`` so the stroke is never clipped
-        by the widget rect (the classic "my 2px border looks like 1px" bug);
-      * fill and stroke follow the *same* path, so there is no seam between
-        them and no square bleed at the corners;
-      * the host widget must be transparent (see :class:`ChromeFrame`) so the
-        area outside the rounded path shows the parent, not this widget's fill.
-    """
+def paint_panel_bg(p: QPainter, rect: QRectF, c: ChromeTokens) -> None:
+    """Paint only the filled background of a rounded panel."""
     p.setRenderHint(QPainter.Antialiasing, True)
-
     w = c.border_width
+    inset = (w / 2.0) + 0.5 if w > 0 else 0.0
+    r = QRectF(rect).adjusted(inset, inset, -inset, -inset)
+    radius = max(0.0, c.radius - inset)
+
+    if c.bg is not None and c.bg.alpha() > 0:
+        path = QPainterPath()
+        path.addRoundedRect(r, radius, radius)
+        p.fillPath(path, c.bg)
+
+
+def paint_panel_border(p: QPainter, rect: QRectF, c: ChromeTokens,
+                       focused: bool = False) -> None:
+    """Paint only the outline stroke of a rounded panel."""
+    w = c.border_width
+    border_col = c.focus_border if (focused and c.focus_border is not None) else c.border
+    if w <= 0 or border_col is None:
+        return
+
+    p.setRenderHint(QPainter.Antialiasing, True)
     inset = (w / 2.0) + 0.5 if w > 0 else 0.0
     r = QRectF(rect).adjusted(inset, inset, -inset, -inset)
     radius = max(0.0, c.radius - inset)
 
     path = QPainterPath()
     path.addRoundedRect(r, radius, radius)
+    p.setPen(QPen(border_col, w))
+    p.setBrush(Qt.NoBrush)
+    p.drawPath(path)
 
-    if c.bg is not None and c.bg.alpha() > 0:
-        p.fillPath(path, c.bg)
 
-    border_col = c.focus_border if (focused and c.focus_border is not None) else c.border
-    if w > 0 and border_col is not None:
-        p.setPen(QPen(border_col, w))
-        p.setBrush(Qt.NoBrush)
-        p.drawPath(path)
+def paint_panel(p: QPainter, rect: QRectF, c: ChromeTokens,
+                focused: bool = False) -> None:
+    """Paint a rounded panel: fill + optional outline.  THE core primitive."""
+    paint_panel_bg(p, rect, c)
+    paint_panel_border(p, rect, c, focused)
+
 
 
 def _edge_strip(rect: QRectF, edge: Qt.Edge, width: float) -> QRectF:

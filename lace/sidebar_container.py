@@ -721,3 +721,4 @@ class SideBarContainer(QFrame, DockStyled):
             self._shadow.setColor(shadow_color)
         self._shadow.setBlurRadius(s.get("shadow_blur_radius", 20))
 
+

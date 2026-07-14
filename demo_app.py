@@ -25,6 +25,31 @@ from lace import (
 logging.basicConfig(level=logging.DEBUG)
 
 
+# ── RESIZE DEBUGGING ───────────────────────────────────────────────
+# Toggle this to trace how window / dock-widget / textbox sizes track
+# main-window resize events. Prints to stdout.
+DEBUG_RESIZE = True
+
+
+def _dbg(tag, *parts):
+    if DEBUG_RESIZE:
+        print(f"[RESIZE][{tag}] " + "  ".join(str(p) for p in parts), flush=True)
+
+
+class DebugTextEdit(QTextEdit):
+    """QTextEdit that logs its own geometry and its parent-chain sizes
+    on every resize event."""
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        chain = []
+        p = self.parent()
+        while p is not None:
+            chain.append(f"{type(p).__name__}:{p.width()}x{p.height()}")
+            p = p.parent()
+        _dbg("textbox", f"textbox={self.width()}x{self.height()}", " <- ".join(chain))
+
+
 # ── DockFlags metadata for menu generation ───────────────────────────
 
 DOCK_FLAGS_INFO = [
@@ -152,6 +177,18 @@ class DemoMainWindow(QMainWindow):
             self.theme_manager.sync_theme()
         super().changeEvent(event)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        _dbg("window", f"window={self.width()}x{self.height()}")
+        sw = getattr(self, "standard_widget", None)
+        if sw is not None:
+            sa = sw._scroll_area
+            sa_str = f"{sa.width()}x{sa.height()}" if sa is not None else "N/A"
+            _dbg("window",
+                 f"dockwidget={sw.width()}x{sw.height()}",
+                 f"scrollarea={sa_str}",
+                 f"textbox={sw._widget.width()}x{sw._widget.height()}")
+
     def create_dock_widgets(self):
         """Creates widgets with specific feature constraints for testing."""
         
@@ -164,11 +201,13 @@ class DemoMainWindow(QMainWindow):
         standard_widget = DockWidget("Standard Editor", self)
         standard_widget.set_default_icon_name("dock")
         standard_widget.set_custom_icon_name("pin")
-        standard_content = QTextEdit()
+        standard_content = DebugTextEdit()
         standard_content.setPlaceholderText("I can be moved, closed, and floated.")
         standard_widget.set_widget(standard_content)
         standard_widget.set_features(DockWidgetFeature.all_features)
         self.dock_manager.add_dock_widget(DockWidgetArea.center, standard_widget)
+        self.standard_widget = standard_widget
+        self.standard_content = standard_content
 
         # --- 2. Unclosable Widget ---
         unclosable_widget = DockWidget("Unclosable Logger", self)

@@ -470,6 +470,7 @@ def _build_theme(
         theme[DockStyleCategory.SIDEPANEL]["corner_radius"] = corner_radius
     if border_width is not None:
         theme[DockStyleCategory.CORE]["border_width"] = border_width
+        theme[DockStyleCategory.PANEL]["border_width"] = border_width
         theme[DockStyleCategory.SIDEPANEL]["border_width"] = border_width
     if title_height is not None:
         theme[DockStyleCategory.TITLE_BAR]["height"] = title_height
@@ -642,13 +643,19 @@ def _adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):
 # VS CODE 2026 DARK (Default Theme)
 # -------------------------------------------------------------------------
 BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = build_theme(ThemeSpec(
-    base   = [24, 24, 24, 255],
-    accent = [0, 120, 212, 255],
-    text   = [204, 204, 204, 255],
-    surface    = [31, 31, 31, 255],
-    border     = [41, 41, 41, 255],
-    title_mode = "lighter",
-    hover_mode = "lighter",
+    base               = [24, 24, 24, 255],
+    accent             = [0, 120, 212, 255],
+    text               = [204, 204, 204, 255],
+    surface            = [31, 31, 31, 255],
+    border             = [24, 24, 24, 0],
+    #focus_border_color = [0, 156, 255, 255],
+    title_mode         = "lighter",
+    hover_mode         = "lighter",
+    corner_radius      = 4,
+    tab_radius         = 4,
+    #border_width       = 1.5,
+    title_margin       = 0.0,
+    content_margin     = 0.0,
 ))
 
 

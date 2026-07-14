@@ -597,15 +597,28 @@ Low-level container state save/restore (used by LayoutEngine).
 
 ### 7.2 `dock_icon_provider.py` — `DockIconProvider`
 
+Theme-aware SVG icon provider. Preloads SVGs from a filesystem path or `importlib.resources` package (`lace.resources.lace_icons`), tints them dynamically based on `DockStyleManager` categories, and caches by (name, color, active, disabled, size).
+
 | Category | Members |
 |---|---|
-| **Loading** | `__init__(directory)`, `_preload()` — reads all SVGs into string cache |
-| **Get** | `get(name, category, active, disabled, size) → QIcon` — resolves tint color, caches by (name, color, active, disabled, size) |
-| **Tinting** | `_tint_svg(svg, color)` — replaces fill/stroke with color |
-| **Rendering** | `_render_svg(svg_data, size) → QPixmap` — SVG render at 4× supersample → smooth downscale |
-| **Color resolution** | `_resolve_color(category, active, disabled) → str`, `_resolve_normal_color()`, `_resolve_disabled_color()` |
-| **Callback** | `on_style_changed(category, changes)` — clears tint cache |
-| **Singleton** | `get_icon_provider(directory)` |
+| **Resource Resolution** | `_resolve_icon_path(directory) → Path | Traversable` — tries filesystem first, falls back to `resources.files("lace.resources.lace_icons")`, uses `resources.as_file()` for wheel compatibility |
+| **Loading** | `__init__(directory)` — resolves path, subscribes to `DockStyleCategory.CORE`, calls `_preload()` |
+| **Preload** | `_preload()` — reads all `*.svg` files into `self._svg_cache` (dict: `stem.lower() → svg_string`) |
+| **Get** | `get(name, category, active=False, disabled=False, size=16) → QIcon` — resolves tint color, checks `self._icon_cache` by `(key, color, active, disabled, size)`, returns `QIcon()` if SVG missing |
+| **Tinting** | `_tint_svg(svg, color) → str` — replaces `currentColor` or all `fill`/`stroke` attributes with tint color via regex `_COLOR_PATTERN` |
+| **Rendering** | `_render_svg(svg_data, size) → QPixmap` — `QSvgRenderer` with 4× supersample + `Qt.SmoothTransformation` downscale for HiDPI; accounts for `QApplication.devicePixelRatio()`; renders to viewBox-filling rect to keep glyphs centred |
+| **Color Resolution** | `_resolve_color(category, active, disabled) → str` — dispatcher; `_resolve_normal_color()` — per-category lookup (`TAB` → `text_active`/`text_normal`, `SIDEBAR` → `tab_text_active`/`tab_text_normal`, `TITLE_BAR`/`SIDEPANEL` → `button_color`, else `text_color`); `_resolve_disabled_color()` — per-category lookup (`TAB` → `close_btn_bg_disable`, `TITLE_BAR`/`SIDEPANEL` → `button_disable_clr`, `SIDEBAR` → `tab_text_disabled`, else `disabled_text_color`); fallback: `"#C8CDD7"` |
+| **Callback** | `on_style_changed(category, changes)` — clears `self._icon_cache` on theme switch |
+| **Singleton** | `get_icon_provider(directory) → DockIconProvider` — global singleton; raises `ValueError` if no icon directory found |
+
+**Constants:**
+| Constant | Value |
+|---|---|
+| `_ICON_PACKAGE` | `"lace.resources.lace_icons"` |
+| `_FALLBACK_COLOR` | `"#C8CDD7"` |
+| `_COLOR_PATTERN` | `re.compile(r'(fill|stroke)="(?!none\b)([^\"]*)"')` |
+
+**Minimize key remap:** `"minimize"` SVG name is internally remapped to `"restore"` (the actual SVG filename).
 
 ---
 
