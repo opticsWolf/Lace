@@ -549,27 +549,28 @@ class DockWidget(QFrame, DockStyled):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self._update_bottom_mask()
+        # Children (QScrollArea / user widget) are already resized at this point.
+        # Apply the mask synchronously — no timer needed.
+        self._apply_bottom_mask_sync()
+
+    def _apply_bottom_mask_sync(self) -> None:
+        """Apply the bottom mask synchronously. Call from resizeEvent or refresh_style."""
+        if getattr(self, "_mask_applying", False):
+            return  # already applying in this event cycle
+        self._mask_applying = True
+        try:
+            self._apply_bottom_mask()
+        finally:
+            self._mask_applying = False
 
     def _update_bottom_mask(self) -> None:
+        """Thin wrapper for backwards compatibility with callers outside resizeEvent."""
         target = self._scroll_area or self._widget
         if not target:
             return
-        radius = getattr(self, "_bottom_radius", 0.0)
-        m_bottom = self._layout.contentsMargins().bottom()
-        target_radius = max(0.0, radius - m_bottom) if radius > 0.0 else 0.0
-        
-        current_cache = (target.rect().size(), target_radius)
-        if getattr(self, "_last_mask_cache", None) == current_cache:
-            return
-
-        if not getattr(self, "_mask_scheduled", False):
-            self._mask_scheduled = True
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(0, self._apply_bottom_mask)
+        self._apply_bottom_mask_sync()
 
     def _apply_bottom_mask(self) -> None:
-        self._mask_scheduled = False
         target = self._scroll_area or self._widget
         if not target or not self.isVisible() or not target.isVisible():
             return
