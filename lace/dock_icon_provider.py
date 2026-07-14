@@ -79,42 +79,27 @@ class DockIconProvider:
             logger.warning("Icon directory not found")
 
     def _preload(self):
-        """Read every *.svg in the directory into the string cache.
+        """Read every *.svg in the icon directory into the string cache.
 
-        Supports both filesystem paths and package resources
-        (importlib.resources).
+        Works for both filesystem paths (development) and package resources
+        (importlib.resources, wheel-compatible). ``resources.as_file`` converts
+        a Traversable into a real filesystem path when needed, so we can always
+        use standard ``Path`` read operations.
         """
         if self._path is None:
             return
 
-        # Detect if this is a package resource (Traversable) vs filesystem Path
         try:
-            entries = list(self._path.iterdir())
-            is_traversable = not isinstance(entries[0], Path) if entries else False
-        except (TypeError, AttributeError):
-            is_traversable = False
-
-        if is_traversable:
-            # Package resource mode (wheel)
-            for entry in self._path.iterdir():
-                if entry.name.lower().endswith(".svg"):
+            with resources.as_file(self._path) as file_path:
+                for file in sorted(file_path.glob("*.svg")):
                     try:
-                        stem = entry.stem.lower()
-                        with resources.as_file(entry) as file_path:
-                            self._svg_cache[stem] = file_path.read_text(
-                                encoding="utf-8"
-                            )
+                        self._svg_cache[file.stem.lower()] = file.read_text(
+                            encoding="utf-8"
+                        )
                     except OSError as exc:
-                        logger.warning(f"Could not read icon '{entry.name}': {exc}")
-        else:
-            # Filesystem mode (development)
-            for file in sorted(self._path.glob("*.svg")):
-                try:
-                    self._svg_cache[file.stem.lower()] = file.read_text(
-                        encoding="utf-8"
-                    )
-                except OSError as exc:
-                    logger.warning(f"Could not read icon '{file.name}': {exc}")
+                        logger.warning(f"Could not read icon '{file.name}': {exc}")
+        except (OSError, ModuleNotFoundError, TypeError) as exc:
+            logger.warning(f"Could not read icons from {self._path}: {exc}")
 
     @classmethod
     def _tint_svg(cls, svg: str, color: str) -> str:
@@ -269,5 +254,5 @@ def get_icon_provider(directory: Optional[Union[str, Path]] = None) -> DockIconP
                 "Must provide a valid icon directory, or ensure "
                 "lace/resources/lace_icons/ is installed with the package."
             )
-        _provider_instance = DockIconProvider(resolved)
+        _provider_instance = DockIconProvider(directory)
     return _provider_instance
