@@ -147,6 +147,31 @@ def run_test():
 
     fw.deleteLater()
 
+    # 8. Test sidebar_area_has_maximize_button
+    assert DockFlags.sidebar_area_has_maximize_button in mgr.config_flags
+    sm = mgr.sidebar_manager
+    sm.pin_widget(dw2, area=DockWidgetArea.right)
+    app.processEvents()
+    sm.show_widget(dw2)
+    app.processEvents()
+    
+    sidebar_title_bar = sm._overlay._title_bar
+    max_btn = sidebar_title_bar._maximize_btn
+    assert max_btn.isVisible(), "Sidebar maximize button should be visible with flag enabled"
+    
+    # Disable flag
+    mgr.set_config_flags(mgr.config_flags & ~DockFlags.sidebar_area_has_maximize_button)
+    app.processEvents()
+    assert not max_btn.isVisible(), "Sidebar maximize button should be hidden when flag is disabled"
+    
+    # Re-enable flag
+    mgr.set_config_flags(mgr.config_flags | DockFlags.sidebar_area_has_maximize_button)
+    app.processEvents()
+    assert max_btn.isVisible(), "Sidebar maximize button should be visible when flag is re-enabled"
+    
+    # Clean up
+    sm.unpin_widget(dw2)
+
     print("SMOKE FLAGS OK")
 
 

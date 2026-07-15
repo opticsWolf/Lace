@@ -60,6 +60,7 @@ class DockWidget(QFrame, DockStyled):
         self._is_floating_top_level = False
         self._widget_state = WidgetState.docked  # <-- NEW: Track current state
         self._style_dirty = False  # Track if style refresh is pending
+        self._locked_to_area = None
 
         # Make the DockWidget frame borderless
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -83,6 +84,16 @@ class DockWidget(QFrame, DockStyled):
 
         # --- NEW: Style Manager Integration ---
         self._init_dock_style()
+
+    @property
+    def locked_to_area(self) -> Optional[str]:
+        return self._locked_to_area
+
+    @locked_to_area.setter
+    def locked_to_area(self, area_name: Optional[str]):
+        self._locked_to_area = area_name
+        if self._dock_area:
+            self._dock_area._update_title_bar_button_states()
 
     def __repr__(self):
         return f'<{self.__class__.__name__} title={self.windowTitle()!r}>'
@@ -321,7 +332,12 @@ class DockWidget(QFrame, DockStyled):
                 self._dock_area._update_title_bar_button_states()
 
     def features(self) -> DockWidgetFeature:
-        return self._features
+        f = self._features
+        area = self.dock_area_widget()
+        if self._locked_to_area or (area and getattr(area, 'locked_name', None)):
+            f = f & ~DockWidgetFeature.pinnable
+            f = f & ~DockWidgetFeature.floatable
+        return f
 
     def dock_manager(self) -> 'DockManager':
         return self._dock_manager

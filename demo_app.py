@@ -280,6 +280,30 @@ class DemoMainWindow(QMainWindow):
         right_pinnable_widget.set_widget(right_pinnable_content)
         right_pinnable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.movable | DockWidgetFeature.pinnable)
         self.dock_manager.add_sidebar_widget(DockWidgetArea.right, right_pinnable_widget)
+        # --- 9. Locked Area Demonstration ---
+        locked_a = DockWidget("Design Item A", self)
+        a_content = QLabel("Design Canvas A\n\nI am locked permanently to the 'DesignArea' dock area.\nI cannot be floated or pinned.")
+        a_content.setAlignment(Qt.AlignCenter)
+        locked_a.set_widget(a_content)
+        locked_a.set_features(DockWidgetFeature.all_features)
+        
+        self.dock_manager.add_dock_widget(DockWidgetArea.bottom, locked_a)
+        
+        design_area = locked_a.dock_area_widget()
+        if design_area:
+            design_area.locked_name = "DesignArea"
+            
+        locked_a.locked_to_area = "DesignArea"
+        
+        locked_b = DockWidget("Design Item B", self)
+        b_content = QLabel("Design Canvas B\n\nI am also locked permanently to the 'DesignArea' dock area.\nI cannot be floated or pinned.")
+        b_content.setAlignment(Qt.AlignCenter)
+        locked_b.set_widget(b_content)
+        locked_b.set_features(DockWidgetFeature.all_features)
+        locked_b.locked_to_area = "DesignArea"
+        
+        if design_area:
+            design_area.add_dock_widget(locked_b)
 
         # Initialize demonstration badges on sidebar widgets to showcase TabBadgePosition
         if hasattr(self.dock_manager, 'sidebar_manager'):

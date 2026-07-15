@@ -130,6 +130,65 @@ def run_test():
     app.processEvents()
     print("  [PASS] 6. Maximizing a different area auto-restores the previous one")
 
+    # ── 7. Floating solo vs chromeless vs split maximize button ───────
+    from lace.floating_dock_container import FloatingDockContainer
+    
+    # Detach widgets from their current areas
+    area1.remove_dock_widget(dw1)
+    area2.remove_dock_widget(dw2)
+    
+    # Create solo floating container hosting dw1
+    fw = FloatingDockContainer(dock_widget=dw1, dock_manager=mgr)
+    app.processEvents()
+    
+    float_area = dw1.dock_area_widget()
+    float_max_btn = float_area.title_bar_button(TitleBarButton.maximize)
+    assert float_max_btn is not None
+    assert not float_max_btn.isVisible(), "Solo bordered floating area should hide maximize button"
+    
+    # Enable chromeless_float flag -> maximize button should become visible
+    mgr.set_config_flags(mgr.config_flags | DockFlags.chromeless_float)
+    float_area._update_title_bar_button_states()
+    app.processEvents()
+    assert float_max_btn.isVisible(), "Solo chromeless floating area should show maximize button"
+    
+    # Disable chromeless_float flag -> maximize button should hide again
+    mgr.set_config_flags(mgr.config_flags & ~DockFlags.chromeless_float)
+    float_area._update_title_bar_button_states()
+    app.processEvents()
+    assert not float_max_btn.isVisible(), "Solo bordered floating area should hide maximize button"
+    
+    # Add a second dock widget (dw2) to the floating container, splitting it
+    fw._dock_container.add_dock_widget(DockWidgetArea.right, dw2)
+    app.processEvents()
+    
+    float_area2 = dw2.dock_area_widget()
+    float_max_btn2 = float_area2.title_bar_button(TitleBarButton.maximize)
+    
+    assert float_max_btn.isVisible(), "Split floating area 1 should show maximize button"
+    assert float_max_btn2.isVisible(), "Split floating area 2 should show maximize button"
+    
+    # Maximize the first split area
+    fw._dock_container.toggle_maximize_dock_area(float_area)
+    app.processEvents()
+    
+    # Sibling area is hidden, but the maximized area's maximize/restore button MUST STILL BE VISIBLE (so it can be restored!)
+    assert float_area.is_maximized(), "float_area should be maximized"
+    assert float_max_btn.isVisible(), "Maximized float area's button should remain visible (as Restore button)"
+    
+    # Restore the layout
+    fw._dock_container.toggle_maximize_dock_area(float_area)
+    app.processEvents()
+    
+    # Both areas are visible again, and both maximize buttons should be visible
+    assert not float_area.is_maximized(), "float_area should be restored"
+    assert float_max_btn.isVisible()
+    assert float_max_btn2.isVisible()
+    
+    # Clean up
+    fw.deleteLater()
+    print("  [PASS] 7. Floating solo vs chromeless vs split maximize button")
+
     print("\n✅ All maximize/restore smoke tests passed!")
 
 

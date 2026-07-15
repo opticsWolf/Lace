@@ -47,6 +47,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         self._contents_layout: DockAreaLayout = None
         self._title_bar: 'DockAreaTitleBar' = None
         self._update_title_bar_buttons = False
+        self._locked_name = None
 
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
@@ -61,6 +62,15 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         qapp = QApplication.instance()
         if qapp:
             qapp.focusChanged.connect(self._on_app_focus_changed)
+
+    @property
+    def locked_name(self) -> Optional[str]:
+        return self._locked_name
+
+    @locked_name.setter
+    def locked_name(self, name: Optional[str]):
+        self._locked_name = name
+        self._update_title_bar_button_states()
 
     def _on_app_focus_changed(self, old_widget, new_widget):
         try:
@@ -336,8 +346,14 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         # --- FIX: Only intersect the features of OPEN dock widgets! ---
         # Prevents hidden/closed widgets from falsely locking the area.
         features = DockWidgetFeature.all_features
+        has_locked = False
         for dock_widget in self.opened_dock_widgets():
             features &= dock_widget.features()
+            if getattr(dock_widget, 'locked_to_area', None) or self.locked_name:
+                has_locked = True
+        if has_locked:
+            features |= DockWidgetFeature.floatable
+            features &= ~DockWidgetFeature.pinnable
         return features
 
     def title_bar_button(self, which: TitleBarButton) -> QAbstractButton:

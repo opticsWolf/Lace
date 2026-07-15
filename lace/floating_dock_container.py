@@ -167,8 +167,9 @@ class FloatingDockContainer(QWidget, DockStyled):
             dropped = True
 
         # Always hide overlays and clear the reference
-        container_overlay.hide_overlay()
-        dock_area_overlay.hide_overlay()
+        if self._dock_manager:
+            self._dock_manager.container_overlay().hide_overlay()
+            self._dock_manager.dock_area_overlay().hide_overlay()
         self._drop_container = None
 
         if not dropped:
