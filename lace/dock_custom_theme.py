@@ -39,11 +39,11 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     # LIGHT (High clarity, professional light gray)
     # -------------------------------------------------------------------------
     "light": ThemeSpec(
-        base               = [225, 228, 232, 255],  # Slightly deeper base for better highlights
+        base               = [218, 221, 225, 255],  # Slightly deeper base for better highlights
         accent             = [54, 81, 217, 255],
         text               = [45, 50, 60, 255],
-        surface            = [242, 244, 247, 255],
-        border             = [225, 228, 232, 255],
+        surface            = [245, 247, 250, 255],
+        border             = [218, 221, 225, 255],
         focus_border_color = [54, 81, 217, 255],    # Highlight border
         is_light           = True,
         title_mode         = "darker",              # Title bars feel like part of the frame
@@ -82,7 +82,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         accent     = [200, 110, 60, 255],   # Richer orange
         text       = [235, 225, 210, 255],
         surface    = [46, 39, 36, 255],
-        border     = [28, 23, 21, 255],
+        border     = [46, 39, 36, 255],
         title_mode = "lighter",             # "Elevated" headers
         hover_mode = "lighter",
     ),
@@ -98,6 +98,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         border     = [31, 35, 43, 255],
         title_mode = "darker",
         hover_mode = "lighter",
+        border_width       = 0.0,
     ),
 
     # -------------------------------------------------------------------------
@@ -141,7 +142,8 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         accent     = [122, 162, 247, 255],
         text       = [192, 202, 245, 255],
         surface    = [36, 40, 59, 255],
-        border     = [16, 16, 20, 255],
+        border     = [26, 27, 38, 255],
+        focus_border_color = [82, 122, 182, 255],   # Highlight border
         title_mode = "darker",
         hover_mode = "lighter",
         success_color = [158, 206, 106, 255],
@@ -158,13 +160,17 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         accent     = [203, 166, 247, 255],
         text       = [205, 214, 244, 255],
         surface    = [49, 50, 68, 255],
-        border     = [24, 24, 37, 255],
+        border     = [30, 30, 46, 128],
+        focus_border_color = [203, 166, 247, 128],   # Highlight border
         title_mode = "darker",
         hover_mode = "lighter",
         success_color = [166, 227, 161, 255],
         warning_color = [249, 226, 175, 255],
         error_color   = [243, 139, 168, 255],
         info_color    = [137, 180, 250, 255],
+        border_width       = 2.0,
+        title_margin       = 0.0,
+        content_margin     = 5.0,
     ),
 
     # -------------------------------------------------------------------------
@@ -175,7 +181,8 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         accent     = [189, 147, 249, 255],
         text       = [248, 248, 242, 255],
         surface    = [68, 71, 90, 255],
-        border     = [25, 26, 33, 255],
+        border     = [35, 36, 43, 255],
+        focus_border_color     = [189, 147, 249, 255],
         title_mode = "darker",
         hover_mode = "lighter",
         success_color = [80, 250, 123, 255],
@@ -199,6 +206,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         warning_color = [181, 137, 0, 255],
         error_color   = [220, 50, 47, 255],
         info_color    = [42, 161, 152, 255],
+        border_width  = 0.0,
     ),
 
     # -------------------------------------------------------------------------
@@ -217,6 +225,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         warning_color = [181, 137, 0, 255],
         error_color   = [220, 50, 47, 255],
         info_color    = [42, 161, 152, 255],
+        border_width  = 0.0,
     ),
 
     # -------------------------------------------------------------------------

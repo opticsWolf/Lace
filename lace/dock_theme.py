@@ -402,7 +402,7 @@ def _build_theme(
     
     # Neutral border derived from surface or base depending on light/dark theme
     _ref_col        = _panel if surface is not None else base
-    _neutral_border = _adjust_color(_ref_col, l_off=(-0.12 if is_light else 0.08))
+    _neutral_border = border if border is not None else _adjust_color(_ref_col, l_off=(-0.12 if is_light else 0.08))
     _focus_border   = focus_border_color if focus_border_color is not None else (border if border is not None else _adjust_color(accent, l_off=0.15))
     
     # Title bar / header background: step darker (-0.06) or lighter (+0.06) relative to panel without double-inverting via d
@@ -653,7 +653,7 @@ BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = build_theme(ThemeS
     hover_mode         = "lighter",
     corner_radius      = 4,
     tab_radius         = 4,
-    #border_width       = 1.5,
+    border_width       = 1.5,
     title_margin       = 0.0,
     content_margin     = 0.0,
 ))
