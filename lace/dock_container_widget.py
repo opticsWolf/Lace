@@ -727,7 +727,14 @@ class DockContainerWidget(QFrame, DockStyled):
 
     def is_area_maximized(self, area: DockAreaWidget) -> bool:
         """Return True if area is the currently-maximized dock area."""
-        return self._maximized_dock_area is not None and self._maximized_dock_area is area
+        if self._maximized_dock_area is not None and self._maximized_dock_area is area:
+            return True
+        # Floating window with a single dock area uses OS maximize;
+        # _maximized_dock_area is not set in that path.
+        floating = self.floating_widget()
+        if floating and self.visible_dock_area_count() == 1 and floating.isMaximized():
+            return True
+        return False
 
     def _maximize_splitter(self, splitter: QSplitter, area: DockAreaWidget) -> bool:
         """Recursively zero out sibling splitters/areas and give all space to *area*.

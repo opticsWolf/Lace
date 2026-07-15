@@ -480,6 +480,14 @@ class FloatingDockContainer(QWidget, DockStyled):
 
         return super().event(e)
 
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.WindowStateChange and self._dock_container:
+            # Update maximize/restore icon when the OS window state changes
+            # (covers showMaximized, showNormal, title-bar double-click, etc.)
+            for dock_area in self._dock_container.opened_dock_areas():
+                dock_area._update_title_bar_button_states()
+
     def closeEvent(self, event: QCloseEvent):
         logger.debug('FloatingDockContainer closeEvent')
         self._set_state(DragState.inactive)
