@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
-
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
 
 import enum
 from typing import NamedTuple
@@ -91,9 +90,7 @@ class DockFlags(enum.IntFlag):
     """
        
     always_show_tabs = enum.auto()
-    """Tabs are always shown, even if there is only one widget in the area.
-    Currently not in proper use - requires implementation
-    """
+    """Tabs are always shown, even if there is only one widget in the area."""
     
     show_tab_close_button = enum.auto()
     """Tabs display their own close button."""
@@ -113,6 +110,12 @@ class DockFlags(enum.IntFlag):
     dock_area_has_pin_button = enum.auto()
     """The dock area title bar displays a pin button."""
     
+    dock_area_has_maximize_button = enum.auto()
+    """The dock area title bar displays a maximize/restore button."""
+    
+    sidebar_area_has_maximize_button = enum.auto()
+    """The sidebar title bar displays a maximize/restore button when an overlay panel is open."""
+    
     dock_area_has_tabs_menu_button = enum.auto()
     """The dock area title bar displays a menu button listing all tabs."""
     
@@ -120,14 +123,10 @@ class DockFlags(enum.IntFlag):
     """Clicking a tab with the middle mouse button closes it."""
     
     floatable_tabs = enum.auto()
-    """Tabs can be dragged out to float in their own window.
-    Currently not in use - requires implementation
-    """
+    """Tabs can be dragged out to float in their own window."""
     
     pinnable_tabs = enum.auto()
-    """Tabs can be pinned into sidebar.
-    Currently not in use - requires implementation
-    """
+    """Tabs can be pinned into sidebar."""
     
     custom_tab_icons = enum.auto()
     """
@@ -138,15 +137,15 @@ class DockFlags(enum.IntFlag):
     hide_disabled_title_bar_icons = enum.auto()
     """Hides disabled icons in the title bar."""
     
-    drag_preview_shows_content_pixmap = enum.auto()
-    """Shows a snapshot of the widget content while dragging."""
-
+    chromeless_float = enum.auto()
+    """Floating container windows are created without native OS title bars or borders (FramelessWindowHint)."""
+    
     default_config = (
         opaque_splitter_resize | opaque_undocking | always_show_tabs |
         show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |
-        dock_area_has_close_button | dock_area_has_undock_button |
+        dock_area_has_close_button | dock_area_has_undock_button | dock_area_has_maximize_button |
         dock_area_has_tabs_menu_button | dock_area_has_pin_button | middle_mouse_button_closes_tab |
-        dock_area_has_pin_button | floatable_tabs | drag_preview_shows_content_pixmap
+        pinnable_tabs | floatable_tabs | sidebar_area_has_maximize_button
     )
     """The default configuration flags applied to a new DockManager."""
 
@@ -159,6 +158,9 @@ class TitleBarButton(enum.Enum):
     undock = enum.auto()
     close = enum.auto()
     pin = enum.auto()
+    maximize = enum.auto()
+    minimize = enum.auto()
+    restore = enum.auto()
 
 
 class OverlayMode(enum.Enum):
@@ -214,9 +216,6 @@ class WidgetState(enum.Enum):
     """
     The current visibility and attachment status of a Dock Widget.
     """
-    hidden = enum.auto()
-    """The widget is not visible and not part of the active layout."""
-    
     docked = enum.auto()
     """The widget is attached to a dock area within the main window."""
     
@@ -252,3 +251,17 @@ class ToggleViewActionMode(enum.Enum):
     
     show = enum.auto()
     """The action only makes the widget visible; clicking while visible does nothing."""
+
+
+class SideBarFocusBehavior(enum.Enum):
+    """
+    Controls keyboard focus transfer when sliding a sidebar overlay panel out or in.
+    """
+    take_focus_and_restore = enum.auto()
+    """Sidebar automatically takes focus when sliding out and restores focus to previous card when sliding in."""
+    
+    no_focus_transfer = enum.auto()
+    """Sidebar does not steal focus when sliding out or transfer focus when sliding in."""
+    
+    take_focus_only = enum.auto()
+    """Sidebar automatically takes focus when sliding out, but does not restore focus when sliding in."""

@@ -1,38 +1,39 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
-
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
 
 import logging
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QRect, Signal
-from PySide6.QtGui import QAction, QPalette
-from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame
+from PySide6.QtGui import QPalette
+from PySide6.QtWidgets import QAbstractButton, QBoxLayout
 
 from .util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget)
-from .enums import TitleBarButton, DockWidgetFeature, DockFlags
+from .enums import TitleBarButton, DockWidgetFeature
 from .dock_area_layout import DockAreaLayout
-from .dock_style_manager import get_dock_style_manager
+from .dock_chrome import ChromeFrame
+from .dock_paint import ChromeTokens
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
-    from . import (DockContainerWidget, DockManager, DockWidget, DockWidgetTab,
-                   DockAreaTabBar, DockAreaTitleBar)
+    from . import DockContainerWidget, DockManager, DockWidget, DockAreaTabBar, DockAreaTitleBar
 
 logger = logging.getLogger(__name__)
 
 
-class DockAreaWidget(QFrame):
+class DockAreaWidget(ChromeFrame, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.CORE, DockStyleCategory.PANEL)
     tab_bar_clicked = Signal(int)
     current_changing = Signal(int)
     current_changed = Signal(int)
@@ -54,9 +55,38 @@ class DockAreaWidget(QFrame):
         self._contents_layout = DockAreaLayout(self._layout)
         self._create_title_bar()
 
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.CORE)
-        self.refresh_style()
+        self._init_dock_style()
+
+        from PySide6.QtWidgets import QApplication
+        qapp = QApplication.instance()
+        if qapp:
+            qapp.focusChanged.connect(self._on_app_focus_changed)
+
+    def _on_app_focus_changed(self, old_widget, new_widget):
+        try:
+            if self.isHidden() or not self.isVisible():
+                return
+            if new_widget is not None:
+                try:
+                    if not new_widget.isVisible():
+                        return
+                except RuntimeError:
+                    return
+                if self.isAncestorOf(new_widget) or (new_widget is self):
+                    if self._dock_manager:
+                        self._dock_manager.set_active_dock_area(self)
+                    else:
+                        self.set_chrome_focused(True)
+        except RuntimeError:
+            return
+
+    def mousePressEvent(self, event):
+        try:
+            if self._dock_manager and not self.isHidden():
+                self._dock_manager.set_active_dock_area(self)
+        except RuntimeError:
+            pass
+        super().mousePressEvent(event)
 
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
@@ -74,6 +104,9 @@ class DockAreaWidget(QFrame):
     def _tab_bar(self) -> 'DockAreaTabBar':
         return self._title_bar.tab_bar()
 
+    def dock_manager(self) -> 'DockManager':
+        return self._dock_manager
+
     def _update_title_bar_button_states(self):
         """Delegates synchronization of the title bar buttons to the title bar itself."""
         if self.isHidden():
@@ -84,6 +117,9 @@ class DockAreaWidget(QFrame):
             self._title_bar.update_button_states()
 
         self._update_title_bar_buttons = False
+
+    def update_title_bar_button_states(self):
+        self._update_title_bar_button_states()
 
     def on_tab_close_requested(self, index: int):
         logger.debug('DockAreaWidget.onTabCloseRequested %s', index)
@@ -118,6 +154,8 @@ class DockAreaWidget(QFrame):
         if activate:
             self.set_current_index(index)
 
+        if self._dock_manager:
+            dock_widget.set_dock_manager(self._dock_manager)
         dock_widget.set_dock_area(self)
         self._update_title_bar_button_states()
 
@@ -283,8 +321,16 @@ class DockAreaWidget(QFrame):
         return bool(self.features() & DockWidgetFeature.closable)
 
     @property
+    def movable(self):
+        return bool(self.features() & DockWidgetFeature.movable)
+
+    @property
     def floatable(self):
         return bool(self.features() & DockWidgetFeature.floatable)
+
+    @property
+    def pinnable(self):
+        return bool(self.features() & DockWidgetFeature.pinnable)
 
     def features(self) -> DockWidgetFeature:
         # --- FIX: Only intersect the features of OPEN dock widgets! ---
@@ -297,6 +343,17 @@ class DockAreaWidget(QFrame):
     def title_bar_button(self, which: TitleBarButton) -> QAbstractButton:
         return self._title_bar.button(which)
 
+    def is_maximized(self) -> bool:
+        """Return True if this area is currently maximized within its container."""
+        container = self.dock_container()
+        return container is not None and container.is_area_maximized(self)
+
+    def toggle_maximize(self):
+        """Toggle the maximize/restore state of this dock area."""
+        container = self.dock_container()
+        if container is not None:
+            container.toggle_maximize_dock_area(self)
+
     def setVisible(self, visible: bool):
         super().setVisible(visible)
         if self._update_title_bar_buttons:
@@ -308,6 +365,12 @@ class DockAreaWidget(QFrame):
             logger.warning('Invalid index %s', index)
             return
 
+        try:
+            if self._dock_manager and not self._dock_manager.is_restoring_state():
+                self._dock_manager.set_active_dock_area(self)
+        except RuntimeError:
+            pass
+
         self.current_changing.emit(index)
         tab_bar.set_current_index(index)
         self._contents_layout.set_current_index(index)
@@ -315,39 +378,47 @@ class DockAreaWidget(QFrame):
         self.current_changed.emit(index)
 
     def close_area(self):
-        for dock_widget in self.opened_dock_widgets():
-            dock_widget.toggle_view(False)
+        for dock_widget in list(self.opened_dock_widgets()):
+            if dock_widget.features() & DockWidgetFeature.closable:
+                dock_widget.toggle_view(False)
 
     def close_other_areas(self):
         self.dock_container().close_other_areas(self)
 
     def refresh_style(self):
-        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
-        panel_styles = self._style_mgr.get_all(DockStyleCategory.PANEL) # Fetch the panel schema
-        
-        # 1. Assign the panel background to the Area's palette for children to inherit
-        bg_color = panel_styles.get("bg_normal")
-        if bg_color:
-            pal = self.palette()
-            pal.setColor(QPalette.ColorRole.Window, bg_color)
-            self.setPalette(pal)
-            
-        # 2. Tell Qt Native painting NOT to fill this specific widget's background
-        self.setAutoFillBackground(False)
-        
-        border_color = core_styles.get("border_color").name()
-        border_width = core_styles.get("border_width", 1.0)
-        radius = core_styles.get("corner_radius", 0)
-        
-        ## 3. Enforce the transparent background in CSS so the style engine 
-        ## doesn't accidentally invent a background color when drawing the border.
-        #self.setStyleSheet(f"""
-        #    DockAreaWidget {{
-        #        border: {border_width}px solid {border_color};
-        #        border-radius: {radius}px;
-        #        background-color: transparent;
-        #    }}
-        #""")
+        core = self._style_mgr.get_all(DockStyleCategory.CORE)
+        panel = self._style_mgr.get_all(DockStyleCategory.PANEL)
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
+        panel_bg = panel.get("bg_normal")
+
+        # Painted chrome: rounded panel_bg fill + optional outline, with the
+        # focus outline as a colour swap.  This is the artifact-free
+        # replacement for the border/radius stylesheet that had to be disabled.
+        self.set_chrome(ChromeTokens(
+            bg=panel_bg,
+            border=core.get("border_color"),
+            border_width=core.get("border_width", 0.0),
+            radius=core.get("corner_radius", 0),
+            focus_border=core.get("focus_border_color"),
+        ))
+
+        title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+        title_margin = title_styles.get("margin")
+        if self._layout is not None:
+            m_card = self.chrome().content_margin()
+            if title_margin is not None:
+                from math import ceil
+                bw = self.chrome().border_width
+                bw_int = ceil(bw) if bw > 0 else 0
+                m_title = bw_int + max(0, int(title_margin))
+                self._layout.setContentsMargins(bw_int, m_title, bw_int, bw_int)
+            else:
+                self._layout.setContentsMargins(m_card, m_card, m_card, m_card)
+
+        # Propagate the panel background to children via the Window palette
+        # role so standard Qt widgets inside the area inherit it.
+        if panel_bg:
+            pal = self.palette()
+            pal.setColor(QPalette.ColorRole.Window, panel_bg)
+            self.setPalette(pal)
+

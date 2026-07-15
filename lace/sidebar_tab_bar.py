@@ -1,30 +1,79 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-"""
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (
-    QFrame, QVBoxLayout, QHBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
-)
+from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer, QRectF
+from PySide6.QtGui import QAction, QColor, QPainter, QPen, QPalette, QPainterPath
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
 
 from .enums import DockWidgetArea, DockWidgetFeature
 from .sidebar_tab import VerticalTabButton
-from .dock_context_menu import DockMenuMixin, MenuSection
-from .dock_style_manager import get_dock_style_manager
+from .dock_menu import MenuSection, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
     from .dock_widget import DockWidget
 
-class SideTabBar(QFrame, DockMenuMixin):
+class _DropLine(QWidget):
+    """Thin drop-position line, painted (robust against the scroll container's
+    ``background: transparent`` stylesheet, which would defeat a palette fill)."""
+    def __init__(self, color: QColor, parent: QWidget = None):
+        super().__init__(parent)
+        self._color = color
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.fillRect(self.rect(), self._color)
+        p.end()
+
+
+class _CounterBadge(QLabel):
+    """Overflow "+N" counter with a painted rounded background (no hex QSS).
+
+    The rounded fill is painted; the digit is drawn by ``QLabel`` in the
+    palette ``WindowText`` colour.  Replaces the old ``border-radius`` stylesheet.
+    """
+    _MARGIN = 2.0  # matches the old QSS margin:2px inset
+
+    def __init__(self, text: str = "", parent: QWidget = None):
+        super().__init__(text, parent)
+        self._bg: Optional[QColor] = None
+        self._radius = 4.0
+
+    def set_badge(self, bg: Optional[QColor], text_color: Optional[QColor], radius: float):
+        self._bg = bg
+        self._radius = max(0.0, radius)
+        if text_color is not None:
+            pal = self.palette()
+            pal.setColor(QPalette.WindowText, text_color)
+            self.setPalette(pal)
+        self.update()
+
+    def paintEvent(self, event):
+        if self._bg is not None and self._bg.alpha() > 0:
+            p = QPainter(self)
+            p.setRenderHint(QPainter.Antialiasing, True)
+            rect = QRectF(self.rect()).adjusted(self._MARGIN, self._MARGIN,
+                                                -self._MARGIN, -self._MARGIN)
+            path = QPainterPath()
+            path.addRoundedRect(rect, self._radius, self._radius)
+            p.fillPath(path, self._bg)
+            p.end()
+        super().paintEvent(event)   # draws the digit in the palette colour
+
+
+class SideTabBar(QFrame, DockStyled):
     """Advanced sidebar with drag-drop reordering, drop zones, unified menus, and overflow scrolling."""
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEBAR,)
     
     # Generate Tab List, Detach/Reattach, Close, and Close Others automatically
     _menu_sections = (MenuSection.TAB_LIST | MenuSection.PIN | 
@@ -47,7 +96,13 @@ class SideTabBar(QFrame, DockMenuMixin):
         self._widget_map: Dict['DockWidget', VerticalTabButton] = {}
         self._drop_indicator: Optional[QLabel] = None
         self._context_menu_widget: Optional['DockWidget'] = None
-        
+        self._dock_manager = None
+
+        # Container chrome painted in paintEvent (no hex QSS on the frame itself).
+        self._bg_color: Optional[QColor] = None
+        self._border_color: Optional[QColor] = None
+        self._border_w: float = 0.0
+
         self.setObjectName("sideTabBar")
         self.setProperty("area", area.name)
         
@@ -64,7 +119,7 @@ class SideTabBar(QFrame, DockMenuMixin):
         self._scroll_next_btn.setAutoRaise(True)
         
         # --- 3. Total Items Counter ---
-        self._counter_lbl = QLabel("0")
+        self._counter_lbl = _CounterBadge("0")
         self._counter_lbl.setAlignment(Qt.AlignCenter)
 
         self._scroll_prev_btn.setArrowType(Qt.UpArrow)
@@ -125,9 +180,7 @@ class SideTabBar(QFrame, DockMenuMixin):
 
         # --- Style Manager Integration ---
         self._drop_indicator_color = QColor("#007acc")
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.SIDEBAR)
-        self.refresh_style()
+        self._init_dock_style()
 
         self.hide()
 
@@ -172,8 +225,7 @@ class SideTabBar(QFrame, DockMenuMixin):
         super().resizeEvent(event)
         self._update_scroll_visibility()
 
-    # ── DockMenuMixin Interface ───────────────────────────────────────────
-    
+    # ── MenuActionTarget & Menu Builder ───────────────────────────────────
     def count(self) -> int:
         return len(self._buttons)
 
@@ -189,57 +241,84 @@ class SideTabBar(QFrame, DockMenuMixin):
     def tab(self, index: int):
         return self._buttons[index]
 
-    def _menu_on_switch_tab(self, index: int) -> None:
+    def _gather_menu_context(self, tab_bar=None) -> MenuContext:
+        widget = self._context_menu_widget
+        count = self.count()
+        is_closable = bool(widget and (widget.features() & DockWidgetFeature.closable))
+        is_floatable = bool(widget and (widget.features() & DockWidgetFeature.floatable))
+        is_pinnable = bool(widget and (widget.features() & DockWidgetFeature.pinnable))
+
+        other_closable = sum(
+            1 for btn in self._buttons
+            if (dw := btn.property("_dock_widget")) and dw != widget and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden()
+        )
+
+        return MenuContext(
+            widget_type="SideTabBar",
+            sections=self._menu_sections,
+            category=DockStyleCategory.SIDEBAR,
+            widget=widget,
+            tab_bar=tab_bar or self,
+            count=count,
+            is_closable=is_closable,
+            is_floatable=is_floatable,
+            is_pinnable=is_pinnable,
+            is_pinned=True,
+            is_floating=False,
+            has_sidebars=True,
+            show_close_others=(other_closable > 0),
+            label_overrides={
+                "close": "Close",
+            }
+        )
+
+    def build_dock_menu(self, menu: QMenu, tab_bar=None) -> None:
+        context = self._gather_menu_context(tab_bar)
+        build_dock_context_menu(context, menu)
+
+    def dispatch_dock_action(self, action: QAction) -> None:
+        dispatch_dock_context_menu(action, self, fallback_widget_type="SideTabBar")
+
+    # ── MenuActionTarget Protocol Implementation ──────────────────────────
+    def menu_target_widget(self) -> Optional['DockWidget']:
+        return self._context_menu_widget
+
+    def menu_switch_tab_target(self, index: int) -> None:
         if 0 <= index < len(self._buttons):
             self.tab_clicked.emit(self._buttons[index])
 
-    def _menu_dock_area(self):
-        return None  # Sidebars don't have a single backing area
+    def menu_pin_target(self) -> None:
+        pass
 
-    def _menu_dock_widget(self):
-        return self._context_menu_widget
+    def menu_pin_all_target(self) -> None:
+        pass
 
-    def _menu_is_floating(self) -> bool:
-        return False
+    def menu_unpin_target(self) -> None:
+        widget = self.menu_target_widget()
+        if widget and (widget.features() & DockWidgetFeature.pinnable):
+            manager = self._find_manager()
+            if manager and hasattr(manager, 'sidebar_manager'):
+                manager.sidebar_manager.unpin_widget(widget)
 
-    def _menu_tab_count(self) -> int:
-        """Returns the number of tabs in the sidebar for the mixin's hide/disable logic."""
-        return self.count()
+    def menu_float_target(self) -> None:
+        widget = self.menu_target_widget()
+        if widget and (widget.features() & DockWidgetFeature.floatable):
+            manager = self._find_manager()
+            if manager and hasattr(manager, 'sidebar_manager'):
+                manager.sidebar_manager.unpin_widget_floating(widget)
 
-    def _menu_is_closable(self) -> bool:
-        """Dynamically check if the clicked sidebar tab is allowed to be closed."""
-        widget = self._menu_dock_widget()
-        return bool(widget and (widget.features() & DockWidgetFeature.closable))
-
-    def _menu_is_floatable(self) -> bool:
-        widget = self._menu_dock_widget()
-        return bool(widget and (widget.features() & DockWidgetFeature.floatable))
-
-    def _menu_show_close_others(self) -> bool:
-        return len(self._buttons) > 1
-
-    def _menu_has_sidebars(self) -> bool:
-        return True
-
-    def _menu_close(self):
-        widget = self._menu_dock_widget()
+    def menu_close_target(self) -> None:
+        widget = self.menu_target_widget()
         if widget:
             self._close_dock_widget(widget)
 
-    def _menu_close_others(self):
-        widget = self._menu_dock_widget()
+    def menu_close_others_target(self) -> None:
+        widget = self.menu_target_widget()
         if widget:
             btn = self.button_for(widget)
             if btn:
                 self._close_others(btn)
 
-    def _menu_detach(self):
-        widget = self._menu_dock_widget()
-        if widget:
-            manager = self._find_manager()
-            if manager and hasattr(manager, 'sidebar_manager'):
-                manager.sidebar_manager.unpin_widget_floating(widget) # FIX: Added .sidebar_manager
-                
     # ─────────────────────────────────────────────────────────────────────
 
     def add_tab(self, dock_widget: 'DockWidget') -> VerticalTabButton:
@@ -256,6 +335,11 @@ class SideTabBar(QFrame, DockMenuMixin):
         btn.drag_started.connect(lambda b=btn: self.tab_drag_started.emit(b))
         btn.context_menu_requested.connect(self._on_tab_context_menu)
         btn.close_requested.connect(lambda b=btn: self._close_tab_button(b))
+        
+        try:
+            dock_widget.view_toggled.connect(self._on_widget_view_toggled, Qt.UniqueConnection)
+        except (RuntimeError, TypeError):
+            pass
         
         # FIX: Start the button HIDDEN so it doesn't flash at (0,0)
         btn.hide()
@@ -296,6 +380,11 @@ class SideTabBar(QFrame, DockMenuMixin):
         return QSize(16777215, max(40, hint.height() + 10))
     
     def remove_tab(self, dock_widget: 'DockWidget'):
+        try:
+            dock_widget.view_toggled.disconnect(self._on_widget_view_toggled)
+        except (RuntimeError, TypeError):
+            pass
+            
         btn = self._widget_map.pop(dock_widget, None)
         if btn is None:
             return
@@ -321,7 +410,7 @@ class SideTabBar(QFrame, DockMenuMixin):
     def _unpin_tab(self, button: VerticalTabButton):
         """Unpin specific tab (move to main area without closing)."""
         dock_widget = button.property("_dock_widget")
-        if dock_widget:
+        if dock_widget and (dock_widget.features() & DockWidgetFeature.pinnable):
             manager = self._find_manager()
             if manager and hasattr(manager, 'sidebar_manager'):
                 manager.sidebar_manager.unpin_widget(dock_widget) # FIX: Added .sidebar_manager
@@ -345,26 +434,27 @@ class SideTabBar(QFrame, DockMenuMixin):
         menu.triggered.connect(self.dispatch_dock_action)
         
         menu.exec(global_pos)
-
-    def _menu_is_pinned(self) -> bool:
-        """Tell the mixin that widgets in this bar are already pinned."""
-        return True
-
-    def _menu_unpin_current(self):
-        """Handler for the 'Unpin from Sidebar' action triggered by the mixin."""
-        widget = self._menu_dock_widget()
-        if widget:
+    
+    def _on_widget_view_toggled(self, visible: bool, dock_widget: Optional['DockWidget'] = None):
+        if dock_widget is None or not hasattr(dock_widget, 'features'):
+            dock_widget = self.sender()
+        btn = self._widget_map.get(dock_widget)
+        if btn is None:
+            return
+        btn.setVisible(visible)
+        self._update_scroll_visibility()
+        any_visible = any(not b.isHidden() for b in self._buttons)
+        self.setVisible(any_visible)
+        if not visible:
             manager = self._find_manager()
             if manager and hasattr(manager, 'sidebar_manager'):
-                manager.sidebar_manager.unpin_widget(widget)
-    
+                if manager.sidebar_manager._overlay.isVisible() and dock_widget in manager.sidebar_manager._overlay._current_widgets:
+                    manager.sidebar_manager.close_overlay()
+
     def _close_dock_widget(self, dock_widget: 'DockWidget'):
-        """Safely unpins the widget from the sidebar, then fully closes it."""
-        if DockWidgetFeature.closable not in dock_widget.features():
+        """Safely closes the dock widget without unpinning it from the sidebar."""
+        if not (dock_widget.features() & DockWidgetFeature.closable):
             return
-        manager = self._find_manager()
-        if manager and hasattr(manager, 'sidebar_manager'):
-            manager.sidebar_manager.unpin_widget(dock_widget) # FIX: Added .sidebar_manager
         dock_widget.toggle_view(False)
 
     def _close_tab_button(self, button: VerticalTabButton):
@@ -376,13 +466,13 @@ class SideTabBar(QFrame, DockMenuMixin):
         keep_widget = keep_button.property("_dock_widget")
         for btn in list(self._buttons):
             dw = btn.property("_dock_widget")
-            if dw and dw != keep_widget:
+            if dw and dw != keep_widget and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden():
                 self._close_dock_widget(dw)
     
     def _close_all(self):
         for btn in list(self._buttons):
             dw = btn.property("_dock_widget")
-            if dw:
+            if dw and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden():
                 self._close_dock_widget(dw)
     
     def _move_to_area(self, dock_widget: 'DockWidget', area: DockWidgetArea):
@@ -400,14 +490,41 @@ class SideTabBar(QFrame, DockMenuMixin):
     
     def tab_count(self) -> int:
         return len(self._buttons)
+
+    def count(self) -> int:
+        return len(self._buttons)
+
+    def current_index(self) -> int:
+        for i, btn in enumerate(self._buttons):
+            if btn.isChecked():
+                return i
+        return 0 if self._buttons else -1
+
+    def is_tab_open(self, index: int) -> bool:
+        if 0 <= index < len(self._buttons):
+            return not self._buttons[index].isHidden()
+        return False
+
+    def tab(self, index: int) -> Optional[VerticalTabButton]:
+        return self._buttons[index] if 0 <= index < len(self._buttons) else None
     
+    def dock_manager(self):
+        return self._find_manager()
+
     def _find_manager(self):
-        from .dock_manager import DockManager
-        w = self.parentWidget()
+        if getattr(self, '_dock_manager', None):
+            return self._dock_manager
+        if self._context_menu_widget and hasattr(self._context_menu_widget, 'dock_manager'):
+            return self._context_menu_widget.dock_manager()
+        for btn in self._buttons:
+            dw = btn.property("_dock_widget")
+            if dw and hasattr(dw, 'dock_manager'):
+                return dw.dock_manager()
+        w = self.parent()
         while w:
-            if isinstance(w, DockManager):
-                return w
-            w = w.parentWidget()
+            if hasattr(w, 'sidebar_manager') or hasattr(w, 'dock_manager'):
+                return w if hasattr(w, 'sidebar_manager') else w.dock_manager()
+            w = w.parent()
         return None
     
     def eventFilter(self, obj, event):
@@ -439,10 +556,7 @@ class SideTabBar(QFrame, DockMenuMixin):
     
     def _show_drop_indicator(self):
         # Attach drop indicator directly to the inner scroll container
-        self._drop_indicator = QLabel(self._scroll_container)
-        self._drop_indicator.setStyleSheet(
-            f"background-color: {self._drop_indicator_color.name()};"
-        )
+        self._drop_indicator = _DropLine(self._drop_indicator_color, self._scroll_container)
         self._drop_indicator.setFixedSize(3, 30)
         self._drop_indicator.show()
     
@@ -464,19 +578,15 @@ class SideTabBar(QFrame, DockMenuMixin):
         """Apply SIDEBAR styles to the tab bar container and its decorations."""
         s = self._style_mgr.get_all(DockStyleCategory.SIDEBAR)
 
-        # Container background
-        bg = s.get("bg_color")
-        bg_css = bg.name() if bg else "transparent"
-        border = s.get("border_color")
-        border_css = border.name() if border else "transparent"
-        border_w = s.get("border_width", 1.0)
-
-        self.setStyleSheet(f"""
-            QFrame#sideTabBar {{
-                background-color: {bg_css};
-                border: {border_w}px solid {border_css};
-            }}
-        """)
+        # Container background + border are painted (see paintEvent). The border
+        # width is mirrored into the outer layout margin so it reserves the same
+        # 1px content inset the old QSS `border` did — content must not shift.
+        self._bg_color = s.get("bg_color")
+        self._border_color = s.get("border_color")
+        self._border_w = s.get("border_width", 1.0)
+        reserve = round(self._border_w)
+        self._main_layout.setContentsMargins(reserve, reserve, reserve, reserve)
+        self.update()
 
         # Keep scroll internals transparent
         self._scroll_area.setStyleSheet("background: transparent;")
@@ -492,32 +602,39 @@ class SideTabBar(QFrame, DockMenuMixin):
         self._layout.setContentsMargins(pad, pad, pad, pad + 2)
         self._layout.setSpacing(s.get("tab_margin", 2))
 
-        # Counter label (uses subtle sidebar colors, badge font metrics)
+        # Counter badge (painted rounded bg + palette text — see _CounterBadge).
         counter_bg = s.get("tab_bg_hover_start")
-        counter_bg_css = counter_bg.name() if counter_bg else "palette(mid)"
         counter_text = s.get("tab_text_normal")
-        counter_text_css = counter_text.name() if counter_text else "palette(text)"
         badge_radius = s.get("badge_radius", 6)
         badge_font = s.get("badge_font_family", "Segoe UI")
         badge_size = s.get("badge_font_size", 8)
 
-        self._counter_lbl.setStyleSheet(f"""
-            QLabel {{
-                font-weight: bold;
-                font-size: {badge_size + 2}px;
-                font-family: "{badge_font}";
-                color: {counter_text_css};
-                background: {counter_bg_css};
-                border-radius: {badge_radius - 2}px;
-                margin: 2px;
-                padding: 2px;
-            }}
-        """)
+        font = self._counter_lbl.font()
+        font.setFamily(badge_font)
+        font.setPixelSize(badge_size + 2)   # old QSS used px, not pt
+        font.setBold(True)
+        self._counter_lbl.setContentsMargins(2, 2, 2, 2)   # old QSS padding:2px
+        self._counter_lbl.setFont(font)
+        self._counter_lbl.set_badge(counter_bg, counter_text, badge_radius - 2)
 
         # Drop indicator color
         ind = s.get("indicator_color")
         if ind:
             self._drop_indicator_color = ind
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
+    def paintEvent(self, event):
+        # Painted container chrome replaces the old `QFrame#sideTabBar` hex QSS.
+        bg = self._bg_color
+        if bg is not None and bg.alpha() > 0:
+            p = QPainter(self)
+            p.fillRect(self.rect(), bg)
+            bc = self._border_color
+            bw = self._border_w
+            if bc is not None and bc.alpha() > 0 and bw > 0:
+                inset = bw / 2.0
+                p.setPen(QPen(bc, bw))
+                p.setBrush(Qt.NoBrush)
+                p.drawRect(QRectF(self.rect()).adjusted(inset, inset, -inset, -inset))
+            p.end()
+        super().paintEvent(event)
+

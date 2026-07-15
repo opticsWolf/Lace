@@ -1,23 +1,20 @@
-import sys
+# -*- coding: utf-8 -*-
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
+
 import logging
 from typing import TYPE_CHECKING, Optional, Type, TypeVar, List
 
 from PySide6.QtCore import Qt, QObject
 from PySide6.QtGui import QPixmap, QPainter
-# -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
-
-SPDX-License-Identifier: Apache-2.0
-
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
-
-from PySide6.QtWidgets import QApplication, QWidget, QStyle, QAbstractButton
+from PySide6.QtWidgets import QApplication, QWidget, QStyle, QAbstractButton, QSplitter
 
 if TYPE_CHECKING:
     from .dock_splitter import DockSplitter
@@ -114,3 +111,37 @@ def find_children(parent: QObject, type_: Type[T], name: str = '',
     Returns all children of this object that can be cast to the given type.
     """
     return parent.findChildren(type_, name, options)
+
+
+def _dump_recursive(level: int, widget: QWidget) -> None:
+    indent = ' ' * level * 4
+    if isinstance(widget, QSplitter):
+        logger.debug(
+            "%sSplitter %s v: %s c: %s", indent,
+            ('|' if widget.orientation() == Qt.Vertical else '--'),
+            (' ' if widget.isHidden() else 'v'), widget.count(),
+        )
+        for i in range(widget.count()):
+            _dump_recursive(level + 1, widget.widget(i))
+    elif hasattr(widget, 'dock_widgets'):  # DockAreaWidget (duck-typed to avoid a cycle)
+        logger.debug('%sDockArea', indent)
+        logger.debug('%s%s %s DockArea', indent,
+                     ' ' if widget.isHidden() else 'v',
+                     ' ' if widget.open_dock_widgets_count() > 0 else 'c')
+        indent = ' ' * (level + 1) * 4
+        for i, dock_widget in enumerate(widget.dock_widgets()):
+            logger.debug('%s%s%s%s %s', indent,
+                         '*' if i == widget.current_index() else ' ',
+                         ' ' if i == dock_widget.isHidden() else 'v',
+                         'c' if i == dock_widget.is_closed() else ' ',
+                         dock_widget.windowTitle())
+
+
+def dump_layout(container) -> None:
+    """Debug-log the splitter / dock-area tree under ``container`` (no-op unless
+    DEBUG logging is enabled)."""
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    logger.debug("--------------------------")
+    _dump_recursive(0, container.root_splitter())
+    logger.debug("--------------------------\n\n")

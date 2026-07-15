@@ -1,28 +1,26 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
-
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
-from PySide6.QtCore import QEvent, QSize, Qt, Signal
-from PySide6.QtGui import QAction, QIcon, QColor, QPalette, QShowEvent
+from PySide6.QtCore import QEvent, QSize, Qt, Signal, QRectF
+from PySide6.QtGui import QAction, QIcon, QPalette, QShowEvent
 from PySide6.QtWidgets import (QBoxLayout, QFrame, QScrollArea,
                                QSplitter, QToolBar, QWidget)
 
 # --- ADDED IMPORTS ---
-from .dock_style_manager import get_dock_style_manager
-from .dock_theme import DockStyleCategory
-from .dock_palette_bridge import resolve_dock_colors, build_dock_palette
+from .dock_styled import DockStyled
+from .dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
 from .enums import (DockWidgetFeature, WidgetState, ToggleViewActionMode,
                     InsertMode)
 from .util import find_parent, emit_top_level_event_for_widget
@@ -33,11 +31,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockWidget(QFrame):
+class DockWidget(QFrame, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.PANEL, DockStyleCategory.CORE)
     view_toggled = Signal(bool)
     closed = Signal()
     title_changed = Signal(str)
     top_level_changed = Signal(bool)
+    features_changed = Signal(DockWidgetFeature)
 
     def __init__(self, title: str, parent: QWidget = None):
         super().__init__(parent)
@@ -82,14 +82,17 @@ class DockWidget(QFrame):
         self.set_toolbar_floating_style(False)
 
         # --- NEW: Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.PANEL)
-        self.refresh_style()
+        self._init_dock_style()
 
     def __repr__(self):
         return f'<{self.__class__.__name__} title={self.windowTitle()!r}>'
 
     def _show_dock_widget(self):
+        if self.is_in_sidebar():
+            if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+                self._dock_manager.sidebar_manager.show_widget(self)
+            return
+
         from .floating_dock_container import FloatingDockContainer
         if not self._dock_area:
             floating_widget = FloatingDockContainer(dock_widget=self)
@@ -111,7 +114,15 @@ class DockWidget(QFrame):
             floating_widget = find_parent(FloatingDockContainer, container)
             floating_widget.show()
 
+        if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+            self._dock_manager.sidebar_manager.raise_overlays()
+
     def _hide_dock_widget(self):
+        if self.is_in_sidebar():
+            if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+                self._dock_manager.sidebar_manager.hide_widget(self)
+            return
+
         self._tab_widget.hide()
         self._update_parent_dock_area()
 
@@ -175,7 +186,7 @@ class DockWidget(QFrame):
 
     def set_dock_area(self, dock_area: 'DockAreaWidget'):
         self._dock_area = dock_area
-        self._toggle_view_action.setChecked(dock_area is not None and not self.is_closed())
+        self._toggle_view_action.setChecked((dock_area is not None or self.is_in_sidebar()) and not self.is_closed())
         
         # If the widget is moved back to the main window, reset its state to docked
         if dock_area:
@@ -201,8 +212,9 @@ class DockWidget(QFrame):
 
     def flag_as_unassigned(self):
         self._closed = True
-        logger.debug('flag_as_unassigned %s -> setParent %s', self, self._dock_manager)
-        self.setParent(self._dock_manager)
+        parent_widget = getattr(self._dock_manager, '_root', None) or self._dock_manager
+        logger.debug('flag_as_unassigned %s -> setParent %s', self, parent_widget)
+        self.setParent(parent_widget)
         self.setVisible(False)
         self.set_dock_area(None)
 
@@ -270,6 +282,7 @@ class DockWidget(QFrame):
 
         self._widget = widget
         self._widget.setProperty("dockWidgetContent", True)
+        self._update_bottom_mask()
 
     def take_widget(self):
         self._scroll_area.takeWidget()
@@ -285,13 +298,27 @@ class DockWidget(QFrame):
         return self._tab_widget
 
     def set_features(self, features: DockWidgetFeature):
+        if self._features == features:
+            return
         self._features = features
+        self.features_changed.emit(self._features)
+        if self._tab_widget:
+            self._tab_widget.update_close_button_visibility()
+        if self._dock_area:
+            self._dock_area._update_title_bar_button_states()
 
     def set_feature(self, flag: DockWidgetFeature, on: bool = True):
+        old_features = self._features
         if on:
             self._features |= flag
         else:
             self._features &= ~flag
+        if self._features != old_features:
+            self.features_changed.emit(self._features)
+            if self._tab_widget:
+                self._tab_widget.update_close_button_visibility()
+            if self._dock_area:
+                self._dock_area._update_title_bar_button_states()
 
     def features(self) -> DockWidgetFeature:
         return self._features
@@ -314,6 +341,16 @@ class DockWidget(QFrame):
         container = self.dock_container()
         return container and container.is_floating()
 
+    def is_in_sidebar(self) -> bool:
+        if self._widget_state in (WidgetState.pinned_shown, WidgetState.pinned_hidden):
+            return True
+        if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):
+            return self._dock_manager.sidebar_manager.is_pinned(self)
+        return False
+
+    def is_pinned(self) -> bool:
+        return self.is_in_sidebar()
+
     def is_closed(self) -> bool:
         return self._closed
 
@@ -327,13 +364,37 @@ class DockWidget(QFrame):
         if icon is not None:
             self._toggle_view_action.setIcon(icon)
 
-    def set_icon(self, icon: QIcon):
+    def set_icon(self, icon: Union[QIcon, str]):
         self._tab_widget.set_icon(icon)
-        if not self._toggle_view_action.isCheckable():
-            self._toggle_view_action.setIcon(icon)
+        if not self._toggle_view_action.isCheckable() and self._tab_widget.icon():
+            self._toggle_view_action.setIcon(self._tab_widget.icon())
 
     def icon(self) -> QIcon:
         return self._tab_widget.icon()
+
+    def set_default_icon_name(self, name: str):
+        self._tab_widget.set_default_icon_name(name)
+        if not self._toggle_view_action.isCheckable() and self._tab_widget.icon():
+            self._toggle_view_action.setIcon(self._tab_widget.icon())
+
+    def default_icon_name(self) -> str:
+        return self._tab_widget.default_icon_name()
+
+    def set_custom_icon(self, icon: Union[QIcon, str]):
+        self._tab_widget.set_custom_icon(icon)
+        if not self._toggle_view_action.isCheckable() and self._tab_widget.icon():
+            self._toggle_view_action.setIcon(self._tab_widget.icon())
+
+    def custom_icon(self) -> QIcon:
+        return self._tab_widget.custom_icon()
+
+    def set_custom_icon_name(self, name: str):
+        self._tab_widget.set_custom_icon_name(name)
+        if not self._toggle_view_action.isCheckable() and self._tab_widget.icon():
+            self._toggle_view_action.setIcon(self._tab_widget.icon())
+
+    def custom_icon_name(self) -> str:
+        return self._tab_widget.custom_icon_name()
 
     def tool_bar(self) -> QToolBar:
         return self._tool_bar
@@ -425,10 +486,41 @@ class DockWidget(QFrame):
         """
         colors = resolve_dock_colors()
         pal = build_dock_palette(is_panel=True, colors=colors)
-        
         self.setPalette(pal)
-        self.setAutoFillBackground(True)
-        self.setBackgroundRole(QPalette.ColorRole.Window)
+
+        if self.is_in_sidebar():
+            card_radius = self._style_mgr.get(DockStyleCategory.SIDEPANEL, "corner_radius")
+            if card_radius is None:
+                card_radius = self._style_mgr.get(DockStyleCategory.CORE, "corner_radius", 0)
+            card_border = self._style_mgr.get(DockStyleCategory.SIDEPANEL, "border_width")
+            if card_border is None:
+                card_border = self._style_mgr.get(DockStyleCategory.CORE, "border_width", 0.0)
+        else:
+            card_radius = self._style_mgr.get(DockStyleCategory.CORE, "corner_radius", 0)
+            card_border = self._style_mgr.get(DockStyleCategory.CORE, "border_width", 0.0)
+        from math import ceil
+        bw_int = ceil(card_border) if card_border > 0 else 0
+        if card_radius > 0 and not self.is_floating():
+            self._bottom_radius = max(0.0, float(card_radius - bw_int))
+            self.setAutoFillBackground(False)
+            self.setAttribute(Qt.WA_StyledBackground, False)
+        else:
+            self._bottom_radius = 0.0
+            self.setAutoFillBackground(True)
+            self.setBackgroundRole(QPalette.ColorRole.Window)
+
+        margin_raw = self._style_mgr.get(DockStyleCategory.PANEL, "content_margin", 6)
+        if isinstance(margin_raw, (int, float)):
+            left = right = top = bottom = int(margin_raw)
+        elif isinstance(margin_raw, (list, tuple)):
+            if len(margin_raw) == 1:
+                left = right = top = bottom = int(margin_raw[0])
+            elif len(margin_raw) >= 2:
+                left = right = bottom = int(margin_raw[0])
+                top = int(margin_raw[1])
+        else:
+            left = right = top = bottom = 6
+        self._layout.setContentsMargins(left, top, right, bottom)
 
         # Force the panel palette onto the immediate content layer
         # so Qt StyleSheets don't sever the inheritance to user widgets.
@@ -438,6 +530,66 @@ class DockWidget(QFrame):
                 self._scroll_area.widget().setPalette(pal)
         elif self._widget:
             self._widget.setPalette(pal)
+
+        self.update()
+        self._update_bottom_mask()
+
+    def paintEvent(self, event) -> None:
+        from PySide6.QtGui import QPainter
+        from .dock_paint import bottom_rounded_path
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        bg = self.palette().color(QPalette.ColorRole.Window)
+        if bg.alpha() > 0:
+            if getattr(self, "_bottom_radius", 0.0) > 0.0:
+                path = bottom_rounded_path(QRectF(self.rect()), self._bottom_radius)
+                p.fillPath(path, bg)
+            else:
+                p.fillRect(self.rect(), bg)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        # Children (QScrollArea / user widget) are already resized at this point.
+        # Apply the mask synchronously — no timer needed.
+        self._apply_bottom_mask_sync()
+
+    def _apply_bottom_mask_sync(self) -> None:
+        """Apply the bottom mask synchronously. Call from resizeEvent or refresh_style."""
+        if getattr(self, "_mask_applying", False):
+            return  # already applying in this event cycle
+        self._mask_applying = True
+        try:
+            self._apply_bottom_mask()
+        finally:
+            self._mask_applying = False
+
+    def _update_bottom_mask(self) -> None:
+        """Thin wrapper for backwards compatibility with callers outside resizeEvent."""
+        target = self._scroll_area or self._widget
+        if not target:
+            return
+        self._apply_bottom_mask_sync()
+
+    def _apply_bottom_mask(self) -> None:
+        target = self._scroll_area or self._widget
+        if not target or not self.isVisible() or not target.isVisible():
+            return
+        radius = getattr(self, "_bottom_radius", 0.0)
+        m_bottom = self._layout.contentsMargins().bottom()
+        target_radius = max(0.0, radius - m_bottom) if radius > 0.0 else 0.0
+
+        current_cache = (target.rect().size(), target_radius)
+        if getattr(self, "_last_mask_cache", None) == current_cache:
+            return
+        self._last_mask_cache = current_cache
+
+        if target_radius > 0.0 and target.width() > 0 and target.height() > 0:
+            from PySide6.QtGui import QRegion
+            from .dock_paint import bottom_rounded_path
+            path = bottom_rounded_path(QRectF(target.rect()), target_radius)
+            target.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        else:
+            target.clearMask()
 
     def on_style_changed(self, category: DockStyleCategory, changes: dict):
         """Callback triggered by DockStyleManager when the theme switches."""

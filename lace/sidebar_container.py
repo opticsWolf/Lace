@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-"""
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QRect, QPoint, QEvent
-from PySide6.QtGui import QMouseEvent, QColor
+from PySide6.QtGui import QMouseEvent, QColor, QPainter
 from PySide6.QtWidgets import (
-    QFrame, QMenu, QSplitter, QVBoxLayout, QHBoxLayout, QLabel,
-    QToolButton, QStyle, QGraphicsDropShadowEffect, QWidget
+    QFrame, QSplitter, QVBoxLayout, QGraphicsDropShadowEffect, QWidget
 )
 
-from .enums import DockWidgetArea, DockWidgetFeature
-from .util import start_drag_distance
-from .dock_style_manager import get_dock_style_manager
+from .enums import DockWidgetArea, SideBarFocusBehavior
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .sidebar_title_bar import SideBarTitleBar
 
@@ -30,16 +30,18 @@ _MIN_SIDEBAR_WIDTH = 200
 _MIN_SIDEBAR_HEIGHT = 150
 _MIN_CENTER_GAP = 50  # Minimum space to preserve in center / prevent overlap
 
-class SideBarContainer(QFrame):
+class SideBarContainer(QFrame, DockStyled):
     """
     Animated overlay hosting an active dock widget with dynamic 
     resize tracking and keyboard focus management.
     """
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEPANEL, DockStyleCategory.CORE, DockStyleCategory.SIDEBAR, DockStyleCategory.TITLE_BAR)
     pin_back_requested = Signal(object)
     drag_unpin_requested = Signal(object)
     close_requested = Signal()
     resize_started = Signal()
     resize_finished = Signal()
+    maximize_requested = Signal()
     
     def __init__(self, parent: QWidget = None):
         super().__init__(parent)
@@ -51,6 +53,14 @@ class SideBarContainer(QFrame):
         self._current_widgets: List['DockWidget'] = []
         self._area = DockWidgetArea.left
         self._is_resizing = False
+        self._bg: QColor | None = None   # painted in paintEvent (no hex QSS)
+        self._focus_behavior = SideBarFocusBehavior.take_focus_and_restore
+        self.setFocusPolicy(Qt.StrongFocus)
+        self._sidebar_focused = False
+        from PySide6.QtWidgets import QApplication
+        qapp = QApplication.instance()
+        if qapp:
+            qapp.focusChanged.connect(self._on_app_focus_changed)
         
         # Shadow effect
         self._shadow = QGraphicsDropShadowEffect(self)
@@ -63,6 +73,8 @@ class SideBarContainer(QFrame):
         self._slide_anim = QPropertyAnimation(self, b"geometry")
         self._slide_anim.setDuration(_ANIMATION_DURATION_MS)
         self._slide_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._slide_anim.finished.connect(self._on_anim_finished)
+        self._sliding_in = True
         
         # Content splitter
         self._splitter = QSplitter(Qt.Vertical)
@@ -74,6 +86,7 @@ class SideBarContainer(QFrame):
         self._title_bar.close_requested.connect(self.close_requested.emit)
         self._title_bar.reattach_requested.connect(self.pin_back_requested.emit)
         self._title_bar.detach_requested.connect(self.drag_unpin_requested.emit)
+        self._title_bar.maximize_requested.connect(self._on_maximize_clicked)
         
         # Layout
         self._content_layout = QVBoxLayout(self)
@@ -83,11 +96,13 @@ class SideBarContainer(QFrame):
         self._content_layout.addWidget(self._splitter, 1)
         
         self._size_hint = QSize(300, 200)
+        
+        # Maximize state
+        self._maximized = False
+        self._pre_maximize_size = QSize()
 
         # --- Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.SIDEPANEL)
-        self.refresh_style()
+        self._init_dock_style()
 
         if parent:
             parent.installEventFilter(self)
@@ -121,18 +136,54 @@ class SideBarContainer(QFrame):
 
     # --- Presentation & Focus ---
 
+    @property
+    def focus_behavior(self) -> SideBarFocusBehavior:
+        return self._focus_behavior
+
+    @focus_behavior.setter
+    def focus_behavior(self, behavior: SideBarFocusBehavior):
+        self._focus_behavior = behavior
+
     def show_widget(self, dock_widget: 'DockWidget', area: DockWidgetArea, 
                     animate: bool = True, size: QSize = None):
+        if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
+            from PySide6.QtWidgets import QApplication
+            fw = QApplication.focusWidget()
+            last_dw = None
+            if fw and not self.isAncestorOf(fw):
+                self._last_focused_widget = fw
+                from .dock_widget import DockWidget
+                curr = fw
+                while curr:
+                    if isinstance(curr, DockWidget):
+                        last_dw = curr
+                        break
+                    curr = curr.parentWidget()
+            if last_dw is None and hasattr(self, '_dock_manager') and getattr(self, '_dock_manager', None):
+                active_area = getattr(self._dock_manager, '_active_dock_area', None)
+                if active_area and active_area.current_dock_widget():
+                    last_dw = active_area.current_dock_widget()
+            self._last_focused_dock_widget = last_dw
+        else:
+            self._last_focused_widget = None
+            self._last_focused_dock_widget = None
+
         if size:
             self._size_hint = size
         
         self._area = area
         self._current_widgets = [dock_widget]
         
+        # Reset maximized state when switching widgets (hover tab switch)
+        if self._maximized:
+            self._maximized = False
+            self._title_bar.update_maximize_state(False)
+            self._pre_maximize_size = QSize()
+        
         # Update title bar content
         self._title_bar.set_widget(dock_widget)
         
-        self._update_resize_margins()
+        self._update_layout_margins()
         self._update_shadow_direction()
         
         while self._splitter.count():
@@ -142,6 +193,10 @@ class SideBarContainer(QFrame):
         
         self._splitter.addWidget(dock_widget)
         dock_widget.show()
+        if hasattr(dock_widget, 'refresh_style'):
+            dock_widget.refresh_style()
+        if hasattr(self._title_bar, 'refresh_style'):
+            self._title_bar.refresh_style()
         self._update_geometry()
         
         if animate and not self.isVisible():
@@ -149,22 +204,39 @@ class SideBarContainer(QFrame):
             end_rect = self._get_visible_geometry()
             self.setGeometry(start_rect)
             self.show()
+            self.raise_()
+            if (bar := self._find_sibling_bar(self._area)):
+                bar.raise_()
             
-            try:
-                self._slide_anim.finished.disconnect(self._focus_inner_widget)
-            except RuntimeError:
-                pass
-                
-            self._slide_anim.finished.connect(self._focus_inner_widget)
+            self._sliding_in = True
+            if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
+                self._focus_inner_widget()
             self._slide_anim.setStartValue(start_rect)
             self._slide_anim.setEndValue(end_rect)
             self._slide_anim.start()
         else:
             self.setGeometry(self._get_visible_geometry())
             self.show()
-            self._focus_inner_widget()
+            self.raise_()
+            if (bar := self._find_sibling_bar(self._area)):
+                bar.raise_()
+            if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
+                self._focus_inner_widget()
+
+    def _on_app_focus_changed(self, old_widget, new_widget):
+        try:
+            if not self.isVisible() or new_widget is None:
+                if getattr(self, '_sidebar_focused', False):
+                    self._sidebar_focused = False
+                    self.update()
+                return
             
-        self.raise_()
+            is_ours = self.isAncestorOf(new_widget) or (new_widget is self)
+            if is_ours != getattr(self, '_sidebar_focused', False):
+                self._sidebar_focused = is_ours
+                self.update()
+        except RuntimeError:
+            pass
 
     def _focus_inner_widget(self):
         """Pass keyboard focus to the actual content."""
@@ -172,33 +244,196 @@ class SideBarContainer(QFrame):
             dock_widget = self._current_widgets[0]
             inner = dock_widget.widget()
             if inner:
-                inner.setFocus()
+                if inner.focusPolicy() == Qt.NoFocus:
+                    inner.setFocusPolicy(Qt.StrongFocus)
+                inner.setFocus(Qt.OtherFocusReason)
             else:
-                dock_widget.setFocus()
+                if dock_widget.focusPolicy() == Qt.NoFocus:
+                    dock_widget.setFocusPolicy(Qt.StrongFocus)
+                dock_widget.setFocus(Qt.OtherFocusReason)
+            from PySide6.QtWidgets import QApplication
+            fw = QApplication.focusWidget()
+            if not self.isAncestorOf(fw) and fw is not self:
+                self.setFocus(Qt.OtherFocusReason)
 
     def hide_widget(self, animate: bool = True):
         if not self.isVisible():
             return
         
         if animate:
+            self._sliding_in = False
             self._slide_anim.setStartValue(self.geometry())
             self._slide_anim.setEndValue(self._get_hidden_geometry())
-            self._slide_anim.finished.connect(self._on_hide_finished)
             self._slide_anim.start()
+        else:
+            self._on_hide_finished()
+
+    def _on_maximize_clicked(self):
+        """Toggle maximize/restore for the sidebar overlay."""
+        if self._maximized:
+            self._restore_maximized()
+        else:
+            self._maximize()
+    
+    def _maximize(self):
+        """Expand the sidebar overlay to fill the center area (like VS Code panel maximize)."""
+        parent = self.parentWidget()
+        if not parent:
+            return
+        
+        # Save current size
+        self._pre_maximize_size = self.size()
+        
+        # Calculate maximized geometry - expand to fill center area only
+        pr = parent.rect()
+        gap = 16  # Small gap around the maximized sidebar
+        
+        # Get tab bar dimensions for constraints
+        left_bar = self._find_sibling_bar(DockWidgetArea.left)
+        left_bar_width = left_bar.width() if left_bar and left_bar.isVisible() else 0
+        
+        right_bar = self._find_sibling_bar(DockWidgetArea.right)
+        right_bar_width = right_bar.width() if right_bar and right_bar.isVisible() else 0
+        
+        bottom_bar = self._find_sibling_bar(DockWidgetArea.bottom)
+        bottom_bar_height = bottom_bar.height() if bottom_bar and bottom_bar.isVisible() else 0
+        
+        if self._area == DockWidgetArea.left:
+            # Expand to fill center area, capped at 8/3× original width or center area (whichever is smaller)
+            center_start = left_bar_width
+            center_width = pr.width() - left_bar_width - right_bar_width - gap
+            max_width = min(int(self._pre_maximize_size.width() * 8 / 3), center_width, pr.width() - gap)
+            new_width = max(_MIN_SIDEBAR_WIDTH, min(max_width, pr.width() - left_bar_width - right_bar_width))
+            geo = QRect(center_start, 0, new_width, pr.height())
+            
+        elif self._area == DockWidgetArea.right:
+            # Expand to fill center area, capped at 8/3× original width or center area (whichever is smaller)
+            center_width = pr.width() - left_bar_width - right_bar_width - gap
+            max_width = min(int(self._pre_maximize_size.width() * 8 / 3), center_width, pr.width() - gap)
+            new_width = max(_MIN_SIDEBAR_WIDTH, min(max_width, pr.width() - left_bar_width - right_bar_width))
+            center_start = pr.width() - right_bar_width - new_width
+            geo = QRect(center_start, 0, new_width, pr.height())
+            
+        elif self._area == DockWidgetArea.bottom:
+            # Expand upward to fill center area
+            center_height = pr.height() - bottom_bar_height - gap
+            geo = QRect(0, 0, pr.width(), max(_MIN_SIDEBAR_HEIGHT, center_height))
+        else:
+            geo = QRect(0, 0, pr.width(), pr.height())
+        
+        self._maximized = True
+        self.setGeometry(geo)
+        # Don't update _size_hint — keep original size so
+        # _get_visible_geometry doesn't miscalculate position
+        self._title_bar.update_maximize_state(True)
+        
+        # Update resize zone cursor
+        if self._area == DockWidgetArea.left:
+            self.setCursor(Qt.SizeHorCursor)
+        elif self._area == DockWidgetArea.right:
+            self.setCursor(Qt.SizeHorCursor)
+        elif self._area == DockWidgetArea.bottom:
+            self.setCursor(Qt.SizeVerCursor)
+    
+    def _restore_maximized(self):
+        """Restore sidebar to its previous size."""
+        if not self._maximized:
+            return
+        
+        self._maximized = False
+        
+        # Restore previous size
+        if self._pre_maximize_size.isValid() and self._pre_maximize_size.width() > 0:
+            size = self._pre_maximize_size
+            # Update _size_hint BEFORE calling _get_visible_geometry so
+            # position calculations use the correct width/height
+            self._size_hint = size
+            geo = self._get_visible_geometry()
+            self.setGeometry(geo)
+        
+        self._title_bar.update_maximize_state(False)
+        self._pre_maximize_size = QSize()
+        
+        # Reset cursor
+        self.setCursor(Qt.ArrowCursor)
+    
+    def _on_anim_finished(self):
+        if self._sliding_in:
+            if self._focus_behavior in (SideBarFocusBehavior.take_focus_and_restore, SideBarFocusBehavior.take_focus_only):
+                self._focus_inner_widget()
         else:
             self._on_hide_finished()
             
     def _on_hide_finished(self):
         self.hide()
+        # Reset maximized state so next show starts fresh
+        if self._maximized:
+            self._maximized = False
+            self._title_bar.update_maximize_state(False)
+            self._pre_maximize_size = QSize()
         for w in self._current_widgets:
             w.setParent(None)
         self._current_widgets = []
         self._title_bar.set_widget(None)
-        
-        try:
-            self._slide_anim.finished.disconnect(self._on_hide_finished)
-        except RuntimeError:
-            pass
+        if self._focus_behavior == SideBarFocusBehavior.take_focus_and_restore:
+            self._restore_previous_focus()
+        else:
+            self._last_focused_widget = None
+            self._last_focused_dock_widget = None
+
+    def _restore_previous_focus(self):
+        target_restored = False
+        if getattr(self, "_last_focused_widget", None):
+            try:
+                w = self._last_focused_widget
+                if w and w.isVisible() and not self.isAncestorOf(w):
+                    if w.focusPolicy() == Qt.NoFocus:
+                        w.setFocusPolicy(Qt.StrongFocus)
+                    w.setFocus(Qt.OtherFocusReason)
+                    target_restored = True
+            except RuntimeError:
+                pass
+
+        if not target_restored and getattr(self, "_last_focused_dock_widget", None):
+            try:
+                dw = self._last_focused_dock_widget
+                if dw and dw.isVisible() and not self.isAncestorOf(dw):
+                    inner = dw.widget()
+                    if inner and inner.isVisible():
+                        if inner.focusPolicy() == Qt.NoFocus:
+                            inner.setFocusPolicy(Qt.StrongFocus)
+                        inner.setFocus(Qt.OtherFocusReason)
+                    else:
+                        if dw.focusPolicy() == Qt.NoFocus:
+                            dw.setFocusPolicy(Qt.StrongFocus)
+                        dw.setFocus(Qt.OtherFocusReason)
+                    area = dw.dock_area_widget()
+                    if area and hasattr(area, '_dock_manager') and area._dock_manager:
+                        area._dock_manager.set_active_dock_area(area)
+                    target_restored = True
+            except RuntimeError:
+                pass
+
+        if not target_restored and self.parentWidget():
+            from .dock_area_widget import DockAreaWidget
+            for child in self.parentWidget().findChildren(DockAreaWidget):
+                if child.isVisible() and child.current_dock_widget():
+                    dw = child.current_dock_widget()
+                    if not self.isAncestorOf(dw) and dw.isVisible():
+                        inner = dw.widget()
+                        if inner and inner.isVisible():
+                            if inner.focusPolicy() == Qt.NoFocus:
+                                inner.setFocusPolicy(Qt.StrongFocus)
+                            inner.setFocus(Qt.OtherFocusReason)
+                        else:
+                            if dw.focusPolicy() == Qt.NoFocus:
+                                dw.setFocusPolicy(Qt.StrongFocus)
+                            dw.setFocus(Qt.OtherFocusReason)
+                        if hasattr(child, '_dock_manager') and child._dock_manager:
+                            child._dock_manager.set_active_dock_area(child)
+                        break
+        self._last_focused_widget = None
+        self._last_focused_dock_widget = None
 
     # --- Geometry & Resize ---
 
@@ -240,16 +475,34 @@ class SideBarContainer(QFrame):
     def _update_geometry(self):
         self.setGeometry(self._get_visible_geometry())
 
-    def _update_resize_margins(self):
-        m = _RESIZE_HANDLE_WIDTH
+    def _update_layout_margins(self):
+        from math import ceil
+        bw = getattr(self, "_border_width", 0.0)
+        bw_int = ceil(bw + 0.5) if bw > 0 else 0
+
+        title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+        title_margin = title_styles.get("margin")
+        m_top = bw_int + (int(title_margin) if title_margin is not None else 0)
+
+        left = bw_int
+        right = bw_int
+        top = m_top
+        bottom = bw_int
+
+        m = max(bw_int, _RESIZE_HANDLE_WIDTH)
         if self._area == DockWidgetArea.left:
-            self._content_layout.setContentsMargins(0, 0, m, 0)
+            right = m
         elif self._area == DockWidgetArea.right:
-            self._content_layout.setContentsMargins(m, 0, 0, 0)
+            left = m
         elif self._area == DockWidgetArea.bottom:
-            self._content_layout.setContentsMargins(0, m, 0, 0)
-        else:
-            self._content_layout.setContentsMargins(0, 0, 0, 0)
+            top = max(m_top, m)
+        elif self._area == DockWidgetArea.top:
+            bottom = max(bw_int, m)
+
+        self._content_layout.setContentsMargins(left, top, right, bottom)
+
+    def _update_resize_margins(self):
+        self._update_layout_margins()
 
     def _update_shadow_direction(self):
         if self._area == DockWidgetArea.left:
@@ -380,21 +633,87 @@ class SideBarContainer(QFrame):
             new_y = geo.y() + geo.height() - new_height
             self.setGeometry(geo.x(), new_y, geo.width(), new_height)
         
-        self._size_hint = self.size()
+        # Auto-exit maximized state when resizing
+        if self._maximized:
+            self._maximized = False
+            self._title_bar.update_maximize_state(False)
+            self._size_hint = self.size()
+            self.setCursor(Qt.ArrowCursor)
+            self._pre_maximize_size = QSize()
+        else:
+            self._size_hint = self.size()
 
     # --- Style Manager ---
 
+    def paintEvent(self, event):
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QPainterPath, QPen
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+
+        r = QRectF(self.rect())
+        radius = getattr(self, "_corner_radius", 0.0)
+        bw = getattr(self, "_border_width", 0.0)
+
+        if radius > 0 or bw > 0:
+            if bw > 0:
+                inset = (bw / 2.0) + 0.5
+                r = r.adjusted(inset, inset, -inset, -inset)
+            path = QPainterPath()
+            if radius > 0:
+                path.addRoundedRect(r, radius, radius)
+            else:
+                path.addRect(r)
+
+            if self._bg is not None and self._bg.alpha() > 0:
+                p.fillPath(path, self._bg)
+
+            if bw > 0:
+                bcolor = getattr(self, "_focus_border_color", None) if getattr(self, "_sidebar_focused", False) else getattr(self, "_border_color", None)
+                if bcolor is None:
+                    bcolor = getattr(self, "_border_color", None)
+                if isinstance(bcolor, QColor) and bcolor.alpha() > 0:
+                    pen = QPen(bcolor, bw)
+                    p.setPen(pen)
+                    p.drawPath(path)
+        else:
+            if self._bg is not None and self._bg.alpha() > 0:
+                p.fillRect(self.rect(), self._bg)
+        p.end()
+        super().paintEvent(event)
+
     def refresh_style(self):
         s = self._style_mgr.get_all(DockStyleCategory.SIDEPANEL)
+        core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
+        title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
 
-        bg = s.get("bg_normal")
-        bg_css = bg.name() if bg else "palette(window)"
+        self._bg = s.get("bg_normal")
 
-        self.setStyleSheet(f"""
-            #autoHideOverlay {{
-                background-color: {bg_css};
-            }}
-        """)
+        card_radius = s.get("corner_radius")
+        if card_radius is None:
+            card_radius = core_styles.get("corner_radius", 0)
+        self._corner_radius = float(card_radius) if card_radius is not None else 0.0
+
+        card_border = s.get("border_width")
+        if card_border is None or card_border <= 0.0:
+            card_border = core_styles.get("border_width", 0.0)
+        if card_border is None or card_border <= 0.0:
+            card_border = 1.0
+        self._border_width = float(card_border)
+
+        bcolor = s.get("border_color")
+        if bcolor is None:
+            bcolor = core_styles.get("border_color")
+        self._border_color = bcolor
+
+        fcolor = s.get("focus_border_color")
+        if fcolor is None:
+            fcolor = core_styles.get("focus_border_color")
+        self._focus_border_color = fcolor
+
+        self._update_layout_margins()
+
+        self.update()
 
         # Shadow
         shadow_color = s.get("shadow_color")
@@ -402,5 +721,4 @@ class SideBarContainer(QFrame):
             self._shadow.setColor(shadow_color)
         self._shadow.setBlurRadius(s.get("shadow_blur_radius", 20))
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
+

@@ -1,29 +1,33 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
-
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
 
 from typing import TYPE_CHECKING, Optional
 import logging
 
-from PySide6.QtCore import QPoint, Qt, Signal, QSize
-from PySide6.QtGui import QAction, QCursor, QMouseEvent
-from PySide6.QtWidgets import (QAbstractButton, QBoxLayout, QFrame,
-                               QMenu, QSizePolicy, QStyle, QToolButton)
+from PySide6.QtCore import QPoint, QPointF, Qt, Signal, QSize, QRectF
+from PySide6.QtGui import QAction, QCursor, QMouseEvent, QPainter, QPen
+from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy, QToolButton
 
-from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea
+from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea, WidgetState
 from .util import start_drag_distance
-from .dock_style_manager import get_dock_style_manager
+from .dock_chrome import style_title_bar_buttons, ChromeToolButton
+from .dock_paint import chrome_content_margin, top_rounded_path
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
-from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
+from .dock_menu import (
+    MenuSection, dock_icon, MenuContext, build_dock_context_menu,
+    dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
+    menu_default_pin_all, menu_default_reattach
+)
 
 if TYPE_CHECKING:
     from . import DockAreaWidget, DockAreaTabBar, DockManager
@@ -32,7 +36,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockAreaTitleBar(QFrame, DockMenuMixin):
+class DockAreaTitleBar(QFrame, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.TITLE_BAR, DockStyleCategory.CORE)
     _menu_sections    = MenuSection.TITLE_BAR
 
     tab_bar_clicked = Signal(int)
@@ -53,6 +58,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self._undock_button: QToolButton = None
         self._close_button: QToolButton = None
         self._pin_button: QToolButton = None
+        self._maximize_button: QToolButton = None
         self._tab_bar: 'DockAreaTabBar' = None
         self._menu_outdated = True
         self._tabs_menu: QMenu = None
@@ -73,16 +79,14 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         )
 
         # Style Manager Integration
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.TITLE_BAR)
-        self.refresh_style()
+        self._init_dock_style()
 
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
 
     def _create_buttons(self):
         # ── Tabs menu button (always visible) ─────────────────────────
-        self._tabs_menu_button = QToolButton()
+        self._tabs_menu_button = ChromeToolButton()
         self._tabs_menu_button.setObjectName("tabsMenuButton")
         self._tabs_menu_button.setAutoRaise(True)
         self._tabs_menu_button.setPopupMode(QToolButton.InstantPopup)
@@ -103,7 +107,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         )
 
         # ── Pin button ────────────────────────────────────────────────
-        self._pin_button = QToolButton()
+        self._pin_button = ChromeToolButton()
         self._pin_button.setObjectName("pinButton")
         self._pin_button.setAutoRaise(True)
         self._pin_button.setToolTip("Pin to Sidebar")
@@ -115,8 +119,21 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         # Initially hidden; becomes visible when a sidebar is added
         self._pin_button.setVisible(self._menu_has_sidebars())
 
+        # ── Maximize / Restore button ─────────────────────────────────
+        self._maximize_button = ChromeToolButton()
+        self._maximize_button.setObjectName("maximizeButton")
+        self._maximize_button.setAutoRaise(True)
+        self._maximize_button.setToolTip("Maximize")
+        self._maximize_button.setIcon(dock_icon("maximize", DockStyleCategory.TITLE_BAR))
+        self._maximize_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self._top_layout.addWidget(self._maximize_button, 0)
+        self._maximize_button.clicked.connect(self.on_maximize_button_clicked)
+        self._maximize_button.setVisible(
+            self._test_config_flag(DockFlags.dock_area_has_maximize_button)
+        )
+
         # ── Undock (float) button ─────────────────────────────────────
-        self._undock_button = QToolButton()
+        self._undock_button = ChromeToolButton()
         self._undock_button.setObjectName("undockButton")
         self._undock_button.setAutoRaise(True)
         self._undock_button.setToolTip("Float")
@@ -127,7 +144,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         self._undock_button.clicked.connect(self.on_undock_button_clicked)
 
         # ── Close button ──────────────────────────────────────────────
-        self._close_button = QToolButton()
+        self._close_button = ChromeToolButton()
         self._close_button.setObjectName("closeButton")
         self._close_button.setAutoRaise(True)
         # Use dock_icon for proper Normal/Disabled state handling
@@ -172,26 +189,108 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
     def _test_config_flag(self, flag: DockFlags) -> bool:
         return flag in self._dock_area.dock_manager().config_flags
 
-    # ── DockMenuMixin interface ───────────────────────────────────────────
+    # ── MenuActionTarget & Menu Builder ───────────────────────────────────
+    def _menu_dock_widget(self):
+        return self._dock_area.current_dock_widget() if self._dock_area else None
 
-    def _menu_dock_area(self):
-        return self._dock_area
+    def _menu_is_floating(self) -> bool:
+        container = self._dock_area.dock_container() if self._dock_area else None
+        return container is not None and container.is_floating()
 
-    def _menu_on_switch_tab(self, index: int):
+    def _menu_is_pinned(self) -> bool:
+        widget = self._menu_dock_widget()
+        if not widget:
+            return False
+        state = widget.widget_state()
+        return state in (WidgetState.pinned_shown, WidgetState.pinned_hidden)
+
+    def _menu_has_sidebars(self) -> bool:
+        try:
+            return self._dock_area.dock_manager().sidebar_manager.has_sidebars
+        except (AttributeError, RuntimeError):
+            return False
+
+    def _gather_menu_context(self, tab_bar: Optional['DockAreaTabBar'] = None) -> MenuContext:
+        widget = self._menu_dock_widget()
+        count = self._dock_area.open_dock_widgets_count() if self._dock_area else 1
+        
+        if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
+            is_closable = bool(widget and (widget.features() & DockWidgetFeature.closable))
+        else:
+            is_closable = bool(self._dock_area and self._dock_area.closable)
+            
+        is_floatable = bool(self._dock_area and self._dock_area.floatable) and self._test_config_flag(DockFlags.floatable_tabs)
+        is_pinnable = bool(widget and (widget.features() & DockWidgetFeature.pinnable)) and self._test_config_flag(DockFlags.pinnable_tabs)
+        
+        other_closable_areas = 0
+        if self._dock_area and (container := self._dock_area.dock_container()):
+            for area in container.opened_dock_areas():
+                if area != self._dock_area and any((w.features() & DockWidgetFeature.closable) for w in area.opened_dock_widgets()):
+                    other_closable_areas += 1
+        
+        return MenuContext(
+            widget_type="DockAreaTitleBar",
+            sections=MenuSection.TITLE_BAR,
+            category=DockStyleCategory.TITLE_BAR,
+            widget=widget,
+            area=self._dock_area,
+            tab_bar=tab_bar or self._tab_bar,
+            count=count,
+            is_closable=is_closable,
+            is_floatable=is_floatable,
+            is_pinnable=is_pinnable,
+            is_pinned=self._menu_is_pinned(),
+            is_floating=self._menu_is_floating(),
+            has_sidebars=self._menu_has_sidebars(),
+            show_close_others=(other_closable_areas > 0),
+        )
+
+    def build_dock_menu(self, menu: QMenu, tab_bar: Optional['DockAreaTabBar'] = None) -> None:
+        context = self._gather_menu_context(tab_bar)
+        build_dock_context_menu(context, menu)
+
+    def dispatch_dock_action(self, action: QAction) -> None:
+        dispatch_dock_context_menu(action, self, fallback_widget_type="DockAreaTitleBar")
+
+    # ── MenuActionTarget Protocol Implementation ──────────────────────────
+    def menu_target_widget(self) -> Optional['DockWidget']:
+        return self._menu_dock_widget()
+
+    def menu_switch_tab_target(self, index: int) -> None:
         self._tab_bar.set_current_index(index)
         self.tab_bar_clicked.emit(index)
 
-    def _menu_detach(self):
+    def menu_pin_target(self) -> None:
+        self._menu_pin_current()
+
+    def menu_unpin_target(self) -> None:
+        menu_default_unpin(self._menu_dock_widget(), self._dock_area)
+
+    def menu_pin_all_target(self) -> None:
+        menu_default_pin_all(self._dock_area)
+
+    def menu_float_target(self) -> None:
         self.on_undock_button_clicked()
 
-    def _menu_close(self):
+    def menu_dock_target(self) -> None:
+        self._menu_reattach()
+
+    def menu_close_target(self) -> None:
         self.on_close_button_clicked()
 
-    def _menu_is_closable(self) -> bool:
-        if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
-            widget = self._menu_dock_widget()
-            return bool(widget and (widget.features() & DockWidgetFeature.closable))
-        return self._dock_area.closable
+    def menu_close_others_target(self) -> None:
+        if self._dock_area:
+            self._dock_area.close_other_areas()
+
+    def menu_maximize_target(self) -> None:
+        if self._dock_area:
+            self._dock_area.toggle_maximize()
+
+    def _menu_pin_current(self):
+        menu_default_pin(self._menu_dock_widget(), self._dock_area)
+
+    def _menu_reattach(self):
+        menu_default_reattach(self._dock_area)
 
     # ── Button state management ───────────────────────────────────────────
 
@@ -216,13 +315,13 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         # Tab-level features (current widget)
         tab_features = widget.features()
         tab_closable = bool(tab_features & DockWidgetFeature.closable)
-        tab_floatable = bool(tab_features & DockWidgetFeature.floatable)
-        tab_pinnable = bool(tab_features & DockWidgetFeature.pinnable)
+        tab_floatable = bool(tab_features & DockWidgetFeature.floatable) and self._test_config_flag(DockFlags.floatable_tabs)
+        tab_pinnable = bool(tab_features & DockWidgetFeature.pinnable) and self._test_config_flag(DockFlags.pinnable_tabs)
 
         # Area-level features (aggregated)
         area_features = area.features()
         area_closable = bool(area_features & DockWidgetFeature.closable)
-        area_floatable = bool(area_features & DockWidgetFeature.floatable)
+        area_floatable = bool(area_features & DockWidgetFeature.floatable) and self._test_config_flag(DockFlags.floatable_tabs)
 
         # — Tabs Menu Button —
         # Use dock_icon for proper Normal/Disabled state handling
@@ -268,6 +367,19 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
                 self._undock_button.setEnabled(tab_floatable)
         else:
             self._undock_button.setVisible(False)
+            self._undock_button.setEnabled(False)
+
+        # — Maximize / Restore Button —
+        is_maximized = area.is_maximized()
+        max_key = "restore" if is_maximized else "maximize"
+        self._maximize_button.setIcon(dock_icon(max_key, DockStyleCategory.TITLE_BAR))
+        self._maximize_button.setIconSize(icon_size)
+        self._maximize_button.setToolTip("Restore" if is_maximized else "Maximize")
+
+        if self._test_config_flag(DockFlags.dock_area_has_maximize_button):
+            self._maximize_button.setVisible(True)
+        else:
+            self._maximize_button.setVisible(False)
 
         # — Pin / Unpin Button —
         pin_key = "unpin" if is_pinned else "pin"
@@ -284,6 +396,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
             self._pin_button.setEnabled(tab_pinnable)
         else:
             self._pin_button.setVisible(False)
+            self._pin_button.setEnabled(False)
         
     def update_pin_button_visibility(self):
         self._dock_area._update_title_bar_button_states()
@@ -295,7 +408,7 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         
         # Apply Geometry
         self.setFixedHeight(styles.get("height", 24))
-        pad_left = styles.get("padding_left", 4)
+        pad_left = styles.get("padding_left", 0)
         pad_right = styles.get("padding_right", 4)
         pad_top = styles.get("padding_top", 0)
         
@@ -307,71 +420,70 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         btn_color = styles.get("button_color")
         btn_hover = styles.get("button_hover_bg")
         disabled_color = core_styles.get("disabled_text_color")
-        
-        bg_css = bg.name() if bg else "palette(window)"
-        btn_css = btn_color.name() if btn_color else "palette(text)"
-        btn_hover_css = btn_hover.name() if btn_hover else "palette(mid)"
-        disabled_css = disabled_color.name() if disabled_color else "palette(mid)"
-        
-        btn_radius = styles.get("button_corner_radius", 3)
-        btn_padding = styles.get("button_padding", 4)
-        btn_expand_v = styles.get("button_expand_vertical", True)
-        btn_size = styles.get("button_size", 20)
-        btn_icon_size = styles.get("button_icon_size", 16)
-        
-        # Title bar container styling only
-        self.setStyleSheet(f"""
-            DockAreaTitleBar {{
-                background-color: {bg_css};
-                border: none;
-            }}
-        """)
-        
-        # Apply button styling individually (unified with sidebar_title_bar)
-        button_css = f"""
-            QToolButton {{
-                color: {btn_css};
-                background: transparent;
-                border: none;
-                border-radius: {btn_radius}px;
-                padding: {btn_padding}px;
-                min-width: {btn_size}px;
-                min-height: {btn_size}px;
-            }}
-            QToolButton:hover {{
-                background-color: {btn_hover_css};
-            }}
-            QToolButton:disabled {{
-                color: {disabled_css};
-            }}
-        """
-        
-        # Apply size policy based on vertical expansion setting
-        v_policy = QSizePolicy.Expanding if btn_expand_v else QSizePolicy.Fixed
-        icon_size = QSize(btn_icon_size, btn_icon_size)
-        
-        self._tabs_menu_button.setStyleSheet(button_css)
-        self._tabs_menu_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._tabs_menu_button.setIconSize(icon_size)
-        
-        self._pin_button.setStyleSheet(button_css)
-        self._pin_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._pin_button.setIconSize(icon_size)
-        
-        self._undock_button.setStyleSheet(button_css)
-        self._undock_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._undock_button.setIconSize(icon_size)
-        
-        self._close_button.setStyleSheet(button_css)
-        self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        self._close_button.setIconSize(icon_size)
 
-        # Trigger an update of the icons to ensure they reflect 
+        # Painted background (rounded on top to nest inside the dock-area card),
+        # instead of a square stylesheet background that would clash with the
+        # card's rounded corners.  The top radius is the card radius minus the
+        # inset the card applies to its children, so the curves stay parallel.
+        card_radius = core_styles.get("corner_radius", 0)
+        card_border = core_styles.get("border_width", 0.0)
+        title_margin = styles.get("margin")
+        from math import ceil
+        bw_int = ceil(card_border) if card_border > 0 else 0
+        if title_margin is not None:
+            margin = bw_int + float(title_margin)
+        else:
+            margin = chrome_content_margin(card_border, card_radius)
+        self._bg_color = bg
+        self._top_radius = max(0.0, card_radius - margin)
+        self._border_width = styles.get("border_width", 0.0)
+        self._border_bottom = styles.get("border_bottom", self._border_width)
+        self._border_color = styles.get("border_color", core_styles.get("border_color"))
+        self.setAutoFillBackground(False)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self.update()
+
+        # Shared icon-button styling (see sidebar_title_bar — same call).
+        style_title_bar_buttons(
+            (self._tabs_menu_button, self._pin_button, self._maximize_button,
+             self._undock_button, self._close_button),
+            color=btn_color, hover_bg=btn_hover, disabled=disabled_color,
+            radius=styles.get("button_corner_radius", 3),
+            padding=styles.get("button_padding", 4),
+            size=styles.get("button_size", 20),
+            icon_size=styles.get("button_icon_size", 16),
+            expand_vertical=styles.get("button_expand_vertical", True),
+        )
+
+        # Trigger an update of the icons to ensure they reflect
         # any changes in 'button_color'
         self.update_button_states()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
+    def paintEvent(self, event):
+        bg = getattr(self, "_bg_color", None)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        radius = getattr(self, "_top_radius", 0.0)
+        path = top_rounded_path(QRectF(self.rect()), radius)
+
+        if bg is not None and bg.alpha() > 0:
+            p.fillPath(path, bg)
+
+        bw = getattr(self, "_border_width", 0.0)
+        bb = getattr(self, "_border_bottom", 0.0)
+        bc = getattr(self, "_border_color", None)
+        if bc is not None and (bw > 0 or bb > 0):
+            if bw > 0:
+                inset = bw / 2.0
+                stroke_path = top_rounded_path(QRectF(self.rect()).adjusted(inset, inset, -inset, -inset), max(0.0, radius - inset))
+                p.setPen(QPen(bc, bw))
+                p.setBrush(Qt.NoBrush)
+                p.drawPath(stroke_path)
+            elif bb > 0:
+                p.setPen(QPen(bc, bb))
+                r = QRectF(self.rect())
+                p.drawLine(QPointF(r.left(), r.bottom() - bb / 2.0), QPointF(r.right(), r.bottom() - bb / 2.0))
+
 
     def on_tabs_menu_about_to_show(self):
         if not self._menu_outdated:
@@ -399,11 +511,21 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
     def on_undock_button_clicked(self):
         if self._menu_is_floating():
             self._menu_reattach()
-        elif self._dock_area.floatable:
+        elif self._dock_area.floatable and self._test_config_flag(DockFlags.floatable_tabs):
             self._tab_bar.make_area_floating(QCursor.pos(), DragState.inactive)
 
+    def on_maximize_button_clicked(self):
+        if not self._test_config_flag(DockFlags.dock_area_has_maximize_button):
+            return
+        self._dock_area.toggle_maximize()
+
     def on_pin_button_clicked(self):
-        self._menu_pin_current()
+        if not self._test_config_flag(DockFlags.pinnable_tabs):
+            return
+        if self._menu_is_pinned():
+            self.menu_unpin_target()
+        else:
+            self._menu_pin_current()
         self.pin_button_clicked.emit()
 
     def show_context_menu(self, global_pos: QPoint):
@@ -430,6 +552,8 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
             return self._close_button
         if which == TitleBarButton.pin:
             return self._pin_button
+        if which in (TitleBarButton.maximize, TitleBarButton.minimize, TitleBarButton.restore):
+            return self._maximize_button
         return None
 
     def setVisible(self, visible: bool):
@@ -441,6 +565,10 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
         return self._drag_state == drag_state
 
     def _start_floating(self, dragging_state: DragState = DragState.floating_widget) -> bool:
+        if not self._test_config_flag(DockFlags.floatable_tabs):
+            return False
+        if dragging_state == DragState.floating_widget and not self._dock_area.movable:
+            return False
         dock_container = self._dock_area.dock_container()
         if dock_container is None:
             return False
@@ -486,6 +614,10 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
             self._drag_state = DragState.inactive
             return super().mouseMoveEvent(ev)
 
+        if not self._dock_area.movable:
+            self._drag_state = DragState.inactive
+            return super().mouseMoveEvent(ev)
+
         if self._is_dragging_state(DragState.floating_widget):
             if self._floating_widget:
                 self._floating_widget.move_floating()
@@ -508,13 +640,13 @@ class DockAreaTitleBar(QFrame, DockMenuMixin):
                     floating_window.start_dragging(mapped_start_pos, floating_window.size(), self)
                 return
 
-            if self._dock_area.floatable:
+            if self._dock_area.floatable and self._test_config_flag(DockFlags.floatable_tabs):
                 self._start_floating()
         else:
             return super().mouseMoveEvent(ev)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
-        if (self._dock_area.floatable and self._dock_area.dock_container() and
+        if (self._dock_area.floatable and self._test_config_flag(DockFlags.floatable_tabs) and self._dock_area.dock_container() and
                 (not self._dock_area.dock_container().is_floating()
                  or self._dock_area.dock_container().visible_dock_area_count() > 1)):
             self._drag_start_mouse_position = event.position().toPoint()

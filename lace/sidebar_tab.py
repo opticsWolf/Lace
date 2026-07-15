@@ -1,24 +1,25 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-"""
 
+from typing import Any, Union, Optional
 from enum import Enum, auto
-from typing import Optional
-
-from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect
+from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect, QRectF
 from PySide6.QtGui import (
-    QPainter, QFontMetrics, QIcon, QColor, QPen, QMouseEvent, 
-    QFont, QLinearGradient, QBrush
+    QPainter, QFontMetrics, QIcon, QColor, QPen, QMouseEvent, QFont
 )
 from PySide6.QtWidgets import QToolButton, QWidget, QSizePolicy
 
-from .util import start_drag_distance
+from .dock_chrome import DragDetector
+from .dock_paint import paint_tab
 from .enums import DockWidgetArea
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 
@@ -29,20 +30,21 @@ class TabBadgePosition(Enum):
     bottom_right = auto()
 
 
-class VerticalTabButton(QToolButton):
+class VerticalTabButton(QToolButton, DockStyled):
     """Advanced tab button with badges, context menu, and enhanced visuals."""
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEBAR,)
     
     drag_started = Signal(object)
     context_menu_requested = Signal(object, QPoint)
     close_requested = Signal(object)
     
     def __init__(self, text: str, icon: QIcon = None,
-                 parent: QWidget = None):
+                 parent: QWidget = None, badge_position: TabBadgePosition = TabBadgePosition.top_right):
         super().__init__(parent)
         self._text = text
         self._icon = icon or QIcon()
-        self._drag_start: Optional[QPoint] = None
-        self._badge_count: int = 0
+        self._badge_count: Any = 0
+        self._badge_position: TabBadgePosition = badge_position
         self._is_hovered = False
         self._area: DockWidgetArea = DockWidgetArea.left  # Which sidebar this tab belongs to
         
@@ -72,10 +74,12 @@ class VerticalTabButton(QToolButton):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._on_context_menu)
 
+        # Drag off the sidebar to tear the panel into a floating window.
+        self._drag = DragDetector(self)
+        self._drag.drag_started.connect(lambda _pos: self.drag_started.emit(self))
+
         # --- Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.SIDEBAR)
-        self.refresh_style()
+        self._init_dock_style()
     
     def text(self) -> str:
         """Returns the text of the tab so the context menu can read it."""
@@ -85,12 +89,28 @@ class VerticalTabButton(QToolButton):
         """Set which sidebar this tab belongs to (for indicator mirroring)."""
         self._area = area
         self.update()    
+
+    @property
+    def badge_position(self) -> TabBadgePosition:
+        return self._badge_position
+
+    def set_badge_position(self, position: TabBadgePosition):
+        self._badge_position = position
+        self.update()
     
-    def set_badge(self, count: int, color: QColor = None):
-        """Set notification badge count."""
-        self._badge_count = max(0, count)
+    def set_badge(self, value: Any, color: QColor = None, position: TabBadgePosition = None):
+        """Set notification badge count or text (e.g., number, '!', '?')."""
+        if isinstance(value, int):
+            self._badge_count = max(0, value)
+        elif isinstance(value, str):
+            self._badge_count = value.strip()
+        else:
+            self._badge_count = 0
+            
         if color:
             self._badge_color = color
+        if position is not None:
+            self._badge_position = position
         self.update()
     
     def clear_badge(self):
@@ -109,26 +129,11 @@ class VerticalTabButton(QToolButton):
         self.context_menu_requested.emit(self, self.mapToGlobal(pos))
     
     def mousePressEvent(self, ev: QMouseEvent):
-        if ev.button() == Qt.LeftButton:
-            self._drag_start = ev.position().toPoint()
-        elif ev.button() == Qt.MiddleButton:
+        if ev.button() == Qt.MiddleButton:
             # Middle click to close/unpin
             self.close_requested.emit(self)
         super().mousePressEvent(ev)
-    
-    def mouseMoveEvent(self, ev: QMouseEvent):
-        if (self._drag_start is not None
-                and (ev.position().toPoint() - self._drag_start).manhattanLength()
-                >= start_drag_distance()):
-            self._drag_start = None
-            self.drag_started.emit(self)
-            return
-        super().mouseMoveEvent(ev)
-    
-    def mouseReleaseEvent(self, ev: QMouseEvent):
-        self._drag_start = None
-        super().mouseReleaseEvent(ev)
-    
+
     def sizeHint(self) -> QSize:
         fm = QFontMetrics(self.font())
         text_w = fm.horizontalAdvance(self._text)
@@ -143,30 +148,19 @@ class VerticalTabButton(QToolButton):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        
-        # 1. Background and Hover
+
+        # 1+2. Background/hover + selection indicator via the shared paint_tab
+        # (square: radius 0; the vertical sidebar indicator hugs a Left/Right edge).
+        rect = QRectF(self.rect())
         if self.isChecked():
-            p.fillRect(self.rect(), self._bg_active)
+            paint_tab(p, rect, bg=self._bg_active,
+                      indicator=self._highlight_color,
+                      indicator_width=self._indicator_width,
+                      indicator_edge=self._indicator_edge())
         elif self._is_hovered:
-            gradient = QLinearGradient(0, 0, self.width(), 0)
-            gradient.setColorAt(0, self._bg_hover_start)
-            gradient.setColorAt(1, self._bg_hover_end)
-            p.fillRect(self.rect(), QBrush(gradient))
-        else:
-            p.fillRect(self.rect(), QColor(0, 0, 0, 0))
-        
-        # 2. Selection Indicator (mirrored for right sidebar)
-        if self.isChecked():
-            is_right_sidebar = self._area == DockWidgetArea.right
-            if self._indicator_position == "right":
-                # "right" = outer edge: right for left sidebar, left for right sidebar
-                x = 0 if is_right_sidebar else self.width() - self._indicator_width
-            else:  # "left" (default)
-                # "left" = inner edge: left for left sidebar, right for right sidebar
-                x = self.width() - self._indicator_width if is_right_sidebar else 0
-            p.fillRect(x, 0, self._indicator_width, self.height(),
-                       self._highlight_color)
-        
+            paint_tab(p, rect, bg_gradient=(self._bg_hover_start, self._bg_hover_end))
+        # else: idle — transparent, nothing painted
+
         # 3. Centered Content (Icon + Text)
         p.save()
         # Rotate coordinates: Move to top-right and rotate 90 deg clockwise
@@ -205,22 +199,40 @@ class VerticalTabButton(QToolButton):
         p.restore()
         
         # 4. Notification Badge (Standard physical coordinates)
-        if self._badge_count > 0:
+        if self._badge_count != 0 and self._badge_count != "" and self._badge_count is not None:
             self._draw_badge(p, self.rect())
             
         p.end()
     
+    def _indicator_edge(self) -> Qt.Edge:
+        """Which edge the active-tab indicator hugs, mirrored per sidebar side.
+
+        ``indicator_position`` "right" = outer edge, "left" = inner edge; on the
+        right-hand sidebar both flip.  (Preserves the pre-paint_tab mapping.)
+        """
+        is_right = self._area == DockWidgetArea.right
+        if self._indicator_position == "right":
+            return Qt.Edge.LeftEdge if is_right else Qt.Edge.RightEdge
+        return Qt.Edge.RightEdge if is_right else Qt.Edge.LeftEdge
+
     def _draw_badge(self, p: QPainter, rect: QRect):
         """Draw notification badge."""
-        if self._badge_count == 0:
+        if self._badge_count == 0 or self._badge_count == "" or self._badge_count is None:
             return
         
         p.setRenderHint(QPainter.Antialiasing)
         p.setPen(Qt.NoPen)
         p.setBrush(self._badge_color)
         
-        # Position at top-right for vertical tabs
-        badge_rect = QRect(rect.width() - 16, 4, 12, 12)
+        # Position badge dynamically according to self._badge_position
+        if self._badge_position == TabBadgePosition.top_left:
+            badge_rect = QRect(4, 4, 12, 12)
+        elif self._badge_position == TabBadgePosition.bottom_left:
+            badge_rect = QRect(4, rect.height() - 16, 12, 12)
+        elif self._badge_position == TabBadgePosition.bottom_right:
+            badge_rect = QRect(rect.width() - 16, rect.height() - 16, 12, 12)
+        else:  # TabBadgePosition.top_right
+            badge_rect = QRect(rect.width() - 16, 4, 12, 12)
         p.drawEllipse(badge_rect)
         
         # Badge text
@@ -235,7 +247,10 @@ class VerticalTabButton(QToolButton):
         badge_font.setBold(weight in ("bold", 700, QFont.Bold))
         p.setFont(badge_font)
         
-        text = str(min(self._badge_count, 99))
+        if isinstance(self._badge_count, int):
+            text = str(min(self._badge_count, 99))
+        else:
+            text = str(self._badge_count)[:3]
         p.drawText(badge_rect, Qt.AlignCenter, text)
 
     # --- Style Manager ---
@@ -255,6 +270,14 @@ class VerticalTabButton(QToolButton):
         self._tab_corner_radius = s.get("tab_corner_radius", 4)
         self._badge_color = s.get("badge_bg") or self._badge_color
         self._badge_text_color = s.get("badge_text") or self._badge_text_color
+        badge_pos = s.get("badge_position")
+        if isinstance(badge_pos, TabBadgePosition):
+            self._badge_position = badge_pos
+        elif isinstance(badge_pos, str):
+            try:
+                self._badge_position = TabBadgePosition[badge_pos]
+            except KeyError:
+                pass
 
         # Typography
         font = self.font()
@@ -268,5 +291,3 @@ class VerticalTabButton(QToolButton):
 
         self.update()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()

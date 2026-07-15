@@ -1,30 +1,36 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
 
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Union
 import logging
 
-from PySide6.QtCore import QEvent, QPoint, QSize, Qt, Signal
-from PySide6.QtGui import QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent
-from PySide6.QtWidgets import (QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy,
-                               QStyle, QWidget, QPushButton)
+from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QAction, QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter, QPalette
+from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget, QPushButton
 
-from .util import start_drag_distance, set_button_icon
-from .enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature
+from .util import start_drag_distance
+from .enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature, WidgetState
 from .eliding_label import ElidingLabel
-from .dock_style_manager import get_dock_style_manager
+from .dock_paint import paint_tab
+from .dock_chrome import ChromeToolButton
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
-from .dock_context_menu import DockMenuMixin, MenuSection, dock_icon
+from .dock_menu import (
+    MenuSection, dock_icon, MenuContext, build_dock_context_menu,
+    dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
+    menu_default_pin_all, menu_default_reattach
+)
+from .dock_icon_provider import get_icon_provider
+from .dock_style_manager import get_dock_style_manager
 
 
 if TYPE_CHECKING:
@@ -33,7 +39,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockWidgetTab(QFrame, DockMenuMixin):
+class DockWidgetTab(QFrame, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.TAB,)
     _menu_sections = MenuSection.TAB
 
     active_tab_changed = Signal()
@@ -56,14 +63,30 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         self._drag_state = DragState.inactive
         self._floating_widget: 'FloatingDockContainer' = None
         self._icon = QIcon()
+        self._default_icon = QIcon()
+        self._default_icon_name: str = ""
+        self._custom_icon = QIcon()
+        self._custom_icon_name: str = ""
         self._close_button = None
+
+        # Painted-chrome state (populated by refresh_style).
+        self._hovered = False
+        self._bg_normal = None
+        self._bg_active = None
+        self._bg_hover = None
+        self._indicator = None
+        self._ind_width = 2
+        self._ind_top = False
+        self._radius = 0.0
+        self.setAttribute(Qt.WA_Hover, True)
 
         self._create_layout()
 
         # --- ADDED: Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.TAB)
-        self.refresh_style()
+        self._init_dock_style()
+        if self._dock_widget and hasattr(self._dock_widget, 'features_changed'):
+            self._dock_widget.features_changed.connect(lambda f: self.update_close_button_visibility())
+        self.update_icon()
 
     def _create_layout(self):
         self._title_label = ElidingLabel(text=self._dock_widget.windowTitle())
@@ -71,8 +94,10 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         self._title_label.setObjectName("dockWidgetTabLabel")
         self._title_label.setAlignment(Qt.AlignCenter)
         
-        # Use dock_icon for proper Normal/Disabled state handling
-        self._close_button = QPushButton()
+        # Use dock_icon for proper Normal/Disabled state handling.
+        # ChromeToolButton paints its own rounded hover (no :hover QSS); it is
+        # flat by default (autoRaise), matching the old border-less push button.
+        self._close_button = ChromeToolButton()
         self._close_button.setObjectName("tabCloseButton")
         self._close_button.setIcon(dock_icon("close_tab", DockStyleCategory.TAB))
 
@@ -106,6 +131,8 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         return self._drag_state == drag_state
 
     def _start_floating(self, dragging_state: DragState = DragState.floating_widget) -> bool:
+        if not self._floatable:
+            return False
         dock_container = self._dock_widget.dock_container()
         if dock_container is None:
             return False
@@ -136,13 +163,27 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         return True
 
     def _test_config_flag(self, flag: DockFlags) -> bool:
-        if not self._dock_area:
-            return False
-        return flag in self._dock_area.dock_manager().config_flags
+        if self._dock_area:
+            return flag in self._dock_area.dock_manager().config_flags
+        elif self._dock_widget and self._dock_widget.dock_manager():
+            return flag in self._dock_widget.dock_manager().config_flags
+        return False
+
+    @property
+    def _movable(self):
+        return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.movable))
 
     @property
     def _floatable(self):
+        if not self._test_config_flag(DockFlags.floatable_tabs):
+            return False
         return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.floatable))
+
+    @property
+    def _pinnable(self):
+        if not self._test_config_flag(DockFlags.pinnable_tabs):
+            return False
+        return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.pinnable))
 
     def on_detach_action_triggered(self):
         if self._floatable:
@@ -156,9 +197,17 @@ class DockWidgetTab(QFrame, DockMenuMixin):
             self._drag_state = DragState.mouse_pressed
             self.clicked.emit()
             return
+        elif ev.button() == Qt.MiddleButton:
+            if self._test_config_flag(DockFlags.middle_mouse_button_closes_tab) and self.is_closable():
+                ev.accept()
+                self.close_requested.emit()
+                return
         super().mousePressEvent(ev)
 
     def mouseReleaseEvent(self, ev: QMouseEvent):
+        if ev.button() == Qt.MiddleButton:
+            ev.accept()
+            return
         if self._is_dragging_state(DragState.tab) and self._dock_area:
             self.moved.emit(ev.globalPosition().toPoint())
 
@@ -169,6 +218,10 @@ class DockWidgetTab(QFrame, DockMenuMixin):
     def mouseMoveEvent(self, ev: QMouseEvent):
         if (not (ev.buttons() & Qt.LeftButton)
                 or self._is_dragging_state(DragState.inactive)):
+            self._drag_state = DragState.inactive
+            return super().mouseMoveEvent(ev)
+
+        if not self._movable:
             self._drag_state = DragState.inactive
             return super().mouseMoveEvent(ev)
 
@@ -220,51 +273,92 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         menu.triggered.connect(self.dispatch_dock_action)
         menu.exec(self.mapToGlobal(ev.pos()))
 
-    # ── DockMenuMixin interface ───────────────────────────────────────────
+    # ── MenuActionTarget & Menu Builder ───────────────────────────────────
+    def _menu_is_floating(self) -> bool:
+        container = self._dock_area.dock_container() if self._dock_area else None
+        return container is not None and container.is_floating()
 
-    def _menu_dock_area(self):
-        return self._dock_area
+    def _menu_is_pinned(self) -> bool:
+        if not self._dock_widget:
+            return False
+        state = self._dock_widget.widget_state()
+        return state in (WidgetState.pinned_shown, WidgetState.pinned_hidden)
 
-    def _menu_dock_widget(self):
+    def _menu_has_sidebars(self) -> bool:
+        try:
+            return self._dock_area.dock_manager().sidebar_manager.has_sidebars
+        except (AttributeError, RuntimeError):
+            return False
+
+    def _gather_menu_context(self, tab_bar: Optional['DockAreaTabBar'] = None) -> MenuContext:
+        count = self._dock_area.open_dock_widgets_count() if self._dock_area else 1
+        is_floating = self._menu_is_floating()
+        open_widgets = self._dock_area.opened_dock_widgets() if self._dock_area else []
+        other_closable = sum(
+            1 for dw in open_widgets
+            if dw != self._dock_widget and (dw.features() & DockWidgetFeature.closable)
+        )
+        show_close_others = (other_closable > 0)
+        is_pinnable = self._pinnable
+
+        return MenuContext(
+            widget_type="DockWidgetTab",
+            sections=MenuSection.TAB,
+            category=DockStyleCategory.TAB,
+            widget=self._dock_widget,
+            area=self._dock_area,
+            tab_bar=tab_bar,
+            count=count,
+            is_closable=self.is_closable(),
+            is_floatable=self._floatable,
+            is_pinnable=is_pinnable,
+            is_pinned=self._menu_is_pinned(),
+            is_floating=is_floating,
+            has_sidebars=self._menu_has_sidebars(),
+            show_close_others=show_close_others,
+            label_overrides={
+                "close": "Close",
+                "close_others": "Close Others",
+                "float": "Float",
+                "dock": "Dock",
+            }
+        )
+
+    def build_dock_menu(self, menu: QMenu, tab_bar: Optional['DockAreaTabBar'] = None) -> None:
+        context = self._gather_menu_context(tab_bar)
+        build_dock_context_menu(context, menu)
+
+    def dispatch_dock_action(self, action: QAction) -> None:
+        dispatch_dock_context_menu(action, self, fallback_widget_type="DockWidgetTab")
+
+    # ── MenuActionTarget Protocol Implementation ──────────────────────────
+    def menu_target_widget(self) -> Optional['DockWidget']:
         return self._dock_widget
 
-    def _menu_is_closable(self) -> bool:
-        return self.is_closable()
+    def menu_pin_target(self) -> None:
+        menu_default_pin(self._dock_widget, self._dock_area)
 
-    def _menu_is_floatable(self) -> bool:
-        return self._floatable
+    def menu_unpin_target(self) -> None:
+        menu_default_unpin(self._dock_widget, self._dock_area)
 
-    def _menu_show_close_others(self) -> bool:
-        if self._menu_is_floating():
-            return False
-        area = self._menu_dock_area()
-        return area is not None and area.open_dock_widgets_count() > 1
+    def menu_pin_all_target(self) -> None:
+        menu_default_pin_all(self._dock_area)
 
-    def _menu_detach(self):
+    def menu_float_target(self) -> None:
         self.on_detach_action_triggered()
 
-    def _menu_close(self):
+    def menu_dock_target(self) -> None:
+        menu_default_reattach(self._dock_area)
+
+    def menu_close_target(self) -> None:
         self.close_requested.emit()
 
-    def _menu_close_others(self):
+    def menu_close_others_target(self) -> None:
         self.close_other_tabs_requested.emit()
 
-    # ── Context-aware label overrides for single-tab actions ──────────────
-    # The tab context menu always acts on *this* single widget, never on
-    # the whole group, so we keep the labels in singular form regardless
-    # of how many tabs are in the area.
-
-    def _label_close(self, count: int) -> str:
-        return "Close"
-
-    def _label_close_others(self, count: int) -> str:
-        return "Close Others"
-
-    def _label_float(self, count: int) -> str:
-        return "Float"
-
-    def _label_dock(self, count: int) -> str:
-        return "Dock"
+    def menu_maximize_target(self) -> None:
+        if self._dock_area:
+            self._dock_area.toggle_maximize()
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         if (self._floatable and self._dock_area and self._dock_area.dock_container() and
@@ -278,14 +372,23 @@ class DockWidgetTab(QFrame, DockMenuMixin):
     def is_active_tab(self) -> bool:
         return self._is_active_tab
 
+    def update_close_button_visibility(self):
+        if not self._dock_widget:
+            return
+        closable = bool(self._dock_widget.features() & DockWidgetFeature.closable)
+        show_tab_close = self._test_config_flag(DockFlags.show_tab_close_button)
+        active_tab_only = self._test_config_flag(DockFlags.active_tab_has_close_button)
+        if not closable or not show_tab_close:
+            self._close_button.setVisible(False)
+        else:
+            self._close_button.setVisible(not active_tab_only or self.is_active_tab())
+
     def set_active_tab(self, active: bool):
-        closable = bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.closable))
-        tab_has_close_button = self._test_config_flag(DockFlags.active_tab_has_close_button)
-        self._close_button.setVisible(active and closable and tab_has_close_button)
-        
         if self._is_active_tab == active:
+            self.update_close_button_visibility()
             return
         self._is_active_tab = active
+        self.update_close_button_visibility()
         self.refresh_style() 
         self.active_tab_changed.emit()
 
@@ -294,13 +397,96 @@ class DockWidgetTab(QFrame, DockMenuMixin):
 
     def set_dock_area_widget(self, dock_area: 'DockAreaWidget'):
         self._dock_area = dock_area
+        self.update_close_button_visibility()
 
     def dock_area_widget(self) -> 'DockAreaWidget':
         return self._dock_area
 
-    def set_icon(self, icon: QIcon):
+    def set_icon(self, icon: Union[QIcon, str]):
+        if isinstance(icon, str):
+            self._default_icon_name = icon
+            self._default_icon = QIcon()
+        else:
+            self._default_icon = icon if icon else QIcon()
+            self._default_icon_name = ""
+        self.update_icon()
+
+    def set_default_icon_name(self, name: str):
+        self._default_icon_name = name or ""
+        self.update_icon()
+
+    def default_icon_name(self) -> str:
+        return self._default_icon_name
+
+    def set_custom_icon(self, icon: Union[QIcon, str]):
+        if isinstance(icon, str):
+            self._custom_icon_name = icon
+            self._custom_icon = QIcon()
+        else:
+            self._custom_icon = icon if icon else QIcon()
+            self._custom_icon_name = ""
+        self.update_icon()
+
+    def custom_icon(self) -> QIcon:
+        return self._custom_icon
+
+    def set_custom_icon_name(self, name: str):
+        self._custom_icon_name = name or ""
+        self.update_icon()
+
+    def custom_icon_name(self) -> str:
+        return self._custom_icon_name
+
+    def update_icon(self):
+        """
+        Update tab icon respecting DockFlags.custom_tab_icons and DockIconProvider.
+        """
+        icon_to_use = QIcon()
+        sm = get_dock_style_manager()
+        icon_size = sm.get(DockStyleCategory.TAB, "tab_icon_size", 16)
+
+        use_custom = self._test_config_flag(DockFlags.custom_tab_icons)
+
+        if use_custom:
+            if self._custom_icon_name:
+                try:
+                    provider = get_icon_provider()
+                    icon_to_use = provider.get(
+                        self._custom_icon_name,
+                        DockStyleCategory.TAB,
+                        active=self.is_active_tab(),
+                        disabled=not self.isEnabled(),
+                        size=icon_size
+                    )
+                except (ValueError, RuntimeError):
+                    pass
+            elif not self._custom_icon.isNull():
+                icon_to_use = self._custom_icon
+
+        if icon_to_use.isNull():
+            if self._default_icon_name:
+                try:
+                    provider = get_icon_provider()
+                    icon_to_use = provider.get(
+                        self._default_icon_name,
+                        DockStyleCategory.TAB,
+                        active=self.is_active_tab(),
+                        disabled=not self.isEnabled(),
+                        size=icon_size
+                    )
+                except (ValueError, RuntimeError):
+                    pass
+            elif not self._default_icon.isNull():
+                icon_to_use = self._default_icon
+            elif self._dock_widget and not self._dock_widget.windowIcon().isNull():
+                icon_to_use = self._dock_widget.windowIcon()
+
+        self._set_icon_internal(icon_to_use, icon_size)
+
+    def _set_icon_internal(self, icon: QIcon, size: int = 16):
         layout = self.layout()
         if not self._icon_label and icon.isNull():
+            self._icon = icon
             return
 
         if not self._icon_label:
@@ -318,7 +504,8 @@ class DockWidgetTab(QFrame, DockMenuMixin):
 
         self._icon = icon
         if self._icon_label:
-            self._icon_label.setPixmap(icon.pixmap(self.windowHandle(), QSize(16, 16)))
+            pix = icon.pixmap(self.windowHandle(), QSize(size, size)) if self.windowHandle() else icon.pixmap(QSize(size, size))
+            self._icon_label.setPixmap(pix)
             self._icon_label.setVisible(True)
 
     def icon(self) -> QIcon:
@@ -340,73 +527,77 @@ class DockWidgetTab(QFrame, DockMenuMixin):
         return super().event(e)
 
     def refresh_style(self):
-        """Applies TAB styles including indicator position and rounded top corners."""
+        """Cache TAB colours for the painted background/indicator and style the
+        child label and close button (the only remaining stylesheet)."""
         styles = self._style_mgr.get_all(DockStyleCategory.TAB)
-        
-        # 1. Determine state-specific colors
         is_active = self._is_active_tab
-        bg_color = styles.get("bg_active").name() if is_active else styles.get("bg_normal").name()
-        text_color = styles.get("text_active").name() if is_active else styles.get("text_normal").name()
-        hover_bg = styles.get("bg_hover").name()
-        
-        # 2. Setup the visual indicator and corner radius
-        indicator = styles.get("indicator_color").name()
-        ind_width = styles.get("indicator_width", 2)
-        ind_pos = styles.get("indicator_position", "bottom")
-        
-        # Fetch corner radius from the TAB schema
-        radius = styles.get("corner_radius", 0)
-        
-        # Build border and radius CSS
-        # We only round the top corners so the bottom remains flush with the dock area
-        radius_css = f"border-top-left-radius: {radius}px; border-top-right-radius: {radius}px;"
-        
-        border_css = "border: none;"
-        if is_active:
-            side = "top" if ind_pos == "top" else "bottom"
-            border_css = f"border-{side}: {ind_width}px solid {indicator};"
-        
-        # 3. Apply Stylesheet
-        self.setStyleSheet(f"""
-            DockWidgetTab {{
-                background-color: {bg_color};
-                {border_css}
-                {radius_css}
-            }}
-            DockWidgetTab:hover {{
-                background-color: {bg_color if is_active else hover_bg};
-            }}
-            QLabel#dockWidgetTabLabel {{
-                color: {text_color};
-                background: transparent;
-                border: none;
-            }}
-            QPushButton#tabCloseButton {{
-                background: transparent;
-                border: none;
-                border-radius: {styles.get("close_btn_corner_radius", 3)}px;
-            }}
-            QPushButton#tabCloseButton:hover {{
-                background-color: {styles.get("close_btn_bg_hover").name()};
-            }}
-        """)
-        
+
+        # 1. Painted-chrome state (consumed by paintEvent).
+        self._bg_normal = styles.get("bg_normal")
+        self._bg_active = styles.get("bg_active")
+        self._bg_hover = styles.get("bg_hover")
+        self._indicator = styles.get("indicator_color")
+        self._ind_width = styles.get("indicator_width", 2)
+        self._ind_top = styles.get("indicator_position", "bottom") == "top"
+        self._radius = styles.get("corner_radius", 0)
+        self.setAutoFillBackground(False)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+
+        # 2. Label colour via palette; close-button hover painted (no QSS at all
+        #    on the tab, so its painted background is never masked by a sheet and
+        #    the label palette isn't overridden by a parent-stylesheet cascade).
+        text_color = styles.get("text_active") if is_active else styles.get("text_normal")
+        if text_color is not None and self._title_label is not None:
+            pal = self._title_label.palette()
+            pal.setColor(QPalette.WindowText, text_color)
+            self._title_label.setPalette(pal)
+        self._close_button.set_hover_chrome(
+            styles.get("close_btn_bg_hover"),
+            styles.get("close_btn_corner_radius", 3),
+        )
+
         btn_size = styles.get("close_btn_size", 20)
         icon_size_val = styles.get("close_btn_icon_size", 16)
         self._close_button.setFixedSize(QSize(btn_size, btn_size))
         self._close_button.setIconSize(QSize(icon_size_val, icon_size_val))
-        
-        # 4. Apply Typography
+
+        # 3. Typography.
         font = self.font()
         font.setFamily(styles.get("font_family", "Segoe UI"))
         font.setPointSize(styles.get("font_size", 10))
-        
         weight = styles.get("active_font_weight" if is_active else "font_weight", "normal")
         font.setBold(weight in ("bold", 700))
-        
         self.setFont(font)
         if self._title_label:
             self._title_label.setFont(font)
+        self.update_icon()
+        self.update()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
+    def paintEvent(self, event):
+        if self._bg_active is None:
+            return  # not styled yet
+        if self._is_active_tab:
+            fill = self._bg_active
+        elif self._hovered:
+            fill = self._bg_hover
+        else:
+            fill = self._bg_normal
+        p = QPainter(self)
+        paint_tab(
+            p, QRectF(self.rect()),
+            bg=fill, radius=self._radius,
+            indicator=self._indicator if self._is_active_tab else None,
+            indicator_width=self._ind_width,
+            indicator_edge=Qt.Edge.TopEdge if self._ind_top else Qt.Edge.BottomEdge,
+        )
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.update()
+        super().leaveEvent(event)
+

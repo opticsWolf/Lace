@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
-
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
 
 from typing import TYPE_CHECKING
 import logging
 
-from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, 
+from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, QRectF,
                             QSize, Qt, QTimer)
-from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, 
-                           QPalette, QMoveEvent, QMouseEvent)
+from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, QPainterPath,
+                           QPalette, QMoveEvent, QRegion)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
-from .enums import DockWidgetFeature, DragState, DockWidgetArea, WidgetState
+from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
 from .dock_container_widget import DockContainerWidget
+from .dock_container_state import restore_container_state
 
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 _z_order_counter = 0
 
 
-class FloatingDockContainer(QWidget):
+class FloatingDockContainer(QWidget, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.CORE,)
     def __init__(self, *, dock_area: 'DockAreaWidget' = None,
                  dock_widget: 'DockWidget' = None,
                  dock_manager: 'DockManager' = None):
@@ -48,32 +49,40 @@ class FloatingDockContainer(QWidget):
         if dock_manager is None:
             raise ValueError('Must pass in either dock_area, dock_widget, or dock_manager')
 
-        super().__init__(dock_manager)
+        super().__init__(getattr(dock_manager, '_root', None) or dock_manager)
         
-        # Apply application icon
-        app_icon = QApplication.instance().windowIcon()
-        if not app_icon.isNull():
-            self.setWindowIcon(app_icon)
-        
-        self._dock_container: DockContainerWidget = None
-        global _z_order_counter
-        _z_order_counter += 1
-        self._z_order_index = _z_order_counter
-        
-        self._dock_manager = dock_manager
         self._dragging_state = DragState.inactive
         self._drag_start_mouse_position = QPoint()
         self._drop_container: DockContainerWidget = None
         self._single_dock_area: 'DockAreaWidget' = None
         self._mouse_event_handler: QWidget = None
+        self._dock_container: DockContainerWidget = None
+        global _z_order_counter
+        _z_order_counter += 1
+        self._z_order_index = _z_order_counter
+        self._dock_manager = dock_manager
+        
+        # Apply application icon or fallback to root main window icon
+        app_icon = QApplication.instance().windowIcon()
+        if (app_icon.isNull() or app_icon.pixmap(16, 16).isNull()) and getattr(dock_manager, '_root', None) and hasattr(dock_manager._root, 'windowIcon'):
+            app_icon = dock_manager._root.windowIcon()
+        if not app_icon.isNull() and not app_icon.pixmap(16, 16).isNull():
+            self.setWindowIcon(app_icon)
+            if QApplication.instance().windowIcon().isNull():
+                QApplication.instance().setWindowIcon(app_icon)
 
         dock_container = DockContainerWidget(dock_manager, self)
         self._dock_container = dock_container
         dock_container.destroyed.connect(self._destroyed)
         dock_container.dock_areas_added.connect(self.on_dock_areas_added_or_removed)
-        dock_container.dock_areas_removed.connect(self.on_dock_areas_added_or_removed)
-
-        self.setWindowFlags(Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
+        self._corner_radius = 0.0
+        flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
+        if self._chromeless:
+            flags |= Qt.FramelessWindowHint
+        self.setWindowFlags(flags)
+        if self._chromeless:
+            self.setAttribute(Qt.WA_TranslucentBackground)
         
         layout = QBoxLayout(QBoxLayout.TopToBottom)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -97,9 +106,7 @@ class FloatingDockContainer(QWidget):
         self._ignore_synthetic_release = False
 
         # Style Manager Integration
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.CORE)
-        self.refresh_style()
+        self._init_dock_style()
         
     def __repr__(self):
         return f'<FloatingDockContainer container={self._dock_container}>'
@@ -123,8 +130,11 @@ class FloatingDockContainer(QWidget):
 
         self._set_state(DragState.inactive)
 
-        if not self._drop_container:
-            logger.debug("[FDC._finalize_drag] No drop container — surviving as independent window.")
+        if not self._drop_container or not self._is_movable():
+            logger.debug("[FDC._finalize_drag] No drop container or not movable — surviving as independent window.")
+            if self._dock_manager:
+                self._dock_manager.container_overlay().hide_overlay()
+                self._dock_manager.dock_area_overlay().hide_overlay()
             self._activate_window()
             return
 
@@ -184,8 +194,22 @@ class FloatingDockContainer(QWidget):
     #  Drop overlay tracking (shared by both drag paths via moveEvent)
     # ─────────────────────────────────────────────────────────────────────
 
+    def _is_movable(self) -> bool:
+        if not self._dock_container:
+            return False
+        try:
+            top_area = self._dock_container.top_level_dock_area()
+            if top_area is not None:
+                return top_area.movable
+            for area in self._dock_container.opened_dock_areas():
+                if not area.movable:
+                    return False
+            return True
+        except RuntimeError:
+            return False
+
     def _update_drop_overlays(self, global_pos: QPoint):
-        if not self.isVisible() or not self._dock_manager:
+        if not self.isVisible() or not self._dock_manager or not self._is_movable():
             return
 
         top_container = None
@@ -248,8 +272,28 @@ class FloatingDockContainer(QWidget):
     #  Internal helpers
     # ─────────────────────────────────────────────────────────────────────
 
+    def update_window_flags_from_config(self):
+        flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
+        if self._test_config_flag(DockFlags.chromeless_float):
+            flags |= Qt.FramelessWindowHint
+        if self.windowFlags() != flags:
+            was_visible = self.isVisible()
+            self.setWindowFlags(flags)
+            if was_visible:
+                self.show()
+
+    def _test_config_flag(self, flag: DockFlags) -> bool:
+        if self._dock_manager:
+            return flag in self._dock_manager.config_flags
+        return False
+
     def _set_state(self, state_id: DragState):
         self._dragging_state = state_id
+        if state_id == DragState.floating_widget:
+            opaque = self._test_config_flag(DockFlags.opaque_undocking)
+            self.setWindowOpacity(1.0 if opaque else 0.6)
+        elif state_id == DragState.inactive:
+            self.setWindowOpacity(1.0)
 
     def _set_window_title(self, text: str):
         self.setWindowTitle(text)
@@ -342,7 +386,6 @@ class FloatingDockContainer(QWidget):
         self._drag_start_mouse_position = drag_start_mouse_pos
         
         if drag_state == DragState.floating_widget:
-            self.setWindowOpacity(0.6)
             self._mouse_event_handler = mouse_event_handler
             
             # Arm the guard against the OS synthetic release.
@@ -380,7 +423,7 @@ class FloatingDockContainer(QWidget):
     # ─────────────────────────────────────────────────────────────────────
 
     def restore_state(self, state: dict, testing: bool) -> bool:
-        if not self._dock_container.restore_state(state, testing):
+        if not restore_container_state(self._dock_container, state, testing):
             return False
         self.on_dock_areas_added_or_removed()
         return True
@@ -407,10 +450,14 @@ class FloatingDockContainer(QWidget):
             global _z_order_counter
             _z_order_counter += 1
             self._z_order_index = _z_order_counter
+        if event.type() == QEvent.WindowStateChange and self._dock_container:
+            # Update maximize/restore icon when the OS window state changes
+            for dock_area in self._dock_container.opened_dock_areas():
+                dock_area._update_title_bar_button_states()
 
     def moveEvent(self, event: QMoveEvent):
         super().moveEvent(event)
-        state = self._dragging_state
+        state = getattr(self, '_dragging_state', DragState.inactive)
         if state == DragState.mouse_pressed:
             self._set_state(DragState.floating_widget)
             self._update_drop_overlays(QCursor.pos())
@@ -419,7 +466,7 @@ class FloatingDockContainer(QWidget):
 
     def event(self, e: QEvent) -> bool:
         """Handle native (OS) title-bar drag lifecycle (path B)."""
-        state = self._dragging_state
+        state = getattr(self, '_dragging_state', DragState.inactive)
         if state == DragState.inactive:
             if e.type() == QEvent.NonClientAreaMouseButtonPress:
                 logger.debug('FloatingWidget.event Event.NonClientAreaMouseButtonPress %s', e.type())
@@ -441,6 +488,11 @@ class FloatingDockContainer(QWidget):
                 QTimer.singleShot(0, self._finalize_drag)
 
         return super().event(e)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._chromeless:
+            self._update_chromeless_mask()
 
     def closeEvent(self, event: QCloseEvent):
         logger.debug('FloatingDockContainer closeEvent')
@@ -494,17 +546,33 @@ class FloatingDockContainer(QWidget):
     def refresh_style(self):
         core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
         bg_color = core_styles.get("canvas_bg")
-        
+
         if bg_color:
             pal = self.palette()
             pal.setColor(QPalette.ColorRole.Window, bg_color)
             self.setPalette(pal)
-            
-        self.setAutoFillBackground(True)
-        self.setBackgroundRole(QPalette.ColorRole.Window)
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
+        if not self._chromeless:
+            self.setAutoFillBackground(True)
+            self.setBackgroundRole(QPalette.ColorRole.Window)
+
+        self._corner_radius = float(core_styles.get("corner_radius", 0))
+        if self._chromeless:
+            self._update_chromeless_mask()
+
+    # ── Chromeless rounded-corner mask ────────────────────────────────
+
+    def _update_chromeless_mask(self):
+        """Set a rounded QRegion mask so the corners outside the painted
+        border become transparent.  Only called for chromeless floats."""
+        r = self._corner_radius
+        if r <= 0 or self.width() <= 0 or self.height() <= 0:
+            self.clearMask()
+            return
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(self.rect()), r, r)
+        self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+
 
     # ─────────────────────────────────────────────────────────────────────
     #  Public accessors

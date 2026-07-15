@@ -1,32 +1,31 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
 
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
+from typing import Optional
 
-from typing import Dict, Optional
-
-from PySide6.QtCore import (QEvent, QPoint, QPointF, QRect, Qt, QSizeF, QRectF,
-                            QLineF, QTimer)
-from PySide6.QtGui import (QColor, QCursor, QHideEvent, QPainter,
-                           QPalette, QShowEvent, QPixmap, QPolygonF)
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt, QSizeF, QRectF, QLineF
+from PySide6.QtGui import QColor, QCursor, QHideEvent, QPainter, QShowEvent, QPixmap, QPolygonF
 from PySide6.QtWidgets import QFrame, QWidget, QLabel, QGridLayout
 
 # Note: area_alignment removed completely!
 from .enums import OverlayMode, DockWidgetArea
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 
-class DockOverlay(QFrame):
+class DockOverlay(QFrame, DockStyled):
     """Overlay widget for showing drop targets during drag operations."""
+
+    STYLE_CATEGORIES = (DockStyleCategory.OVERLAY,)
 
     def __init__(self, parent: QWidget, mode: OverlayMode):
         super().__init__(parent)
@@ -50,8 +49,7 @@ class DockOverlay(QFrame):
         self.setAttribute(Qt.WA_TranslucentBackground)
         
         # Connect to style manager
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.OVERLAY)
+        self._init_dock_style(refresh=False)
         
         self._cross = DockOverlayCross(self)
         self._cross.setVisible(False)
@@ -65,8 +63,6 @@ class DockOverlay(QFrame):
         self._cached_overlay_color = None
         self.update()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
 
     def _get_cached_style_colors(self) -> tuple[QColor, QColor]:
         """Get cached style colors. Fetch from manager if not yet cached."""
@@ -198,9 +194,11 @@ class DockOverlay(QFrame):
         return self._cross
 
 
-class DockOverlayCross(QWidget):
+class DockOverlayCross(QWidget, DockStyled):
     """Widget that draws the visual indicator for drop areas."""
-    
+
+    STYLE_CATEGORIES = (DockStyleCategory.OVERLAY,)
+
     _all_areas = [
         DockWidgetArea.left,
         DockWidgetArea.right,
@@ -231,8 +229,7 @@ class DockOverlayCross(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         
         # Connect to style manager
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.OVERLAY)
+        self._init_dock_style(refresh=False)
         
         self._grid_layout = QGridLayout()
         self._grid_layout.setSpacing(0)
@@ -252,8 +249,6 @@ class DockOverlayCross(QWidget):
         self.update_overlay_icons()
         self.update()
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
 
     def _get_cached_style_colors(self) -> tuple[QColor, QColor, QColor, QColor, QColor]:
         """Get cached style colors. Fetch from manager if not yet cached."""
@@ -320,140 +315,12 @@ class DockOverlayCross(QWidget):
     def _create_high_dpi_drop_indicator_pixmap(
             self, size: QSizeF, area: DockWidgetArea) -> QPixmap:
         """Create a high-DPI drop indicator pixmap for the specified area."""
-        
-        # Use cached colors for better performance
-        border_color, background_color, shadow_color, overlay_color, arrow_color = \
-            self._get_cached_style_colors()
-
+        from .dock_paint import create_high_dpi_drop_indicator_pixmap
         window = self.window()
-        device_pixel_ratio = window.devicePixelRatio() if window else 1.0
-
-        pixmap_size = QSizeF(size * device_pixel_ratio)
-        pm = QPixmap(pixmap_size.toSize())
-        pm.fill(QColor(0, 0, 0, 0))
-        p = QPainter(pm)
-        
-        # Enable antialiasing for smooth edges
-        p.setRenderHint(QPainter.Antialiasing)
-
-        shadow_rect = QRectF(pm.rect())
-
-        base_rect = QRectF()
-        base_rect.setSize(shadow_rect.size() * 0.7)
-        base_rect.moveCenter(shadow_rect.center())
-
-        # Draw shadow background  
-        p.fillRect(shadow_rect, shadow_color)
-
-        p.save()
-        
-        area_rect = QRectF()
-        area_line = QLineF()
-        non_area_rect = QRectF()
-
-        if area == DockWidgetArea.top:
-            area_rect = QRectF(base_rect.x(), base_rect.y(), base_rect.width(),
-                               base_rect.height() * .5)
-            non_area_rect = QRectF(base_rect.x(), shadow_rect.height() * .5,
-                                   base_rect.width(), base_rect.height() * .5)
-            area_line = QLineF(area_rect.bottomLeft(), area_rect.bottomRight())
-        elif area == DockWidgetArea.right:
-            area_rect = QRectF(shadow_rect.width() * .5, base_rect.y(),
-                               base_rect.width() * .5, base_rect.height())
-            non_area_rect = QRectF(base_rect.x(), base_rect.y(),
-                                   base_rect.width() * .5, base_rect.height())
-            area_line = QLineF(area_rect.topLeft(), area_rect.bottomLeft())
-        elif area == DockWidgetArea.bottom:
-            area_rect = QRectF(base_rect.x(), shadow_rect.height() * .5,
-                               base_rect.width(), base_rect.height() * .5)
-            non_area_rect = QRectF(base_rect.x(), base_rect.y(),
-                                   base_rect.width(), base_rect.height() * .5)
-            area_line = QLineF(area_rect.topLeft(), area_rect.topRight())
-        elif area == DockWidgetArea.left:
-            area_rect = QRectF(base_rect.x(), base_rect.y(),
-                               base_rect.width() * .5, base_rect.height())
-            non_area_rect = QRectF(shadow_rect.width() * .5, base_rect.y(),
-                                   base_rect.width() * .5, base_rect.height())
-            area_line = QLineF(area_rect.topRight(), area_rect.bottomRight())
-
-        # Get the size of a regular element for reference
-        baseSize = base_rect.size()
-        
-        # Handle container mode special cases  
-        if (OverlayMode.container == self._mode and area != DockWidgetArea.center):
-            base_rect = area_rect
-
-        p.fillRect(base_rect, background_color)
-        
-        # Draw active area rectangle with border
-        if area_rect.isValid():
-            pen = p.pen()
-            pen.setColor(border_color)
-            p.setBrush(overlay_color)
-            p.setPen(Qt.NoPen)
-            p.drawRect(area_rect)
-            
-            # Add dashed line to indicate direction
-            pen = p.pen()
-            pen.setWidth(1)
-            pen.setColor(border_color)
-            pen.setStyle(Qt.DashLine)
-            p.setPen(pen)
-            p.drawLine(area_line)
-
-        p.restore()
-        p.save()
-
-        # Draw outer border 
-        pen = p.pen()
-        pen.setColor(border_color)
-        pen.setWidth(1)
-        p.setBrush(Qt.NoBrush)
-        p.setPen(pen)
-        p.drawRect(base_rect)
-
-        # draw window title bar
-        p.setBrush(border_color)
-        frame_rect = QRectF(base_rect.topLeft(),
-                            QSizeF(base_rect.width(), baseSize.height() / 10))
-        p.drawRect(frame_rect)
-        
-        p.restore()
-
-        # Draw arrow for outer container drop indicators
-        if (OverlayMode.container == self._mode and area != DockWidgetArea.center):
-            arrow_rect = QRectF()
-            arrow_rect.setSize(baseSize)
-            arrow_rect.setWidth(arrow_rect.width() / 4.6)
-            arrow_rect.setHeight(arrow_rect.height() / 2)
-            arrow_rect.moveCenter(QPointF(0, 0))
-
-            arrow = QPolygonF()
-            arrow.append(arrow_rect.topLeft())
-            arrow.append(QPointF(arrow_rect.right(), arrow_rect.center().y()))
-            arrow.append(arrow_rect.bottomLeft())
-
-            p.setPen(Qt.NoPen)
-            p.setBrush(arrow_color)
-            p.setRenderHint(QPainter.Antialiasing, True)
-            p.translate(non_area_rect.center().x(), non_area_rect.center().y())
-            
-            if area == DockWidgetArea.top:
-                p.rotate(-90)
-            elif area == DockWidgetArea.right:
-                pass
-            elif area == DockWidgetArea.bottom:
-                p.rotate(90)
-            elif area == DockWidgetArea.left:
-                p.rotate(180)
-
-            p.drawPolygon(arrow)
-
-        # FIX: Explicitly end the painter to release the C++ lock before handing it to the UI
-        p.end()
-
-        pm.setDevicePixelRatio(device_pixel_ratio)
-        return pm
+        dpr = window.devicePixelRatio() if window else 1.0
+        return create_high_dpi_drop_indicator_pixmap(
+            size, area, self._mode, self._get_cached_style_colors(), dpr
+        )
 
     def cursor_location(self) -> DockWidgetArea:
         """Determine which drop area the cursor is currently over."""

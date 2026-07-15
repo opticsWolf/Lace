@@ -1,53 +1,12 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
 
-SPDX-License-Identifier: Apache-2.0
-
-DockThemeBridge — Synchronises DockStyleManager with the Qt QPalette
-=====================================================================
-
-Subscribes to CORE and TITLE_BAR dock style categories and translates
-colour values into a full ``QPalette`` that is applied to either:
-
-- The ``DockManager`` subtree (default), so all standard Qt widgets
-  embedded in dock panels (spinboxes, tree-views, etc.) match the
-  active dock theme, or
-- The global ``QApplication``, so *every* widget matches.
-
-The bridge works best with the **Fusion** Qt style, which strictly
-honours ``QPalette`` colours on every platform.  Other platform styles
-(Windows, macOS) may partially ignore palette overrides.
-
-Usage
------
-::
-
-    from advanced_docking.dock_theme_bridge import DockThemeBridge
-
-    # Apply Fusion and skin the entire dock manager:
-    bridge = DockThemeBridge(target=dock_manager)
-
-    # Later, switching themes updates the palette automatically:
-    dock_manager.set_theme("midnight")
-
-    # Or skin the whole app:
-    bridge = DockThemeBridge()   # targets QApplication
-
-Architecture mirrors Weave's ``AppThemeBridge``:
-
-    DockStyleManager  ──style_changed──▶  DockThemeBridge.on_style_changed()
-                                               │
-                                               ▼
-                                         refresh_dock_palette()
-                                               │
-                                               ▼
-                                       target.setPalette()
-                                               │
-                                               ▼
-                                   All standard Qt children repaint
-"""
 
 from __future__ import annotations
 
@@ -58,8 +17,7 @@ from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QApplication, QWidget, QStyleFactory
 
 from .dock_style_manager import get_dock_style_manager
-from .dock_theme import DockStyleCategory
-from .dock_palette_bridge import resolve_dock_colors, build_dock_palette
+from .dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +70,9 @@ class DockThemeBridge(QObject):
         sm.register(self, DockStyleCategory.CORE)
         sm.register(self, DockStyleCategory.TITLE_BAR)
         sm.register(self, DockStyleCategory.TAB)
+        sm.register(self, DockStyleCategory.PANEL)
+        sm.register(self, DockStyleCategory.SIDEBAR)
+        sm.register(self, DockStyleCategory.SIDEPANEL)
 
         # Initial palette push.
         self.refresh_dock_palette()
@@ -168,27 +129,16 @@ class DockThemeBridge(QObject):
 
     def refresh_dock_palette(self) -> None:
         """Build a QPalette from the current dock theme and apply it."""
-        from PySide6.QtWidgets import QWidget, QApplication
-        
         colors = resolve_dock_colors()
         
         # 1. Apply the CORE palette to the application/manager (is_panel=False)
         palette = build_dock_palette(is_panel=False, colors=colors)
         self._target.setPalette(palette)
-        
-        # --- STYLESHEET NUDGE ---
-        if isinstance(self._target, QApplication):
-            for window in self._target.topLevelWidgets():
-                if window.isVisible():
-                    current_ss = window.styleSheet()
-                    window.setStyleSheet("/* force style re-evaluation */")
-                    window.setStyleSheet(current_ss)
-                    window.update()
-        else:
-            current_ss = self._target.styleSheet()
-            self._target.setStyleSheet("/* force style re-evaluation */")
-            self._target.setStyleSheet(current_ss)
-            self._target.update()
+
+        # The old "stylesheet nudge" (re-setting each window's stylesheet to force
+        # QSS re-evaluation) is gone: all dock chrome is now painted or
+        # palette-driven, so there is no hex/`palette()` QSS left to go stale on a
+        # theme change.  Verified by dev_smoke/smoke_nudge.py.
 
         # --- RE-APPLY DOCK WIDGET LOCAL PALETTES ---
         from .dock_widget import DockWidget

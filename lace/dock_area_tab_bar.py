@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-"""
-Lace: Advanced PySide6 Docking System
-Copyright (c) 2019 Ken Lauer
-Copyright (c) 2026 opticsWolf
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2019 Ken Lauer
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace, adapted from qtpydocking.
+# Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
+# Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
-SPDX-License-Identifier: Apache-2.0
-
-This file is part of Lace, adapted from qtpydocking.
-Original code Copyright (c) 2019 Ken Lauer (BSD-3-Clause).
-Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
-"""
 
 from typing import TYPE_CHECKING, Optional
 import logging
@@ -18,11 +17,10 @@ from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QBoxLayout, QFrame, QScrollArea, QSizePolicy, QWidget
 
-from .util import start_drag_distance
-from .enums import DragState, DockWidgetArea
+from .enums import DragState, DockFlags
 from .dock_widget_tab import DockWidgetTab
 from .floating_dock_container import FloatingDockContainer
-from .dock_style_manager import get_dock_style_manager
+from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
@@ -31,7 +29,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DockAreaTabBar(QScrollArea):
+class DockAreaTabBar(QScrollArea, DockStyled):
+    STYLE_CATEGORIES = (DockStyleCategory.TAB,)
     current_changing = Signal(int)
     current_changed = Signal(int)
     tab_bar_clicked = Signal(int)
@@ -70,9 +69,21 @@ class DockAreaTabBar(QScrollArea):
         self._tabs_container_widget.setLayout(self._tabs_layout)
 
         # --- ADDED: Style Manager Integration ---
-        self._style_mgr = get_dock_style_manager()
-        self._style_mgr.register(self, DockStyleCategory.TAB)
-        self.refresh_style()
+        self._init_dock_style()
+        self._update_tab_bar_visibility()
+
+    def _test_config_flag(self, flag: DockFlags) -> bool:
+        if not self._dock_area:
+            return False
+        return flag in self._dock_area.dock_manager().config_flags
+
+    def _update_tab_bar_visibility(self):
+        if not self._dock_area:
+            return
+        always_show = self._test_config_flag(DockFlags.always_show_tabs)
+        visible = (self.count() > 1) or (always_show and self.count() > 0)
+        if self.isVisibleTo(self.parentWidget()) != visible or self.isHidden() == visible:
+            self.setVisible(visible)
 
     def _update_tabs(self):
         for i in range(self.count()):
@@ -86,6 +97,7 @@ class DockAreaTabBar(QScrollArea):
                 self.ensureWidgetVisible(tab_widget)
             else:
                 tab_widget.set_active_tab(False)
+        self._update_tab_bar_visibility()
 
     def _connect_tab_signals(self, tab: DockWidgetTab):
         tab.clicked.connect(self.on_tab_clicked)
@@ -118,11 +130,15 @@ class DockAreaTabBar(QScrollArea):
 
     def on_close_other_tabs_requested(self):
         sender = self.sender()
-
+        tabs_to_close = []
         for i in range(self.count()):
             tab = self.tab(i)
-            if tab.is_closable() and not tab.isHidden() and tab != sender:
-                self.close_tab(i)
+            if tab and tab.is_closable() and not tab.isHidden() and tab != sender:
+                tabs_to_close.append(tab)
+        for tab in tabs_to_close:
+            idx = self._tabs_layout.indexOf(tab)
+            if idx >= 0:
+                self.close_tab(idx)
 
     def on_tab_widget_moved(self, global_pos: QPoint):
         moving_tab = self.sender()
@@ -267,6 +283,8 @@ class DockAreaTabBar(QScrollArea):
         
         if index <= self._current_index:
             self.set_current_index(self._current_index + 1)
+        else:
+            self._update_tab_bar_visibility()
 
     def remove_tab(self, tab: 'DockWidgetTab'):
         if not self.count():
@@ -361,22 +379,18 @@ class DockAreaTabBar(QScrollArea):
 
     def refresh_style(self):
         styles = self._style_mgr.get_all(DockStyleCategory.TAB)
-        
+
         # Update spacing between individual tabs
         self._tabs_layout.setSpacing(styles.get("margin", 0))
-        
-        # Update background behind the tabs
-        bg_color = styles.get("bg_normal").name()
-        self.setStyleSheet(f"""
-            DockAreaTabBar {{
-                background-color: {bg_color};
-                border: none;
-            }}
-            QWidget#tabsContainerWidget {{
-                background-color: {bg_color};
-            }}
-        """)
 
-    def on_style_changed(self, category: DockStyleCategory, changes: dict):
-        self.refresh_style()
+        # The tab bar is transparent: the dock-area title bar paints the strip
+        # background (rounded to match the card), and individual tabs paint
+        # their own state.  A square opaque bar here would clash with the
+        # card's rounded corners.
+        self.setStyleSheet("""
+            DockAreaTabBar { background: transparent; border: none; }
+            QWidget#tabsContainerWidget { background: transparent; }
+        """)
+        self.viewport().setAutoFillBackground(False)
+
 
