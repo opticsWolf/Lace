@@ -319,6 +319,9 @@ class DockManager(QObject):
                             if tab:
                                 tab.update_close_button_visibility()
                                 tab.update_icon()
+        if hasattr(self, 'sidebar_manager') and self.sidebar_manager:
+            if self.sidebar_manager.overlay:
+                self.sidebar_manager.overlay.update_title_bar_buttons()
 
     def container_overlay(self) -> DockOverlay:
         return self._container_overlay

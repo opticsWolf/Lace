@@ -376,10 +376,15 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._maximize_button.setIconSize(icon_size)
         self._maximize_button.setToolTip("Restore" if is_maximized else "Maximize")
 
-        if self._test_config_flag(DockFlags.dock_area_has_maximize_button):
-            self._maximize_button.setVisible(True)
-        else:
-            self._maximize_button.setVisible(False)
+        show_maximize = self._test_config_flag(DockFlags.dock_area_has_maximize_button)
+        if show_maximize and is_floating:
+            container = area.dock_container() if area else None
+            is_chromeless = self._test_config_flag(DockFlags.chromeless_float)
+            has_split = container and len(container.opened_dock_areas()) > 1
+            if not (is_chromeless or has_split or is_maximized):
+                show_maximize = False
+
+        self._maximize_button.setVisible(show_maximize)
 
         # — Pin / Unpin Button —
         pin_key = "unpin" if is_pinned else "pin"

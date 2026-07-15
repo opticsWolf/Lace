@@ -144,7 +144,7 @@ class MenuSection(Flag):
     # Convenient presets
     TITLE_BAR = TAB_LIST | PIN | MAXIMIZE | DETACH | CLOSE | CLOSE_OTHERS
     TAB       = PIN | MAXIMIZE | DETACH | CLOSE | CLOSE_OTHERS
-    SIDEBAR_TAB = UNPIN | DETACH | CLOSE
+    SIDEBAR_TAB = UNPIN | DETACH | CLOSE | MAXIMIZE
 
 
 @dataclass
@@ -164,6 +164,7 @@ class MenuContext:
     is_floating: bool = False
     has_sidebars: bool = False
     show_close_others: bool = True
+    is_maximized: bool = False
     icon_overrides: Dict[str, QIcon] = field(default_factory=dict)
     label_overrides: Dict[str, str] = field(default_factory=dict)
 
@@ -278,16 +279,20 @@ def build_dock_context_menu(context: MenuContext, menu: QMenu) -> None:
     # ── Maximize / Restore ────────────────────────────────────────
     if MenuSection.MAXIMIZE in sections:
         from .enums import DockFlags as _DockFlags
-        mgr = area.dock_manager() if area else None
-        if mgr and _DockFlags.dock_area_has_maximize_button in mgr.config_flags:
-            _sep()
-            if area and area.is_maximized():
-                act = menu.addAction(_icon("restore"), _label("restore", "Restore"))
-                act.setData(("maximize",))
-            else:
-                act = menu.addAction(_icon("maximize"), _label("maximize", "Maximize"))
-                act.setData(("maximize",))
-            _pending_sep = True
+        mgr = (area.dock_manager() if area else None) or (widget.dock_manager() if widget else None)
+        if mgr:
+            is_sidebar = (context.widget_type == "SideBarTitleBar")
+            flag = _DockFlags.sidebar_area_has_maximize_button if is_sidebar else _DockFlags.dock_area_has_maximize_button
+            if flag in mgr.config_flags:
+                _sep()
+                maximized = context.is_maximized if is_sidebar else (area and area.is_maximized())
+                if maximized:
+                    act = menu.addAction(_icon("restore"), _label("restore", "Restore"))
+                    act.setData(("maximize",))
+                else:
+                    act = menu.addAction(_icon("maximize"), _label("maximize", "Maximize"))
+                    act.setData(("maximize",))
+                _pending_sep = True
 
     # ── Close + Close Others ──────────────────────────────────────
     if MenuSection.CLOSE in sections:

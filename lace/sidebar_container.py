@@ -475,6 +475,11 @@ class SideBarContainer(QFrame, DockStyled):
     def _update_geometry(self):
         self.setGeometry(self._get_visible_geometry())
 
+    def update_title_bar_buttons(self):
+        """Update the button states on the title bar."""
+        if self._title_bar:
+            self._title_bar.update_button_states()
+
     def _update_layout_margins(self):
         from math import ceil
         bw = getattr(self, "_border_width", 0.0)

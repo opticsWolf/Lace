@@ -13,7 +13,7 @@ from PySide6.QtGui import QAction, QColor, QPainter, QPalette
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
 )
-from .enums import DockWidgetFeature
+from .enums import DockWidgetFeature, DockFlags
 from .dock_chrome import style_title_bar_buttons, DragDetector, ChromeToolButton
 from .dock_menu import MenuSection, dock_icon, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
 from .dock_theme import DockStyleCategory
@@ -107,14 +107,14 @@ class SideBarTitleBar(QFrame, DockStyled):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
-    def set_widget(self, dock_widget: Optional['DockWidget']):
-        """Updates the title and buttons based on the active widget."""
-        self._active_widget = dock_widget
-        
-        if dock_widget:
-            self._title_label.setText(dock_widget.windowTitle())
-            
-            features = dock_widget.features()
+    def _test_config_flag(self, flag: DockFlags) -> bool:
+        mgr = self.dock_manager()
+        return flag in mgr.config_flags if mgr else False
+
+    def update_button_states(self):
+        """Updates the visibility and states of the title bar buttons."""
+        if self._active_widget:
+            features = self._active_widget.features()
             is_closable = bool(features & DockWidgetFeature.closable)
             is_pinnable = bool(features & DockWidgetFeature.pinnable)
             is_floatable = bool(features & DockWidgetFeature.floatable)
@@ -122,13 +122,23 @@ class SideBarTitleBar(QFrame, DockStyled):
             self._close_btn.setVisible(is_closable)
             self._reattach_btn.setVisible(is_pinnable)
             self._float_btn.setVisible(is_floatable)
-            self._maximize_btn.setVisible(True)
+            self._maximize_btn.setVisible(self._test_config_flag(DockFlags.sidebar_area_has_maximize_button))
         else:
-            self._title_label.setText("Panel")
             self._close_btn.setVisible(True)
             self._reattach_btn.setVisible(True)
             self._float_btn.setVisible(True)
             self._maximize_btn.setVisible(False)
+
+    def set_widget(self, dock_widget: Optional['DockWidget']):
+        """Updates the title and buttons based on the active widget."""
+        self._active_widget = dock_widget
+        
+        if dock_widget:
+            self._title_label.setText(dock_widget.windowTitle())
+        else:
+            self._title_label.setText("Panel")
+            
+        self.update_button_states()
 
     # --- Drag Logic ---
 
@@ -155,6 +165,7 @@ class SideBarTitleBar(QFrame, DockStyled):
             is_pinnable=is_pinnable,
             is_pinned=True,
             is_floating=False,
+            is_maximized=self._maximized,
             has_sidebars=True,
             show_close_others=False,
             label_overrides={
@@ -188,8 +199,12 @@ class SideBarTitleBar(QFrame, DockStyled):
     def dock_manager(self):
         w = self.parent()
         while w:
-            if hasattr(w, 'dock_manager') and callable(w.dock_manager):
-                return w.dock_manager()
+            if hasattr(w, '_dock_manager') and getattr(w, '_dock_manager') is not None:
+                return getattr(w, '_dock_manager')
+            if hasattr(w, 'dock_manager'):
+                attr = getattr(w, 'dock_manager')
+                if attr is not None:
+                    return attr() if callable(attr) else attr
             w = w.parent()
         return None
 
