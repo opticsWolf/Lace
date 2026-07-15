@@ -26,14 +26,12 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 # ── RESIZE DEBUGGING ───────────────────────────────────────────────
-# Toggle this to trace how window / dock-widget / textbox sizes track
-# main-window resize events. Prints to stdout.
-DEBUG_RESIZE = True
+# Resize tracing is emitted at DEBUG level – adjust the logger to see it.
+logger = logging.getLogger(__name__)
 
 
 def _dbg(tag, *parts):
-    if DEBUG_RESIZE:
-        print(f"[RESIZE][{tag}] " + "  ".join(str(p) for p in parts), flush=True)
+    logger.debug("[RESIZE][%s] %s", tag, "  ".join(str(p) for p in parts))
 
 
 class DebugTextEdit(QTextEdit):
