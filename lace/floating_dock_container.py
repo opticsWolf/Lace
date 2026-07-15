@@ -13,9 +13,10 @@
 from typing import TYPE_CHECKING
 import logging
 
-from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, 
+from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, QRectF,
                             QSize, Qt, QTimer)
-from PySide6.QtGui import QCloseEvent, QCursor, QHideEvent, QPalette, QMoveEvent
+from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, QPainterPath,
+                           QPalette, QMoveEvent, QRegion)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
 from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
@@ -74,10 +75,14 @@ class FloatingDockContainer(QWidget, DockStyled):
         self._dock_container = dock_container
         dock_container.destroyed.connect(self._destroyed)
         dock_container.dock_areas_added.connect(self.on_dock_areas_added_or_removed)
+        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
+        self._corner_radius = 0.0
         flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
-        if self._test_config_flag(DockFlags.chromeless_float):
+        if self._chromeless:
             flags |= Qt.FramelessWindowHint
         self.setWindowFlags(flags)
+        if self._chromeless:
+            self.setAttribute(Qt.WA_TranslucentBackground)
         
         layout = QBoxLayout(QBoxLayout.TopToBottom)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -445,6 +450,10 @@ class FloatingDockContainer(QWidget, DockStyled):
             global _z_order_counter
             _z_order_counter += 1
             self._z_order_index = _z_order_counter
+        if event.type() == QEvent.WindowStateChange and self._dock_container:
+            # Update maximize/restore icon when the OS window state changes
+            for dock_area in self._dock_container.opened_dock_areas():
+                dock_area._update_title_bar_button_states()
 
     def moveEvent(self, event: QMoveEvent):
         super().moveEvent(event)
@@ -480,13 +489,10 @@ class FloatingDockContainer(QWidget, DockStyled):
 
         return super().event(e)
 
-    def changeEvent(self, event):
-        super().changeEvent(event)
-        if event.type() == QEvent.WindowStateChange and self._dock_container:
-            # Update maximize/restore icon when the OS window state changes
-            # (covers showMaximized, showNormal, title-bar double-click, etc.)
-            for dock_area in self._dock_container.opened_dock_areas():
-                dock_area._update_title_bar_button_states()
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._chromeless:
+            self._update_chromeless_mask()
 
     def closeEvent(self, event: QCloseEvent):
         logger.debug('FloatingDockContainer closeEvent')
@@ -540,14 +546,32 @@ class FloatingDockContainer(QWidget, DockStyled):
     def refresh_style(self):
         core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)
         bg_color = core_styles.get("canvas_bg")
-        
+
         if bg_color:
             pal = self.palette()
             pal.setColor(QPalette.ColorRole.Window, bg_color)
             self.setPalette(pal)
-            
-        self.setAutoFillBackground(True)
-        self.setBackgroundRole(QPalette.ColorRole.Window)
+
+        if not self._chromeless:
+            self.setAutoFillBackground(True)
+            self.setBackgroundRole(QPalette.ColorRole.Window)
+
+        self._corner_radius = float(core_styles.get("corner_radius", 0))
+        if self._chromeless:
+            self._update_chromeless_mask()
+
+    # ── Chromeless rounded-corner mask ────────────────────────────────
+
+    def _update_chromeless_mask(self):
+        """Set a rounded QRegion mask so the corners outside the painted
+        border become transparent.  Only called for chromeless floats."""
+        r = self._corner_radius
+        if r <= 0 or self.width() <= 0 or self.height() <= 0:
+            self.clearMask()
+            return
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(self.rect()), r, r)
+        self.setMask(QRegion(path.toFillPolygon().toPolygon()))
 
 
     # ─────────────────────────────────────────────────────────────────────
