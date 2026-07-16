@@ -564,7 +564,7 @@ class DockWidgetTab(QFrame, DockStyled):
         self._indicator = indicator
 
         self._ind_width = styles.get("indicator_width", 2)
-        self._ind_top = styles.get("indicator_position", "bottom") == "top"
+        self._ind_pos = styles.get("indicator_position", "bottom")
         self._radius = styles.get("corner_radius", 0)
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
@@ -625,7 +625,7 @@ class DockWidgetTab(QFrame, DockStyled):
             bg=fill, radius=self._radius,
             indicator=self._indicator if self._is_active_tab else None,
             indicator_width=self._ind_width,
-            indicator_edge=Qt.Edge.TopEdge if self._ind_top else Qt.Edge.BottomEdge,
+            indicator_edge=self._ind_pos,
         )
 
     def enterEvent(self, event):

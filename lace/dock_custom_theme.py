@@ -154,6 +154,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         warning_color = [224, 175, 104, 255],
         error_color   = [247, 118, 142, 255],
         info_color    = [125, 207, 255, 255],
+        indicator_position = "none",
     ),
 
     # -------------------------------------------------------------------------
@@ -261,6 +262,8 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         tab_radius = 8,                     # 8px rounded top corners on tabs
         tab_margin = 3,                     # 3px gap separating adjacent tabs
         content_margin = (8, 2),            # 8px left/right/bottom, tight 2px top gap under title bar
+        indicator_width = 2.0,
+        indicator_position = "bottom",
     ),
 }
 

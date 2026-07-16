@@ -180,7 +180,32 @@ def paint_tab(p: QPainter, rect: QRectF, *, bg: Optional[QColor] = None,
     if indicator is not None and indicator_width > 0:
         p.save()
         p.setClipPath(path)
-        p.fillRect(_edge_strip(rect, indicator_edge, indicator_width), indicator)
+        
+        edges = []
+        if isinstance(indicator_edge, (list, tuple, set)):
+            edges = list(indicator_edge)
+        elif isinstance(indicator_edge, str):
+            edges = [e.strip() for e in indicator_edge.replace(",", " ").split() if e.strip()]
+        elif indicator_edge is not None:
+            edges = [indicator_edge]
+            
+        for edge in edges:
+            if edge is None or edge == "none":
+                continue
+            q_edge = edge
+            if isinstance(edge, str):
+                edge_lower = edge.lower().strip()
+                if edge_lower == "top":
+                    q_edge = Qt.Edge.TopEdge
+                elif edge_lower == "bottom":
+                    q_edge = Qt.Edge.BottomEdge
+                elif edge_lower == "left":
+                    q_edge = Qt.Edge.LeftEdge
+                elif edge_lower == "right":
+                    q_edge = Qt.Edge.RightEdge
+                else:
+                    continue
+            p.fillRect(_edge_strip(rect, q_edge, indicator_width), indicator)
         p.restore()
 
 
