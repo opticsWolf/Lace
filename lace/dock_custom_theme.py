@@ -33,6 +33,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         border_width       = 1.5,
         title_margin       = 0.5,
         content_margin     = 0.5,
+        tab_dimming        = True,
     ),
 
     # -------------------------------------------------------------------------
@@ -53,6 +54,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         border_width       = 1.5,
         title_margin       = 0.5,
         content_margin     = 0.5,
+        tab_dimming        = True,
     ),
 
     # -------------------------------------------------------------------------
@@ -72,6 +74,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         border_width       = 0.5,
         title_margin       = 0.0,
         content_margin     = 4.0,
+        tab_dimming        = True,
     ),
 
     # -------------------------------------------------------------------------
@@ -132,6 +135,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         border_width       = 1.5,
         title_margin       = 0.5,
         content_margin     = 0.5,
+        tab_dimming        = True,
     ),
 
     # -------------------------------------------------------------------------

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import logging
 
 from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QAction, QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter, QPalette
+from PySide6.QtGui import QAction, QColor, QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter, QPalette
 from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget, QPushButton
 
 from .util import start_drag_distance
@@ -532,11 +532,37 @@ class DockWidgetTab(QFrame, DockStyled):
         styles = self._style_mgr.get_all(DockStyleCategory.TAB)
         is_active = self._is_active_tab
 
+        # Focus checking for tab dimming
+        is_area_focused = True
+        dock_manager = None
+        if self._dock_area:
+            dock_manager = self._dock_area.dock_manager()
+        elif self._dock_widget:
+            dock_manager = self._dock_widget.dock_manager()
+
+        if self._dock_area and dock_manager:
+            is_area_focused = (self._dock_area is getattr(dock_manager, '_active_dock_area', None))
+
+        tab_dimming = styles.get("tab_dimming", False)
+
+        def _blend_colors(c1, c2, factor=0.75):
+            return QColor(
+                int(c1.red() * (1 - factor) + c2.red() * factor),
+                int(c1.green() * (1 - factor) + c2.green() * factor),
+                int(c1.blue() * (1 - factor) + c2.blue() * factor),
+                int(c1.alpha() * (1 - factor) + c2.alpha() * factor)
+            )
+
         # 1. Painted-chrome state (consumed by paintEvent).
         self._bg_normal = styles.get("bg_normal")
         self._bg_active = styles.get("bg_active")
         self._bg_hover = styles.get("bg_hover")
-        self._indicator = styles.get("indicator_color")
+        
+        indicator = styles.get("indicator_color")
+        if tab_dimming and not is_area_focused and is_active and indicator and self._bg_active:
+            indicator = _blend_colors(indicator, self._bg_active, 0.5)
+        self._indicator = indicator
+
         self._ind_width = styles.get("indicator_width", 2)
         self._ind_top = styles.get("indicator_position", "bottom") == "top"
         self._radius = styles.get("corner_radius", 0)
@@ -546,11 +572,22 @@ class DockWidgetTab(QFrame, DockStyled):
         # 2. Label colour via palette; close-button hover painted (no QSS at all
         #    on the tab, so its painted background is never masked by a sheet and
         #    the label palette isn't overridden by a parent-stylesheet cascade).
-        text_color = styles.get("text_active") if is_active else styles.get("text_normal")
+        text_active = styles.get("text_active")
+        text_normal = styles.get("text_normal")
+
+        if is_active:
+            if tab_dimming and not is_area_focused and text_active and text_normal:
+                text_color = _blend_colors(text_active, text_normal, 0.5)
+            else:
+                text_color = text_active
+        else:
+            text_color = text_normal
+
         if text_color is not None and self._title_label is not None:
             pal = self._title_label.palette()
             pal.setColor(QPalette.WindowText, text_color)
             self._title_label.setPalette(pal)
+            self._title_label.setStyleSheet(f"color: {text_color.name()};")
         self._close_button.set_hover_chrome(
             styles.get("close_btn_bg_hover"),
             styles.get("close_btn_corner_radius", 3),

@@ -90,6 +90,13 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         except RuntimeError:
             return
 
+    def set_chrome_focused(self, focused: bool):
+        super().set_chrome_focused(focused)
+        for widget in self.opened_dock_widgets():
+            tab = widget.tab_widget()
+            if tab:
+                tab.refresh_style()
+
     def mousePressEvent(self, event):
         try:
             if self._dock_manager and not self.isHidden():

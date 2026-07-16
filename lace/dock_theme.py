@@ -119,6 +119,7 @@ class DockTabStyleSchema(_FontFields):
     indicator_color: Optional[List[int]] = None
     indicator_width: int = 2
     indicator_position: str = "bottom"   # "top" or "bottom"
+    tab_dimming: bool = False
 
     # Action Buttons
     close_btn_color: Optional[List[int]] = None
@@ -309,6 +310,7 @@ class ThemeSpec:
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
+    tab_dimming: bool = False
 
 
 def _as_rgba(col: Union[QColor, List[int]]) -> List[int]:
@@ -343,6 +345,7 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         tab_radius=spec.tab_radius,
         tab_margin=spec.tab_margin,
         content_margin=spec.content_margin,
+        tab_dimming=spec.tab_dimming,
     )
 
 
@@ -373,6 +376,7 @@ def _build_theme(
     tab_radius: Optional[int] = None,
     tab_margin: Optional[int] = None,
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None,
+    tab_dimming: bool = False,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
     Build a complete dock theme from 3 to 5 primary colors plus status tokens.
@@ -494,6 +498,8 @@ def _build_theme(
         theme[DockStyleCategory.TAB]["margin"] = tab_margin
     if content_margin is not None:
         theme[DockStyleCategory.PANEL]["content_margin"] = content_margin
+
+    theme[DockStyleCategory.TAB]["tab_dimming"] = tab_dimming
 
     return theme
 
