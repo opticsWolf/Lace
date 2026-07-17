@@ -92,7 +92,7 @@ The user-facing widget wrapper. Each `DockWidget` owns a user `QWidget` and a `D
 | **Content** | `set_widget(widget, insert_mode)`, `take_widget()`, `widget() → QWidget` |
 | **Tab** | `tab_widget() → DockWidgetTab`, `set_icon(icon)`, `icon()`, `set_default_icon_name(name)`, `default_icon_name()`, `set_custom_icon(icon)`, `custom_icon()`, `set_custom_icon_name(name)`, `custom_icon_name()`, `set_tab_tool_tip(text)` |
 | **Toolbar** | `tool_bar() → QToolBar`, `create_default_tool_bar()`, `set_tool_bar(toolbar)`, `set_tool_bar_style(style, state)`, `tool_bar_style(state)`, `set_tool_bar_icon_size(size, state)`, `tool_bar_icon_size(state)`, `set_toolbar_floating_style(floating)` |
-| **Features** | `set_features(flags)`, `set_feature(flag, on)`, `features() → DockWidgetFeature` |
+| **Features** | `set_features(flags)`, `set_feature(flag, on)`, `features() → DockWidgetFeature`, `locked_to_area` (property to assign a named lock area) |
 | **State** | `widget_state() → WidgetState`, `set_widget_state(state)`, `is_floating()`, `is_in_floating_container()`, `is_in_sidebar()`, `is_pinned()`, `is_closed()`, `toggle_view(open_)`, `toggle_view_internal(open_)` |
 | **References** | `dock_manager()`, `dock_container() → DockContainerWidget`, `dock_area_widget() → DockAreaWidget` |
 | **Toggle Action** | `toggle_view_action() → QAction`, `set_toggle_view_action_checked(checked)`, `set_toggle_view_action_mode(mode)` |
@@ -162,7 +162,7 @@ A single tabbed region within a `DockContainerWidget`.
 | **Insertion** | `insert_dock_widget(index, widget, activate)`, `add_dock_widget(widget)`, `remove_dock_widget(widget)`, `toggle_dock_widget_view(widget, open_)` |
 | **View** | `toggle_view(open_)`, `hide_area_with_no_visible_content()`, `update_title_bar_visibility()` |
 | **Title bar** | `title_bar_geometry()`, `content_area_geometry()`, `title_bar_button(which) → QAbstractButton`, `update_title_bar_button_states()`, `_update_title_bar_button_states()`, `mark_title_bar_menu_outdated()` |
-| **Features** | `closable`, `movable`, `floatable`, `pinnable`, `features() → DockWidgetFeature` |
+| **Features** | `closable`, `movable`, `floatable`, `pinnable`, `features() → DockWidgetFeature`, `locked_name` (property to assign a named lock) |
 | **Maximize** | `is_maximized()`, `toggle_maximize()` |
 | **Close** | `close_area()`, `close_other_areas()`, `on_tab_close_requested(index)` |
 | **State** | `save_state() → dict` |
@@ -191,7 +191,7 @@ Top-level window for detached dock content.
 | **Config** | `update_window_flags_from_config()`, `_test_config_flag(flag)` |
 | **State** | `restore_state(state, testing)`, `update_window_title()`, `dock_container() → DockContainerWidget`, `has_top_level_dock_widget()`, `top_level_dock_widget()`, `dock_widgets()`, `is_closable()` |
 | **Title** | `on_dock_areas_added_or_removed()`, `on_dock_area_current_changed(index)`, `_set_window_title(text)` |
-| **Qt events** | `changeEvent()`, `moveEvent()`, `event(e)`, `closeEvent()`, `hideEvent()`, `eventFilter(watched, event)` |
+| **Qt events** | `changeEvent()`, `moveEvent()`, `event(e)`, `closeEvent()`, `hideEvent()`, `eventFilter(watched, event)`, `resizeEvent()`, `paintEvent()`, `mousePressEvent()`, `mouseMoveEvent()`, `mouseReleaseEvent()` |
 | **Styling** | `refresh_style()` |
 
 ---
@@ -299,6 +299,9 @@ Visual drop-target overlays during drag-and-drop.
 | `tab_radius` | `int` | Rounded corner radius for tabs |
 | `tab_margin` | `int` | Gap between adjacent tabs |
 | `content_margin` | `int` / `float` / `List[int]` / `Tuple[int, ...]` | Margin around widget content; single value = all sides, two values = `(left/right/bottom, top)` |
+| `tab_dimming` | `bool` | Enable dimming for active tabs in unfocused/inactive dock areas |
+| `indicator_width` | `int` | Thickness (in pixels) of the tab selection highlight stripe |
+| `indicator_position` | `str` / `List[str]` / `Tuple[str, ...]` | Active tab highlight stripe edge(s) (`"none"`, `"top"`, `"bottom"`, `"left"`, `"right"`, or combination/list) |
 
 ### 3.3 Titlebar Flushness & Borders
 

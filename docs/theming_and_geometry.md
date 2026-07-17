@@ -40,6 +40,9 @@ class ThemeSpec:
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
+    tab_dimming: bool = False
+    indicator_width: Optional[int] = None
+    indicator_position: Optional[Union[str, List[str], Tuple[str, ...]]] = None
 ```
 
 ---
@@ -76,7 +79,24 @@ Because `DockAreaTitleBar` is nested inside `DockAreaWidget` with a `chrome_cont
 
 ---
 
-## 4. Example Theme: `Cyberpunk Neon`
+## 4. Customizable Tab Highlight Stripe & Tab Dimming
+
+Lace supports advanced active tab indicator customization and dynamic theme dimming behavior:
+
+- **`tab_dimming`** (boolean, defaults to `False`):
+  - When set to `True`, the active/focused tab inside **unfocused (non-active)** dock areas gets visually dimmed to help the user identify which container currently has key focus.
+  - The tab's text color is blended halfway (`factor = 0.5`) between `text_active` and `text_normal`.
+  - The tab's selection highlight indicator stripe is blended halfway with `bg_active` (the tab's background color).
+  - This updates reactively when the active/focused dock area changes or when window focus transitions.
+- **`indicator_width`** (integer, thickness):
+  - Directly sets the thickness (in pixels) of the active tab's selection highlight indicator stripe.
+- **`indicator_position`** (string or list/tuple of strings):
+  - Sets which edge(s) of the active tab display the highlight selection stripe.
+  - Accepts `"none"`, `"left"`, `"right"`, `"top"`, `"bottom"`, or combinations thereof (such as comma/space-separated strings `"top, bottom"`, `"left, right"`, or a list `["left", "right"]`).
+
+---
+
+## 5. Example Theme: `Cyberpunk Neon`
 
 The `Cyberpunk Neon` (`"cyberpunk_neon"`) preset demonstrates the full range of both color and geometrical tokens:
 
@@ -109,7 +129,7 @@ The `Cyberpunk Neon` (`"cyberpunk_neon"`) preset demonstrates the full range of 
 
 ---
 
-## 5. Reactive Border Colors (`_focus_border` vs `_neutral_border`)
+## 6. Reactive Border Colors (`_focus_border` vs `_neutral_border`)
 
 In Lace's docking architecture, card borders (`border_width`) on `DockAreaWidget` panels (`ChromeFrame`) are **reactive to focus**:
 
@@ -126,7 +146,7 @@ In Lace's docking architecture, card borders (`border_width`) on `DockAreaWidget
 
 ---
 
-## 6. Architectural Flow
+## 7. Architectural Flow
 
 ```
 [ThemeSpec in dock_custom_theme.py]

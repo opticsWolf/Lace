@@ -10,13 +10,14 @@
 # Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
 
-from typing import TYPE_CHECKING
+import sys
+from typing import TYPE_CHECKING, Optional
 import logging
 
 from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, QRectF,
                             QSize, Qt, QTimer)
 from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, QPainterPath,
-                           QPalette, QMoveEvent, QRegion)
+                           QPalette, QMoveEvent, QRegion, QMouseEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
 from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
@@ -25,6 +26,19 @@ from .dock_container_state import restore_container_state
 
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
+
+
+
+# Resize handle thickness in pixels. Visual layout is NOT affected —
+# we only use this for hit-testing, never as a layout inset.
+_RESIZE_BORDER = 8
+
+# Internal edge mask used by the non-Windows fallback.
+_EDGE_NONE = 0
+_EDGE_LEFT = 1 << 0
+_EDGE_RIGHT = 1 << 1
+_EDGE_TOP = 1 << 2
+_EDGE_BOTTOM = 1 << 3
 
 if TYPE_CHECKING:
     from . import DockAreaWidget, DockWidget, DockManager
@@ -107,7 +121,58 @@ class FloatingDockContainer(QWidget, DockStyled):
 
         # Style Manager Integration
         self._init_dock_style()
+
+        # --- Resizing state (cross-platform) ---------------------------------
+        self._is_resizing = False
+        self._resize_dir = _EDGE_NONE
+        self._resize_press_pos = QPoint()        # Global press position
+        self._resize_press_geom = QRect()        # Geometry at press time
+        self._resize_active_widget: Optional[QWidget] = None  # widget under cursor
+
+        # Permanent event-filter tracking — only meaningful on non-Windows.
+        self._permanent_filter_installed = False
+
+        # Install permanent filter when chromeless.
+        if self._chromeless:
+            self._install_permanent_filter()
         
+    def _install_permanent_filter(self) -> None:
+        """Install self as a permanent application-level event filter.
+
+        Used only on non-Windows platforms to provide chromeless resize
+        behavior without altering the widget layout.
+        """
+        if self._permanent_filter_installed:
+            return
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self)
+            self._permanent_filter_installed = True
+
+    def _remove_permanent_filter(self) -> None:
+        """Remove the permanent application-level event filter if installed."""
+        if not self._permanent_filter_installed:
+            return
+        app = QApplication.instance()
+        if app is not None:
+            try:
+                app.removeEventFilter(self)
+            except RuntimeError:
+                pass
+        self._permanent_filter_installed = False
+        # Reset transient resize state — but never tear down a live drag.
+        self._is_resizing = False
+        self._resize_dir = _EDGE_NONE
+        self._resize_active_widget = None
+
+    def _is_our_widget(self, obj: QObject) -> bool:
+        """Return True if *obj* is this container or a descendant of it."""
+        if obj is self:
+            return True
+        if isinstance(obj, QWidget):
+            return self.isAncestorOf(obj)
+        return False
+
     def __repr__(self):
         return f'<FloatingDockContainer container={self._dock_container}>'
 
@@ -118,7 +183,6 @@ class FloatingDockContainer(QWidget, DockStyled):
     def _end_programmatic_drag(self):
         """Deferred cleanup for programmatic drags (path A/C)."""
         logger.debug("[FDC._end_programmatic_drag] START")
-        self.setWindowOpacity(1.0)
         logger.debug("[FDC._end_programmatic_drag] END")
         self._finalize_drag()
 
@@ -274,14 +338,21 @@ class FloatingDockContainer(QWidget, DockStyled):
     # ─────────────────────────────────────────────────────────────────────
 
     def update_window_flags_from_config(self):
+        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
         flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
-        if self._test_config_flag(DockFlags.chromeless_float):
+        if self._chromeless:
             flags |= Qt.FramelessWindowHint
         if self.windowFlags() != flags:
             was_visible = self.isVisible()
             self.setWindowFlags(flags)
             if was_visible:
                 self.show()
+
+        # Sync permanent event-filter state with the chromeless flag.
+        if self._chromeless:
+            self._install_permanent_filter()
+        else:
+            self._remove_permanent_filter()
 
     def _test_config_flag(self, flag: DockFlags) -> bool:
         if self._dock_manager:
@@ -299,7 +370,8 @@ class FloatingDockContainer(QWidget, DockStyled):
     def _set_window_title(self, text: str):
         self.setWindowTitle(text)
 
-    def _destroyed(self):
+    def _destroyed(self, *args):
+        self._remove_permanent_filter()
         dock_container = self._dock_container
         self._dock_container = None
         if dock_container is not None:
@@ -307,6 +379,7 @@ class FloatingDockContainer(QWidget, DockStyled):
             self._dock_manager.remove_floating_widget(self)
 
     def deleteLater(self):
+        self._remove_permanent_filter()
         self._destroyed()
         super().deleteLater()
 
@@ -401,7 +474,8 @@ class FloatingDockContainer(QWidget, DockStyled):
         if drag_state == DragState.floating_widget:
             if self._mouse_event_handler:
                 self._mouse_event_handler.grabMouse()
-            QApplication.instance().installEventFilter(self)
+            if not self._permanent_filter_installed:
+                QApplication.instance().installEventFilter(self)
 
     def _clear_synthetic_release_flag(self):
         self._ignore_synthetic_release = False
@@ -433,7 +507,8 @@ class FloatingDockContainer(QWidget, DockStyled):
         try:
             top_level_dock_area = self._dock_container.top_level_dock_area()
             if top_level_dock_area is not None:
-                title = top_level_dock_area.current_dock_widget().windowTitle()
+                widget = top_level_dock_area.current_dock_widget()
+                title = widget.windowTitle() if widget else QApplication.applicationDisplayName()
             else:
                 title = QApplication.applicationDisplayName()
         except RuntimeError:
@@ -497,6 +572,7 @@ class FloatingDockContainer(QWidget, DockStyled):
 
     def closeEvent(self, event: QCloseEvent):
         logger.debug('FloatingDockContainer closeEvent')
+        self._remove_permanent_filter()
         self._set_state(DragState.inactive)
         if not self.is_closable():
             event.ignore()
@@ -517,7 +593,55 @@ class FloatingDockContainer(QWidget, DockStyled):
         # Recreating the frameless window (e.g. via setWindowOpacity during drops) 
         # triggers QHideEvent. Closing widgets here incorrectly ripped them from the layout!
 
+    def _hit_test_edges(self, local_pos: QPoint) -> int:
+        """Return a bitmask of `_EDGE_*` flags for *local_pos*.
+
+        Coordinates are relative to this container's top-left. The handle
+        band is `_RESIZE_BORDER` pixels wide.
+        """
+        rect = self.rect()
+        if not rect.contains(local_pos):
+            return _EDGE_NONE
+
+        flags = _EDGE_NONE
+        if local_pos.x() <= _RESIZE_BORDER:
+            flags |= _EDGE_LEFT
+        elif local_pos.x() >= rect.width() - _RESIZE_BORDER:
+            flags |= _EDGE_RIGHT
+        if local_pos.y() <= _RESIZE_BORDER:
+            flags |= _EDGE_TOP
+        elif local_pos.y() >= rect.height() - _RESIZE_BORDER:
+            flags |= _EDGE_BOTTOM
+        return flags
+
+    @staticmethod
+    def _cursor_for_edge(edge: int) -> Optional[Qt.CursorShape]:
+        """Map an edge bitmask to a Qt cursor shape (or None for client area)."""
+        if edge == _EDGE_NONE:
+            return None
+        # Corner combinations
+        if edge & _EDGE_TOP and edge & _EDGE_LEFT:
+            return Qt.SizeFDiagCursor
+        if edge & _EDGE_TOP and edge & _EDGE_RIGHT:
+            return Qt.SizeBDiagCursor
+        if edge & _EDGE_BOTTOM and edge & _EDGE_LEFT:
+            return Qt.SizeBDiagCursor
+        if edge & _EDGE_BOTTOM and edge & _EDGE_RIGHT:
+            return Qt.SizeFDiagCursor
+        # Pure edges
+        if edge & (_EDGE_LEFT | _EDGE_RIGHT):
+            return Qt.SizeHorCursor
+        if edge & (_EDGE_TOP | _EDGE_BOTTOM):
+            return Qt.SizeVerCursor
+        return None
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        # --- Permanent path: chromeless resize on macOS / Linux --------------
+        if self._permanent_filter_installed:
+            if self._handle_resize_event(watched, event):
+                return True
+
+        # --- Existing drag / float handling goes here ------------------------
         # Dynamically clear synthetic release block upon actual mouse movement
         if event.type() == QEvent.MouseMove:
             self._ignore_synthetic_release = False
@@ -537,12 +661,189 @@ class FloatingDockContainer(QWidget, DockStyled):
                     except RuntimeError:
                         pass
                     self._mouse_event_handler = None
-                QApplication.instance().removeEventFilter(self)
+                
+                # Only remove the transient drag-time event filter — never the
+                # permanent chromeless-resize filter.
+                if self._permanent_filter_installed:
+                    # We were not using a transient filter; nothing to remove.
+                    pass
+                else:
+                    app = QApplication.instance()
+                    if app is not None:
+                        app.removeEventFilter(self)
 
                 QTimer.singleShot(0, self._end_programmatic_drag)
                 return False
 
+        return super().eventFilter(watched, event)
+
+    # ------------------------------------------------------------------
+    # Non-Windows chromeless resize
+    # ------------------------------------------------------------------
+    def _handle_resize_event(self, obj: QObject, event: QEvent) -> bool:
+        """Process hover / press / move / release for fallback resizing."""
+        if not self._chromeless:
+            return False
+        if not self._is_our_widget(obj):
+            return False
+
+        etype = event.type()
+
+        # --- Hover: update cursor shape ----------------------------------
+        if etype == QEvent.MouseMove:
+            mouse_evt = event  # type: QMouseEvent
+            if not self._is_resizing:
+                # Use global position mapped to container coordinates so the
+                # cursor stays correct even when the mouse is over a child.
+                local = self.mapFromGlobal(mouse_evt.globalPosition().toPoint()) \
+                    if hasattr(mouse_evt, "globalPosition") \
+                    else self.mapFromGlobal(mouse_evt.globalPos())
+                edge = self._hit_test_edges(local)
+                cursor_shape = self._cursor_for_edge(edge)
+                # Only override cursor when the mouse is in the resize band
+                # AND no child widget is currently grabbing the mouse.
+                if cursor_shape is not None and not self._child_has_grab_mouse():
+                    self._resize_active_widget = obj if isinstance(obj, QWidget) else None
+                    if isinstance(obj, QWidget):
+                        obj.setCursor(cursor_shape)
+                    return False  # don't consume — let child widgets paint
+                else:
+                    if isinstance(obj, QWidget) and obj.cursor().shape() in (
+                        Qt.SizeHorCursor, Qt.SizeVerCursor, Qt.SizeFDiagCursor, Qt.SizeBDiagCursor
+                    ):
+                        obj.unsetCursor()
+                    return False
+            else:
+                # Active resize — handle below in the move branch.
+                pass
+
+        # --- Begin resize ------------------------------------------------
+        if etype == QEvent.MouseButtonPress:
+            mouse_evt = event  # type: QMouseEvent
+            if mouse_evt.button() != Qt.LeftButton:
+                return False
+            # Decide whether press is in a resize band — use the *target*
+            # widget's coordinates mapped back to the container.
+            target = obj
+            if not isinstance(target, QWidget):
+                return False
+            global_pos = (mouse_evt.globalPosition().toPoint()
+                          if hasattr(mouse_evt, "globalPosition")
+                          else mouse_evt.globalPos())
+            local = self.mapFromGlobal(global_pos)
+            edge = self._hit_test_edges(local)
+            if edge == _EDGE_NONE:
+                return False
+            # Begin resizing.
+            self._is_resizing = True
+            self._resize_dir = edge
+            self._resize_press_pos = global_pos
+            self._resize_press_geom = QRect(self.pos(), self.size())
+            self._resize_active_widget = target
+            # Grab the mouse so we keep receiving moves even if the cursor
+            # leaves the original target widget.
+            target.grabMouse(self._cursor_for_edge(edge) or Qt.ArrowCursor)
+            return True
+
+        # --- Continue resize ---------------------------------------------
+        if etype == QEvent.MouseMove and self._is_resizing:
+            mouse_evt = event  # type: QMouseEvent
+            global_pos = (mouse_evt.globalPosition().toPoint()
+                          if hasattr(mouse_evt, "globalPosition")
+                          else mouse_evt.globalPos())
+            self._apply_resize(global_pos)
+            return True
+
+        # --- End resize --------------------------------------------------
+        if etype == QEvent.MouseButtonRelease and self._is_resizing:
+            mouse_evt = event  # type: QMouseEvent
+            if mouse_evt.button() != Qt.LeftButton:
+                return False
+            target = self._resize_active_widget
+            self._is_resizing = False
+            self._resize_dir = _EDGE_NONE
+            self._resize_active_widget = None
+            if isinstance(target, QWidget):
+                try:
+                    target.releaseMouse()
+                except RuntimeError:
+                    pass
+            # Refresh cursor for the current hover position.
+            if isinstance(target, QWidget):
+                edge = self._hit_test_edges(self.mapFromGlobal(QCursor.pos()))
+                cursor_shape = self._cursor_for_edge(edge)
+                if cursor_shape:
+                    target.setCursor(cursor_shape)
+                else:
+                    target.unsetCursor()
+            return True
+
         return False
+
+    def _child_has_grab_mouse(self) -> bool:
+        """Return True if any descendant currently has the mouse grab.
+
+        This prevents us from stealing the cursor while the user is
+        interacting with an inner widget (e.g. scrollbar thumb drag).
+        """
+        app = QApplication.instance()
+        if app is None:
+            return False
+        grabber = QWidget.mouseGrabber()
+        if grabber is None:
+            return False
+        if grabber is self:
+            return False
+        return self._is_our_widget(grabber)
+
+    def _apply_resize(self, global_pos: QPoint) -> None:
+        """Apply the in-progress resize to this container's geometry."""
+        delta = global_pos - self._resize_press_pos
+        geom = QRect(self._resize_press_geom)
+        min_size = self.minimumSizeHint().expandedTo(self.minimumSize())
+        min_w = max(min_size.width(), 24)
+        min_h = max(min_size.height(), 24)
+        max_size = self.maximumSize()
+
+        edge = self._resize_dir
+
+        # Horizontal
+        if edge & _EDGE_LEFT:
+            new_right = geom.right()
+            new_left = geom.left() + delta.x()
+            if new_right - new_left + 1 < min_w:
+                new_left = new_right - min_w + 1
+            if new_right - new_left + 1 > max_size.width():
+                new_left = new_right - max_size.width() + 1
+            geom.setLeft(new_left)
+        elif edge & _EDGE_RIGHT:
+            new_right = geom.right() + delta.x()
+            if new_right - geom.left() + 1 < min_w:
+                new_right = geom.left() + min_w - 1
+            if new_right - geom.left() + 1 > max_size.width():
+                new_right = geom.left() + max_size.width() - 1
+            geom.setRight(new_right)
+
+        # Vertical
+        if edge & _EDGE_TOP:
+            new_bottom = geom.bottom()
+            new_top = geom.top() + delta.y()
+            if new_bottom - new_top + 1 < min_h:
+                new_top = new_bottom - min_h + 1
+            if new_bottom - new_top + 1 > max_size.height():
+                new_top = new_bottom - max_size.height() + 1
+            geom.setTop(new_top)
+        elif edge & _EDGE_BOTTOM:
+            new_bottom = geom.bottom() + delta.y()
+            if new_bottom - geom.top() + 1 < min_h:
+                new_bottom = geom.top() + min_h - 1
+            if new_bottom - geom.top() + 1 > max_size.height():
+                new_bottom = geom.top() + max_size.height() - 1
+            geom.setBottom(new_bottom)
+
+        self.setGeometry(geom)
+
+
 
     def refresh_style(self):
         core_styles = self._style_mgr.get_all(DockStyleCategory.CORE)

@@ -90,6 +90,26 @@ widget.set_features(DockWidgetFeature.movable | DockWidgetFeature.floatable)
 dock_manager.add_dock_widget(DockWidgetArea.bottom, widget)
 ```
 
+### Named Area Locking
+
+Restrict widgets to a specific dock area, preventing them from being floated individually or pinned to sidebars:
+
+```python
+# 1. Name the target dock area widget
+design_area = widget_a.dock_area_widget()
+design_area.locked_name = "DesignArea"
+
+# 2. Lock widgets to this specific dock area name
+widget_a.locked_to_area = "DesignArea"
+widget_b.locked_to_area = "DesignArea"
+```
+
+* **Effects of locking:**
+  * The widgets' `floatable` and `pinnable` capabilities are dynamically stripped.
+  * Dragging tabs out to float or right-clicking to Pin/Float is disabled.
+  * Tabs can still be dragged horizontally to reorder within the tab bar.
+  * The entire dock area can still be undocked/floated as a single container.
+
 ### Insert Mode (Scroll Area Wrapping)
 
 ```python
@@ -272,6 +292,9 @@ apply_dock_theme(my_theme)  # or apply directly
 | `tab_radius` | Rounded corner radius for tabs |
 | `tab_margin` | Gap between adjacent tabs |
 | `content_margin` | Margin around widget content (single value or `(h, v)`) |
+| `tab_dimming` | Enable dimming for active tabs in unfocused dock areas |
+| `indicator_width` | Thickness (in pixels) of the tab selection highlight stripe |
+| `indicator_position` | Active tab highlight stripe edge(s) (`"none"`, `"top"`, `"bottom"`, `"left"`, `"right"`, or combination e.g. `"top, bottom"`) |
 
 ---
 

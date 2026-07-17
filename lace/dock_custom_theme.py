@@ -241,7 +241,8 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         accent     = [255, 0, 127, 255],    # Electric neon pink
         text       = [245, 245, 255, 255],  # Crisp white text
         surface    = [24, 19, 44, 255],     # Rich violet inner panel
-        border     = [0, 240, 255, 255],    # Glowing cyan structural border
+        border     = [0, 180, 205, 205],    # Glowing cyan structural border
+        focus_border_color     = [0, 240, 255, 255],    # Glowing cyan structural border
         title_mode = "darker",              # Recessed dark indigo header
         hover_mode = "lighter",             # Tabs highlight brightly on hover
         success_color = [57, 255, 20, 255], # Neon green
@@ -264,6 +265,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         content_margin = (8, 2),            # 8px left/right/bottom, tight 2px top gap under title bar
         indicator_width = 2.0,
         indicator_position = "bottom",
+        tab_dimming        = True,
     ),
 }
 
