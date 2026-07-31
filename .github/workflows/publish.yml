@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
@@ -30,10 +30,10 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install dependencies
-        run: pip install -e ".[dev]" .
+        run: pip install . pyside6
 
       - name: Smoke import test
-        run: python -c "import lace; print(f'Lace {lace.__version__} OK')"
+        run: python -c "import lace; print(f'Lace v{lace.__version__} OK')"
 
   # ---- Build distribution packages ----
   build:
