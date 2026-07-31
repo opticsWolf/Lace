@@ -14,6 +14,13 @@ dependencies = [
 # PyPI metadata
 readme = "README.md"
 
+[project.urls]
+Homepage = "https://github.com/opticsWolf/Lace"
+Documentation = "https://github.com/opticsWolf/Lace#readme"
+Repository = "https://github.com/opticsWolf/Lace"
+Issues = "https://github.com/opticsWolf/Lace/issues"
+Changelog = "https://github.com/opticsWolf/Lace/releases"
+
 # Classifiers for PyPI search
 classifiers = [
     "Development Status :: 4 - Beta",
