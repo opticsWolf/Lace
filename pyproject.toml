@@ -10,18 +10,8 @@ requires-python = ">=3.10"
 dependencies = [
     "pyside6",
 ]
-
-# PyPI metadata
 readme = "README.md"
 
-[project.urls]
-Homepage = "https://github.com/opticsWolf/Lace"
-Documentation = "https://github.com/opticsWolf/Lace#readme"
-Repository = "https://github.com/opticsWolf/Lace"
-Issues = "https://github.com/opticsWolf/Lace/issues"
-Changelog = "https://github.com/opticsWolf/Lace/releases"
-
-# Classifiers for PyPI search
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: Apache Software License",
@@ -35,6 +25,13 @@ classifiers = [
     "Topic :: Desktop Environment :: Qt",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+[project.urls]
+Homepage = "https://github.com/opticsWolf/Lace"
+Documentation = "https://github.com/opticsWolf/Lace#readme"
+Repository = "https://github.com/opticsWolf/Lace"
+Issues = "https://github.com/opticsWolf/Lace/issues"
+Changelog = "https://github.com/opticsWolf/Lace/releases"
 
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
