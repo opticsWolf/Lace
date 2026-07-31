@@ -1,5 +1,5 @@
 [project]
-name = "lace-docking"
+name = "lace"
 version = "0.2.5"
 description = "Advanced PySide6 docking system"
 authors = [
