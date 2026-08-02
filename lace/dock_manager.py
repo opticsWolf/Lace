@@ -96,6 +96,12 @@ class DockManager(QObject):
         #    dock panels match the active dock theme automatically.
         self._theme_bridge = DockThemeBridge(target=self._root, style_name="", parent=self)
 
+        # 9. Frameless title bar theme integration — if the parent window
+        #    is a FramelessLaceMainWindow, register it with DockStyleManager
+        #    so the title bar and menu bar receive theme colour updates.
+        if isinstance(parent, QMainWindow) and hasattr(parent, '_register_titlebar_theme'):
+            parent._register_titlebar_theme()
+
         if isinstance(parent, QMainWindow):
             self.sidebar_manager.setup_shortcuts(parent)
 
