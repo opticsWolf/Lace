@@ -235,40 +235,43 @@ class FramelessLaceMainWindow(FramelessMainWindow):
             """)
 
         # Title bar buttons (min/max/close) use custom painting with
-        # _normalColor / _hoverColor / _pressedColor attributes.  Set them
-        # directly so they match the theme.
+        # _normalColor / _hoverColor / _pressedColor for icon colours
+        # and _normalBgColor / _hoverBgColor / _pressedBgColor for
+        # background colours.  Set them directly so they match the theme.
         from qframelesswindow.titlebar import TitleBarButton
         for btn in tb.findChildren(TitleBarButton):
-            if btn._state is not None:
-                if btn_col:
-                    btn._normalColor = QColor(btn_col)
-                if btn_hover:
-                    btn._hoverColor = QColor(btn_hover)
-                # Pressed colour: blend hover with background for depth
-                if btn_hover and bg:
-                    pressed = QColor(btn_hover)
-                    pressed.setAlpha(int(pressed.alpha() * 1.5))
-                    btn._pressedColor = pressed
-                if btn_disable:
-                    btn._disableColor = QColor(btn_disable)
-                btn.update()
+            # Icon colours: use button_color for normal, brighter for hover/pressed
+            if btn_col:
+                btn._normalColor = QColor(btn_col)
+                # Hover icon: same colour but fully opaque for visibility
+                btn._hoverColor = QColor(btn_col)
+                btn._pressedColor = QColor(btn_col)
+            # Background colours: transparent normal, theme hover_bg on hover
+            btn._normalBgColor = QColor(0, 0, 0, 0)
+            if btn_hover:
+                btn._hoverBgColor = QColor(btn_hover)
+                # Pressed background: more opaque for tactile feedback
+                pressed_bg = QColor(btn_hover)
+                pressed_bg.setAlpha(min(255, int(pressed_bg.alpha() * 1.5)))
+                btn._pressedBgColor = pressed_bg
+            if btn_disable:
+                btn._disableColor = QColor(btn_disable)
+            btn.update()
 
         # -- Menu bar tokens --
         if self._menu_bar is not None:
-            panel_bg = sm.get(DockStyleCategory.PANEL, "bg_normal")
             core_text = sm.get(DockStyleCategory.CORE, "text_color")
             panel_text = sm.get(DockStyleCategory.PANEL, "text_color")
             accent = sm.get(DockStyleCategory.CORE, "accent_color")
             border_col = sm.get(DockStyleCategory.CORE, "border_color")
 
-            panel_hex = _color_hex(panel_bg) if panel_bg else bg_hex
             mbar_text = _color_hex(panel_text or core_text)
             accent_hex = _color_hex(accent) if accent else "#0078d4"
             border_hex = _color_hex(border_col, alpha=0.3) if border_col else "transparent"
 
             mbar_qss = f"""
                 QMenuBar {{
-                    background: {panel_hex};
+                    background: {bg_hex};
                     color: {mbar_text};
                     border: none;
                     border-bottom: 1px solid {border_hex};
@@ -286,7 +289,7 @@ class FramelessLaceMainWindow(FramelessMainWindow):
                     background: {accent_hex};
                 }}
                 QMenu {{
-                    background: {panel_hex};
+                    background: {bg_hex};
                     color: {mbar_text};
                     border: 1px solid {border_hex};
                     padding: 2px;
