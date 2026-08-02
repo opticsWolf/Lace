@@ -123,8 +123,17 @@ class DropController:
         if floating_splitter.count() == 1:
             insert_widget_into_splitter(splitter, floating_splitter.widget(0), insert_param.append)
         elif floating_splitter.orientation() == insert_param.orientation:
+            # Extract children one-by-one, preserving their order.
+            # When prepending, insert at incrementing indices so earlier
+            # children stay before later ones (insertWidget(0) in a loop
+            # would reverse the order).
+            insert_idx = 0
             while floating_splitter.count():
-                insert_widget_into_splitter(splitter, floating_splitter.widget(0), insert_param.append)
+                if insert_param.append:
+                    splitter.addWidget(floating_splitter.widget(0))
+                else:
+                    splitter.insertWidget(insert_idx, floating_splitter.widget(0))
+                    insert_idx += 1
         else:
             insert_widget_into_splitter(splitter, floating_splitter, insert_param.append)
 
@@ -159,44 +168,47 @@ class DropController:
             target_area_size = (target_area.width()
                                 if insert_param.orientation == Qt.Horizontal
                                 else target_area.height())
-            adjust_splitter_sizes = True
+            child_count = floating_splitter.count()
             if (floating_splitter.orientation() != insert_param.orientation
-                    and floating_splitter.count() > 1):
+                    and child_count > 1):
+                # Insert the whole floating splitter as one widget.
                 target_area_splitter.insertWidget(
                     area_index + insert_param.insert_offset,
                     floating_splitter)
+                child_count = 1  # counts as a single inserted widget
             else:
-                adjust_splitter_sizes = (floating_splitter.count() == 1)
+                # Extract children one-by-one, preserving order.
                 insert_index = area_index + insert_param.insert_offset
                 while floating_splitter.count():
-                    insert_index += 1
                     target_area_splitter.insertWidget(insert_index,
                                                       floating_splitter.widget(0))
+                    insert_index += 1
 
-            if adjust_splitter_sizes:
-                size = (target_area_size - target_area_splitter.handleWidth()) / 2
-                sizes[area_index] = size
-                sizes.insert(area_index, size)
-                target_area_splitter.setSizes(sizes)
+            # Split target_area's size among itself + inserted children.
+            total = child_count + 1
+            share = (target_area_size - target_area_splitter.handleWidth() * (total - 1)) / total
+            for _ in range(child_count):
+                sizes.insert(area_index, share)
+            sizes[area_index + child_count] = share
+            target_area_splitter.setSizes(sizes)
 
         else:
             new_splitter = self._c._new_splitter(insert_param.orientation)
             target_area_size = (target_area.width()
                                 if insert_param.orientation == Qt.Horizontal
                                 else target_area.height())
-            adjust_splitter_sizes = True
-            if (floating_splitter.orientation() != insert_param.orientation) and floating_splitter.count() > 1:
+            child_count = floating_splitter.count()
+            if (floating_splitter.orientation() != insert_param.orientation) and child_count > 1:
                 new_splitter.addWidget(floating_splitter)
             else:
-                adjust_splitter_sizes = (floating_splitter.count() == 1)
                 while floating_splitter.count():
                     new_splitter.addWidget(floating_splitter.widget(0))
 
             sizes = target_area_splitter.sizes()
             insert_widget_into_splitter(new_splitter, target_area, not insert_param.append)
-            if adjust_splitter_sizes:
-                size = target_area_size / 2
-                new_splitter.setSizes((size, size))
+            # Equal split: target_area vs. new_splitter content.
+            size = target_area_size / 2
+            new_splitter.setSizes((size, size))
 
             target_area_splitter.insertWidget(area_index, new_splitter)
             target_area_splitter.setSizes(sizes)
