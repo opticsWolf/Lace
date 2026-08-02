@@ -386,7 +386,7 @@ class FloatingDockContainer(QWidget, DockStyled):
             # Re-trigger the dock theme palette push so Qt/DWM re-evaluates
             # the dark/light appearance for this window's new native handle.
             # Defer to ensure the new window handle is fully registered with DWM.
-            QTimer.singleShot(5, self._apply_dock_palette_to_window)
+            QTimer.singleShot(0, self._apply_dock_palette_to_window)
 
         # Re-apply the chromeless rounded-corner mask so corners render
         # correctly after the flag change (resizeEvent won't fire since
