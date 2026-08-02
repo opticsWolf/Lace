@@ -356,11 +356,20 @@ class FloatingDockContainer(QWidget, DockStyled):
             # newly created OS chrome (title bar, borders) picks up the
             # correct theme colours instead of falling back to the default
             # light palette.
+            # On Windows 10/11 the OS title bar appearance (dark vs light)
+            # is controlled by QStyleHints.colorScheme, NOT by the palette.
+            # Derive dark/light from the current application palette and
+            # update the hint so DWM renders the title bar correctly.
             if not self._chromeless:
                 qapp = QApplication.instance()
                 if qapp:
                     current_palette = qapp.palette()
                     qapp.setPalette(current_palette)
+                    hints = qapp.styleHints()
+                    if hints is not None and hasattr(hints, "setColorScheme"):
+                        is_dark = current_palette.color(current_palette.ColorRole.Window).lightness() < 128
+                        target_scheme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
+                        hints.setColorScheme(target_scheme)
             if was_visible:
                 self.show()
             # Restore the saved client-area geometry and force a full repaint.
@@ -392,6 +401,21 @@ class FloatingDockContainer(QWidget, DockStyled):
             qapp = QApplication.instance()
             if qapp:
                 qapp.setStyle(qapp.style().objectName())
+
+            # On Windows 10/11 the OS title bar appearance (dark vs light)
+            # is controlled by QStyleHints.colorScheme, NOT by the palette.
+            # After setWindowFlags() the new native window inherits the
+            # current colorScheme which may not match the applied dock theme.
+            # Derive dark/light from the current application palette and
+            # update the hint so DWM renders the title bar correctly.
+            qapp = QApplication.instance()
+            if qapp:
+                hints = qapp.styleHints()
+                if hints is not None and hasattr(hints, "setColorScheme"):
+                    pal = qapp.palette()
+                    is_dark = pal.color(pal.ColorRole.Window).lightness() < 128
+                    target_scheme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
+                    hints.setColorScheme(target_scheme)
 
         # Re-apply the chromeless rounded-corner mask so corners render
         # correctly after the flag change (resizeEvent won't fire since
