@@ -352,14 +352,6 @@ class FloatingDockContainer(QWidget, DockStyled):
             self.setWindowFlags(flags)
             # Sync translucent background with chromeless state.
             self.setAttribute(Qt.WA_TranslucentBackground, self._chromeless)
-            # Re-apply the dock theme palette BEFORE show() so the newly
-            # created OS chrome (title bar, borders) picks up the correct
-            # dark/light colours.  setWindowFlags() destroys and recreates
-            # the native window handle, so the new handle does not inherit
-            # the DWM dark-mode attribute.  Re-triggering the theme palette
-            # push forces Qt/DWM to re-evaluate for this window.
-            if not self._chromeless:
-                self._apply_dock_palette_to_window()
             if was_visible:
                 self.show()
             # Restore the saved client-area geometry and force a full repaint.
@@ -393,7 +385,8 @@ class FloatingDockContainer(QWidget, DockStyled):
                 qapp.setStyle(qapp.style().objectName())
             # Re-trigger the dock theme palette push so Qt/DWM re-evaluates
             # the dark/light appearance for this window's new native handle.
-            self._apply_dock_palette_to_window()
+            # Defer to ensure the new window handle is fully registered with DWM.
+            QTimer.singleShot(50, self._apply_dock_palette_to_window)
 
         # Re-apply the chromeless rounded-corner mask so corners render
         # correctly after the flag change (resizeEvent won't fire since
@@ -412,6 +405,12 @@ class FloatingDockContainer(QWidget, DockStyled):
         After setWindowFlags() the new handle does not inherit the DWM
         dark-mode attribute.  Re-building and setting the palette from
         the dock theme forces Qt to re-notify DWM for this window.
+
+        Since setPalette() with the same palette is a no-op (Qt sees no
+        change and doesn't notify DWM), we also toggle the global
+        QStyleHints.colorScheme to force the DWM update.  We read the
+        current scheme, set it to the target, then toggle it to the
+        opposite and back to ensure the change notification fires.
         """
         qapp = QApplication.instance()
         if qapp is None:
@@ -420,12 +419,24 @@ class FloatingDockContainer(QWidget, DockStyled):
             from .dock_theme import resolve_dock_colors, build_dock_palette
             colors = resolve_dock_colors()
             palette = build_dock_palette(is_panel=False, colors=colors)
-            # Set on both the application (to propagate to children) and
-            # this window so the new native handle gets the DWM update.
             qapp.setPalette(palette)
             self.setPalette(palette)
         except Exception:
             pass  # Dock theme not loaded; fall back to default
+
+        # Derive target dark/light from the current application palette.
+        pal = qapp.palette()
+        is_dark = pal.color(pal.ColorRole.Window).lightness() < 128
+        target = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
+        opposite = Qt.ColorScheme.Light if is_dark else Qt.ColorScheme.Dark
+
+        hints = qapp.styleHints()
+        if hints is not None and hasattr(hints, "setColorScheme"):
+            # Toggle: set to opposite first, then to target.
+            # This forces Qt to re-notify DWM even if the target was
+            # already the current scheme.
+            hints.setColorScheme(opposite)
+            hints.setColorScheme(target)
 
     def _test_config_flag(self, flag: DockFlags) -> bool:
         if self._dock_manager:
