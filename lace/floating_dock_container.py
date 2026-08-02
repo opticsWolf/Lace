@@ -373,6 +373,13 @@ class FloatingDockContainer(QWidget, DockStyled):
             return
         self._pending_restore_geometry = None
         self.setGeometry(geom)
+        # Re-apply the chromeless rounded-corner mask so corners render
+        # correctly after the flag change (resizeEvent won't fire since
+        # geometry is restored to the same value).
+        if self._chromeless:
+            self._update_chromeless_mask()
+        else:
+            self.clearMask()
         # Force a full redraw of the window and its children.
         self.repaint()
 
