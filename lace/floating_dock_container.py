@@ -352,6 +352,15 @@ class FloatingDockContainer(QWidget, DockStyled):
             self.setWindowFlags(flags)
             # Sync translucent background with chromeless state.
             self.setAttribute(Qt.WA_TranslucentBackground, self._chromeless)
+            # Re-apply the current application palette BEFORE show() so the
+            # newly created OS chrome (title bar, borders) picks up the
+            # correct theme colours instead of falling back to the default
+            # light palette.
+            if not self._chromeless:
+                qapp = QApplication.instance()
+                if qapp:
+                    current_palette = qapp.palette()
+                    qapp.setPalette(current_palette)
             if was_visible:
                 self.show()
             # Restore the saved client-area geometry and force a full repaint.
@@ -376,14 +385,13 @@ class FloatingDockContainer(QWidget, DockStyled):
 
         # setWindowFlags() destroys and recreates the native window handle.
         # The new OS chrome (title bar, borders) does not automatically pick
-        # up the current QApplication style/palette — it falls back to the
-        # default system style ("Windows 98" look).  Re-apply the current
-        # application style so the native frame gets polished correctly.
+        # up the current QApplication style — it falls back to the default
+        # system style ("Windows 98" look).  Re-apply the current style so
+        # the native frame gets polished correctly.
         if not self._chromeless:
             qapp = QApplication.instance()
             if qapp:
-                current_style = qapp.style().objectName()
-                qapp.setStyle(current_style)
+                qapp.setStyle(qapp.style().objectName())
 
         # Re-apply the chromeless rounded-corner mask so corners render
         # correctly after the flag change (resizeEvent won't fire since
