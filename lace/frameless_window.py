@@ -101,6 +101,7 @@ class FramelessLaceMainWindow(FramelessMainWindow):
             return self._menu_bar
 
         menu_bar = QMenuBar(self)
+        menu_bar.setStyleSheet("border: none;")
         self._menu_bar = menu_bar
         self._build_stacked_container(menu_bar)
         return menu_bar
