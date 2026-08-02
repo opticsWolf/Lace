@@ -9,6 +9,7 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 dependencies = [
     "pyside6",
+    "PySideSix-Frameless-Window",
 ]
 readme = "README.md"
 

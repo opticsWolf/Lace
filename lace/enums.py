@@ -265,3 +265,17 @@ class SideBarFocusBehavior(enum.Enum):
     
     take_focus_only = enum.auto()
     """Sidebar automatically takes focus when sliding out, but does not restore focus when sliding in."""
+
+
+class TitleBarMode(enum.Enum):
+    """
+    Controls which title bar implementation is used for the main window
+    and floating dock containers.
+    """
+    native = enum.auto()
+    """Use the OS-native title bar (default Qt behaviour)."""
+
+    custom = enum.auto()
+    """Use a custom title bar provided by PySideSix-Frameless-Window.
+    The window is created with Qt.FramelessWindowHint and a custom
+    TitleBar widget is added by the frameless window base class."""
