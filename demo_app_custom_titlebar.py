@@ -131,6 +131,11 @@ class DemoMainWindow(FramelessLaceMainWindow):
 
     def __init__(self):
         super().__init__()
+
+        # Use StandardTitleBar which shows window icon + title label
+        from qframelesswindow.titlebar import StandardTitleBar
+        self.setTitleBar(StandardTitleBar(self))
+
         self.setWindowTitle("Dock Feature & Flags Testbed (Custom TitleBar)")
         self.resize(1200, 800)
 
