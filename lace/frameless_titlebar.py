@@ -1,0 +1,287 @@
+# -*- coding: utf-8 -*-
+# Lace: Advanced PySide6 Docking System
+# Copyright (c) 2026 opticsWolf
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is part of Lace.
+# Licensed under the Apache License, Version 2.0.
+
+"""Theming engine for PySideSix-Frameless-Window title bars.
+
+:class:`FramelessTitleBarStyler` is a :class:`DockStyled` consumer that
+applies dock-theme colours to a ``qframelesswindow`` title bar and an
+optional ``QMenuBar``.  It handles the quirks of the frameless library:
+
+* ``StandardTitleBar`` applies its own stylesheet to ``titleLabel``,
+  so we override it with a higher-specificity rule.
+* Min/max/close buttons use custom painting via ``_normalColor`` /
+  ``_hoverColor`` / ``_pressedColor`` and ``_normalBgColor`` /
+  ``_hoverBgColor`` / ``_pressedBgColor`` attributes, which must be
+  set directly instead of through QSS.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QMenuBar, QWidget
+
+from .dock_theme import DockStyleCategory
+
+
+def _color_hex(col, alpha: Optional[float] = None) -> str:
+    """Convert a QColor (or anything with red/green/blue/alpha) to '#rrggbb'."""
+    if col is None:
+        return "transparent"
+    r, g, b = col.red(), col.green(), col.blue()
+    a = col.alpha() if alpha is None else int(alpha * 255)
+    if a < 255:
+        return f"#{r:02x}{g:02x}{b:02x}{a:02x}"
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+class FramelessTitleBarStyler:
+    """Styles a ``qframelesswindow`` title bar and optional menu bar from
+    the dock theme engine.
+
+    Uses the same subscription pattern as :class:`DockStyled` but without
+    inheriting from it (this class is not itself a Qt widget).
+
+    Parameters
+    ----------
+    title_bar:
+        The ``qframelesswindow`` title bar widget (``StandardTitleBar``,
+        ``TitleBar``, or a custom replacement).
+    menu_bar:
+        Optional ``QMenuBar`` positioned below the title bar.  May be
+        ``None`` or set later via :attr:`menu_bar`.
+    parent:
+        Qt parent (typically the main window, used for lifecycle).
+    """
+
+    _STYLE_CATEGORIES = (
+        DockStyleCategory.TITLE_BAR,
+        DockStyleCategory.CORE,
+        DockStyleCategory.PANEL,
+    )
+
+    def __init__(
+        self,
+        title_bar: QWidget,
+        menu_bar: Optional[QMenuBar] = None,
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        from .dock_style_manager import get_dock_style_manager
+
+        self._parent = parent
+        self._title_bar = title_bar
+        self._menu_bar: Optional[QMenuBar] = menu_bar
+        self._style_mgr = get_dock_style_manager()
+        self._refresh_queued = False
+
+        # Register with DockStyleManager and apply initial style.
+        for category in self._STYLE_CATEGORIES:
+            self._style_mgr.register(self, category)
+        self.refresh_style()
+
+    def on_style_changed(self, category: DockStyleCategory, changes: dict) -> None:
+        """Debounce refreshes so several categories changing in one frame
+        rebuild the styler only once."""
+        if not self._refresh_queued:
+            self._refresh_queued = True
+            QTimer.singleShot(0, self._do_refresh)
+
+    def _do_refresh(self) -> None:
+        self._refresh_queued = False
+        try:
+            self.refresh_style()
+        except RuntimeError:
+            # Underlying C++ widget already deleted; nothing to restyle.
+            pass
+
+    # -- public API -------------------------------------------------------
+
+    @property
+    def title_bar(self) -> QWidget:
+        """The title bar widget being styled."""
+        return self._title_bar
+
+    @title_bar.setter
+    def title_bar(self, tb: QWidget) -> None:
+        """Replace the title bar and re-apply the current theme."""
+        self._title_bar = tb
+        self.refresh_style()
+
+    @property
+    def menu_bar(self) -> Optional[QMenuBar]:
+        """The optional menu bar widget, or ``None``."""
+        return self._menu_bar
+
+    @menu_bar.setter
+    def menu_bar(self, mb: Optional[QMenuBar]) -> None:
+        """Set or clear the menu bar and re-apply the current theme."""
+        self._menu_bar = mb
+        self.refresh_style()
+
+    # -- DockStyled implementation ----------------------------------------
+
+    def refresh_style(self) -> None:
+        """Apply current dock theme colours to the title bar and menu bar."""
+        sm = self._style_mgr
+
+        # -- Title bar tokens --
+        tb = self._title_bar
+        bg = sm.get(DockStyleCategory.TITLE_BAR, "bg_normal")
+        text_col = sm.get(DockStyleCategory.TITLE_BAR, "text_normal")
+        btn_col = sm.get(DockStyleCategory.TITLE_BAR, "button_color")
+        btn_hover = sm.get(DockStyleCategory.TITLE_BAR, "button_hover_bg")
+        btn_disable = sm.get(DockStyleCategory.TITLE_BAR, "button_disable_clr")
+        btn_size = sm.get(DockStyleCategory.TITLE_BAR, "button_size", 18)
+        btn_icon = sm.get(DockStyleCategory.TITLE_BAR, "button_icon_size", 16)
+        btn_radius = sm.get(DockStyleCategory.TITLE_BAR, "button_corner_radius", 3)
+        font_family = sm.get(DockStyleCategory.TITLE_BAR, "font_family", "Segoe UI")
+        font_size = sm.get(DockStyleCategory.TITLE_BAR, "font_size", 10)
+        font_weight = sm.get(DockStyleCategory.TITLE_BAR, "font_weight", "normal")
+
+        # Map string font weights
+        if isinstance(font_weight, str):
+            font_weight = font_weight.capitalize()
+
+        bg_hex = _color_hex(bg) if bg else "transparent"
+        text_hex = _color_hex(text_col) if text_col else "#cccccc"
+        btn_hex = _color_hex(btn_col) if btn_col else "#cccccc"
+        btn_hover_hex = _color_hex(btn_hover) if btn_hover else "#555555"
+        btn_disable_hex = _color_hex(btn_disable) if btn_disable else "#555555"
+
+        titlebar_qss = f"""
+            QWidget#titleBar,
+            .TitleBar,
+            .StandardTitleBar {{
+                background: {bg_hex};
+                border: none;
+            }}
+            QLabel#titleLabel {{
+                color: {text_hex};
+                font-family: {font_family};
+                font-size: {font_size}px;
+                font-weight: {font_weight};
+            }}
+            QLabel#iconLabel {{
+                background: transparent;
+            }}
+            QPushButton {{
+                background: transparent;
+                color: {btn_hex};
+                border: none;
+                border-radius: {btn_radius}px;
+                min-width: {btn_size}px;
+                min-height: {btn_size}px;
+                max-width: {btn_size}px;
+                max-height: {btn_size}px;
+            }}
+            QPushButton:hover {{
+                background: {btn_hover_hex};
+            }}
+            QPushButton:disabled {{
+                color: {btn_disable_hex};
+            }}
+            QPushButton::icon {{
+                width: {btn_icon}px;
+                height: {btn_icon}px;
+            }}
+        """.strip()
+
+        tb.setStyleSheet(titlebar_qss)
+
+        # StandardTitleBar sets its own stylesheet on titleLabel which
+        # overrides the parent widget's QSS.  Apply the theme directly.
+        if hasattr(tb, "titleLabel"):
+            tl = tb.titleLabel
+            tl_palette = tl.palette()
+            if text_col:
+                tl_palette.setColor(tl_palette.ColorRole.Text, QColor(text_col))
+            tl.setPalette(tl_palette)
+            tl.setStyleSheet(f"""
+                QLabel {{
+                    background: transparent;
+                    font: {font_weight} {font_size}px {font_family};
+                    padding: 0 4px;
+                    color: {text_hex};
+                }}
+            """)
+
+        # Title bar buttons (min/max/close) use custom painting with
+        # _normalColor / _hoverColor / _pressedColor for icon colours
+        # and _normalBgColor / _hoverBgColor / _pressedBgColor for
+        # background colours.  Set them directly so they match the theme.
+        from qframelesswindow.titlebar import TitleBarButton
+        for btn in tb.findChildren(TitleBarButton):
+            # Icon colours: use button_color for all states
+            if btn_col:
+                btn._normalColor = QColor(btn_col)
+                btn._hoverColor = QColor(btn_col)
+                btn._pressedColor = QColor(btn_col)
+            # Background colours: transparent normal, theme hover_bg on hover
+            btn._normalBgColor = QColor(0, 0, 0, 0)
+            if btn_hover:
+                btn._hoverBgColor = QColor(btn_hover)
+                pressed_bg = QColor(btn_hover)
+                pressed_bg.setAlpha(min(255, int(pressed_bg.alpha() * 1.5)))
+                btn._pressedBgColor = pressed_bg
+            if btn_disable:
+                btn._disableColor = QColor(btn_disable)
+            btn.update()
+
+        # -- Menu bar tokens --
+        if self._menu_bar is not None:
+            core_text = sm.get(DockStyleCategory.CORE, "text_color")
+            panel_text = sm.get(DockStyleCategory.PANEL, "text_color")
+            accent = sm.get(DockStyleCategory.CORE, "accent_color")
+            border_col = sm.get(DockStyleCategory.CORE, "border_color")
+
+            mbar_text = _color_hex(panel_text or core_text)
+            accent_hex = _color_hex(accent) if accent else "#0078d4"
+            border_hex = _color_hex(border_col, alpha=0.3) if border_col else "transparent"
+
+            mbar_qss = f"""
+                QMenuBar {{
+                    background: {bg_hex};
+                    color: {mbar_text};
+                    border: none;
+                    border-bottom: 1px solid {border_hex};
+                    font-family: {font_family};
+                    font-size: {font_size}px;
+                }}
+                QMenuBar::item {{
+                    background: transparent;
+                    padding: 4px 8px;
+                }}
+                QMenuBar::item:selected {{
+                    background: {accent_hex};
+                }}
+                QMenuBar::item:pressed {{
+                    background: {accent_hex};
+                }}
+                QMenu {{
+                    background: {bg_hex};
+                    color: {mbar_text};
+                    border: 1px solid {border_hex};
+                    padding: 2px;
+                }}
+                QMenu::item {{
+                    padding: 4px 32px 4px 8px;
+                }}
+                QMenu::item:selected {{
+                    background: {accent_hex};
+                }}
+            """.strip()
+
+            self._menu_bar.setStyleSheet(mbar_qss)
+
+
+__all__ = [
+    "FramelessTitleBarStyler",
+]
