@@ -373,6 +373,18 @@ class FloatingDockContainer(QWidget, DockStyled):
             return
         self._pending_restore_geometry = None
         self.setGeometry(geom)
+
+        # setWindowFlags() destroys and recreates the native window handle.
+        # The new OS chrome (title bar, borders) does not automatically pick
+        # up the current QApplication style/palette — it falls back to the
+        # default system style ("Windows 98" look).  Re-apply the current
+        # application style so the native frame gets polished correctly.
+        if not self._chromeless:
+            qapp = QApplication.instance()
+            if qapp:
+                current_style = qapp.style().objectName()
+                qapp.setStyle(current_style)
+
         # Re-apply the chromeless rounded-corner mask so corners render
         # correctly after the flag change (resizeEvent won't fire since
         # geometry is restored to the same value).
