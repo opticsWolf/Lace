@@ -71,7 +71,7 @@ class FloatingDockContainer(QWidget, DockStyled):
         self._single_dock_area: 'DockAreaWidget' = None
         self._mouse_event_handler: QWidget = None
         self._dock_container: DockContainerWidget = None
-        self._pending_restore_size: Optional['QSize'] = None
+        self._pending_restore_geometry: Optional['QRect'] = None
         global _z_order_counter
         _z_order_counter += 1
         self._z_order_index = _z_order_counter
@@ -344,20 +344,21 @@ class FloatingDockContainer(QWidget, DockStyled):
         if self._chromeless:
             flags |= Qt.FramelessWindowHint
         if self.windowFlags() != flags:
+            # Save client-area geometry so content size is preserved across
+            # the flag change (setWindowFlags destroys/recreates the native
+            # window frame, resetting geometry).
+            saved_geometry = self.geometry()
             was_visible = self.isVisible()
-            # Save the dock container's size so we can restore it after
-            # setWindowFlags (the OS title bar would otherwise eat into it).
-            container_size = self._dock_container.size()
             self.setWindowFlags(flags)
+            # Sync translucent background with chromeless state.
+            self.setAttribute(Qt.WA_TranslucentBackground, self._chromeless)
             if was_visible:
                 self.show()
-            # Restore the dock container's size by adjusting window geometry.
-            # The layout may have already shrunk content to make room for the
-            # OS title bar; grow the window to compensate.
-            self._pending_restore_size = container_size
-            QTimer.singleShot(0, self._do_restore_container_size)
+            # Restore the saved client-area geometry and force a full repaint.
+            QTimer.singleShot(0, self._do_restore_geometry)
+            self._pending_restore_geometry = saved_geometry
         else:
-            self._pending_restore_size = None
+            self._pending_restore_geometry = None
 
         # Sync permanent event-filter state with the chromeless flag.
         if self._chromeless:
@@ -365,26 +366,15 @@ class FloatingDockContainer(QWidget, DockStyled):
         else:
             self._remove_permanent_filter()
 
-    def _do_restore_container_size(self):
-        """Restore dock container size after setWindowFlags (deferred via QTimer)."""
-        container_size = getattr(self, '_pending_restore_size', None)
-        if container_size is None:
+    def _do_restore_geometry(self):
+        """Restore saved client-area geometry after setWindowFlags (deferred)."""
+        geom = getattr(self, '_pending_restore_geometry', None)
+        if geom is None:
             return
-        self._pending_restore_size = None
-
-        current_size = self._dock_container.size()
-        diff = container_size - current_size
-        if diff.isNull():
-            return
-
-        # Grow/shrink the window frame to compensate so the content keeps its size.
-        geom = self.geometry()
-        geom.setRight(geom.right() + diff.width())
-        geom.setBottom(geom.bottom() + diff.height())
+        self._pending_restore_geometry = None
         self.setGeometry(geom)
-
-        # Force a repaint so the widget draws fully.
-        self._dock_container.update()
+        # Force a full redraw of the window and its children.
+        self.repaint()
 
     def _test_config_flag(self, flag: DockFlags) -> bool:
         if self._dock_manager:
