@@ -14,7 +14,7 @@ import logging
 import pathlib
 from typing import Dict, List, Optional, Any, Union
 
-from PySide6.QtCore import QObject, Signal, QPoint, QRect
+from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
 from PySide6.QtGui import QAction
 
@@ -99,10 +99,36 @@ class DockManager(QObject):
         if isinstance(parent, QMainWindow):
             self.sidebar_manager.setup_shortcuts(parent)
 
+        # Install event filter on parent window to close floating widgets
+        # when the main window is closed (even if containers have unclosable widgets).
+        parent.installEventFilter(self)
+
         from PySide6.QtWidgets import QApplication
         qapp = QApplication.instance()
         if qapp:
             qapp.focusChanged.connect(self._on_app_focus_changed)
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  Event filter — close floating widgets when parent window closes
+    # ─────────────────────────────────────────────────────────────────────
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.Close:
+            self._close_floating_widgets(force=True)
+        return super().eventFilter(obj, event)
+
+    def _close_floating_widgets(self, *, force: bool = False) -> None:
+        """Close all registered floating containers.
+
+        When *force* is ``True`` (e.g. main window shutdown), containers
+        are destroyed via ``deleteLater()`` regardless of whether they
+        contain unclosable dock widgets.
+        """
+        for fw in list(self._floating_widgets):
+            if force:
+                fw.deleteLater()
+            else:
+                fw.close()
 
     # ─────────────────────────────────────────────────────────────────────
     #  FACADE API: Core Docking
