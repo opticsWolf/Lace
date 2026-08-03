@@ -17,7 +17,7 @@ import logging
 from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, QRectF,
                             QSize, Qt, QTimer)
 from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, QPainterPath,
-                           QPalette, QMoveEvent, QRegion, QMouseEvent)
+                           QPalette, QMoveEvent, QRegion, QMouseEvent, QShowEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
 from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState, TitleBarMode
@@ -586,12 +586,15 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         
         if drag_state == DragState.floating_widget:
             self._mouse_event_handler = mouse_event_handler
-            
-            # Arm the guard against the OS synthetic release.
-            # Using 50ms buffer instead of 0 to ensure the event loop has fully processed 
-            # the grabMouse handoff before we start accepting releases.
-            self._ignore_synthetic_release = True
-            QTimer.singleShot(50, self._clear_synthetic_release_flag)
+
+            # Arm the guard against the OS synthetic release that can be
+            # produced when a NEW window is mapped during the drag.  Only
+            # needed for not-yet-visible floats: an already-visible float
+            # (re-drag of a floating window) does not map, so a real quick
+            # release must never be swallowed.
+            if not self.isVisible():
+                self._ignore_synthetic_release = True
+                QTimer.singleShot(50, self._clear_synthetic_release_flag)
                 
         self.move_floating()
         self.show()
@@ -670,10 +673,13 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         state = getattr(self, '_dragging_state', DragState.inactive)
         if state == DragState.inactive:
             if e.type() == QEvent.NonClientAreaMouseButtonPress:
-                logger.debug('FloatingWidget.event Event.NonClientAreaMouseButtonPress %s', e.type())
                 self._set_state(DragState.mouse_pressed)
         elif state == DragState.mouse_pressed:
-            if e.type() == QEvent.NonClientAreaMouseButtonDblClick:
+            if e.type() == QEvent.MouseButtonRelease:
+                # Safety net: a stray release (e.g. released outside the
+                # window) must not leave the float stuck in a drag state.
+                self._set_state(DragState.inactive)
+            elif e.type() == QEvent.NonClientAreaMouseButtonDblClick:
                 logger.debug('FloatingWidget.event QEvent.NonClientAreaMouseButtonDblClick')
                 self._set_state(DragState.inactive)
             elif e.type() == QEvent.Resize:
@@ -685,6 +691,11 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         elif state == DragState.floating_widget:
             if e.type() == QEvent.NonClientAreaMouseButtonRelease:
                 logger.debug('FloatingWidget.event QEvent.NonClientAreaMouseButtonRelease')
+                self._set_state(DragState.inactive)
+                QTimer.singleShot(0, self._finalize_drag)
+            elif e.type() == QEvent.MouseButtonRelease:
+                # Frameless title-bar drags end with a plain mouse release
+                # (no NonClientArea events); finalize here as a fallback.
                 self._set_state(DragState.inactive)
                 QTimer.singleShot(0, self._finalize_drag)
 
@@ -717,6 +728,21 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # REMOVED: toggle_view(False) loop
         # Recreating the frameless window (e.g. via setWindowOpacity during drops) 
         # triggers QHideEvent. Closing widgets here incorrectly ripped them from the layout!
+
+    def showEvent(self, event: QShowEvent):
+        super().showEvent(event)
+        # The dock content was just re-parented from another window into
+        # this new top-level; Qt can skip its first paint until something
+        # forces a redraw (which a later resize would otherwise do).
+        # Repaint once the window is actually mapped so the float never
+        # appears with stale/clipped rendering.
+        QTimer.singleShot(0, self._deferred_first_repaint)
+
+    def _deferred_first_repaint(self):
+        """Force a full repaint of the float and its dock container."""
+        if self._dock_container is not None:
+            self._dock_container.update()
+        self.update()
 
     def _hit_test_edges(self, local_pos: QPoint) -> int:
         """Return a bitmask of `_EDGE_*` flags for *local_pos*.
@@ -828,16 +854,20 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
             if not getattr(self.titleBar, "canDrag", lambda p: True)(
                     event.position().toPoint()):
                 return False  # press on a min/max/close button
+            # Track the press without changing state: the drag only engages
+            # once the mouse moves past the threshold, so a click (or a
+            # release that lands outside the window) can never leave the
+            # float stuck in a drag state that would block redocking.
             self._titlebar_drag_start = event.position().toPoint()
-            self._set_state(DragState.mouse_pressed)
             return True
 
         if etype == QEvent.MouseMove:
-            if state == DragState.mouse_pressed:
-                dist = (event.position().toPoint()
-                        - self._titlebar_drag_start).manhattanLength()
+            start = getattr(self, "_titlebar_drag_start", None)
+            if start is not None and state == DragState.inactive:
+                dist = (event.position().toPoint() - start).manhattanLength()
                 if dist >= start_drag_distance():
-                    self._drag_start_mouse_position = self._titlebar_drag_start
+                    self._titlebar_drag_start = None
+                    self._drag_start_mouse_position = start
                     self._mouse_event_handler = self.titleBar
                     self._set_state(DragState.floating_widget)
                     self.titleBar.grabMouse()
@@ -848,19 +878,25 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                 return True
             return False
 
-        if (etype == QEvent.MouseButtonRelease
-                and state in (DragState.mouse_pressed, DragState.floating_widget)):
-            was_dragging = state == DragState.floating_widget
-            self._set_state(DragState.inactive)
-            if self._mouse_event_handler is not None:
-                try:
-                    self._mouse_event_handler.releaseMouse()
-                except RuntimeError:
-                    pass
-                self._mouse_event_handler = None
-            if was_dragging:
-                QTimer.singleShot(0, self._finalize_drag)
-            return True
+        if etype == QEvent.MouseButtonRelease:
+            if state in (DragState.mouse_pressed, DragState.floating_widget):
+                was_dragging = state == DragState.floating_widget
+                self._set_state(DragState.inactive)
+                if self._mouse_event_handler is not None:
+                    try:
+                        self._mouse_event_handler.releaseMouse()
+                    except RuntimeError:
+                        pass
+                    self._mouse_event_handler = None
+                if was_dragging:
+                    QTimer.singleShot(0, self._finalize_drag)
+                self._titlebar_drag_start = None
+                return True
+            if getattr(self, "_titlebar_drag_start", None) is not None:
+                # press without drag — just clear the tracked press
+                self._titlebar_drag_start = None
+                return True
+            return False
 
         return False
 
