@@ -137,6 +137,14 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # Style Manager Integration
         self._init_dock_style()
 
+        # Custom title bar — use the exact same theme styling as the main
+        # window's frameless title bar (FramelessTitleBarStyler), so the
+        # float's qframelesswindow chrome matches the main window.
+        if self._title_bar_mode is TitleBarMode.custom:
+            from .frameless_titlebar import FramelessTitleBarStyler
+            self._titlebar_styler = FramelessTitleBarStyler(
+                title_bar=self.titleBar, menu_bar=None, parent=self)
+
         # --- Resizing state (cross-platform) ---------------------------------
         self._is_resizing = False
         self._resize_dir = _EDGE_NONE
