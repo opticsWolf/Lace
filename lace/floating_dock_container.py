@@ -20,12 +20,13 @@ from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, QPainterPath,
                            QPalette, QMoveEvent, QRegion, QMouseEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
-from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
+from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState, TitleBarMode
 from .dock_container_widget import DockContainerWidget
 from .dock_container_state import restore_container_state
 
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
+from .frameless_window import FramelessLaceWindow
 
 
 
@@ -48,7 +49,7 @@ logger = logging.getLogger(__name__)
 _z_order_counter = 0
 
 
-class FloatingDockContainer(QWidget, DockStyled):
+class FloatingDockContainer(FramelessLaceWindow, DockStyled):
     STYLE_CATEGORIES = (DockStyleCategory.CORE,)
     def __init__(self, *, dock_area: 'DockAreaWidget' = None,
                  dock_widget: 'DockWidget' = None,
@@ -63,7 +64,10 @@ class FloatingDockContainer(QWidget, DockStyled):
         if dock_manager is None:
             raise ValueError('Must pass in either dock_area, dock_widget, or dock_manager')
 
-        super().__init__(getattr(dock_manager, '_root', None) or dock_manager)
+        super().__init__(
+            getattr(dock_manager, '_root', None) or dock_manager,
+            title_bar_mode=getattr(dock_manager, 'title_bar_mode', TitleBarMode.native),
+        )
         
         self._dragging_state = DragState.inactive
         self._drag_start_mouse_position = QPoint()
@@ -91,18 +95,28 @@ class FloatingDockContainer(QWidget, DockStyled):
         dock_container.destroyed.connect(self._destroyed)
         dock_container.dock_areas_added.connect(self.on_dock_areas_added_or_removed)
         self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
+        if self._title_bar_mode is TitleBarMode.custom:
+            # The frameless window base provides its own chrome (title
+            # bar, resize borders, shadow); the plain-Qt chromeless
+            # fallback is not needed.
+            self._chromeless = False
         self._corner_radius = 0.0
         flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
         if self._chromeless:
             flags |= Qt.FramelessWindowHint
-        self.setWindowFlags(flags)
-        if self._chromeless:
-            self.setAttribute(Qt.WA_TranslucentBackground)
-        
+        if self._title_bar_mode is not TitleBarMode.custom:
+            self.setWindowFlags(flags)
+            if self._chromeless:
+                self.setAttribute(Qt.WA_TranslucentBackground)
+
         layout = QBoxLayout(QBoxLayout.TopToBottom)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         self.setLayout(layout)
+
+        if self._title_bar_mode is TitleBarMode.custom:
+            # Frameless title bar (qframelesswindow) above the dock content.
+            layout.addWidget(self.titleBar)
 
         layout.addWidget(dock_container, 1)
         dock_manager.register_floating_widget(self)
@@ -339,6 +353,10 @@ class FloatingDockContainer(QWidget, DockStyled):
     # ─────────────────────────────────────────────────────────────────────
 
     def update_window_flags_from_config(self):
+        if self._title_bar_mode is TitleBarMode.custom:
+            # Frameless flags and resize borders are managed by the
+            # qframelesswindow base; nothing to toggle here.
+            return
         self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
         flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
         if self._chromeless:

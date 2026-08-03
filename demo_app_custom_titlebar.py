@@ -19,7 +19,8 @@ from pathlib import Path
 from lace import (
     DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
-    ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition
+    ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition,
+    TitleBarMode
 )
 from lace.frameless_window import FramelessLaceMainWindow
 
@@ -130,7 +131,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
     """Demo main window using a custom title bar from PySideSix-Frameless-Window."""
 
     def __init__(self):
-        super().__init__()
+        super().__init__(title_bar_mode=TitleBarMode.custom)
 
         # Use StandardTitleBar which shows window icon + title label
         from qframelesswindow.titlebar import StandardTitleBar

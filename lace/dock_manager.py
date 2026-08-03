@@ -18,7 +18,7 @@ from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
 from PySide6.QtGui import QAction
 
-from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior
+from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior, TitleBarMode
 from .dock_container_widget import DockContainerWidget
 from .dock_overlay import DockOverlay
 from .floating_dock_container import FloatingDockContainer
@@ -49,8 +49,17 @@ class DockManager(QObject):
     opening_perspective = Signal(str)
     perspective_opened = Signal(str)
 
-    def __init__(self, parent: QWidget):
+    def __init__(self, parent: QWidget,
+                 title_bar_mode: Optional[TitleBarMode] = None):
         super().__init__(parent)
+
+        # Title-bar mode for floating containers.  Derived from the parent
+        # window when not given explicitly (FramelessLaceMainWindow stores
+        # it as ``_title_bar_mode``); plain QMainWindow parents default to
+        # native.
+        if title_bar_mode is None:
+            title_bar_mode = getattr(parent, "_title_bar_mode", TitleBarMode.native)
+        self.title_bar_mode = title_bar_mode
 
         # 1. Initialize Styles (Grab the singleton so children can use it)
         self.style_manager = get_dock_style_manager()

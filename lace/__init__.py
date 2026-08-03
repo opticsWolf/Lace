@@ -81,6 +81,7 @@ from .enums import (
     WidgetState,
     ToggleViewActionMode,
     SideBarFocusBehavior,
+    TitleBarMode,
 )
 
 # ---------------------------------------------------------------------------
