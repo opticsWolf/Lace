@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QMenuBar, QWidget
 
 from .dock_theme import DockStyleCategory
@@ -244,21 +244,18 @@ class FramelessTitleBarStyler:
                 btn._disableColor = QColor(btn_disable)
             btn.update()
 
-        # -- Menu bar styling (minimal, palette-driven) --
+        # -- Menu bar styling (minimal) --
         #
-        # Same approach as demo_app.py: a plain QMenuBar rendered by
-        # Fusion, coloured by the dock palette from the theming engine
-        # (build_dock_palette).  We only pin the Window role to the
-        # sidebar background (same as the title bar above) so the whole
-        # chrome strip reads as one surface; text, hover/selected items,
-        # and popup menus follow the palette.
+        # Same approach as demo_app.py: a plain QMenuBar whose only
+        # stylesheet rule is "no border" (Fusion draws a 1px bottom
+        # shadow).  The background is pinned to the sidebar colour so it
+        # matches the title bar above; text and hover/selected items
+        # follow the palette.  Note: any QSS on the menu bar makes Qt
+        # ignore the palette Window role, hence the explicit background.
         if self._menu_bar is not None:
-            from .dock_theme import build_dock_palette
-
-            palette = build_dock_palette(is_panel=False)
-            if bg is not None:
-                palette.setColor(QPalette.ColorRole.Window, QColor(bg_hex))
-            self._menu_bar.setPalette(palette)
+            self._menu_bar.setStyleSheet(
+                f"QMenuBar {{ background: {bg_hex}; border: none; }}"
+            )
 
 
 __all__ = [
