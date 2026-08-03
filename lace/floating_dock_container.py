@@ -64,9 +64,21 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         if dock_manager is None:
             raise ValueError('Must pass in either dock_area, dock_widget, or dock_manager')
 
+        # Resolve the effective title-bar mode for THIS float.  The
+        # chromeless_float flag means "no chrome at all" — not even the
+        # custom frameless title bar — so it supersedes custom mode and
+        # falls back to the plain-Qt chromeless path (FramelessWindowHint
+        # + translucent background + rounded mask).
+        chromeless = bool(dock_manager.config_flags & DockFlags.chromeless_float)
+        effective_mode = (
+            TitleBarMode.native
+            if chromeless
+            else getattr(dock_manager, 'title_bar_mode', TitleBarMode.native)
+        )
+
         super().__init__(
             getattr(dock_manager, '_root', None) or dock_manager,
-            title_bar_mode=getattr(dock_manager, 'title_bar_mode', TitleBarMode.native),
+            title_bar_mode=effective_mode,
         )
         
         self._dragging_state = DragState.inactive
@@ -95,11 +107,6 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         dock_container.destroyed.connect(self._destroyed)
         dock_container.dock_areas_added.connect(self.on_dock_areas_added_or_removed)
         self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
-        if self._title_bar_mode is TitleBarMode.custom:
-            # The frameless window base provides its own chrome (title
-            # bar, resize borders, shadow); the plain-Qt chromeless
-            # fallback is not needed.
-            self._chromeless = False
         self._corner_radius = 0.0
         flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
         if self._chromeless:
