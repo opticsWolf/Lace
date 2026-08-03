@@ -40,6 +40,7 @@ from .dock_style_manager import (
     get_dock_style_manager,
 )
 from .dock_theme_bridge import DockThemeBridge
+from .dock_menu_bar import DockMenuBarStyler
 from .theme_manager import ThemeManager
 from .sidebar_manager import SidebarManager
 from .sidebar_container import SideBarContainer

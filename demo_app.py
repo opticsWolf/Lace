@@ -19,7 +19,8 @@ from pathlib import Path
 from lace import (
     DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
-    ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition
+    ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition,
+    DockMenuBarStyler
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -169,6 +170,11 @@ class DemoMainWindow(QMainWindow):
         self.create_theme_menu()
         self.create_flags_menu()
         self.create_sidebar_menu()
+
+        # Remove Fusion's 1px bottom border from the menu bar and pin its
+        # background to the sidebar colour; re-applied on every theme
+        # switch by DockMenuBarStyler.
+        self._menu_bar_styler = DockMenuBarStyler(self.menuBar(), parent=self)
 
         # 4. Apply initial theme
         apply_dock_theme("cyberpunk_neon")

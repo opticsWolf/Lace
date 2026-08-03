@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QMenuBar, QWidget
 
 from .dock_theme import DockStyleCategory
@@ -256,6 +256,16 @@ class FramelessTitleBarStyler:
             self._menu_bar.setStyleSheet(
                 f"QMenuBar {{ background: {bg_hex}; border: none; }}"
             )
+
+            # QSS polish snapshots a stale palette into the widget, so
+            # set it explicitly from the current theme to keep
+            # hover/pressed item colours from lagging one theme behind.
+            from .dock_theme import build_dock_palette
+
+            palette = build_dock_palette(is_panel=False)
+            if bg is not None:
+                palette.setColor(QPalette.ColorRole.Window, QColor(bg_hex))
+            self._menu_bar.setPalette(palette)
 
 
 __all__ = [
