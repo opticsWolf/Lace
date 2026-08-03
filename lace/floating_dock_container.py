@@ -27,6 +27,7 @@ from .dock_container_state import restore_container_state
 from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .frameless_window import FramelessLaceWindow
+from .util import start_drag_distance
 
 
 
@@ -151,6 +152,13 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
             from .frameless_titlebar import FramelessTitleBarStyler
             self._titlebar_styler = FramelessTitleBarStyler(
                 title_bar=self.titleBar, menu_bar=None, parent=self)
+
+            # Route the frameless title bar's drags through the dock-drag
+            # machinery (see _handle_titlebar_drag) instead of the plain
+            # OS move loop, so the drop overlay shows and floats can be
+            # redocked when dragged by the custom title bar.
+            self._titlebar_drag_start = QPoint()
+            self.titleBar.installEventFilter(self)
 
         # --- Resizing state (cross-platform) ---------------------------------
         self._is_resizing = False
@@ -753,6 +761,11 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         return None
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        # --- Frameless title-bar drag (custom mode) ------------------------
+        if self._title_bar_mode is TitleBarMode.custom and watched is self.titleBar:
+            if self._handle_titlebar_drag(watched, event):
+                return True
+
         # --- Permanent path: chromeless resize on macOS / Linux --------------
         if self._permanent_filter_installed:
             if self._handle_resize_event(watched, event):
@@ -793,6 +806,63 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                 return False
 
         return super().eventFilter(watched, event)
+
+    def _handle_titlebar_drag(self, obj: QObject, event: QEvent) -> bool:
+        """Drive the dock-drag machinery from the frameless title bar.
+
+        The qframelesswindow title bar normally starts a plain OS move loop
+        (``startSystemMove`` / ``WM_SYSCOMMAND SC_MOVE``) which never delivers
+        the ``NonClientAreaMouseButtonPress`` events the dock drag relies on
+        — so the drop overlay never appears and the float cannot be redocked
+        when dragged by its custom title bar.  This consumes the title bar's
+        mouse events and runs the same drag path as the dock area title bar
+        (press -> threshold -> grabMouse + move_floating -> overlay updates
+        -> release -> finalize).
+        """
+        etype = event.type()
+        state = self._dragging_state
+
+        if etype == QEvent.MouseButtonPress:
+            if event.button() != Qt.LeftButton:
+                return False
+            if not getattr(self.titleBar, "canDrag", lambda p: True)(
+                    event.position().toPoint()):
+                return False  # press on a min/max/close button
+            self._titlebar_drag_start = event.position().toPoint()
+            self._set_state(DragState.mouse_pressed)
+            return True
+
+        if etype == QEvent.MouseMove:
+            if state == DragState.mouse_pressed:
+                dist = (event.position().toPoint()
+                        - self._titlebar_drag_start).manhattanLength()
+                if dist >= start_drag_distance():
+                    self._drag_start_mouse_position = self._titlebar_drag_start
+                    self._mouse_event_handler = self.titleBar
+                    self._set_state(DragState.floating_widget)
+                    self.titleBar.grabMouse()
+                    self.move_floating()
+                return True
+            if state == DragState.floating_widget:
+                self.move_floating()
+                return True
+            return False
+
+        if (etype == QEvent.MouseButtonRelease
+                and state in (DragState.mouse_pressed, DragState.floating_widget)):
+            was_dragging = state == DragState.floating_widget
+            self._set_state(DragState.inactive)
+            if self._mouse_event_handler is not None:
+                try:
+                    self._mouse_event_handler.releaseMouse()
+                except RuntimeError:
+                    pass
+                self._mouse_event_handler = None
+            if was_dragging:
+                QTimer.singleShot(0, self._finalize_drag)
+            return True
+
+        return False
 
     # ------------------------------------------------------------------
     # Non-Windows chromeless resize
