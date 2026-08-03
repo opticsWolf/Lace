@@ -23,8 +23,38 @@ from __future__ import annotations
 
 from typing import Optional
 
+from PySide6.QtGui import QPalette, QPainter
 from PySide6.QtWidgets import QMenuBar, QVBoxLayout, QWidget
 from qframelesswindow import FramelessMainWindow, FramelessWindow
+
+
+# ── Menu bar ──────────────────────────────────────────────────────────
+
+class LaceMenuBar(QMenuBar):
+    """A QMenuBar rendered purely from the palette.
+
+    Fusion draws a 1px shadow row at the bottom of ``CE_MenuBarEmpty``
+    using a darkened ``Window`` colour.  No palette role or style hint
+    controls it, and a ``border: none`` stylesheet would disable the
+    palette-driven background entirely.  Painting the last row with the
+    palette ``Window`` colour removes the seam while keeping the bar
+    fully palette-based (the selected item's column is skipped so hover
+    feedback keeps its full height).
+    """
+
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        y = self.height() - 1
+        painter = QPainter(self)
+        win = self.palette().color(QPalette.ColorRole.Window)
+        active = self.activeAction()
+        if active is not None:
+            r = self.actionGeometry(active)
+            painter.fillRect(0, y, max(0, r.left()), 1, win)
+            right = min(self.width(), r.right() + 1)
+            painter.fillRect(right, y, self.width() - right, 1, win)
+        else:
+            painter.fillRect(0, y, self.width(), 1, win)
 
 
 # ── Frameless MainWindow ───────────────────────────────────────────────
@@ -104,8 +134,7 @@ class FramelessLaceMainWindow(FramelessMainWindow):
         if self._menu_bar is not None:
             return self._menu_bar
 
-        menu_bar = QMenuBar(self)
-        menu_bar.setStyleSheet("border: none;")
+        menu_bar = LaceMenuBar(self)
         self._menu_bar = menu_bar
         self._build_stacked_container(menu_bar)
 
@@ -157,6 +186,7 @@ class FramelessLaceWindow(FramelessWindow):
 
 
 __all__ = [
+    "LaceMenuBar",
     "FramelessLaceMainWindow",
     "FramelessLaceWindow",
 ]

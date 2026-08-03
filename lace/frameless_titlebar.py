@@ -25,8 +25,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QMenuBar, QWidget
 
 from .dock_theme import DockStyleCategory
@@ -134,7 +134,16 @@ class FramelessTitleBarStyler:
 
         # -- Title bar tokens --
         tb = self._title_bar
-        bg = sm.get(DockStyleCategory.TITLE_BAR, "bg_normal")
+        # StandardTitleBar is a plain QWidget subclass; Qt only paints
+        # QSS backgrounds on such widgets when WA_StyledBackground is set.
+        tb.setAttribute(Qt.WA_StyledBackground, True)
+        # Match the sidebar strip (SIDEBAR bg_color = theme base) so the
+        # title bar and menu bar read as the same chrome surface as the
+        # sidebars.  Falls back to the title-bar token if a custom theme
+        # omits the sidebar palette.
+        bg = sm.get(DockStyleCategory.SIDEBAR, "bg_color")
+        if bg is None:
+            bg = sm.get(DockStyleCategory.TITLE_BAR, "bg_normal")
         text_col = sm.get(DockStyleCategory.TITLE_BAR, "text_normal")
         btn_col = sm.get(DockStyleCategory.TITLE_BAR, "button_color")
         btn_hover = sm.get(DockStyleCategory.TITLE_BAR, "button_hover_bg")
@@ -235,51 +244,21 @@ class FramelessTitleBarStyler:
                 btn._disableColor = QColor(btn_disable)
             btn.update()
 
-        # -- Menu bar tokens --
+        # -- Menu bar styling (minimal, palette-driven) --
+        #
+        # Same approach as demo_app.py: a plain QMenuBar rendered by
+        # Fusion, coloured by the dock palette from the theming engine
+        # (build_dock_palette).  We only pin the Window role to the
+        # sidebar background (same as the title bar above) so the whole
+        # chrome strip reads as one surface; text, hover/selected items,
+        # and popup menus follow the palette.
         if self._menu_bar is not None:
-            core_text = sm.get(DockStyleCategory.CORE, "text_color")
-            panel_text = sm.get(DockStyleCategory.PANEL, "text_color")
-            accent = sm.get(DockStyleCategory.CORE, "accent_color")
-            border_col = sm.get(DockStyleCategory.CORE, "border_color")
+            from .dock_theme import build_dock_palette
 
-            mbar_text = _color_hex(panel_text or core_text)
-            accent_hex = _color_hex(accent) if accent else "#0078d4"
-            border_hex = _color_hex(border_col, alpha=0.3) if border_col else "transparent"
-
-            mbar_qss = f"""
-                QMenuBar {{
-                    background: {bg_hex};
-                    color: {mbar_text};
-                    border: none;
-                    border-bottom: 1px solid {border_hex};
-                    font-family: {font_family};
-                    font-size: {font_size}px;
-                }}
-                QMenuBar::item {{
-                    background: transparent;
-                    padding: 4px 8px;
-                }}
-                QMenuBar::item:selected {{
-                    background: {accent_hex};
-                }}
-                QMenuBar::item:pressed {{
-                    background: {accent_hex};
-                }}
-                QMenu {{
-                    background: {bg_hex};
-                    color: {mbar_text};
-                    border: 1px solid {border_hex};
-                    padding: 2px;
-                }}
-                QMenu::item {{
-                    padding: 4px 32px 4px 8px;
-                }}
-                QMenu::item:selected {{
-                    background: {accent_hex};
-                }}
-            """.strip()
-
-            self._menu_bar.setStyleSheet(mbar_qss)
+            palette = build_dock_palette(is_panel=False)
+            if bg is not None:
+                palette.setColor(QPalette.ColorRole.Window, QColor(bg_hex))
+            self._menu_bar.setPalette(palette)
 
 
 __all__ = [
