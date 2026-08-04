@@ -16,7 +16,7 @@ import logging
 
 from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, QRectF,
                             QSize, Qt, QTimer)
-from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, QPainterPath,
+from PySide6.QtGui import (QCloseEvent, QColor, QCursor, QHideEvent, QPainterPath,
                            QPalette, QMoveEvent, QRegion, QMouseEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
@@ -83,6 +83,11 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         self._mouse_event_handler: QWidget = None
         self._dock_container: DockContainerWidget = None
         self._pending_restore_geometry: Optional['QRect'] = None
+        # Close-button disabled state: remembered normal icon colour so it
+        # can be restored when the float becomes closable again, and the set
+        # of dock widgets whose features_changed we are following.
+        self._close_btn_normal_color = None
+        self._feature_synced_widgets = set()
         global _z_order_counter
         _z_order_counter += 1
         self._z_order_index = _z_order_counter
@@ -162,12 +167,25 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # Style Manager Integration
         self._init_dock_style()
 
+        # Sync the title-bar close button with the float's closability now
+        # that the dock areas / widgets are in place.
+        self._update_close_button_state()
+
         # ── Frameless title-bar theme integration ──────────────────────────
         # FramelessTitleBarStyler subscribes to DockStyleManager and applies
         # the active dock-theme colours to the custom title bar (background,
         # title text, min/max/close button colours).
         self._titlebar_styler = FramelessTitleBarStyler(
             title_bar=self.titleBar, parent=self)
+        # The styler re-applies theme colours (including the close button's
+        # normal icon colour) on every theme change, so re-apply our
+        # close-button disabled state after each styler pass.
+        self._titlebar_styler._after_refresh = self._update_close_button_state
+
+        # Sync the title-bar close button with the float's closability now
+        # that the dock areas / widgets are in place (runs again after the
+        # styler's initial pass via _after_refresh).
+        self._update_close_button_state()
 
         # ── Title-bar drag → dock-drag routing ────────────────────────────
         # The qframelesswindow title bar's plain OS move loop
@@ -486,6 +504,11 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
     def on_dock_areas_added_or_removed(self):
         """Updates window title and forces title-bar button synchronization."""
         logger.debug('FloatingDockContainer.onDockAreasAddedOrRemoved()')
+
+        # Close button enabled state follows the float's closability, which
+        # depends on the dock widgets currently in the float.
+        self._update_close_button_state()
+        self._sync_feature_signals()
         
         # --- FIX: Synchronize all title bars in this floating window ---
         # This ensures the Pin/Unpin icon flips immediately upon floating.
@@ -1094,6 +1117,74 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
 
     def is_closable(self) -> bool:
         return DockWidgetFeature.closable in self._dock_container.features()
+
+    def _update_close_button_state(self, *args):
+        """Enable (and restore) or disable (and dim) the title-bar close
+        button based on whether every dock widget in this float is closable.
+
+        An unclosable dock widget anywhere in the float makes the whole
+        window unclosable (see ``is_closable``), so the close button is
+        disabled and its icon dimmed — clicking it does nothing instead of
+        silently ignoring the close.
+
+        The button is a qframelesswindow ``TitleBarButton`` with custom
+        painting (no built-in disabled rendering): disabling it stops Qt from
+        delivering mouse/hover/click events to it, and we dim the normal
+        icon colour with the theme's ``button_disable_clr`` (falling back to
+        a translucent version of the current colour).  The original colour
+        is remembered so it can be restored when the float becomes closable
+        again.  ``*args`` tolerates the ``features_changed`` signal payload.
+        """
+        tb = getattr(self, "titleBar", None)
+        close_btn = getattr(tb, "closeBtn", None)
+        if close_btn is None:
+            return
+        closable = self.is_closable()
+        close_btn.setEnabled(closable)
+        if closable:
+            # Restore the normal icon colour (close buttons keep the system
+            # red-hover styling — only the icon colour changed while disabled).
+            if self._close_btn_normal_color is not None:
+                close_btn._normalColor = QColor(self._close_btn_normal_color)
+                self._close_btn_normal_color = None
+        else:
+            # Capture the true normal colour the first time — or re-capture
+            # if the styler re-themed the button while it was disabled (the
+            # styler runs after the first dock-area signal, so the first
+            # disable may have captured the pre-theme default).
+            current = QColor(close_btn._normalColor)
+            if (self._close_btn_normal_color is None
+                    or current != QColor(self._close_btn_normal_color)):
+                self._close_btn_normal_color = current
+            style_mgr = getattr(self, "_style_mgr", None)
+            disabled = None
+            if style_mgr is not None:
+                disabled = style_mgr.get(
+                    DockStyleCategory.TITLE_BAR, "button_disable_clr", None)
+            if disabled is not None:
+                close_btn._normalColor = QColor(disabled)
+            else:
+                # Fallback: a translucent version of the normal icon colour.
+                dimmed = QColor(self._close_btn_normal_color)
+                dimmed.setAlpha(int(dimmed.alpha() * 0.4))
+                close_btn._normalColor = dimmed
+        close_btn.update()
+
+    def _sync_feature_signals(self):
+        """Follow each contained dock widget's ``features_changed`` signal so
+        toggling closable at runtime updates the close button immediately."""
+        try:
+            widgets = set(self._dock_container.dock_widgets())
+        except RuntimeError:
+            return
+        for w in widgets:
+            if w in self._feature_synced_widgets:
+                continue
+            try:
+                w.features_changed.connect(self._update_close_button_state)
+            except (RuntimeError, TypeError):
+                pass
+            self._feature_synced_widgets.add(w)
 
     def has_top_level_dock_widget(self) -> bool:
         return self._dock_container.has_top_level_dock_widget()

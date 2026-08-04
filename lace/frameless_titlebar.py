@@ -81,6 +81,10 @@ class FramelessTitleBarStyler:
         self._menu_bar: Optional[QMenuBar] = menu_bar
         self._style_mgr = get_dock_style_manager()
         self._refresh_queued = False
+        # Optional callback invoked after every refresh_style() pass so hosts
+        # can re-apply state that styling would otherwise clobber (e.g. a
+        # floating container's disabled close-button colour).
+        self._after_refresh = None
 
         # Register with DockStyleManager and apply initial style.
         for category in self._STYLE_CATEGORIES:
@@ -276,6 +280,14 @@ class FramelessTitleBarStyler:
             if bg is not None:
                 palette.setColor(QPalette.ColorRole.Window, QColor(bg_hex))
             self._menu_bar.setPalette(palette)
+
+        # Let the host re-apply anything this styling pass overwrote.
+        after = getattr(self, "_after_refresh", None)
+        if after is not None:
+            try:
+                after()
+            except (RuntimeError, TypeError):
+                pass
 
 
 __all__ = [
