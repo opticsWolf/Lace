@@ -17,7 +17,7 @@ import logging
 from PySide6.QtCore import (QEvent, QObject, QPoint, QRect, QRectF,
                             QSize, Qt, QTimer)
 from PySide6.QtGui import (QCloseEvent, QColor, QCursor, QHideEvent, QPainterPath,
-                           QPalette, QMoveEvent, QRegion, QMouseEvent)
+                           QPalette, QMoveEvent, QRegion, QMouseEvent, QShowEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
 from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
@@ -586,12 +586,15 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         
         if drag_state == DragState.floating_widget:
             self._mouse_event_handler = mouse_event_handler
-            
-            # Arm the guard against the OS synthetic release.
-            # Using 50ms buffer instead of 0 to ensure the event loop has fully processed 
-            # the grabMouse handoff before we start accepting releases.
-            self._ignore_synthetic_release = True
-            QTimer.singleShot(50, self._clear_synthetic_release_flag)
+
+            # Arm the guard against the OS synthetic release that can be
+            # produced when a NEW window is mapped during the drag.  Only
+            # needed for not-yet-visible floats: an already-visible float
+            # (re-drag of a floating window) does not map, so a real quick
+            # release must never be swallowed.
+            if not self.isVisible():
+                self._ignore_synthetic_release = True
+                QTimer.singleShot(50, self._clear_synthetic_release_flag)
                 
         self.move_floating()
         self.show()
@@ -673,7 +676,11 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                 logger.debug('FloatingWidget.event Event.NonClientAreaMouseButtonPress %s', e.type())
                 self._set_state(DragState.mouse_pressed)
         elif state == DragState.mouse_pressed:
-            if e.type() == QEvent.NonClientAreaMouseButtonDblClick:
+            if e.type() == QEvent.MouseButtonRelease:
+                # Safety net: a stray release (e.g. released outside the
+                # window) must not leave the float stuck in a drag state.
+                self._set_state(DragState.inactive)
+            elif e.type() == QEvent.NonClientAreaMouseButtonDblClick:
                 logger.debug('FloatingWidget.event QEvent.NonClientAreaMouseButtonDblClick')
                 self._set_state(DragState.inactive)
             elif e.type() == QEvent.Resize:
@@ -685,6 +692,11 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         elif state == DragState.floating_widget:
             if e.type() == QEvent.NonClientAreaMouseButtonRelease:
                 logger.debug('FloatingWidget.event QEvent.NonClientAreaMouseButtonRelease')
+                self._set_state(DragState.inactive)
+                QTimer.singleShot(0, self._finalize_drag)
+            elif e.type() == QEvent.MouseButtonRelease:
+                # Frameless title-bar drags end with a plain mouse release
+                # (no NonClientArea events); finalize here as a fallback.
                 self._set_state(DragState.inactive)
                 QTimer.singleShot(0, self._finalize_drag)
 
@@ -717,6 +729,21 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # REMOVED: toggle_view(False) loop
         # Recreating the frameless window (e.g. via setWindowOpacity during drops) 
         # triggers QHideEvent. Closing widgets here incorrectly ripped them from the layout!
+
+    def showEvent(self, event: QShowEvent):
+        super().showEvent(event)
+        # The dock content was just re-parented from another window into
+        # this new top-level; Qt can skip its first paint until something
+        # forces a redraw (which a later resize would otherwise do).
+        # Repaint once the window is actually mapped so the float never
+        # appears with stale/clipped rendering.
+        QTimer.singleShot(0, self._deferred_first_repaint)
+
+    def _deferred_first_repaint(self):
+        """Force a full repaint of the float and its dock container."""
+        if self._dock_container is not None:
+            self._dock_container.update()
+        self.update()
 
     def _hit_test_edges(self, local_pos: QPoint) -> int:
         """Return a bitmask of `_EDGE_*` flags for *local_pos*.
