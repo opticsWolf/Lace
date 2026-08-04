@@ -799,6 +799,19 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                 return True
 
         # --- Existing drag / float handling goes here ------------------------
+        # A new press starting elsewhere while a drag is still armed means the
+        # previous drag's release was consumed (the OS move loop swallowed it)
+        # and never reached the state machine.  Without this, the new
+        # interaction's release would be mistaken for the drag's release and
+        # finalize the drag into whatever window the cursor happens to be
+        # over — e.g. clicking a dock widget in another floating window would
+        # drop this float into it ("vanishing").  End the stale drag at the
+        # press instead, and let the press reach its real target.
+        if (event.type() == QEvent.MouseButtonPress
+                and self._dragging_state != DragState.inactive):
+            self._cancel_stale_drag()
+            return False
+
         # Dynamically clear synthetic release block upon actual mouse movement
         if event.type() == QEvent.MouseMove:
             self._ignore_synthetic_release = False
@@ -846,6 +859,30 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
 
         return super().eventFilter(watched, event)
 
+    def _cancel_stale_drag(self):
+        """End a drag whose release was consumed (e.g. by the OS move loop)
+        without dropping into a container.
+
+        Called when a new mouse press starts while a drag is still armed, so
+        the new interaction's release can never be mistaken for the drag's
+        release and trigger a phantom drop.
+        """
+        self._set_state(DragState.inactive)
+        if self._mouse_event_handler is not None:
+            try:
+                self._mouse_event_handler.releaseMouse()
+            except RuntimeError:
+                pass
+            self._mouse_event_handler = None
+        self._titlebar_drag_start = None
+        self._os_move_active = False
+        self._remove_frameless_drag_filter()
+        if self._drop_container is not None:
+            self._drop_container = None
+            if self._dock_manager:
+                self._dock_manager.container_overlay().hide_overlay()
+                self._dock_manager.dock_area_overlay().hide_overlay()
+
     def _handle_titlebar_drag(self, obj: QObject, event: QEvent) -> bool:
         """Drive the dock-drag machinery from the frameless title bar.
 
@@ -873,6 +910,11 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
             if not getattr(self.titleBar, "canDrag", lambda p: True)(
                     event.position().toPoint()):
                 return False  # press on a min/max/close button
+            # A previous drag may still be armed (its release was consumed by
+            # the OS move loop) — end it cleanly before starting a new drag so
+            # stale drop-overlay state cannot linger.
+            if self._dragging_state != DragState.inactive:
+                self._cancel_stale_drag()
             self._titlebar_drag_start = event.position().toPoint()
             self._drag_start_mouse_position = event.position().toPoint()
             self._set_state(DragState.mouse_pressed)
