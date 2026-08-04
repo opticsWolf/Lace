@@ -28,6 +28,7 @@ from .dock_styled import DockStyled
 from .dock_theme import DockStyleCategory
 from .frameless_window import FramelessLaceWindow
 from .frameless_titlebar import FramelessTitleBarStyler
+from .util import start_drag_distance
 
 
 
@@ -167,6 +168,22 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # title text, min/max/close button colours).
         self._titlebar_styler = FramelessTitleBarStyler(
             title_bar=self.titleBar, parent=self)
+
+        # ── Title-bar drag → dock-drag routing ────────────────────────────
+        # The qframelesswindow title bar's plain OS move loop
+        # (startSystemMove / WM_SYSCOMMAND SC_MOVE) never delivers the
+        # NonClientAreaMouseButtonPress events the dock-drag machinery
+        # relies on, so the drop overlay would never appear and floats
+        # could not be redocked when dragged by the custom title bar.
+        # Route the title bar's press/move/release through
+        # _handle_titlebar_drag instead: the press arms the dock-drag
+        # state machine and starts the OS move loop, moveEvent feeds the
+        # drop overlay, and the release (caught by a transient app filter
+        # wherever it lands) finalizes through the shared path.
+        self._titlebar_drag_start = QPoint()
+        self._frameless_drag_filter = False
+        self._os_move_active = False
+        self.titleBar.installEventFilter(self)
 
         # --- Resizing state (cross-platform) ---------------------------------
         self._is_resizing = False
@@ -715,6 +732,11 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         return None
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        # --- Frameless title-bar drag (custom mode) ------------------------
+        if watched is self.titleBar:
+            if self._handle_titlebar_drag(watched, event):
+                return True
+
         # --- Permanent path: chromeless resize on macOS / Linux --------------
         if self._permanent_filter_installed:
             if self._handle_resize_event(watched, event):
@@ -750,11 +772,119 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                     app = QApplication.instance()
                     if app is not None:
                         app.removeEventFilter(self)
+                self._frameless_drag_filter = False
 
                 QTimer.singleShot(0, self._end_programmatic_drag)
                 return False
 
+            if (self._frameless_drag_filter
+                    and self._dragging_state == DragState.mouse_pressed):
+                # A click on the frameless title bar that ended without a
+                # drag — the OS-delivered release may have landed on the
+                # content or outside the window.  Reset the press state so
+                # the float can never get stuck in mouse_pressed.
+                self._set_state(DragState.inactive)
+                self._titlebar_drag_start = None
+                self._remove_frameless_drag_filter()
+                return False
+
         return super().eventFilter(watched, event)
+
+    def _handle_titlebar_drag(self, obj: QObject, event: QEvent) -> bool:
+        """Drive the dock-drag machinery from the frameless title bar.
+
+        The qframelesswindow title bar's plain OS move loop
+        (``startSystemMove`` / ``WM_SYSCOMMAND SC_MOVE``) never delivers the
+        ``NonClientAreaMouseButtonPress`` events the dock drag relies on —
+        the drop overlay never appears and the float cannot be redocked
+        when dragged by its custom title bar.
+
+        This keeps the OS move loop (smooth dragging, Aero snap, DWM
+        animation — exactly like a regular QMainWindow float) but arms the
+        dock-drag state machine around it: the press sets ``mouse_pressed``
+        and installs a transient app filter, the OS loop moves the window
+        (moveEvent feeds the drop overlay), the app filter catches the
+        OS-delivered release wherever it lands, and the drag finalizes
+        through the shared path.  If the OS move loop is unavailable it
+        falls back to a manual grabMouse + move_floating drag.
+        """
+        etype = event.type()
+        state = self._dragging_state
+
+        if etype == QEvent.MouseButtonPress:
+            if event.button() != Qt.LeftButton:
+                return False
+            if not getattr(self.titleBar, "canDrag", lambda p: True)(
+                    event.position().toPoint()):
+                return False  # press on a min/max/close button
+            self._titlebar_drag_start = event.position().toPoint()
+            self._drag_start_mouse_position = event.position().toPoint()
+            self._set_state(DragState.mouse_pressed)
+            # Catch the OS-delivered release anywhere (title bar, content
+            # or outside the window) and route it through the state machine.
+            app = QApplication.instance()
+            if app is not None and not self._frameless_drag_filter:
+                app.installEventFilter(self)
+                self._frameless_drag_filter = True
+            try:
+                from qframelesswindow.utils import startSystemMove
+                startSystemMove(self, event.globalPosition().toPoint())
+                self._os_move_active = True
+            except Exception:
+                # OS move loop unavailable — the move branch below falls
+                # back to a manual grabMouse + move_floating drag.
+                self._os_move_active = False
+            return True
+
+        if etype == QEvent.MouseMove:
+            if state == DragState.mouse_pressed:
+                start = getattr(self, "_titlebar_drag_start", None)
+                if start is not None and not self._os_move_active:
+                    # startSystemMove failed — manual fallback drag.
+                    dist = (event.position().toPoint() - start).manhattanLength()
+                    if dist >= start_drag_distance():
+                        self._titlebar_drag_start = None
+                        self._drag_start_mouse_position = start
+                        self._mouse_event_handler = self.titleBar
+                        self._set_state(DragState.floating_widget)
+                        self.titleBar.grabMouse()
+                        self.move_floating()
+                return True
+            if state == DragState.floating_widget:
+                # During the OS move loop the float moves itself; this only
+                # runs in the manual fallback.
+                self.move_floating()
+                return True
+            return False
+
+        if etype == QEvent.MouseButtonRelease:
+            if state in (DragState.mouse_pressed, DragState.floating_widget):
+                was_dragging = state == DragState.floating_widget
+                self._set_state(DragState.inactive)
+                if self._mouse_event_handler is not None:
+                    try:
+                        self._mouse_event_handler.releaseMouse()
+                    except RuntimeError:
+                        pass
+                    self._mouse_event_handler = None
+                if was_dragging:
+                    QTimer.singleShot(0, self._finalize_drag)
+                else:
+                    self._remove_frameless_drag_filter()
+                self._titlebar_drag_start = None
+                self._os_move_active = False
+                return True
+            return False
+
+        return False
+
+    def _remove_frameless_drag_filter(self):
+        """Remove the transient app filter installed for frameless drags."""
+        if self._frameless_drag_filter:
+            app = QApplication.instance()
+            if app is not None and not self._permanent_filter_installed:
+                app.removeEventFilter(self)
+            self._frameless_drag_filter = False
 
     # ------------------------------------------------------------------
     # Non-Windows chromeless resize
