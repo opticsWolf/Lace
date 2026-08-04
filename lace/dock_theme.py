@@ -33,10 +33,9 @@ class _FontFields:
     Composed via dataclass inheritance (like :class:`_ActionButtonFields`) so the
     field names stay flat (``font_family`` etc.) and every ``styles.get("font_*")``
     consumer is untouched. Subclasses re-declare only a differing default
-    (TITLE_BAR uses ``font_weight="bold"``) or add fields (TAB adds
-    ``active_font_weight``). Schemas that prefix their fonts (``tab_font_*`` in the
-    sidebar, ``title_font_*`` in the side panel) can't share this block because
-    consumers read the flat names verbatim.
+    or add fields (TAB adds ``active_font_weight``). Schemas that prefix their
+    fonts (``tab_font_*`` in the sidebar, ``title_font_*`` in the side panel)
+    can't share this block because consumers read the flat names verbatim.
     """
     font_family: str = "Segoe UI"
     font_size: int = 10
@@ -172,10 +171,13 @@ class DockTitleBarStyleSchema(_ActionButtonFields, _FontFields):
     padding: int = 4 #distance for the tab from edge
     margin: int = 0
 
-    # Typography — bare font_* provided by _FontFields; title bars default to bold.
+    # Typography — bare font_* provided by _FontFields; the window title uses
+    # the default size (13px, like the native/qframeless title bar) and normal
+    # weight. Themes may override either with "bold" / larger sizes.
     text_normal: Optional[List[int]] = None
     text_active: Optional[List[int]] = None
-    font_weight: Union[str, int, QFont.Weight] = "bold"
+    font_size: int = 13
+    font_weight: Union[str, int, QFont.Weight] = "normal"
 
     # Action Buttons — shared block via _ActionButtonFields; only spacing differs.
     button_spacing: int = 4

@@ -152,7 +152,7 @@ class FramelessTitleBarStyler:
         btn_icon = sm.get(DockStyleCategory.TITLE_BAR, "button_icon_size", 16)
         btn_radius = sm.get(DockStyleCategory.TITLE_BAR, "button_corner_radius", 3)
         font_family = sm.get(DockStyleCategory.TITLE_BAR, "font_family", "Segoe UI")
-        font_size = sm.get(DockStyleCategory.TITLE_BAR, "font_size", 10)
+        font_size = sm.get(DockStyleCategory.TITLE_BAR, "font_size", 13)
         font_weight = sm.get(DockStyleCategory.TITLE_BAR, "font_weight", "normal")
 
         # Map string font weights
@@ -226,8 +226,18 @@ class FramelessTitleBarStyler:
         # _normalColor / _hoverColor / _pressedColor for icon colours
         # and _normalBgColor / _hoverBgColor / _pressedBgColor for
         # background colours.  Set them directly so they match the theme.
-        from qframelesswindow.titlebar import TitleBarButton
+        from qframelesswindow.titlebar import TitleBarButton, CloseButton
         for btn in tb.findChildren(TitleBarButton):
+            if isinstance(btn, CloseButton):
+                # Keep the classic system close colour (qframeless defaults:
+                # red hover/pressed background with a white icon).  Only the
+                # normal-state icon follows the theme so it stays visible on
+                # both light and dark title bars.
+                if btn_col:
+                    btn._normalColor = QColor(btn_col)
+                btn._normalBgColor = QColor(0, 0, 0, 0)
+                btn.update()
+                continue
             # Icon colours: use button_color for all states
             if btn_col:
                 btn._normalColor = QColor(btn_col)

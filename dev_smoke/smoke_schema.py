@@ -38,9 +38,10 @@ core = DockCoreStyleSchema()
 tab = DockTabStyleSchema()
 tbar = DockTitleBarStyleSchema()
 assert core.font_family == tab.font_family == tbar.font_family == "Segoe UI"
-assert core.font_size == tab.font_size == tbar.font_size == 10
+assert core.font_size == tab.font_size == 10
+assert tbar.font_size == 13, tbar.font_size   # title bar uses the native default size
 assert core.font_weight == "normal" and tab.font_weight == "normal"
-assert tbar.font_weight == "bold", tbar.font_weight          # title bars stay bold
+assert tbar.font_weight == "normal", tbar.font_weight   # title bars default to normal; themes may override
 assert tab.active_font_weight == "normal", tab.active_font_weight  # tab-only extra field
 
 # flat names on the composed dataclasses
@@ -56,11 +57,11 @@ for name in ("default", "light", "monokai"):
 # --- M6.2 grouped update() sugar: dict expands to flat tokens ---
 changed = sm.update(DockStyleCategory.TITLE_BAR,
                     button={"size": 22, "hover_bg": [70, 70, 74]},
-                    font={"weight": "normal"})
+                    font={"weight": "bold"})
 assert "button_size" in changed and "button_hover_bg" in changed, changed
 assert "font_weight" in changed, changed
 assert sm.get(DockStyleCategory.TITLE_BAR, "button_size") == 22
-assert sm.get(DockStyleCategory.TITLE_BAR, "font_weight") == "normal"
+assert sm.get(DockStyleCategory.TITLE_BAR, "font_weight") == "bold"
 # colour sub-value coerced to QColor like a flat write
 assert sm.get(DockStyleCategory.TITLE_BAR, "button_hover_bg").getRgb()[:3] == (70, 70, 74)
 # unknown sub-keys are skipped silently, flat writes still work alongside groups

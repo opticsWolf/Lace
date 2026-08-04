@@ -123,6 +123,12 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # and title text like the main window.
         from qframelesswindow.titlebar import StandardTitleBar
         self.setTitleBar(StandardTitleBar(self))
+        # StandardTitleBar only refreshes its icon label on windowIconChanged,
+        # and the icon was already set before the swap — push it explicitly so
+        # the floating window shows the app icon.
+        icon_setter = getattr(self.titleBar, "setIcon", None)
+        if icon_setter is not None:
+            icon_setter(self.windowIcon())
         if self._chromeless:
             # chromeless_float => bare floating surface: no title bar at all.
             self.titleBar.hide()
