@@ -83,10 +83,12 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         self._mouse_event_handler: QWidget = None
         self._dock_container: DockContainerWidget = None
         self._pending_restore_geometry: Optional['QRect'] = None
-        # Close-button disabled state: remembered normal icon colour so it
-        # can be restored when the float becomes closable again, and the set
-        # of dock widgets whose features_changed we are following.
+        # Close-button disabled state: remembered normal icon colour and the
+        # system close hover/pressed colours (so they can be restored when the
+        # float becomes closable again), plus the set of dock widgets whose
+        # features_changed we are following.
         self._close_btn_normal_color = None
+        self._close_btn_system_hover = None
         self._feature_synced_widgets = set()
         global _z_order_counter
         _z_order_counter += 1
@@ -1129,11 +1131,13 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
 
         The button is a qframelesswindow ``TitleBarButton`` with custom
         painting (no built-in disabled rendering): disabling it stops Qt from
-        delivering mouse/hover/click events to it, and we dim the normal
-        icon colour with the theme's ``button_disable_clr`` (falling back to
-        a translucent version of the current colour).  The original colour
-        is remembered so it can be restored when the float becomes closable
-        again.  ``*args`` tolerates the ``features_changed`` signal payload.
+        delivering mouse press/click events, and we restyle it like the
+        standard title-bar buttons — dimmed normal icon (``button_disable_clr``
+        or a translucent version of the current colour) and the theme's
+        ``button_hover_bg`` highlight instead of the system close-red — so a
+        hovered disabled button never glows red.  The original colours are
+        remembered so the system close styling returns when the float becomes
+        closable again.  ``*args`` tolerates the ``features_changed`` payload.
         """
         tb = getattr(self, "titleBar", None)
         close_btn = getattr(tb, "closeBtn", None)
@@ -1141,12 +1145,22 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
             return
         closable = self.is_closable()
         close_btn.setEnabled(closable)
+        style_mgr = getattr(self, "_style_mgr", None)
+
         if closable:
-            # Restore the normal icon colour (close buttons keep the system
-            # red-hover styling — only the icon colour changed while disabled).
+            # Restore the system close styling: normal icon colour, red hover
+            # background, white hover/pressed icon, light-red pressed bg.
             if self._close_btn_normal_color is not None:
                 close_btn._normalColor = QColor(self._close_btn_normal_color)
                 self._close_btn_normal_color = None
+            if self._close_btn_system_hover is not None:
+                (hover_bg, hover_fg, pressed_bg, pressed_fg) = \
+                    self._close_btn_system_hover
+                close_btn._hoverBgColor = hover_bg
+                close_btn._hoverColor = hover_fg
+                close_btn._pressedBgColor = pressed_bg
+                close_btn._pressedColor = pressed_fg
+                self._close_btn_system_hover = None
         else:
             # Capture the true normal colour the first time — or re-capture
             # if the styler re-themed the button while it was disabled (the
@@ -1156,7 +1170,16 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
             if (self._close_btn_normal_color is None
                     or current != QColor(self._close_btn_normal_color)):
                 self._close_btn_normal_color = current
-            style_mgr = getattr(self, "_style_mgr", None)
+            # Same for the system close hover/pressed colours (only captured
+            # once — the styler never touches them, so they stay the
+            # qframeless defaults: red bg / white icons).
+            if self._close_btn_system_hover is None:
+                self._close_btn_system_hover = (
+                    QColor(close_btn._hoverBgColor),
+                    QColor(close_btn._hoverColor),
+                    QColor(close_btn._pressedBgColor),
+                    QColor(close_btn._pressedColor),
+                )
             disabled = None
             if style_mgr is not None:
                 disabled = style_mgr.get(
@@ -1168,6 +1191,24 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                 dimmed = QColor(self._close_btn_normal_color)
                 dimmed.setAlpha(int(dimmed.alpha() * 0.4))
                 close_btn._normalColor = dimmed
+
+            # Hover/pressed highlight: use the standard title-bar button
+            # highlight (theme button_hover_bg + button_color) exactly like
+            # the min/max buttons, never the system close-red.
+            if style_mgr is not None:
+                btn_col = style_mgr.get(
+                    DockStyleCategory.TITLE_BAR, "button_color")
+                btn_hover = style_mgr.get(
+                    DockStyleCategory.TITLE_BAR, "button_hover_bg")
+                if btn_col:
+                    close_btn._hoverColor = QColor(btn_col)
+                    close_btn._pressedColor = QColor(btn_col)
+                if btn_hover:
+                    close_btn._hoverBgColor = QColor(btn_hover)
+                    pressed_bg = QColor(btn_hover)
+                    pressed_bg.setAlpha(
+                        min(255, int(pressed_bg.alpha() * 1.5)))
+                    close_btn._pressedBgColor = pressed_bg
         close_btn.update()
 
     def _sync_feature_signals(self):
