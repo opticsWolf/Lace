@@ -38,6 +38,9 @@ class DockAreaWidget(ChromeFrame, DockStyled):
     current_changing = Signal(int)
     current_changed = Signal(int)
     view_toggled = Signal(bool)
+    #: Emitted whenever a dock widget is inserted into or removed from this
+    #: area (regardless of whether the area itself is added/removed).
+    dock_widgets_changed = Signal()
 
     def __init__(self, dock_manager: 'DockManager', parent: 'DockContainerWidget'):
         super().__init__(parent)
@@ -175,6 +178,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
             dock_widget.set_dock_manager(self._dock_manager)
         dock_widget.set_dock_area(self)
         self._update_title_bar_button_states()
+        self.dock_widgets_changed.emit()
 
     def add_dock_widget(self, dock_widget: 'DockWidget'):
         self.insert_dock_widget(self._contents_layout.count(), dock_widget)
@@ -207,6 +211,8 @@ class DockAreaWidget(ChromeFrame, DockStyled):
 
         if DEBUG_LEVEL > 0:
             dock_container.dump_layout()
+
+        self.dock_widgets_changed.emit()
 
     def toggle_dock_widget_view(self, dock_widget: 'DockWidget', open_: bool):
         self.update_title_bar_visibility()

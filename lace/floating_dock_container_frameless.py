@@ -85,11 +85,12 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         self._pending_restore_geometry: Optional['QRect'] = None
         # Close-button disabled state: remembered normal icon colour and the
         # system close hover/pressed colours (so they can be restored when the
-        # float becomes closable again), plus the set of dock widgets whose
-        # features_changed we are following.
+        # float becomes closable again), plus the sets of dock areas and dock
+        # widgets whose membership/feature/view signals we are following.
         self._close_btn_normal_color = None
         self._close_btn_system_hover = None
         self._feature_synced_widgets = set()
+        self._area_synced_areas = set()
         global _z_order_counter
         _z_order_counter += 1
         self._z_order_index = _z_order_counter
@@ -108,6 +109,7 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         self._dock_container = dock_container
         dock_container.destroyed.connect(self._destroyed)
         dock_container.dock_areas_added.connect(self.on_dock_areas_added_or_removed)
+        dock_container.dock_areas_removed.connect(self.on_dock_areas_added_or_removed)
         self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
         self._corner_radius = 0.0
 
@@ -180,14 +182,16 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         self._titlebar_styler = FramelessTitleBarStyler(
             title_bar=self.titleBar, parent=self)
         # The styler re-applies theme colours (including the close button's
-        # normal icon colour) on every theme change, so re-apply our
-        # close-button disabled state after each styler pass.
-        self._titlebar_styler._after_refresh = self._update_close_button_state
+        # normal icon colour) on every theme change, so refresh the remembered
+        # normal colour and re-apply our disabled state after each styler pass.
+        self._titlebar_styler._after_refresh = self._after_styler_refresh
 
         # Sync the title-bar close button with the float's closability now
-        # that the dock areas / widgets are in place (runs again after the
-        # styler's initial pass via _after_refresh).
-        self._update_close_button_state()
+        # that the dock areas / widgets are in place.  _after_styler_refresh
+        # re-captures the themed normal colour (overwriting any colour
+        # captured by dock-area signals that fired before the styler ran) and
+        # then applies the disabled state if needed.
+        self._after_styler_refresh()
 
         # ── Title-bar drag → dock-drag routing ────────────────────────────
         # The qframelesswindow title bar's plain OS move loop
@@ -1162,14 +1166,13 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                 close_btn._pressedColor = pressed_fg
                 self._close_btn_system_hover = None
         else:
-            # Capture the true normal colour the first time — or re-capture
-            # if the styler re-themed the button while it was disabled (the
-            # styler runs after the first dock-area signal, so the first
-            # disable may have captured the pre-theme default).
-            current = QColor(close_btn._normalColor)
-            if (self._close_btn_normal_color is None
-                    or current != QColor(self._close_btn_normal_color)):
-                self._close_btn_normal_color = current
+            # Capture the true normal colour once — it is guaranteed to be
+            # the themed colour because the styler's initial pass runs before
+            # our first sync (and _after_styler_refresh re-captures it after
+            # every theme change).  Never re-capture from the current value:
+            # while disabled the current colour is our own dimmed colour.
+            if self._close_btn_normal_color is None:
+                self._close_btn_normal_color = QColor(close_btn._normalColor)
             # Same for the system close hover/pressed colours (only captured
             # once — the styler never touches them, so they stay the
             # qframeless defaults: red bg / white icons).
@@ -1211,21 +1214,85 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                     close_btn._pressedBgColor = pressed_bg
         close_btn.update()
 
+    def _after_styler_refresh(self):
+        """Called after every FramelessTitleBarStyler pass (initial styling
+        and theme switches).  The styler just re-applied the theme's close
+        button normal colour, so refresh the remembered normal before
+        re-applying our disabled state."""
+        tb = getattr(self, "titleBar", None)
+        close_btn = getattr(tb, "closeBtn", None)
+        if close_btn is not None:
+            self._close_btn_normal_color = QColor(close_btn._normalColor)
+        self._update_close_button_state()
+
     def _sync_feature_signals(self):
-        """Follow each contained dock widget's ``features_changed`` signal so
-        toggling closable at runtime updates the close button immediately."""
+        """Follow membership / feature / view signals of everything currently
+        in the float so the close-button state tracks add / remove / open /
+        close / feature changes without relying on a single container signal.
+
+        Area-level: ``dock_widgets_changed`` (a widget joined/left an existing
+        area) and ``view_toggled`` (the area was opened/closed).  Widget-level:
+        ``features_changed`` (closable toggled) and ``view_toggled`` (a widget
+        was opened/closed — ``features()`` only intersects opened widgets).
+
+        Qt auto-disconnects when a sender or receiver is destroyed, so stale
+        entries are pruned here on the next sync rather than on destruction.
+        """
         try:
-            widgets = set(self._dock_container.dock_widgets())
+            container = self._dock_container
+            areas = set(container._dock_areas)
+            widgets = set(container.dock_widgets())
         except RuntimeError:
             return
+
+        # Areas
+        for area in list(self._area_synced_areas):
+            if area not in areas:
+                try:
+                    area.dock_widgets_changed.disconnect(self._on_dock_widgets_changed)
+                except (RuntimeError, TypeError):
+                    pass
+                try:
+                    area.view_toggled.disconnect(self._update_close_button_state)
+                except (RuntimeError, TypeError):
+                    pass
+                self._area_synced_areas.discard(area)
+        for area in areas:
+            if area not in self._area_synced_areas:
+                try:
+                    area.dock_widgets_changed.connect(self._on_dock_widgets_changed)
+                except (RuntimeError, TypeError):
+                    pass
+                try:
+                    area.view_toggled.connect(self._update_close_button_state)
+                except (RuntimeError, TypeError):
+                    pass
+                self._area_synced_areas.add(area)
+
+        # Widgets
+        for w in list(self._feature_synced_widgets):
+            if w not in widgets:
+                for sig in (w.features_changed, w.view_toggled):
+                    try:
+                        sig.disconnect(self._update_close_button_state)
+                    except (RuntimeError, TypeError):
+                        pass
+                self._feature_synced_widgets.discard(w)
         for w in widgets:
-            if w in self._feature_synced_widgets:
-                continue
-            try:
-                w.features_changed.connect(self._update_close_button_state)
-            except (RuntimeError, TypeError):
-                pass
-            self._feature_synced_widgets.add(w)
+            if w not in self._feature_synced_widgets:
+                for sig in (w.features_changed, w.view_toggled):
+                    try:
+                        sig.connect(self._update_close_button_state)
+                    except (RuntimeError, TypeError):
+                        pass
+                self._feature_synced_widgets.add(w)
+
+    def _on_dock_widgets_changed(self, *args):
+        """A dock widget was inserted into / removed from one of our areas:
+        re-check the close-button state and follow any newly added widget's
+        signals."""
+        self._update_close_button_state()
+        self._sync_feature_signals()
 
     def has_top_level_dock_widget(self) -> bool:
         return self._dock_container.has_top_level_dock_widget()
