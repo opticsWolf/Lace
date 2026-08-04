@@ -18,7 +18,7 @@ from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
 from PySide6.QtGui import QAction
 
-from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior
+from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior, TitleBarMode
 from .dock_container_widget import DockContainerWidget
 from .dock_overlay import DockOverlay
 from .floating_dock_container import FloatingDockContainer
@@ -62,6 +62,7 @@ class DockManager(QObject):
         self._perspectives: Dict[str, str] = {}  # Now stores JSON strings instead of QByteArray
         
         self._config_flags = DockFlags.default_config
+        self._title_bar_mode = TitleBarMode.native
         self._is_restoring_state = False
         self._active_dock_area: Optional['DockAreaWidget'] = None
 
@@ -175,6 +176,35 @@ class DockManager(QObject):
         self.add_toggle_view_action_to_menu(dock_widget.toggle_view_action())
         sidebar = self.sidebar_manager.add_sidebar(area)
         self.sidebar_manager.pin_widget(dock_widget, sidebar)
+
+    @property
+    def title_bar_mode(self) -> TitleBarMode:
+        """Get the title bar implementation used for the main window and floating dock containers."""
+        return self._title_bar_mode
+
+    @title_bar_mode.setter
+    def title_bar_mode(self, mode: TitleBarMode):
+        """Set the title bar implementation used for the main window and floating dock containers."""
+        self._title_bar_mode = mode
+
+    def floating_container_class(self) -> type:
+        """Return the :class:`FloatingDockContainer` class for new floating windows.
+
+        Honors :attr:`title_bar_mode`: ``TitleBarMode.custom`` selects the
+        frameless variant (custom title bar via PySideSix-Frameless-Window);
+        anything else selects the default native-title-bar implementation.
+        """
+        if self._title_bar_mode == TitleBarMode.custom:
+            try:
+                from .floating_dock_container_frameless import (
+                    FloatingDockContainer as FramelessFloatingDockContainer)
+                return FramelessFloatingDockContainer
+            except ImportError:
+                logger.warning(
+                    "qframelesswindow unavailable — falling back to native "
+                    "floating containers")
+        from .floating_dock_container import FloatingDockContainer
+        return FloatingDockContainer
 
     @property
     def sidebar_focus_behavior(self) -> SideBarFocusBehavior:

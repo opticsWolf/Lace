@@ -19,7 +19,8 @@ from pathlib import Path
 from lace import (
     DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
-    ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition
+    ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition,
+    TitleBarMode
 )
 from lace.frameless_window import FramelessLaceMainWindow
 
@@ -167,6 +168,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
 
         # 1. Initialize the DockManager
         self.dock_manager = DockManager(self)
+        self.dock_manager.title_bar_mode = TitleBarMode.custom
         self.setCentralWidget(getattr(self.dock_manager, '_root', None) or self.dock_manager)
         
         # 2. Build the UI Components

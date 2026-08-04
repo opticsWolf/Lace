@@ -271,7 +271,7 @@ class LayoutEngine:
             if c_info.get("is_main"):
                 restore_container_state(getattr(self._manager, '_root', None) or self._manager, c_data, testing=False)
             else:
-                fw = floating_pool.pop() if floating_pool else FloatingDockContainer(dock_manager=self._manager)
+                fw = floating_pool.pop() if floating_pool else self._manager.floating_container_class()(dock_manager=self._manager)
                 fw.restore_state(c_data, testing=False)
                 
                 # Link geometry immediately via the transient ID

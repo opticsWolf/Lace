@@ -264,9 +264,9 @@ class SidebarDragController(QObject):
 
         self._manager._detach_tab_widget(dock_widget)
         
-        from .floating_dock_container import FloatingDockContainer
+        floating_cls = self._manager._dock_manager.floating_container_class()
         dock_widget.set_dock_manager(self._manager._dock_manager)
-        floating = FloatingDockContainer(
+        floating = floating_cls(
             dock_widget=dock_widget, dock_manager=self._manager._dock_manager)
         
         is_dragging = bool(QApplication.mouseButtons() & Qt.LeftButton)

@@ -185,7 +185,7 @@ class DockAreaTabBar(QScrollArea, DockStyled):
         if not manager:
             return
     
-        from .floating_dock_container import FloatingDockContainer
+        FloatingDockContainer = manager.floating_container_class()
     
         # Capture before constructor detaches the area from the layout.
         size = dock_area.size()

@@ -104,9 +104,13 @@ class DockWidget(QFrame, DockStyled):
                 self._dock_manager.sidebar_manager.show_widget(self)
             return
 
-        from .floating_dock_container import FloatingDockContainer
         if not self._dock_area:
-            floating_widget = FloatingDockContainer(dock_widget=self)
+            if self._dock_manager:
+                floating_cls = self._dock_manager.floating_container_class()
+            else:
+                from .floating_dock_container import FloatingDockContainer
+                floating_cls = FloatingDockContainer
+            floating_widget = floating_cls(dock_widget=self)
             floating_widget.resize(self.size())
             floating_widget.show()
             return
@@ -121,8 +125,9 @@ class DockWidget(QFrame, DockStyled):
             splitter = find_parent(QSplitter, splitter)
 
         container = self._dock_area.dock_container()
+        from .util import find_floating_dock_container
         if container.is_floating():
-            floating_widget = find_parent(FloatingDockContainer, container)
+            floating_widget = find_floating_dock_container(container)
             floating_widget.show()
 
         if self._dock_manager and hasattr(self._dock_manager, 'sidebar_manager'):

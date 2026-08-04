@@ -10,7 +10,7 @@
 # Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
 import logging
-from typing import TYPE_CHECKING, Optional, Type, TypeVar, List
+from typing import TYPE_CHECKING, Any, Optional, Type, TypeVar, List
 
 from PySide6.QtCore import Qt, QObject
 from PySide6.QtGui import QPixmap, QPainter
@@ -93,6 +93,33 @@ def find_parent(parent_type: Type[W], widget: QWidget) -> Optional[W]:
             return parent_widget
         parent_widget = parent_widget.parentWidget()
     return None
+
+
+def _floating_container_types() -> tuple:
+    """Return the tuple of all :class:`FloatingDockContainer` implementations.
+
+    Includes the native-title-bar container and, when qframelesswindow is
+    available, the frameless (custom title bar) variant.
+    """
+    from .floating_dock_container import FloatingDockContainer
+    types = [FloatingDockContainer]
+    try:
+        from .floating_dock_container_frameless import (
+            FloatingDockContainer as FramelessFloatingDockContainer)
+        types.append(FramelessFloatingDockContainer)
+    except ImportError:
+        pass
+    return tuple(types)
+
+
+def is_floating_dock_container(widget: Any) -> bool:
+    """True if *widget* is either floating-container implementation."""
+    return isinstance(widget, _floating_container_types())
+
+
+def find_floating_dock_container(widget: QWidget) -> Optional[QWidget]:
+    """Search up the widget tree for any floating-container implementation."""
+    return find_parent(_floating_container_types(), widget)
 
 
 def find_child(parent: QObject, type_: Type[T], name: str = '',

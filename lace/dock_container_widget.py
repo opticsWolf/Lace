@@ -727,9 +727,9 @@ class DockContainerWidget(QFrame, DockStyled):
             features &= dock_area.features()
         return features
 
-    def floating_widget(self) -> 'FloatingDockContainer':
-        from .floating_dock_container import FloatingDockContainer
-        return find_parent(FloatingDockContainer, self)
+    def floating_widget(self):
+        from .util import find_floating_dock_container
+        return find_floating_dock_container(self)
 
     def close_other_areas(self, keep_open_area: DockAreaWidget):
         self._restore_maximized_area()

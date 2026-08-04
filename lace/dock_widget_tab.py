@@ -145,12 +145,12 @@ class DockWidgetTab(QFrame, DockStyled):
         self._drag_state = dragging_state
         size = self._dock_area.size()
 
-        from .floating_dock_container import FloatingDockContainer
+        floating_cls = self._dock_widget.dock_manager().floating_container_class()
 
         if self._dock_area.dock_widgets_count() > 1:
-            self._floating_widget = FloatingDockContainer(dock_widget=self._dock_widget)
+            self._floating_widget = floating_cls(dock_widget=self._dock_widget)
         else:
-            self._floating_widget = FloatingDockContainer(dock_area=self._dock_area)
+            self._floating_widget = floating_cls(dock_area=self._dock_area)
 
         if dragging_state == DragState.floating_widget:
             self._floating_widget.start_dragging(self._drag_start_mouse_position, size, self)
@@ -244,10 +244,10 @@ class DockWidgetTab(QFrame, DockStyled):
                     and self._dock_area.dock_container().visible_dock_area_count() == 1):
                 
                 # --- FIX: Inject the Title Bar's Native Delegation Logic ---
-                from .floating_dock_container import FloatingDockContainer
+                from .util import is_floating_dock_container
                 floating_window = self.window()
                 
-                if isinstance(floating_window, FloatingDockContainer):
+                if is_floating_dock_container(floating_window):
                     self._drag_state = DragState.floating_widget
                     self._floating_widget = floating_window
                     
