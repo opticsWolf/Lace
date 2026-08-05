@@ -1,6 +1,8 @@
 # Lace System: Enumerations & Flags Comprehensive Mapping (`enump_mapping.md`)
 
-This document provides a comprehensive, structured mapping of all **13 enumerations and flag classes** across the **Lace** docking and sidebar architecture (`lace/enums.py`, `lace/sidebar_tab.py`, and `lace/dock_theme.py`). It documents the architectural responsibility of every enumeration, provides member-by-member descriptions with exact clickable file paths and line links, and highlights which enumerations or flags are **currently unwired or inactive** in the codebase.
+**Version:** 0.4.0
+
+This document provides a comprehensive, structured mapping of all **14 enumerations and flag classes** across the **Lace** docking and sidebar architecture (`lace/enums.py`, `lace/sidebar_tab.py`, and `lace/dock_theme.py`). It documents the architectural responsibility of every enumeration, provides member-by-member descriptions with exact clickable file paths and line links, and highlights which enumerations or flags are **currently unwired or inactive** in the codebase.
 
 *(Note: A canonical copy of this documentation is also maintained under [docs/enum_mapping.md](file:///d:/User/Documents/Python/Lace/Lace/docs/enum_mapping.md)).*
 
@@ -21,6 +23,7 @@ This document provides a comprehensive, structured mapping of all **13 enumerati
 | **`InsertMode`** | `Enum` | [lace/enums.py:227](file:///d:/User/Documents/Python/Lace/Lace/lace/enums.py#L227) | 3 | ✅ **Fully Wired** | Rules for wrapping child content inside a `QScrollArea` during widget insertion. |
 | **`ToggleViewActionMode`** | `Enum` | [lace/enums.py:240](file:///d:/User/Documents/Python/Lace/Lace/lace/enums.py#L240) | 2 | ✅ **Fully Wired** | Controls whether a `DockWidget`'s menu action acts as a checkable toggle or a one-way show trigger. |
 | **`SideBarFocusBehavior`** | `Enum` | [lace/enums.py:251](file:///d:/User/Documents/Python/Lace/Lace/lace/enums.py#L251) | 3 | ✅ **Fully Wired** | Configures keyboard focus transfer when sliding sidebar overlays out and in. |
+| **`TitleBarMode`** | `Enum` | [lace/enums.py:270](file:///d:/User/Documents/Python/Lace/Lace/lace/enums.py#L270) | 2 | ✅ **Fully Wired** | Selects the title bar implementation for the main window and floating dock containers: the OS-native title bar (`native`) or the custom PySideSix-Frameless-Window title bar (`custom`). |
 | **`TabBadgePosition`** | `Enum` | [lace/sidebar_tab.py:23](file:///d:/User/Documents/Python/Lace/Lace/lace/sidebar_tab.py#L23) | 4 | ✅ **Fully Wired** | Specifies the corner positioning of numerical notification badges on vertical sidebar tabs (`top_left`, `top_right`, `bottom_left`, `bottom_right`). |
 | **`DockStyleCategory`** | `Enum` | [lace/dock_theme.py:15](file:///d:/User/Documents/Python/Lace/Lace/lace/dock_theme.py#L15) | 8 | ✅ **Fully Wired** | Design system component categories (`CORE`, `PANEL`, `TAB`, `TITLE_BAR`, `SIDEBAR`, `SIDEPANEL`, `SPLITTER`, `OVERLAY`) for token and icon lookups. |
 
@@ -287,7 +290,34 @@ The following table categorizes all enum definitions or specific members that ex
 
 ---
 
-### 3.12 `TabBadgePosition` (`Enum`)
+### 3.12 `TitleBarMode` (`Enum`)
+* **File Location:** [lace/enums.py:270-280](file:///d:/User/Documents/Python/Lace/Lace/lace/enums.py#L270-L280)
+* **Type & Bitwise Behavior:** `enum.Enum` (using `auto()`).
+* **Primary Responsibility:** Selects which title bar implementation is used for the main window and every floating dock container. `native` keeps the OS title bar; `custom` switches to the PySideSix-Frameless-Window chrome (`Qt.FramelessWindowHint` + a custom title bar widget with min/max/close buttons, resize borders and DWM shadow).
+
+#### Members Table
+| Member | Description | Exact Wiring Location / Code Path |
+| :--- | :--- | :--- |
+| `native` | Use the OS-native title bar (default Qt behaviour). | ✅ **Wired** as the default of `DockManager.title_bar_mode` ([lace/dock_manager.py:65, 181-189](file:///d:/User/Documents/Python/Lace/Lace/lace/dock_manager.py#L65)) — `FloatingDockContainer` keeps its native OS frame. |
+| `custom` | Use the custom frameless title bar from PySideSix-Frameless-Window. | ✅ **Wired** in `DockManager.floating_container_class()` ([lace/dock_manager.py:191-207](file:///d:/User/Documents/Python/Lace/Lace/lace/dock_manager.py#L191)) which returns the frameless `FloatingDockContainer`; the demo main window installs `LaceStandardTitleBar` ([demo_app_custom_titlebar.py:133-141](file:///d:/User/Documents/Python/Lace/Lace/demo_app_custom_titlebar.py#L133)). |
+
+#### Architectural Usage across Codebase
+* **`DockManager.title_bar_mode`** ([lace/dock_manager.py:181-189](file:///d:/User/Documents/Python/Lace/Lace/lace/dock_manager.py#L181)): Property setter that stores the mode and re-resolves the floating container class.
+* **`DockManager.floating_container_class()`** ([lace/dock_manager.py:191-207](file:///d:/User/Documents/Python/Lace/Lace/lace/dock_manager.py#L191)):
+  ```python
+  if self._title_bar_mode == TitleBarMode.custom:
+      from .floating_dock_container_frameless import (
+          FloatingDockContainer as FramelessFloatingDockContainer)
+      return FramelessFloatingDockContainer
+  from .floating_dock_container import FloatingDockContainer
+  return FloatingDockContainer
+  ```
+  Every new floating window is created with the selected class, so `custom` switches all floats to the frameless variant automatically.
+* **`LaceStandardTitleBar`** ([lace/frameless_window.py](file:///d:/User/Documents/Python/Lace/Lace/lace/frameless_window.py)): The custom title bar used in `custom` mode toggles maximization synchronously (works even while the mouse button is held during a double-click).
+
+---
+
+### 3.13 `TabBadgePosition` (`Enum`)
 * **File Location:** [lace/sidebar_tab.py:23-27](file:///d:/User/Documents/Python/Lace/Lace/lace/sidebar_tab.py#L23-L27)
 * **Type & Bitwise Behavior:** `enum.Enum` (using `auto()`).
 * **Primary Responsibility:** Intended to define the corner positioning of numerical notification badges on vertical sidebar buttons (`VerticalTabButton` in [lace/sidebar_tab.py:30](file:///d:/User/Documents/Python/Lace/Lace/lace/sidebar_tab.py#L30)).
@@ -318,7 +348,7 @@ The following table categorizes all enum definitions or specific members that ex
 
 ---
 
-### 3.13 `DockStyleCategory` (`Enum`)
+### 3.14 `DockStyleCategory` (`Enum`)
 * **File Location:** [lace/dock_theme.py:15-25](file:///d:/User/Documents/Python/Lace/Lace/lace/dock_theme.py#L15-L25)
 * **Type & Bitwise Behavior:** `enum.Enum`.
 * **Primary Responsibility:** Namespaces component categories (`STYLE_CATEGORIES`) for hierarchical style token lookups (`StyleManager.get_all(...)`) and SVG icon color generation (`dock_icon(...)` in [lace/dock_context_menu.py](file:///d:/User/Documents/Python/Lace/Lace/lace/dock_context_menu.py)).
