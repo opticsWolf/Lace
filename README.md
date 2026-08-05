@@ -137,12 +137,12 @@ The demo includes:
 
 ## Screenshots
 
-![Lace frameless main window across 12 themes](screenshots/main_themes_grid.png)
+![Lace frameless main window across 12 themes](https://raw.githubusercontent.com/opticsWolf/Lace/main/screenshots/main_themes_grid.png)
 
 *The frameless main window (custom title bar, dock panels, splitters) across 12 built-in themes.*
 
 Full-size captures (main window + frameless floating containers) are in the
-[`screenshots/`](screenshots/) folder.
+[`screenshots/`](https://github.com/opticsWolf/Lace/tree/main/screenshots) folder.
 
 ---
 

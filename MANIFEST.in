@@ -1,0 +1,5 @@
+# Keep the sdist lean: screenshots/ stays in the repo for the README
+# (referenced by absolute raw.githubusercontent.com URL on PyPI) but must
+# not ship in the distribution.  The wheel never contains it anyway
+# ([tool.setuptools] packages = ["lace"]).
+prune screenshots
