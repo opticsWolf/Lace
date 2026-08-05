@@ -23,8 +23,38 @@ from __future__ import annotations
 
 from typing import Optional
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QMenuBar, QVBoxLayout, QWidget
 from qframelesswindow import FramelessMainWindow, FramelessWindow
+from qframelesswindow.titlebar import StandardTitleBar
+
+
+class LaceStandardTitleBar(StandardTitleBar):
+    """StandardTitleBar whose double-click-to-maximize is synchronous.
+
+    qframelesswindow's default handler posts an async ``WM_SYSCOMMAND``
+    ``SC_MAXIMIZE`` / ``SC_RESTORE`` (``toggleMaxState``).  On Windows that
+    command is ignored while a mouse button is still held down — and a real
+    double-click dispatches ``MouseButtonDblClick`` (and therefore the
+    maximize request) while the second click's button is still pressed — so
+    the maximize silently fails.  Depending on how quickly the button is
+    released versus when the queued system command is processed, the
+    double-click works or does nothing (the "stale" double-click).
+
+    Using :meth:`QWidget.showMaximized` / :meth:`QWidget.showNormal`
+    directly takes effect regardless of the button state, so the toggle is
+    deterministic.
+    """
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent):
+        if event.button() != Qt.LeftButton or not self._isDoubleClickEnabled:
+            return
+        window = self.window()
+        if window.isMaximized():
+            window.showNormal()
+        else:
+            window.showMaximized()
 
 
 # ── Frameless MainWindow ───────────────────────────────────────────────
@@ -158,4 +188,5 @@ class FramelessLaceWindow(FramelessWindow):
 __all__ = [
     "FramelessLaceMainWindow",
     "FramelessLaceWindow",
+    "LaceStandardTitleBar",
 ]

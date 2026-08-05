@@ -187,6 +187,24 @@ class FloatingDockContainer(QWidget, DockStyled):
         logger.debug("[FDC._end_programmatic_drag] END")
         self._finalize_drag()
 
+    def _end_swallowed_release(self):
+        """Finish a drag whose release was swallowed by the synthetic-release
+        guard.  The button is already up, so this is the real release — reset
+        the state machine and finalize exactly like the normal release path,
+        so no stale mouse grab / drag state / app filter survives to eat the
+        next click (e.g. the first press of a double-click elsewhere)."""
+        self._set_state(DragState.inactive)
+        if self._mouse_event_handler is not None:
+            try:
+                self._mouse_event_handler.releaseMouse()
+            except RuntimeError:
+                pass
+            self._mouse_event_handler = None
+        app = QApplication.instance()
+        if app is not None and not self._permanent_filter_installed:
+            app.removeEventFilter(self)
+        QTimer.singleShot(0, self._finalize_drag)
+
     def _finalize_drag(self):
         """Attempt to drop into a container, or survive as an independent window."""
         logger.debug(f"[FDC._finalize_drag] START. "
@@ -733,7 +751,18 @@ class FloatingDockContainer(QWidget, DockStyled):
         if event.type() == QEvent.MouseButtonRelease:
             
             if getattr(self, '_ignore_synthetic_release', False):
-                logger.debug("[FDC] Ignoring OS synthetic mouse release during window mapping.")
+                # A release that arrives while the synthetic-release guard is
+                # armed.  If the button is already up this is the REAL release
+                # (the spurious one produced by the grabMouse handoff during
+                # window mapping arrives while the button is still held).
+                # Finish the drag through the normal path so the float never
+                # keeps a stale mouse grab / drag state that would eat the
+                # next click — e.g. the first press of a double-click on the
+                # main window title bar ("stale" double-click-to-maximize).
+                if QApplication.mouseButtons() == Qt.NoButton:
+                    logger.debug("[FDC] Swallowed release with button up — "
+                                 "real release, finalizing drag")
+                    self._end_swallowed_release()
                 return False 
                 
             if self._dragging_state == DragState.floating_widget:

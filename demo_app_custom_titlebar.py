@@ -133,9 +133,11 @@ class DemoMainWindow(FramelessLaceMainWindow):
     def __init__(self):
         super().__init__()
 
-        # Use StandardTitleBar which shows window icon + title label
-        from qframelesswindow.titlebar import StandardTitleBar
-        self.setTitleBar(StandardTitleBar(self))
+        # Use StandardTitleBar which shows window icon + title label;
+        # LaceStandardTitleBar toggles maximize synchronously so the
+        # double-click works even while the mouse button is still held.
+        from lace.frameless_window import LaceStandardTitleBar
+        self.setTitleBar(LaceStandardTitleBar(self))
 
         self.setWindowTitle("Dock Feature & Flags Testbed (Custom TitleBar)")
         self.resize(1200, 800)

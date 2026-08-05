@@ -129,10 +129,13 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
             except Exception:
                 pass
 
-        # Swap in a StandardTitleBar so floating windows show the window icon
-        # and title text like the main window.
-        from qframelesswindow.titlebar import StandardTitleBar
-        self.setTitleBar(StandardTitleBar(self))
+        # Swap in a LaceStandardTitleBar so floating windows show the window
+        # icon and title text like the main window, and double-click-to-
+        # maximize uses the synchronous toggle (the qframelesswindow default
+        # posts an async SC_MAXIMIZE which Windows ignores while the mouse
+        # button is still held, so a real double-click would silently fail).
+        from .frameless_window import LaceStandardTitleBar
+        self.setTitleBar(LaceStandardTitleBar(self))
         # StandardTitleBar only refreshes its icon label on windowIconChanged,
         # and the icon was already set before the swap — push it explicitly so
         # the floating window shows the app icon.
@@ -586,12 +589,17 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         
         if drag_state == DragState.floating_widget:
             self._mouse_event_handler = mouse_event_handler
-            
-            # Arm the guard against the OS synthetic release.
-            # Using 50ms buffer instead of 0 to ensure the event loop has fully processed 
-            # the grabMouse handoff before we start accepting releases.
-            self._ignore_synthetic_release = True
-            QTimer.singleShot(50, self._clear_synthetic_release_flag)
+
+            # Arm the guard against the OS synthetic release that can be
+            # produced when a NEW window is mapped during the drag.  Only
+            # needed for not-yet-visible floats: an already-visible float
+            # (re-drag of a floating window) does not map, so a real quick
+            # release must never be swallowed (a swallowed release leaves a
+            # stale mouse grab that steals the next click anywhere — e.g. the
+            # main window title bar — breaking double-click-to-maximize).
+            if not self.isVisible():
+                self._ignore_synthetic_release = True
+                QTimer.singleShot(50, self._clear_synthetic_release_flag)
                 
         self.move_floating()
         self.show()
@@ -813,8 +821,14 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # clicking a dock widget in another floating window would drop this float
         # into it and delete it ("vanishing").  End the stale drag at the press
         # instead, and let the press reach its real target.
+        #
+        # Don't cancel if the press is on this float's own title bar:
+        # _handle_titlebar_drag already manages that press (it cancels any stale
+        # drag and re-arms the state machine itself), so cancelling here would
+        # undo the press it just armed on Windows.
         if (event.type() == QEvent.MouseButtonPress
-                and self._dragging_state != DragState.inactive):
+                and self._dragging_state != DragState.inactive
+                and watched is not self.titleBar):
             self._cancel_stale_drag()
             return False
 
@@ -825,7 +839,18 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         if event.type() == QEvent.MouseButtonRelease:
             
             if getattr(self, '_ignore_synthetic_release', False):
-                logger.debug("[FDC] Ignoring OS synthetic mouse release during window mapping.")
+                # A release that arrives while the synthetic-release guard is
+                # armed.  If the button is already up this is the REAL release
+                # (the spurious one produced by the grabMouse handoff during
+                # window mapping arrives while the button is still held).
+                # Finish the drag through the normal path so the float never
+                # keeps a stale mouse grab / drag state that would eat the
+                # next click — e.g. the first press of a double-click on the
+                # main window title bar ("stale" double-click-to-maximize).
+                if QApplication.mouseButtons() == Qt.NoButton:
+                    logger.debug("[FDC] Swallowed release with button up — "
+                                 "real release, finalizing drag")
+                    self._end_swallowed_release()
                 return False 
                 
             if self._dragging_state == DragState.floating_widget:
@@ -864,6 +889,31 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                 return False
 
         return super().eventFilter(watched, event)
+
+    def _end_swallowed_release(self):
+        """Finish a drag whose release was swallowed by the synthetic-release
+        guard.  The button is already up, so this is the real release — reset
+        the state machine and finalize exactly like the normal release path,
+        so no stale mouse grab / drag state / app filter survives to eat the
+        next click (e.g. the first press of a double-click elsewhere)."""
+        self._set_state(DragState.inactive)
+        if self._mouse_event_handler is not None:
+            try:
+                self._mouse_event_handler.releaseMouse()
+            except RuntimeError:
+                pass
+            self._mouse_event_handler = None
+        self._titlebar_drag_start = None
+        self._os_move_active = False
+        self._remove_frameless_drag_filter()
+        # Also remove the transient app filter installed by start_floating()
+        # (tab / dock-area title-bar drags); removeEventFilter on a filter
+        # that is not installed is a no-op, so this is safe to always call.
+        if not self._permanent_filter_installed:
+            app = QApplication.instance()
+            if app is not None:
+                app.removeEventFilter(self)
+        QTimer.singleShot(0, self._finalize_drag)
 
     def _cancel_stale_drag(self):
         """End a drag whose release was consumed (e.g. by the OS move loop)
@@ -930,6 +980,20 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
             if app is not None and not self._frameless_drag_filter:
                 app.installEventFilter(self)
                 self._frameless_drag_filter = True
+            # On Windows the qframeless title bar starts its native OS move
+            # loop on mouse move, not on press.  If we consume the press (and
+            # start the move loop) here, the title bar never sees the press
+            # and its double-click-to-maximize shortcut breaks: Qt generates
+            # MouseButtonDblClick only from the press sequence it observes on
+            # the widget, and the OS move loop swallows the release, leaving a
+            # stale drag whose grab eats the next click elsewhere (e.g. the
+            # main window title bar).  Arm the drag state, but let the press
+            # reach the title bar on Windows; the first move beyond the drag
+            # threshold below starts the real drag.  On other platforms the
+            # title bar starts the move on press, so we must take control of
+            # the press ourselves.
+            if sys.platform == "win32":
+                return False
             try:
                 from qframelesswindow.utils import startSystemMove
                 startSystemMove(self, event.globalPosition().toPoint())
@@ -940,19 +1004,40 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
                 self._os_move_active = False
             return True
 
+        if etype == QEvent.MouseButtonDblClick:
+            # A double-click on the draggable part of the title bar must
+            # toggle maximization, not arm a drag.  Cancel any pending
+            # press/drag so the title bar's own mouseDoubleClickEvent is the
+            # only behaviour.
+            if self._dragging_state != DragState.inactive:
+                self._cancel_stale_drag()
+            return False
+
         if etype == QEvent.MouseMove:
             if state == DragState.mouse_pressed:
                 start = getattr(self, "_titlebar_drag_start", None)
+                # On non-Windows the press already started the OS move loop
+                # (_os_move_active), so a (stale) move must not re-enter it;
+                # on Windows the loop starts here, past the drag threshold.
                 if start is not None and not self._os_move_active:
-                    # startSystemMove failed — manual fallback drag.
                     dist = (event.position().toPoint() - start).manhattanLength()
                     if dist >= start_drag_distance():
                         self._titlebar_drag_start = None
                         self._drag_start_mouse_position = start
-                        self._mouse_event_handler = self.titleBar
                         self._set_state(DragState.floating_widget)
-                        self.titleBar.grabMouse()
-                        self.move_floating()
+                        try:
+                            from qframelesswindow.utils import startSystemMove
+                            startSystemMove(self, event.globalPosition().toPoint())
+                            self._os_move_active = True
+                        except Exception:
+                            # OS move loop unavailable — manual fallback drag.
+                            self._os_move_active = False
+                            self._mouse_event_handler = self.titleBar
+                            self.titleBar.grabMouse()
+                            self.move_floating()
+                        return True
+                # Sub-threshold move: consume it so the title bar cannot start
+                # its own native move on a tiny wiggle.
                 return True
             if state == DragState.floating_widget:
                 # If the OS move loop was used, the OS already moved the window.
