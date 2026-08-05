@@ -223,18 +223,6 @@ class DemoMainWindow(FramelessLaceMainWindow):
         self.standard_widget = standard_widget
         self.standard_content = standard_content
 
-        # --- 1. Standard Widget (All Features) ---
-        standard_widget2 = DockWidget("Standard Editor 2", self)
-        standard_widget2.set_default_icon_name("dock")
-        standard_widget2.set_custom_icon_name("pin")
-        standard_content2 = DebugTextEdit()
-        standard_content2.setPlaceholderText("I can be moved, closed, and floated. 2")
-        standard_widget2.set_widget(standard_content2)
-        standard_widget2.set_features(DockWidgetFeature.all_features)
-        self.dock_manager.add_dock_widget(DockWidgetArea.center, standard_widget2)
-        self.standard_widget2 = standard_widget2
-        self.standard_content2 = standard_content2
-
         # --- 2. Unclosable Widget ---
         unclosable_widget = DockWidget("Unclosable Logger", self)
         unclosable_widget.set_default_icon_name("tab_list")
@@ -271,15 +259,6 @@ class DemoMainWindow(FramelessLaceMainWindow):
         locked_widget.set_widget(locked_content)
         locked_widget.set_features(DockWidgetFeature.no_features)
         self.dock_manager.add_dock_widget(DockWidgetArea.left, locked_widget)
-
-        # --- 5. Unpinnable Widget ---
-        unpinnable_widget = DockWidget("Unpinnable Data", self)
-        unpinnable_content = QTextEdit()
-        unpinnable_content.setReadOnly(True)
-        unpinnable_content.setText("FEATURE TEST:\nI can be moved, closed, and floated, but I CANNOT be pinned to the sidebar.\n\nNotice the Pin icon is disabled in my title bar and context menu.")
-        unpinnable_widget.set_widget(unpinnable_content)
-        unpinnable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.movable | DockWidgetFeature.floatable)
-        self.dock_manager.add_dock_widget(DockWidgetArea.center, unpinnable_widget)
 
         # --- 6. Locked Sidebar Tool (Permanently Locked in Sidebar) ---
         locked_sidebar_widget = DockWidget("Locked Sidebar Tool", self)
@@ -328,6 +307,18 @@ class DemoMainWindow(FramelessLaceMainWindow):
         
         if design_area:
             design_area.add_dock_widget(locked_b)
+
+        # --- 10. Unpinnable Widget (docked next to the Design items) ---
+        # "Unpinnable Data" sits directly to the right of the locked
+        # DesignArea, so it is a splitter neighbour of Design Item A/B.
+        unpinnable_widget = DockWidget("Unpinnable Data", self)
+        unpinnable_content = QTextEdit()
+        unpinnable_content.setReadOnly(True)
+        unpinnable_content.setText("FEATURE TEST:\nI can be moved, closed, and floated, but I CANNOT be pinned to the sidebar.\n\nNotice the Pin icon is disabled in my title bar and context menu.")
+        unpinnable_widget.set_widget(unpinnable_content)
+        unpinnable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.movable | DockWidgetFeature.floatable)
+        self.dock_manager.add_dock_widget(DockWidgetArea.right, unpinnable_widget,
+                                          target_area=design_area)
 
         # Initialize demonstration badges on sidebar widgets to showcase TabBadgePosition
         if hasattr(self.dock_manager, 'sidebar_manager'):

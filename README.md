@@ -137,7 +137,12 @@ The demo includes:
 
 ## Screenshots
 
-> *Screenshots coming soon — add images of your application running with different themes.*
+![Lace frameless main window across 12 themes](screenshots/main_themes_grid.png)
+
+*The frameless main window (custom title bar, dock panels, splitters) across 12 built-in themes.*
+
+Full-size captures (main window + frameless floating containers) are in the
+[`screenshots/`](screenshots/) folder.
 
 ---
 
