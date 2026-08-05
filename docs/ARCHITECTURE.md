@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.3.0
+**Version:** 0.4.0
 
 ---
 
@@ -230,6 +230,24 @@ Visual drop-target overlays during drag-and-drop.
 | `paint_panel(p, rect, c, focused)` | Core panel painter: fill + outline + focus swap |
 | `paint_tab(p, rect, bg, bg_gradient, radius, indicator, indicator_width, indicator_edge)` | Tab painter with optional indicator strip |
 | `create_high_dpi_drop_indicator_pixmap(size, area, mode, colors, dpr) → QPixmap` | Drop-zone icon painter |
+
+---
+
+### 2.11 Frameless windows (`frameless_window.py`, `frameless_titlebar.py`, `floating_dock_container_frameless.py`)
+
+When `TitleBarMode.custom` is active, the main window and every floating
+container are driven by [PySideSix-Frameless-Window](https://github.com/zhiyiYo/PyQt-Frameless-Window)
+(`qframelesswindow`), which provides the frameless chrome (custom title bar,
+resize borders, DWM shadow) on Windows, macOS and Linux.
+
+| Class / Module | Description |
+|---|---|
+| **`FramelessLaceMainWindow`** (`frameless_window.py`) | Frameless `QMainWindow` subclass; integrates the custom title bar into the `QMainWindow` layout (`setMenuWidget`) so the central widget sits below it, with an optional stacked menu bar (`menuBar()`).
+| **`FramelessLaceWindow`** (`frameless_window.py`) | Frameless top-level `QWidget` base for floating dock containers. |
+| **`LaceStandardTitleBar`** (`frameless_window.py`) | `StandardTitleBar` whose double-click-to-maximize is **synchronous**. qframelesswindow's default handler posts an async `WM_SYSCOMMAND SC_MAXIMIZE/SC_RESTORE`, which Windows ignores while a mouse button is still held down — and a real double-click dispatches `MouseButtonDblClick` while the second click's button is still pressed — so the maximize silently failed (the "stale" double-click). Using `showMaximized()`/`showNormal()` directly takes effect regardless of the button state. Installed automatically on every frameless floating container; the frameless demo main window uses it too. |
+| **`FramelessTitleBarStyler`** (`frameless_titlebar.py`) | Theme bridge for the custom title bar: subscribes to `DockStyleManager` and applies dock-theme colours (background, title text, min/max/close button colours) to the title bar and optional menu bar. |
+| **`FloatingDockContainer`** (`floating_dock_container_frameless.py`) | Frameless floating container. Routes title-bar drags through `_handle_titlebar_drag()` so the drop overlay / re-dock machinery works with the custom title bar: on Windows the press is let through to the title bar (the native move loop starts only once the drag threshold is exceeded), `MouseButtonDblClick` cancels any pending drag, and the dock-drag state machine is kept free of stale grabs/filters. |
+| **`FloatingDockContainer`** (`floating_dock_container.py`) | Native (OS title-bar) floating container; the drag-state machinery is shared with the frameless variant, including the swallowed-release discrimination. |
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.3.0
+**Version:** 0.4.0
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -69,7 +69,8 @@
 - **SVG-based icon system** — Theme-aware SVG icons with automatic color tinting
 - **Custom icon provider** — Register a directory of SVG icons for use across tabs and menus
 - **Painted chrome** — Custom-drawn title bars, tab buttons, splitter handles, and drop indicators with rounded corners and hover states
-- **Chromeless floating windows** — Optional frameless floating windows that rely entirely on Lace's custom title bar
+- **Frameless windows** — Custom (PySideSix-Frameless-Window) title bars for the main window and floating containers with a synchronous double-click-to-maximize, DWM shadow, and resize borders
+- **Chromeless floating windows** — Optional bare floating surfaces without any title bar
 
 ---
 
@@ -188,6 +189,9 @@ lace/
 │   ├── dock_area_widget.py        # Single tabbed region
 │   ├── dock_splitter.py           # Nested splitters + resize handles
 │   ├── floating_dock_container.py # Top-level floating window
+│   ├── floating_dock_container_frameless.py  # Frameless floating window
+│   ├── frameless_window.py       # Frameless main/window + LaceStandardTitleBar
+│   ├── frameless_titlebar.py     # Dock-theme styling for the custom title bar
 │   ├── dock_overlay.py            # Drop-target visual overlays
 │   ├── dock_chrome.py             # Drag detector, chrome buttons, frames
 │   ├── dock_paint.py              # Painting primitives

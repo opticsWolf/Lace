@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.3.0
+**Version:** 0.4.0
 
 ---
 
@@ -488,10 +488,47 @@ for fw in dock_manager.floating_widgets():
     print(f"  Geometry: {fw.geometry()}")
 ```
 
+### Frameless Windows & the Custom Title Bar
+
+Frameless chrome (custom title bar, resize borders, DWM shadow) is driven by
+[PySideSix-Frameless-Window](https://github.com/zhiyiYo/PyQt-Frameless-Window)
+when `TitleBarMode.custom` is active:
+
+```python
+from lace.enums import TitleBarMode
+
+dock_manager.title_bar_mode = TitleBarMode.custom
+```
+
+For a frameless **main window**, subclass `FramelessLaceMainWindow` and install
+the title bar with `LaceStandardTitleBar`:
+
+```python
+from lace.frameless_window import FramelessLaceMainWindow, LaceStandardTitleBar
+
+class MainWindow(FramelessLaceMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setTitleBar(LaceStandardTitleBar(self))
+        self.dock_manager = DockManager(self)
+        self.dock_manager.title_bar_mode = TitleBarMode.custom
+        self.setCentralWidget(self.dock_manager._root)
+```
+
+`LaceStandardTitleBar` toggles maximization **synchronously** (via
+`showMaximized()` / `showNormal()`).  This matters because qframelesswindow's
+default double-click handler posts an async `WM_SYSCOMMAND SC_MAXIMIZE`, which
+Windows ignores while the mouse button is still held down — a real
+double-click dispatches `MouseButtonDblClick` while the second click's button
+is still pressed, so the maximize silently failed (the "stale" double-click).
+The synchronous toggle works regardless of the button state, and is also used
+automatically on every frameless floating container.
+
 ### Chromeless Floating Windows
 
 ```python
 # Enable frameless floating windows
+# (DockFlags.chromeless_float hides the custom title bar entirely)
 dock_manager.config_flags |= DockFlags.chromeless_float
 ```
 
