@@ -221,6 +221,18 @@ class DemoMainWindow(FramelessLaceMainWindow):
         self.standard_widget = standard_widget
         self.standard_content = standard_content
 
+        # --- 1. Standard Widget (All Features) ---
+        standard_widget2 = DockWidget("Standard Editor 2", self)
+        standard_widget2.set_default_icon_name("dock")
+        standard_widget2.set_custom_icon_name("pin")
+        standard_content2 = DebugTextEdit()
+        standard_content2.setPlaceholderText("I can be moved, closed, and floated. 2")
+        standard_widget2.set_widget(standard_content2)
+        standard_widget2.set_features(DockWidgetFeature.all_features)
+        self.dock_manager.add_dock_widget(DockWidgetArea.center, standard_widget2)
+        self.standard_widget2 = standard_widget2
+        self.standard_content2 = standard_content2
+
         # --- 2. Unclosable Widget ---
         unclosable_widget = DockWidget("Unclosable Logger", self)
         unclosable_widget.set_default_icon_name("tab_list")

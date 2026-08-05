@@ -250,8 +250,12 @@ class DockWidgetTab(QFrame, DockStyled):
                 if is_floating_dock_container(floating_window):
                     self._drag_state = DragState.floating_widget
                     self._floating_widget = floating_window
-                    
-                    mapped_start_pos = self.mapTo(floating_window, self._drag_start_mouse_position)
+
+                    # Use global coordinates so the mapped start position is
+                    # correct even if this tab widget has been reparented away
+                    # from the floating window it belongs to.
+                    mapped_start_pos = floating_window.mapFromGlobal(
+                        self.mapToGlobal(self._drag_start_mouse_position))
                     floating_window.start_dragging(mapped_start_pos, floating_window.size(), self)
                 return
                 # --- END FIX ---

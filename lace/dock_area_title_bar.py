@@ -640,8 +640,13 @@ class DockAreaTitleBar(QFrame, DockStyled):
                 if is_floating_dock_container(floating_window):
                     self._drag_state = DragState.floating_widget
                     self._floating_widget = floating_window
-                    
-                    mapped_start_pos = self.mapTo(floating_window, self._drag_start_mouse_position)
+
+                    # Convert the local press position to the floating window's
+                    # coordinate system via the global screen, so dragging a dock
+                    # area title bar that has been reparented to another window
+                    # still uses the correct cursor offset.
+                    mapped_start_pos = floating_window.mapFromGlobal(
+                        self.mapToGlobal(self._drag_start_mouse_position))
                     floating_window.start_dragging(mapped_start_pos, floating_window.size(), self)
                 return
 
