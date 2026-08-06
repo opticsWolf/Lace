@@ -518,20 +518,85 @@ from lace.enums import TitleBarMode
 dock_manager.title_bar_mode = TitleBarMode.custom
 ```
 
-For a frameless **main window**, subclass `FramelessLaceMainWindow` and install
-the title bar with `LaceStandardTitleBar`:
+For a frameless **main window**, subclass `FramelessLaceMainWindow`.  By
+default it installs `LaceStandardTitleBar`; to use a different title bar,
+pass a *title-bar descriptor* to the constructor:
 
 ```python
 from lace.frameless_window import FramelessLaceMainWindow, LaceStandardTitleBar
 
 class MainWindow(FramelessLaceMainWindow):
     def __init__(self):
-        super().__init__()
-        self.setTitleBar(LaceStandardTitleBar(self))
+        super().__init__(title_bar=MyCustomTitleBar)  # class, instance, or callable
         self.dock_manager = DockManager(self)
         self.dock_manager.title_bar_mode = TitleBarMode.custom
         self.setCentralWidget(self.dock_manager._root)
 ```
+
+`FramelessLaceWindow` (the frameless floating-container base) accepts the
+same `title_bar=` argument.
+
+#### Title-bar descriptors
+
+A *title-bar descriptor* is one of:
+
+| Form | Behaviour |
+|---|---|
+| `None` | Use the standard `LaceStandardTitleBar` (default). |
+| `QWidget` instance | Used as-is (re-parented to the window). |
+| `QWidget` subclass | Instantiated as `cls(window)`. |
+| callable | Called as `factory(window)`; must return a `QWidget`. |
+
+Use a class or callable for floating containers, because every floating
+window needs its own title-bar widget instance.
+
+#### Per-window title bars via `DockManager`
+
+Configure custom title bars from one place with the dock manager:
+
+```python
+from lace import DockManager, TitleBarMode
+
+class MainWindow(FramelessLaceMainWindow):
+    def __init__(self):
+        super().__init__(title_bar=MenuEmbeddedTitleBar)
+        self.dock_manager = DockManager(self)
+        self.dock_manager.title_bar_mode = TitleBarMode.custom
+        # Every floating dock container gets a different title bar.
+        self.dock_manager.floating_title_bar = SearchTitleBar
+        self.setCentralWidget(self.dock_manager._root)
+```
+
+- `DockManager.main_title_bar` — descriptor for the main window (consumed
+  by callers that build a `FramelessLaceMainWindow`).
+- `DockManager.floating_title_bar` — descriptor used by every new floating
+  container created after it is set (see `floating_dock_container_frameless.py`).
+- `DockManager.create_main_title_bar(parent)` /
+  `create_floating_title_bar(parent)` — resolve the descriptors into
+  concrete `QWidget` instances.
+
+#### Custom title-bar examples
+
+See `demo_app_custom_titlebar_menus.py` for a complete, runnable example:
+
+```bash
+python demo_app_custom_titlebar_menus.py
+```
+
+It defines two custom title bars:
+
+- `MenuEmbeddedTitleBar` — embeds a `QMenuBar` in the title-bar layout
+  (VS Code / browser style).  The menu bar is transparent and the title bar
+  paints its own themed background, so the chrome is one continuous colour;
+  the menu bar is kept the same height as the title bar so items stay
+  vertically centered, and it styles itself via `DockStyled` so popup/menu
+  colours follow theme switches.
+- `SearchTitleBar` — embeds a centered `QLineEdit` in the chrome with
+  min/max width and equal stretches on both sides, so it stays centered
+  while resizing with the window.
+
+Both title bars override `canDrag()` so pressing on the embedded widget
+(menu bar items, the search field) never starts a window drag.
 
 `LaceStandardTitleBar` toggles maximization **synchronously** (via
 `showMaximized()` / `showNormal()`).  This matters because qframelesswindow's
@@ -756,4 +821,12 @@ See `demo_app.py` for a comprehensive example demonstrating:
 
 ```bash
 python demo_app.py
+```
+
+Frameless / custom-title-bar demos (see [§5 Frameless Windows & the Custom
+Title Bar](#frameless-windows--the-custom-title-bar)):
+
+```bash
+python demo_app_custom_titlebar.py          # standard custom title bar
+python demo_app_custom_titlebar_menus.py    # menu-embedded main title bar + search bar for floats
 ```

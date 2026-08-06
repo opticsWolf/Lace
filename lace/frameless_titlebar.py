@@ -23,7 +23,7 @@ optional ``QMenuBar``.  It handles the quirks of the frameless library:
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QColor, QPalette
@@ -57,7 +57,8 @@ class FramelessTitleBarStyler:
         ``TitleBar``, or a custom replacement).
     menu_bar:
         Optional ``QMenuBar`` positioned below the title bar.  May be
-        ``None`` or set later via :attr:`menu_bar`.
+        ``None`` or set later via :attr:`menu_bar`.  Additional menu bars
+        can be registered with :meth:`add_menu_bar`.
     parent:
         Qt parent (typically the main window, used for lifecycle).
     """
@@ -78,7 +79,7 @@ class FramelessTitleBarStyler:
 
         self._parent = parent
         self._title_bar = title_bar
-        self._menu_bar: Optional[QMenuBar] = menu_bar
+        self._menu_bars: List[QMenuBar] = [menu_bar] if menu_bar is not None else []
         self._style_mgr = get_dock_style_manager()
         self._refresh_queued = False
         # Optional callback invoked after every refresh_style() pass so hosts
@@ -121,14 +122,34 @@ class FramelessTitleBarStyler:
 
     @property
     def menu_bar(self) -> Optional[QMenuBar]:
-        """The optional menu bar widget, or ``None``."""
-        return self._menu_bar
+        """The first registered menu bar, or ``None`` if none are registered.
+
+        This property exists for backward compatibility with callers that
+        only need a single menu bar.
+        """
+        return self._menu_bars[0] if self._menu_bars else None
 
     @menu_bar.setter
     def menu_bar(self, mb: Optional[QMenuBar]) -> None:
-        """Set or clear the menu bar and re-apply the current theme."""
-        self._menu_bar = mb
+        """Set or clear the menu bar and re-apply the current theme.
+
+        Setting this replaces the entire list of registered menu bars with
+        a single entry.  Use :meth:`add_menu_bar` to keep existing entries.
+        """
+        self._menu_bars = [mb] if mb is not None else []
         self.refresh_style()
+
+    def add_menu_bar(self, menu_bar: QMenuBar) -> None:
+        """Register an additional menu bar to receive dock-theme styling."""
+        if menu_bar not in self._menu_bars:
+            self._menu_bars.append(menu_bar)
+            self.refresh_style()
+
+    def remove_menu_bar(self, menu_bar: QMenuBar) -> None:
+        """Unregister a menu bar from dock-theme styling."""
+        if menu_bar in self._menu_bars:
+            self._menu_bars.remove(menu_bar)
+            self.refresh_style()
 
     # -- DockStyled implementation ----------------------------------------
 
@@ -266,8 +287,10 @@ class FramelessTitleBarStyler:
         # matches the title bar above; text and hover/selected items
         # follow the palette.  Note: any QSS on the menu bar makes Qt
         # ignore the palette Window role, hence the explicit background.
-        if self._menu_bar is not None:
-            self._menu_bar.setStyleSheet(
+        for menu_bar in self._menu_bars:
+            if menu_bar is None:
+                continue
+            menu_bar.setStyleSheet(
                 f"QMenuBar {{ background: {bg_hex}; border: none; }}"
             )
 
@@ -279,7 +302,7 @@ class FramelessTitleBarStyler:
             palette = build_dock_palette(is_panel=False)
             if bg is not None:
                 palette.setColor(QPalette.ColorRole.Window, QColor(bg_hex))
-            self._menu_bar.setPalette(palette)
+            menu_bar.setPalette(palette)
 
         # Let the host re-apply anything this styling pass overwrote.
         after = getattr(self, "_after_refresh", None)

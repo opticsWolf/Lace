@@ -71,6 +71,7 @@
 - **Custom icon provider** — Register a directory of SVG icons for use across tabs and menus
 - **Painted chrome** — Custom-drawn title bars, tab buttons, splitter handles, and drop indicators with rounded corners and hover states
 - **Frameless windows** — Custom (PySideSix-Frameless-Window) title bars for the main window and floating containers with a synchronous double-click-to-maximize, DWM shadow, and resize borders
+- **Configurable custom title bars** — Set different title-bar classes for the main window and floating dock containers (`title_bar=` constructor arg, `DockManager.main_title_bar` / `floating_title_bar`); embed menus, search fields, or any widget directly in the frameless chrome
 - **Chromeless floating windows** — Optional bare floating surfaces without any title bar
 
 ---
@@ -130,6 +131,42 @@ The demo includes:
 - Sidebar setup with notification badges
 - Theme switching menu with 14 built-in themes
 - Global flags menu for live configuration toggling
+
+For frameless/custom-title-bar examples, see:
+
+```bash
+python demo_app_custom_titlebar.py          # standard custom title bar
+python demo_app_custom_titlebar_menus.py    # menu-embedded main title bar + search bar for floats
+```
+
+The second demo shows **configurable custom title bars**: the main window
+uses a title bar with a `QMenuBar` embedded directly in the frameless chrome
+(no separate menu bar below it), while every floating dock container gets a
+different title bar with a centered, resizable search `QLineEdit`.
+
+Custom title bars are configured with a *title-bar descriptor* — `None` (the
+standard Lace title bar), a `QWidget` instance, a `QWidget` subclass, or a
+callable factory. Pass one to the window constructor or to the dock manager:
+
+```python
+from lace import DockManager, TitleBarMode
+from lace.frameless_window import FramelessLaceMainWindow
+
+class MainWindow(FramelessLaceMainWindow):
+    def __init__(self):
+        # Custom title bar for the main window (class or instance).
+        super().__init__(title_bar=MenuEmbeddedTitleBar)
+        self.dock_manager = DockManager(self)
+        self.dock_manager.title_bar_mode = TitleBarMode.custom
+        # Different title bar for every floating dock container.
+        self.dock_manager.floating_title_bar = SearchTitleBar
+```
+
+`DockManager.main_title_bar` configures the main window, and
+`DockManager.floating_title_bar` configures new floating containers created
+when dock widgets are torn off. See [Quick Reference — Frameless Windows
+& the Custom Title Bar](docs/QUICK_REFERENCE.md#frameless-windows--the-custom-title-bar)
+for the full API.
 - Insertion order control
 - Sidebar focus mode and badge position controls
 - Preset configurations (Default, Minimal, Full)

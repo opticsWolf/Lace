@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
 from PySide6.QtGui import QAction
 
 from lace.enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior, TitleBarMode
+from lace.frameless_window import TitleBarDescriptor
 from lace.dock_container_widget import DockContainerWidget
 from lace.dock_overlay import DockOverlay
 from lace.floating_dock_container import FloatingDockContainer
@@ -63,6 +64,8 @@ class DockManager(QObject):
         
         self._config_flags = DockFlags.default_config
         self._title_bar_mode = TitleBarMode.native
+        self._main_title_bar: TitleBarDescriptor = None
+        self._floating_title_bar: TitleBarDescriptor = None
         self._is_restoring_state = False
         self._active_dock_area: Optional['DockAreaWidget'] = None
 
@@ -186,6 +189,53 @@ class DockManager(QObject):
     def title_bar_mode(self, mode: TitleBarMode):
         """Set the title bar implementation used for the main window and floating dock containers."""
         self._title_bar_mode = mode
+
+    @property
+    def main_title_bar(self) -> TitleBarDescriptor:
+        """Title-bar descriptor used for the main window.
+
+        Accepts ``None`` (standard Lace title bar), a :class:`QWidget`
+        instance, a QWidget subclass, or a callable returning a QWidget.
+        This is consumed by callers that build a
+        :class:`.frameless_window.FramelessLaceMainWindow` and want a
+        single configuration source for custom chrome.
+        """
+        return self._main_title_bar
+
+    @main_title_bar.setter
+    def main_title_bar(self, title_bar: TitleBarDescriptor) -> None:
+        """Set the title-bar descriptor for the main window."""
+        self._main_title_bar = title_bar
+
+    @property
+    def floating_title_bar(self) -> TitleBarDescriptor:
+        """Title-bar descriptor used for new floating dock containers.
+
+        Accepts ``None`` (standard Lace title bar), a :class:`QWidget`
+        subclass, or a callable returning a QWidget.  A QWidget instance may
+        be used, but because each floating container needs its own title-bar
+        widget, passing a class or callable factory is recommended.
+
+        When :attr:`title_bar_mode` is :attr:`TitleBarMode.custom`, every
+        new floating container created by the dock manager will use this
+        descriptor.
+        """
+        return self._floating_title_bar
+
+    @floating_title_bar.setter
+    def floating_title_bar(self, title_bar: TitleBarDescriptor) -> None:
+        """Set the title-bar descriptor for floating dock containers."""
+        self._floating_title_bar = title_bar
+
+    def create_main_title_bar(self, parent: QWidget) -> QWidget:
+        """Resolve :attr:`main_title_bar` into a QWidget for *parent*."""
+        from lace.frameless_window import _resolve_title_bar
+        return _resolve_title_bar(self._main_title_bar, parent)
+
+    def create_floating_title_bar(self, parent: QWidget) -> QWidget:
+        """Resolve :attr:`floating_title_bar` into a QWidget for *parent*."""
+        from lace.frameless_window import _resolve_title_bar
+        return _resolve_title_bar(self._floating_title_bar, parent)
 
     def floating_container_class(self) -> type:
         """Return the :class:`FloatingDockContainer` class for new floating windows.

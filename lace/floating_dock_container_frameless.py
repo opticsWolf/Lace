@@ -26,7 +26,7 @@ from lace.dock_container_state import restore_container_state
 
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
-from lace.frameless_window import FramelessLaceWindow
+from lace.frameless_window import FramelessLaceWindow, _resolve_title_bar
 from lace.frameless_titlebar import FramelessTitleBarStyler
 from lace.util import start_drag_distance
 
@@ -63,7 +63,8 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
     STYLE_CATEGORIES = (DockStyleCategory.CORE,)
     def __init__(self, *, dock_area: 'DockAreaWidget' = None,
                  dock_widget: 'DockWidget' = None,
-                 dock_manager: 'DockManager' = None):
+                 dock_manager: 'DockManager' = None,
+                 title_bar=None):
         """Initializes the floating container and resets the state of incoming widgets."""
         if dock_manager is None:
             if dock_area is not None:
@@ -129,13 +130,12 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
             except Exception:
                 pass
 
-        # Swap in a LaceStandardTitleBar so floating windows show the window
-        # icon and title text like the main window, and double-click-to-
-        # maximize uses the synchronous toggle (the qframelesswindow default
-        # posts an async SC_MAXIMIZE which Windows ignores while the mouse
-        # button is still held, so a real double-click would silently fail).
-        from lace.frameless_window import LaceStandardTitleBar
-        self.setTitleBar(LaceStandardTitleBar(self))
+        # Swap in a custom title bar if the DockManager (or constructor
+        # argument) requests one; otherwise use the standard Lace title bar.
+        # The standard bar shows the window icon and title text like the main
+        # window, and its synchronous double-click-to-maximize avoids the
+        # async SC_MAXIMIZE bug in qframelesswindow on Windows.
+        self.setTitleBar(self._create_title_bar(title_bar))
         # StandardTitleBar only refreshes its icon label on windowIconChanged,
         # and the icon was already set before the swap — push it explicitly so
         # the floating window shows the app icon.
@@ -224,7 +224,21 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # Windows, LinuxMoveResize on Linux, native handling on macOS), so
         # the manual chromeless-resize fallback is never armed.
         self._permanent_filter_installed = False
-        
+
+    def _create_title_bar(self, title_bar):
+        """Resolve the title-bar descriptor for this floating container.
+
+        The descriptor may come from the explicit *title_bar* argument, the
+        owning :class:`.dock_manager.DockManager` (via its
+        ``floating_title_bar`` attribute), or fall back to the standard Lace
+        title bar.
+        """
+        if title_bar is None:
+            manager = getattr(self, '_dock_manager', None)
+            if manager is not None:
+                title_bar = getattr(manager, 'floating_title_bar', None)
+        return _resolve_title_bar(title_bar, self)
+
     def _install_permanent_filter(self) -> None:
         """No-op: the FramelessLaceWindow base handles window resizing.
 

@@ -21,13 +21,65 @@ On Windows this resolves to ``WindowsFramelessMainWindow`` /
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QMenuBar, QVBoxLayout, QWidget
 from qframelesswindow import FramelessMainWindow, FramelessWindow
 from qframelesswindow.titlebar import StandardTitleBar
+
+
+# Type alias for the flexible title-bar descriptor accepted by Lace frameless
+# windows: ``None`` selects :class:`LaceStandardTitleBar`, a :class:`QWidget`
+# instance is used as-is, a class is instantiated as ``class(parent)``, and a
+# callable is invoked as ``callable(parent)``.
+TitleBarDescriptor = Union[
+    None,
+    QWidget,
+    type[QWidget],
+    "callable",
+]
+
+
+def _resolve_title_bar(title_bar: TitleBarDescriptor, parent: QWidget) -> QWidget:
+    """Resolve a title-bar descriptor into a :class:`QWidget` instance.
+
+    Parameters
+    ----------
+    title_bar:
+        One of ``None`` (default :class:`LaceStandardTitleBar`), a
+        :class:`QWidget` instance, a QWidget subclass, or a callable that
+        returns a QWidget when called with *parent*.
+    parent:
+        The window that will own the title bar.
+
+    Returns
+    -------
+    QWidget
+        The resolved title-bar widget.
+    """
+    if title_bar is None:
+        return LaceStandardTitleBar(parent)
+
+    if isinstance(title_bar, QWidget):
+        title_bar.setParent(parent)
+        return title_bar
+
+    if isinstance(title_bar, type):
+        return title_bar(parent)
+
+    if callable(title_bar):
+        result = title_bar(parent)
+        if not isinstance(result, QWidget):
+            raise TypeError(
+                f"title_bar callable must return a QWidget, got {type(result)}"
+            )
+        return result
+
+    raise TypeError(
+        f"title_bar must be None, QWidget, class, or callable, got {type(title_bar)}"
+    )
 
 
 class LaceStandardTitleBar(StandardTitleBar):
@@ -74,13 +126,31 @@ class FramelessLaceMainWindow(FramelessMainWindow):
     QMainWindow menu widget so the central widget is positioned below
     both.  A :class:`.frameless_titlebar.FramelessTitleBarStyler` handles
     automatic theme colour updates.
+
+    Parameters
+    ----------
+    parent:
+        Optional parent widget.
+    title_bar:
+        Optional title-bar descriptor.  ``None`` uses the standard Lace
+        title bar.  May also be a QWidget instance, a QWidget subclass, or
+        a callable that returns a QWidget for this window.
     """
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        title_bar: TitleBarDescriptor = None,
+    ):
         super().__init__(parent)
         self._menu_bar: Optional[QMenuBar] = None
         self._menu_bar_container: Optional[QWidget] = None
         self._titlebar_styler: Optional["FramelessTitleBarStyler"] = None
+        # Apply a custom title bar before integrating it into the main-window
+        # layout.  When none is requested the base class already created a
+        # default StandardTitleBar.
+        if title_bar is not None:
+            self.setTitleBar(_resolve_title_bar(title_bar, self))
         # Integrate title bar into QMainWindow layout so the central
         # widget is positioned below it.
         self.setMenuWidget(self.titleBar)
@@ -138,9 +208,10 @@ class FramelessLaceMainWindow(FramelessMainWindow):
         self._menu_bar = menu_bar
         self._build_stacked_container(menu_bar)
 
-        # Notify the styler about the new menu bar.
+        # Notify the styler about the new menu bar.  Use add_menu_bar() so
+        # any menu bars already registered by a custom title bar are kept.
         if self._titlebar_styler is not None:
-            self._titlebar_styler.menu_bar = menu_bar
+            self._titlebar_styler.add_menu_bar(menu_bar)
 
         return menu_bar
 
@@ -150,6 +221,28 @@ class FramelessLaceMainWindow(FramelessMainWindow):
         self.titleBar.raise_()
 
     # -- theme integration ------------------------------------------------
+
+    def titlebar_styler(self) -> Optional["FramelessTitleBarStyler"]:
+        """Return the active :class:`.frameless_titlebar.FramelessTitleBarStyler`,
+        or ``None`` if the window has not been registered with the dock style
+        manager yet.
+
+        Custom title bars can use this to register additional menu bars (for
+        example an embedded menu bar) so they receive dock-theme colour
+        updates.
+        """
+        return self._titlebar_styler
+
+    def register_menu_bar_with_styler(self, menu_bar: QMenuBar) -> None:
+        """Register an additional menu bar with the dock-theme styler.
+
+        This is useful for custom title bars that embed a ``QMenuBar``
+        directly inside the title-bar layout: the styler will apply the same
+        background colour and palette to it as the rest of the chrome.
+        """
+        styler = self._titlebar_styler
+        if styler is not None:
+            styler.add_menu_bar(menu_bar)
 
     def _register_titlebar_theme(self) -> None:
         """Create a :class:`.frameless_titlebar.FramelessTitleBarStyler` that
@@ -179,10 +272,26 @@ class FramelessLaceWindow(FramelessWindow):
     Inherits from the platform-specific ``FramelessWindow`` which
     provides the same frameless infrastructure as
     ``FramelessLaceMainWindow`` but for plain ``QWidget`` windows.
+
+    Parameters
+    ----------
+    parent:
+        Optional parent widget.
+    title_bar:
+        Optional title-bar descriptor.  ``None`` keeps the default title bar
+        created by the base class.  May also be a QWidget instance, a
+        QWidget subclass, or a callable that returns a QWidget for this
+        window.
     """
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        title_bar: TitleBarDescriptor = None,
+    ):
         super().__init__(parent)
+        if title_bar is not None:
+            self.setTitleBar(_resolve_title_bar(title_bar, self))
 
 
 __all__ = [
