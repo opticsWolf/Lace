@@ -42,6 +42,7 @@ from .dock_style_manager import (
 from .dock_theme_bridge import DockThemeBridge
 from .dock_menu_bar import DockMenuBarStyler
 from .theme_manager import ThemeManager
+from .theme_models import ThemeJson, load_theme_json
 from .sidebar_manager import SidebarManager
 from .sidebar_container import SideBarContainer
 from .sidebar_tab import TabBadgePosition, VerticalTabButton

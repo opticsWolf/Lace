@@ -90,20 +90,25 @@ class DockStyleManager(QObject):
 
     def apply_theme(self, theme_name: str) -> bool:
         """
-        Applies a theme from dock_custom_theme.py. 
+        Applies a named theme from dock_custom_theme.py. 
         Resets to defaults before applying overrides so that missing keys revert cleanly.
         """
         from .dock_custom_theme import DOCK_THEMES
         if theme_name not in DOCK_THEMES:
             logger.warning(f"Theme '{theme_name}' not found in DOCK_THEMES.")
             return False
-            
+        return self.apply_theme_dict(DOCK_THEMES[theme_name])
+
+    def apply_theme_dict(self, theme_data: Dict[DockStyleCategory, Dict[str, Any]]) -> bool:
+        """
+        Applies a complete theme dict (``{DockStyleCategory: {token: value}}``) such as
+        those produced by :func:`dock_theme.build_theme` or ``load_theme_json``.
+        Resets to defaults before applying overrides so that missing keys revert cleanly.
+        """
         # Suppress signals during the piecemeal update
         self._suppress_signals = True
         try:
             self._reset_to_defaults()
-            theme_data = DOCK_THEMES[theme_name]
-            
             for category, changes in theme_data.items():
                 self.update(category, **changes)
         finally:
@@ -113,7 +118,7 @@ class DockStyleManager(QObject):
         for category in DockStyleCategory:
             qt_changes = self.get_all(category)
             self._notify_subscribers(category, qt_changes)
-            
+
         return True
     
     def register(self, subscriber: Any, category: DockStyleCategory) -> None:
