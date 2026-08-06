@@ -17,8 +17,8 @@ from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtWidgets import QApplication, QWidget, QStyle, QAbstractButton, QSplitter
 
 if TYPE_CHECKING:
-    from .dock_splitter import DockSplitter
-    from .dock_widget import DockWidget
+    from lace.dock_splitter import DockSplitter
+    from lace.dock_widget import DockWidget
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def hide_empty_parent_splitters(splitter: Optional['DockSplitter']):
     """
     Walks up the widget tree and hides all splitters that do not have visible content.
     """
-    from .dock_splitter import DockSplitter
+    from lace.dock_splitter import DockSplitter
     while splitter and splitter.isVisible():
         if not splitter.has_visible_content():
             splitter.hide()
@@ -101,10 +101,10 @@ def _floating_container_types() -> tuple:
     Includes the native-title-bar container and, when qframelesswindow is
     available, the frameless (custom title bar) variant.
     """
-    from .floating_dock_container import FloatingDockContainer
+    from lace.floating_dock_container import FloatingDockContainer
     types = [FloatingDockContainer]
     try:
-        from .floating_dock_container_frameless import (
+        from lace.floating_dock_container_frameless import (
             FloatingDockContainer as FramelessFloatingDockContainer)
         types.append(FramelessFloatingDockContainer)
     except ImportError:

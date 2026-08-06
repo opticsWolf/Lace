@@ -20,15 +20,15 @@ from PySide6.QtGui import (QCloseEvent, QColor, QCursor, QHideEvent, QPainterPat
                            QPalette, QMoveEvent, QRegion, QMouseEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
-from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
-from .dock_container_widget import DockContainerWidget
-from .dock_container_state import restore_container_state
+from lace.enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
+from lace.dock_container_widget import DockContainerWidget
+from lace.dock_container_state import restore_container_state
 
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
-from .frameless_window import FramelessLaceWindow
-from .frameless_titlebar import FramelessTitleBarStyler
-from .util import start_drag_distance
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
+from lace.frameless_window import FramelessLaceWindow
+from lace.frameless_titlebar import FramelessTitleBarStyler
+from lace.util import start_drag_distance
 
 
 
@@ -44,7 +44,7 @@ _EDGE_TOP = 1 << 2
 _EDGE_BOTTOM = 1 << 3
 
 if TYPE_CHECKING:
-    from . import DockAreaWidget, DockWidget, DockManager
+    from lace import DockAreaWidget, DockWidget, DockManager
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         # maximize uses the synchronous toggle (the qframelesswindow default
         # posts an async SC_MAXIMIZE which Windows ignores while the mouse
         # button is still held, so a real double-click would silently fail).
-        from .frameless_window import LaceStandardTitleBar
+        from lace.frameless_window import LaceStandardTitleBar
         self.setTitleBar(LaceStandardTitleBar(self))
         # StandardTitleBar only refreshes its icon label on windowIconChanged,
         # and the icon was already set before the swap — push it explicitly so

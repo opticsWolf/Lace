@@ -16,17 +16,17 @@ from PySide6.QtCore import QObject, Signal, QTimer, QPoint, QEvent, QSize, QRect
 from PySide6.QtGui import QKeySequence, QShortcut, QCursor
 from PySide6.QtWidgets import QApplication, QMainWindow
 
-from .enums import DockWidgetArea, WidgetState, DockWidgetFeature, DockFlags, SideBarFocusBehavior
-from .dock_menu import find_closest_dock_area
-from .layout_serializer import SidebarStateManager, SidebarState
-from .sidebar_tab import VerticalTabButton, TabBadgePosition
-from .sidebar_container import SideBarContainer
-from .sidebar_tab_bar import SideTabBar
-from ._trace import trace
+from lace.enums import DockWidgetArea, WidgetState, DockWidgetFeature, DockFlags, SideBarFocusBehavior
+from lace.dock_menu import find_closest_dock_area
+from lace.layout_serializer import SidebarStateManager, SidebarState
+from lace.sidebar_tab import VerticalTabButton, TabBadgePosition
+from lace.sidebar_container import SideBarContainer
+from lace.sidebar_tab_bar import SideTabBar
+from lace._trace import trace
 
 if TYPE_CHECKING:
-    from .dock_widget import DockWidget
-    from .dock_manager import DockManager
+    from lace.dock_widget import DockWidget
+    from lace.dock_manager import DockManager
 
 logger = logging.getLogger(__name__)
 

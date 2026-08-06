@@ -19,42 +19,42 @@ __version__ = "0.4.0"
 # ---------------------------------------------------------------------------
 # Core Classes
 # ---------------------------------------------------------------------------
-from .dock_area_widget import DockAreaWidget
-from .dock_container_widget import DockContainerWidget, DropController
-from .dock_manager import DockManager
-from .dock_widget import DockWidget
-from .dock_widget_tab import DockWidgetTab
-from .dock_splitter import DockSplitter, DockSplitterHandle
-from .floating_dock_container import FloatingDockContainer
-from .dock_icon_provider import DockIconProvider, get_icon_provider
-from .dock_theme import (
+from lace.dock_area_widget import DockAreaWidget
+from lace.dock_container_widget import DockContainerWidget, DropController
+from lace.dock_manager import DockManager
+from lace.dock_widget import DockWidget
+from lace.dock_widget_tab import DockWidgetTab
+from lace.dock_splitter import DockSplitter, DockSplitterHandle
+from lace.floating_dock_container import FloatingDockContainer
+from lace.dock_icon_provider import DockIconProvider, get_icon_provider
+from lace.dock_theme import (
     DockStyleCategory,
     ThemeSpec,
     build_theme,
     deep_to_qcolor,
     deep_to_serializable,
 )
-from .dock_style_manager import (
+from lace.dock_style_manager import (
     DockStyleManager,
     apply_dock_theme,
     get_dock_style_manager,
 )
-from .dock_theme_bridge import DockThemeBridge
-from .dock_menu_bar import DockMenuBarStyler
-from .theme_manager import ThemeManager
-from .theme_models import ThemeJson, load_theme_json
-from .sidebar_manager import SidebarManager
-from .sidebar_container import SideBarContainer
-from .sidebar_tab import TabBadgePosition, VerticalTabButton
-from .sidebar_tab_bar import SideTabBar
-from .sidebar_title_bar import SideBarTitleBar
-from .dock_area_tab_bar import DockAreaTabBar
-from .dock_area_title_bar import DockAreaTitleBar
-from .dock_chrome import DragDetector, ChromeToolButton, ChromeFrame
-from .dock_overlay import DockOverlay, DockOverlayCross
-from .dock_context_menu import DockMenuMixin, MenuSection, MenuContext, MenuActionTarget
-from .dock_signals import DockSignals
-from .layout_serializer import (
+from lace.dock_theme_bridge import DockThemeBridge
+from lace.dock_menu_bar import DockMenuBarStyler
+from lace.theme_manager import ThemeManager
+from lace.theme_models import ThemeJson, load_theme_json
+from lace.sidebar_manager import SidebarManager
+from lace.sidebar_container import SideBarContainer
+from lace.sidebar_tab import TabBadgePosition, VerticalTabButton
+from lace.sidebar_tab_bar import SideTabBar
+from lace.sidebar_title_bar import SideBarTitleBar
+from lace.dock_area_tab_bar import DockAreaTabBar
+from lace.dock_area_title_bar import DockAreaTitleBar
+from lace.dock_chrome import DragDetector, ChromeToolButton, ChromeFrame
+from lace.dock_overlay import DockOverlay, DockOverlayCross
+from lace.dock_context_menu import DockMenuMixin, MenuSection, MenuContext, MenuActionTarget
+from lace.dock_signals import DockSignals
+from lace.layout_serializer import (
     LayoutError,
     LayoutIOError,
     InvalidFormatError,
@@ -63,13 +63,13 @@ from .layout_serializer import (
     LayoutSerializer,
     LayoutStateBuilder,
 )
-from .dock_paint import ChromeTokens
-from .eliding_label import ElidingLabel
+from lace.dock_paint import ChromeTokens
+from lace.eliding_label import ElidingLabel
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
-from .enums import (
+from lace.enums import (
     DockInsertParam,
     DockWidgetArea,
     DockFlags,
@@ -88,7 +88,7 @@ from .enums import (
 # ---------------------------------------------------------------------------
 # Utility Functions
 # ---------------------------------------------------------------------------
-from .util import (
+from lace.util import (
     emit_top_level_event_for_widget,
     start_drag_distance,
     create_transparent_pixmap,

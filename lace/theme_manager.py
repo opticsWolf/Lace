@@ -146,8 +146,8 @@ class ThemeManager(QObject):
         # 2. Registered Lace theme name (e.g. "dark", "light", "tokyo_night")
         if not applied and path is None:
             try:
-                from .dock_custom_theme import DOCK_THEMES
-                from .dock_style_manager import apply_dock_theme
+                from lace.dock_custom_theme import DOCK_THEMES
+                from lace.dock_style_manager import apply_dock_theme
 
                 if theme_to_apply in DOCK_THEMES:
                     if apply_dock_theme(theme_to_apply):
@@ -236,7 +236,7 @@ class ThemeManager(QObject):
 
     def _apply_json_theme(self, path: Path) -> bool:
         """Load a JSON theme file with pydantic validation and apply it."""
-        from .theme_models import ThemeJson
+        from lace.theme_models import ThemeJson
 
         try:
             theme = ThemeJson.load(path)
@@ -245,7 +245,7 @@ class ThemeManager(QObject):
             logger.error(f"Failed to load JSON theme '{path}': {e}")
             return False
 
-        from .dock_style_manager import get_dock_style_manager
+        from lace.dock_style_manager import get_dock_style_manager
 
         try:
             get_dock_style_manager().apply_theme_dict(theme_data)

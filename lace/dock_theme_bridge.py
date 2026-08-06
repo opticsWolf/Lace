@@ -16,8 +16,8 @@ from typing import Any, Dict, Optional, Union
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QApplication, QWidget, QStyleFactory
 
-from .dock_style_manager import get_dock_style_manager
-from .dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
+from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class DockThemeBridge(QObject):
         # theme change.  Verified by dev_smoke/smoke_nudge.py.
 
         # --- RE-APPLY DOCK WIDGET LOCAL PALETTES ---
-        from .dock_widget import DockWidget
+        from lace.dock_widget import DockWidget
         if isinstance(self._target, QApplication):
             for window in self._target.topLevelWidgets():
                 for dw in window.findChildren(DockWidget):

@@ -8,7 +8,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 
-from .dock_theme import (
+from lace.dock_theme import (
     to_qcolor, qcolor_to_list, is_color_list,
     deep_to_qcolor, deep_to_serializable
 )

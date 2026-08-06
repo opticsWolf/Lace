@@ -22,11 +22,11 @@ from typing import TYPE_CHECKING, Dict, Any, List
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import QRect
 
-from .dock_container_state import save_container_state, restore_container_state
-from .floating_dock_container import FloatingDockContainer
+from lace.dock_container_state import save_container_state, restore_container_state
+from lace.floating_dock_container import FloatingDockContainer
 
 if TYPE_CHECKING:
-    from .dock_manager import DockManager
+    from lace.dock_manager import DockManager
 
 logger = logging.getLogger(__name__)
 
@@ -543,4 +543,4 @@ class SidebarStateManager:
             for k, v in data.items():
                 self._states[k] = SidebarState.from_dict(v)
         except Exception as e:
-            logger.error(f"Failed to restore sidebar state: {e}")
+            logger.error(f"Failed to restore sidebar state: {e}")

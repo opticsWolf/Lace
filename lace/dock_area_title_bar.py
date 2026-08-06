@@ -17,21 +17,21 @@ from PySide6.QtCore import QPoint, QPointF, Qt, Signal, QSize, QRectF
 from PySide6.QtGui import QAction, QCursor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy, QToolButton
 
-from .enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea, WidgetState
-from .util import start_drag_distance
-from .dock_chrome import style_title_bar_buttons, ChromeToolButton
-from .dock_paint import chrome_content_margin, top_rounded_path
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
-from .dock_menu import (
+from lace.enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea, WidgetState
+from lace.util import start_drag_distance
+from lace.dock_chrome import style_title_bar_buttons, ChromeToolButton
+from lace.dock_paint import chrome_content_margin, top_rounded_path
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
+from lace.dock_menu import (
     MenuSection, dock_icon, MenuContext, build_dock_context_menu,
     dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
     menu_default_pin_all, menu_default_reattach
 )
 
 if TYPE_CHECKING:
-    from . import DockAreaWidget, DockAreaTabBar, DockManager
-    from .floating_dock_container import FloatingDockContainer
+    from lace import DockAreaWidget, DockAreaTabBar, DockManager
+    from lace.floating_dock_container import FloatingDockContainer
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._close_button.clicked.connect(self.on_close_button_clicked)
 
     def _create_tab_bar(self):
-        from .dock_area_tab_bar import DockAreaTabBar
+        from lace.dock_area_tab_bar import DockAreaTabBar
         self._tab_bar = DockAreaTabBar(self._dock_area)
         self._top_layout.addWidget(self._tab_bar)
     
@@ -634,7 +634,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
             dock_container = self._dock_area.dock_container()
             
             if dock_container and dock_container.is_floating() and dock_container.visible_dock_area_count() == 1:
-                from .util import is_floating_dock_container
+                from lace.util import is_floating_dock_container
                 floating_window = self.window()
                 
                 if is_floating_dock_container(floating_window):

@@ -16,7 +16,7 @@ from weakref import WeakSet
 
 from PySide6.QtCore import QObject, Signal
 
-from .dock_theme import (
+from lace.dock_theme import (
     DockStyleCategory, DockCoreStyleSchema, DockTabStyleSchema,
     DockTitleBarStyleSchema, DockSidebarStyleSchema,
     DockSidePanelStyleSchema, DockSplitterStyleSchema, DockOverlayStyleSchema,
@@ -93,7 +93,7 @@ class DockStyleManager(QObject):
         Applies a named theme from dock_custom_theme.py. 
         Resets to defaults before applying overrides so that missing keys revert cleanly.
         """
-        from .dock_custom_theme import DOCK_THEMES
+        from lace.dock_custom_theme import DOCK_THEMES
         if theme_name not in DOCK_THEMES:
             logger.warning(f"Theme '{theme_name}' not found in DOCK_THEMES.")
             return False
@@ -207,7 +207,7 @@ def get_dock_style_manager() -> DockStyleManager:
 def apply_dock_theme(theme_name: str) -> bool:
     return DockStyleManager.instance().apply_theme(theme_name)
 
-from .theme_manager import ThemeManager
+from lace.theme_manager import ThemeManager
 __all__ = [
     "DockStyleCategory", "DockStyleManager", "get_dock_style_manager",
     "apply_dock_theme", "ThemeManager"

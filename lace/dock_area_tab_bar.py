@@ -17,14 +17,14 @@ from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QBoxLayout, QFrame, QScrollArea, QSizePolicy, QWidget
 
-from .enums import DragState, DockFlags
-from .dock_widget_tab import DockWidgetTab
-from .floating_dock_container import FloatingDockContainer
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
+from lace.enums import DragState, DockFlags
+from lace.dock_widget_tab import DockWidgetTab
+from lace.floating_dock_container import FloatingDockContainer
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
-    from . import DockAreaWidget
+    from lace import DockAreaWidget
 
 logger = logging.getLogger(__name__)
 

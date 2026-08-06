@@ -17,8 +17,8 @@ from PySide6.QtCore import Qt, QEvent, QSize, QRect, QPointF
 from PySide6.QtGui import QPainter, QColor, QMouseEvent, QCursor
 from PySide6.QtWidgets import QSplitter, QSplitterHandle, QWidget
 
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +74,8 @@ class DockSplitterHandle(QSplitterHandle, DockStyled):
     def _find_intersecting_handles(self, global_pos) -> list:
         """Return all visible handles in this container whose hitbox contains
         *global_pos* (excluding ``self``)."""
-        from .dock_container_widget import DockContainerWidget
-        from .util import find_parent
+        from lace.dock_container_widget import DockContainerWidget
+        from lace.util import find_parent
 
         container = find_parent(DockContainerWidget, self)
         if container is None:

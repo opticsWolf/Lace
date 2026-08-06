@@ -26,7 +26,7 @@ from typing import Optional
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QMenuBar, QWidget
 
-from .dock_theme import DockStyleCategory, to_qcolor
+from lace.dock_theme import DockStyleCategory, to_qcolor
 
 
 class DockMenuBarStyler:
@@ -48,7 +48,7 @@ class DockMenuBarStyler:
         menu_bar: QMenuBar,
         parent: Optional[QWidget] = None,
     ) -> None:
-        from .dock_style_manager import get_dock_style_manager
+        from lace.dock_style_manager import get_dock_style_manager
 
         self._parent = parent
         self._menu_bar = menu_bar
@@ -83,7 +83,7 @@ class DockMenuBarStyler:
         if self._menu_bar is None:
             return
 
-        from .dock_theme import build_dock_palette
+        from lace.dock_theme import build_dock_palette
 
         bg = self._style_mgr.get(DockStyleCategory.SIDEBAR, "bg_color")
         if bg is None:

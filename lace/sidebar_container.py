@@ -16,13 +16,13 @@ from PySide6.QtWidgets import (
     QFrame, QSplitter, QVBoxLayout, QGraphicsDropShadowEffect, QWidget
 )
 
-from .enums import DockWidgetArea, SideBarFocusBehavior
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
-from .sidebar_title_bar import SideBarTitleBar
+from lace.enums import DockWidgetArea, SideBarFocusBehavior
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
+from lace.sidebar_title_bar import SideBarTitleBar
 
 if TYPE_CHECKING:
-    from .dock_widget import DockWidget
+    from lace.dock_widget import DockWidget
 
 _ANIMATION_DURATION_MS = 50
 _RESIZE_HANDLE_WIDTH = 6
@@ -152,7 +152,7 @@ class SideBarContainer(QFrame, DockStyled):
             last_dw = None
             if fw and not self.isAncestorOf(fw):
                 self._last_focused_widget = fw
-                from .dock_widget import DockWidget
+                from lace.dock_widget import DockWidget
                 curr = fw
                 while curr:
                     if isinstance(curr, DockWidget):
@@ -415,7 +415,7 @@ class SideBarContainer(QFrame, DockStyled):
                 pass
 
         if not target_restored and self.parentWidget():
-            from .dock_area_widget import DockAreaWidget
+            from lace.dock_area_widget import DockAreaWidget
             for child in self.parentWidget().findChildren(DockAreaWidget):
                 if child.isVisible() and child.current_dock_widget():
                     dw = child.current_dock_widget()
@@ -563,7 +563,7 @@ class SideBarContainer(QFrame, DockStyled):
         return max(_MIN_SIDEBAR_HEIGHT, max_height)
 
     def _find_sibling_bar(self, area: DockWidgetArea):
-        from .sidebar_tab_bar import SideTabBar
+        from lace.sidebar_tab_bar import SideTabBar
         for child in self.parentWidget().children():
             if isinstance(child, SideTabBar) and child.area == area:
                 return child

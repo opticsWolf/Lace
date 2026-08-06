@@ -14,7 +14,7 @@ from typing import Optional, Tuple
 from PySide6.QtCore import Qt, QByteArray
 from PySide6.QtWidgets import QSplitter, QWidget
 
-from .dock_area_widget import DockAreaWidget
+from lace.dock_area_widget import DockAreaWidget
 
 logger = logging.getLogger(__name__)
 

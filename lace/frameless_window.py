@@ -159,7 +159,7 @@ class FramelessLaceMainWindow(FramelessMainWindow):
         Call this once from DockManager or the application's setup code.
         """
         try:
-            from .frameless_titlebar import FramelessTitleBarStyler
+            from lace.frameless_titlebar import FramelessTitleBarStyler
         except ImportError:
             return
 

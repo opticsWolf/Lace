@@ -20,12 +20,12 @@ from PySide6.QtGui import (QCloseEvent, QCursor, QHideEvent, QPainterPath,
                            QPalette, QMoveEvent, QRegion, QMouseEvent)
 from PySide6.QtWidgets import QApplication, QBoxLayout, QWidget
 
-from .enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
-from .dock_container_widget import DockContainerWidget
-from .dock_container_state import restore_container_state
+from lace.enums import DockFlags, DockWidgetFeature, DragState, DockWidgetArea, WidgetState
+from lace.dock_container_widget import DockContainerWidget
+from lace.dock_container_state import restore_container_state
 
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
 
 
 
@@ -41,7 +41,7 @@ _EDGE_TOP = 1 << 2
 _EDGE_BOTTOM = 1 << 3
 
 if TYPE_CHECKING:
-    from . import DockAreaWidget, DockWidget, DockManager
+    from lace import DockAreaWidget, DockWidget, DockManager
 
 logger = logging.getLogger(__name__)
 
@@ -434,7 +434,7 @@ class FloatingDockContainer(QWidget, DockStyled):
         if qapp is None:
             return
         try:
-            from .dock_theme import resolve_dock_colors, build_dock_palette
+            from lace.dock_theme import resolve_dock_colors, build_dock_palette
             colors = resolve_dock_colors()
             palette = build_dock_palette(is_panel=False, colors=colors)
             qapp.setPalette(palette)

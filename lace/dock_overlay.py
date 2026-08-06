@@ -17,9 +17,9 @@ from PySide6.QtGui import QColor, QCursor, QHideEvent, QPainter, QShowEvent, QPi
 from PySide6.QtWidgets import QFrame, QWidget, QLabel, QGridLayout
 
 # Note: area_alignment removed completely!
-from .enums import OverlayMode, DockWidgetArea
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
+from lace.enums import OverlayMode, DockWidgetArea
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
 
 
 class DockOverlay(QFrame, DockStyled):
@@ -315,7 +315,7 @@ class DockOverlayCross(QWidget, DockStyled):
     def _create_high_dpi_drop_indicator_pixmap(
             self, size: QSizeF, area: DockWidgetArea) -> QPixmap:
         """Create a high-DPI drop indicator pixmap for the specified area."""
-        from .dock_paint import create_high_dpi_drop_indicator_pixmap
+        from lace.dock_paint import create_high_dpi_drop_indicator_pixmap
         window = self.window()
         dpr = window.devicePixelRatio() if window else 1.0
         return create_high_dpi_drop_indicator_pixmap(

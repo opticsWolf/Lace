@@ -16,11 +16,11 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QToolButton, QWidget, QSizePolicy
 
-from .dock_chrome import DragDetector
-from .dock_paint import paint_tab
-from .enums import DockWidgetArea
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
+from lace.dock_chrome import DragDetector
+from lace.dock_paint import paint_tab
+from lace.enums import DockWidgetArea
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
 
 
 class TabBadgePosition(Enum):

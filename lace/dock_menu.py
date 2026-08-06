@@ -17,17 +17,17 @@ from PySide6.QtCore import QPoint, QRect, QSize
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QMenu, QStyle
 
-from .enums import DockWidgetArea, DockWidgetFeature, WidgetState, DockFlags
-from .dock_style_manager import get_dock_style_manager
-from .dock_theme import DockStyleCategory
-from .dock_icon_provider import get_icon_provider
-from ._trace import trace
+from lace.enums import DockWidgetArea, DockWidgetFeature, WidgetState, DockFlags
+from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_theme import DockStyleCategory
+from lace.dock_icon_provider import get_icon_provider
+from lace._trace import trace
 
 if TYPE_CHECKING:
-    from .dock_area_widget import DockAreaWidget
-    from .dock_widget import DockWidget
-    from .dock_area_tab_bar import DockAreaTabBar
-    from .dock_manager import DockManager
+    from lace.dock_area_widget import DockAreaWidget
+    from lace.dock_widget import DockWidget
+    from lace.dock_area_tab_bar import DockAreaTabBar
+    from lace.dock_manager import DockManager
 
 
 # ── Closest-edge helper ───────────────────────────────────────────────────
@@ -278,7 +278,7 @@ def build_dock_context_menu(context: MenuContext, menu: QMenu) -> None:
 
     # ── Maximize / Restore ────────────────────────────────────────
     if MenuSection.MAXIMIZE in sections:
-        from .enums import DockFlags as _DockFlags
+        from lace.enums import DockFlags as _DockFlags
         mgr = (area.dock_manager() if area else None) or (widget.dock_manager() if widget else None)
         if mgr:
             is_sidebar = (context.widget_type == "SideBarTitleBar")

@@ -783,7 +783,7 @@ class DockThemeColors:
 def resolve_dock_colors() -> DockThemeColors:
     """Return the current resolved dock colours, cached by manager generation."""
     global _snapshot_cache
-    from .dock_style_manager import get_dock_style_manager
+    from lace.dock_style_manager import get_dock_style_manager
     sm = get_dock_style_manager()
     if _snapshot_cache is not None and _snapshot_cache[0] == sm.generation:
         return _snapshot_cache[1]

@@ -45,7 +45,7 @@ from typing import Annotated, Any, Dict, List, Optional, Union
 
 from pydantic import AfterValidator, BaseModel, ConfigDict
 
-from .dock_theme import (
+from lace.dock_theme import (
     DockStyleCategory,
     ThemeSpec,
     build_theme,

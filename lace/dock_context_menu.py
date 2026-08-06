@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from .dock_menu import (
+from lace.dock_menu import (
     MenuSection, dock_icon, find_closest_dock_area,
     MenuContext, MenuActionTarget, build_dock_context_menu,
     dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,

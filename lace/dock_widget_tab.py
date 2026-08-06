@@ -17,24 +17,24 @@ from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter, QPalette
 from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget, QPushButton
 
-from .util import start_drag_distance
-from .enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature, WidgetState
-from .eliding_label import ElidingLabel
-from .dock_paint import paint_tab
-from .dock_chrome import ChromeToolButton
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
-from .dock_menu import (
+from lace.util import start_drag_distance
+from lace.enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature, WidgetState
+from lace.eliding_label import ElidingLabel
+from lace.dock_paint import paint_tab
+from lace.dock_chrome import ChromeToolButton
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
+from lace.dock_menu import (
     MenuSection, dock_icon, MenuContext, build_dock_context_menu,
     dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
     menu_default_pin_all, menu_default_reattach
 )
-from .dock_icon_provider import get_icon_provider
-from .dock_style_manager import get_dock_style_manager
+from lace.dock_icon_provider import get_icon_provider
+from lace.dock_style_manager import get_dock_style_manager
 
 
 if TYPE_CHECKING:
-    from . import DockWidget, DockAreaWidget, FloatingDockContainer
+    from lace import DockWidget, DockAreaWidget, FloatingDockContainer
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +244,7 @@ class DockWidgetTab(QFrame, DockStyled):
                     and self._dock_area.dock_container().visible_dock_area_count() == 1):
                 
                 # --- FIX: Inject the Title Bar's Native Delegation Logic ---
-                from .util import is_floating_dock_container
+                from lace.util import is_floating_dock_container
                 floating_window = self.window()
                 
                 if is_floating_dock_container(floating_window):

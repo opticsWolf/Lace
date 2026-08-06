@@ -9,7 +9,7 @@
 
 
 from typing import Dict, Any
-from .dock_theme import DockStyleCategory, ThemeSpec, build_theme
+from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 
 # =============================================================================
 # THEME SPECIFICATIONS (Declarative 3- to 5-color presets)

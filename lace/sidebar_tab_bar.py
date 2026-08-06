@@ -14,14 +14,14 @@ from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize
 from PySide6.QtGui import QAction, QColor, QPainter, QPen, QPalette, QPainterPath
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
 
-from .enums import DockWidgetArea, DockWidgetFeature
-from .sidebar_tab import VerticalTabButton
-from .dock_menu import MenuSection, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
+from lace.enums import DockWidgetArea, DockWidgetFeature
+from lace.sidebar_tab import VerticalTabButton
+from lace.dock_menu import MenuSection, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
-    from .dock_widget import DockWidget
+    from lace.dock_widget import DockWidget
 
 class _DropLine(QWidget):
     """Thin drop-position line, painted (robust against the scroll container's

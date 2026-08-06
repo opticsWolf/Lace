@@ -13,14 +13,14 @@ from PySide6.QtGui import QAction, QColor, QPainter, QPalette
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
 )
-from .enums import DockWidgetFeature, DockFlags
-from .dock_chrome import style_title_bar_buttons, DragDetector, ChromeToolButton
-from .dock_menu import MenuSection, dock_icon, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
-from .dock_theme import DockStyleCategory
-from .dock_styled import DockStyled
+from lace.enums import DockWidgetFeature, DockFlags
+from lace.dock_chrome import style_title_bar_buttons, DragDetector, ChromeToolButton
+from lace.dock_menu import MenuSection, dock_icon, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
+from lace.dock_theme import DockStyleCategory
+from lace.dock_styled import DockStyled
 
 if TYPE_CHECKING:
-    from .dock_widget import DockWidget
+    from lace.dock_widget import DockWidget
 
 
 class SideBarTitleBar(QFrame, DockStyled):
@@ -347,7 +347,7 @@ class SideBarTitleBar(QFrame, DockStyled):
     def paintEvent(self, event):
         from PySide6.QtCore import QRectF
         from PySide6.QtGui import QPen
-        from .dock_paint import top_rounded_path
+        from lace.dock_paint import top_rounded_path
         bg = self._bg_color
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)

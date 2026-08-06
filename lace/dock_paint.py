@@ -15,7 +15,7 @@ from typing import Optional, Tuple
 from PySide6.QtCore import Qt, QRectF, QLineF, QPointF, QSizeF
 from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
 
-from .enums import DockWidgetArea, OverlayMode
+from lace.enums import DockWidgetArea, OverlayMode
 
 _INV_SQRT2 = 1.0 / sqrt(2.0)
 

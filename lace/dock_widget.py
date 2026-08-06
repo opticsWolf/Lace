@@ -19,14 +19,14 @@ from PySide6.QtWidgets import (QBoxLayout, QFrame, QScrollArea,
                                QSplitter, QToolBar, QWidget)
 
 # --- ADDED IMPORTS ---
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
-from .enums import (DockWidgetFeature, WidgetState, ToggleViewActionMode,
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
+from lace.enums import (DockWidgetFeature, WidgetState, ToggleViewActionMode,
                     InsertMode)
-from .util import find_parent, emit_top_level_event_for_widget
+from lace.util import find_parent, emit_top_level_event_for_widget
 
 if TYPE_CHECKING:
-    from . import DockAreaWidget, DockManager, DockWidgetTab
+    from lace import DockAreaWidget, DockManager, DockWidgetTab
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class DockWidget(QFrame, DockStyled):
         self.setWindowTitle(title)
         self.setObjectName(title)
 
-        from .dock_widget_tab import DockWidgetTab
+        from lace.dock_widget_tab import DockWidgetTab
         self._tab_widget = DockWidgetTab(dock_widget=self, parent=None)
         
         self._toggle_view_action = QAction(title, self)
@@ -108,7 +108,7 @@ class DockWidget(QFrame, DockStyled):
             if self._dock_manager:
                 floating_cls = self._dock_manager.floating_container_class()
             else:
-                from .floating_dock_container import FloatingDockContainer
+                from lace.floating_dock_container import FloatingDockContainer
                 floating_cls = FloatingDockContainer
             floating_widget = floating_cls(dock_widget=self)
             floating_widget.resize(self.size())
@@ -125,7 +125,7 @@ class DockWidget(QFrame, DockStyled):
             splitter = find_parent(QSplitter, splitter)
 
         container = self._dock_area.dock_container()
-        from .util import find_floating_dock_container
+        from lace.util import find_floating_dock_container
         if container.is_floating():
             floating_widget = find_floating_dock_container(container)
             floating_widget.show()
@@ -557,7 +557,7 @@ class DockWidget(QFrame, DockStyled):
 
     def paintEvent(self, event) -> None:
         from PySide6.QtGui import QPainter
-        from .dock_paint import bottom_rounded_path
+        from lace.dock_paint import bottom_rounded_path
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
         bg = self.palette().color(QPalette.ColorRole.Window)
@@ -606,7 +606,7 @@ class DockWidget(QFrame, DockStyled):
 
         if target_radius > 0.0 and target.width() > 0 and target.height() > 0:
             from PySide6.QtGui import QRegion
-            from .dock_paint import bottom_rounded_path
+            from lace.dock_paint import bottom_rounded_path
             path = bottom_rounded_path(QRectF(target.rect()), target_radius)
             target.setMask(QRegion(path.toFillPolygon().toPolygon()))
         else:

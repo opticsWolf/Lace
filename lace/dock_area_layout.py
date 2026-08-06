@@ -17,7 +17,7 @@ from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QBoxLayout, QWidget
 
 if TYPE_CHECKING:
-    from .dock_widget import DockWidget
+    from lace.dock_widget import DockWidget
 
 logger = logging.getLogger(__name__)
 

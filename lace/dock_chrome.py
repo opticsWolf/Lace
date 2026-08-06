@@ -14,8 +14,8 @@ from PySide6.QtCore import Qt, QEvent, QObject, QPoint, QRectF, QSize, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QAbstractButton, QFrame, QSizePolicy, QToolButton, QWidget
 
-from .dock_paint import ChromeTokens, paint_panel, paint_panel_bg, paint_panel_border
-from .util import start_drag_distance
+from lace.dock_paint import ChromeTokens, paint_panel, paint_panel_bg, paint_panel_border
+from lace.util import start_drag_distance
 
 
 class DragDetector(QObject):

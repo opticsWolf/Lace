@@ -17,19 +17,19 @@ from PySide6.QtCore import (QEvent, QPoint, Qt, Signal)
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QGridLayout, QSplitter, QWidget
 
-from .util import (find_parent, hide_empty_parent_splitters,
+from lace.util import (find_parent, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget, find_child, find_children,
                    dump_layout as _dump_layout)
-from .enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,
+from lace.enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,
                     DockFlags, DockInsertParam)
-from .dock_splitter import DockSplitter
-from .dock_area_widget import DockAreaWidget
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
-from ._trace import trace
+from lace.dock_splitter import DockSplitter
+from lace.dock_area_widget import DockAreaWidget
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
+from lace._trace import trace
 
 if TYPE_CHECKING:
-    from . import DockManager, DockWidget, FloatingDockContainer
+    from lace import DockManager, DockWidget, FloatingDockContainer
 
 logger = logging.getLogger(__name__)
 
@@ -728,7 +728,7 @@ class DockContainerWidget(QFrame, DockStyled):
         return features
 
     def floating_widget(self):
-        from .util import find_floating_dock_container
+        from lace.util import find_floating_dock_container
         return find_floating_dock_container(self)
 
     def close_other_areas(self, keep_open_area: DockAreaWidget):

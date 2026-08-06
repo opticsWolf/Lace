@@ -18,21 +18,21 @@ from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
 from PySide6.QtGui import QAction
 
-from .enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior, TitleBarMode
-from .dock_container_widget import DockContainerWidget
-from .dock_overlay import DockOverlay
-from .floating_dock_container import FloatingDockContainer
-from .dock_widget import DockWidget
-from .dock_area_widget import DockAreaWidget
+from lace.enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior, TitleBarMode
+from lace.dock_container_widget import DockContainerWidget
+from lace.dock_overlay import DockOverlay
+from lace.floating_dock_container import FloatingDockContainer
+from lace.dock_widget import DockWidget
+from lace.dock_area_widget import DockAreaWidget
 
 # New Modular Sub-systems
-from .dock_signals import DockSignals
-from .sidebar_manager import SidebarManager
-from .sidebar_tab import TabBadgePosition
-from .layout_serializer import LayoutSerializer, LayoutError, LayoutPersistenceManager
-from .dock_style_manager import get_dock_style_manager
-from .dock_theme_bridge import DockThemeBridge
-from ._trace import trace
+from lace.dock_signals import DockSignals
+from lace.sidebar_manager import SidebarManager
+from lace.sidebar_tab import TabBadgePosition
+from lace.layout_serializer import LayoutSerializer, LayoutError, LayoutPersistenceManager
+from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_theme_bridge import DockThemeBridge
+from lace._trace import trace
 
 logger = logging.getLogger(__name__)
 
@@ -196,14 +196,14 @@ class DockManager(QObject):
         """
         if self._title_bar_mode == TitleBarMode.custom:
             try:
-                from .floating_dock_container_frameless import (
+                from lace.floating_dock_container_frameless import (
                     FloatingDockContainer as FramelessFloatingDockContainer)
                 return FramelessFloatingDockContainer
             except ImportError:
                 logger.warning(
                     "qframelesswindow unavailable — falling back to native "
                     "floating containers")
-        from .floating_dock_container import FloatingDockContainer
+        from lace.floating_dock_container import FloatingDockContainer
         return FloatingDockContainer
 
     @property
@@ -301,7 +301,7 @@ class DockManager(QObject):
         Applies a predefined theme to the entire docking system.
         Returns True if the theme was found and applied successfully.
         """
-        from .dock_style_manager import apply_dock_theme
+        from lace.dock_style_manager import apply_dock_theme
         return apply_dock_theme(theme_name)
 
     # ─────────────────────────────────────────────────────────────────────
@@ -677,7 +677,7 @@ class DockManager(QObject):
                     return
             except RuntimeError:
                 pass
-        from .dock_area_widget import DockAreaWidget
+        from lace.dock_area_widget import DockAreaWidget
         for area in self.find_children(DockAreaWidget):
             try:
                 if not area.isHidden() and area.open_dock_widgets_count() > 0:

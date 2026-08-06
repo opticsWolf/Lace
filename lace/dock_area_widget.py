@@ -17,17 +17,17 @@ from PySide6.QtCore import QRect, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout
 
-from .util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
+from lace.util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget)
-from .enums import TitleBarButton, DockWidgetFeature
-from .dock_area_layout import DockAreaLayout
-from .dock_chrome import ChromeFrame
-from .dock_paint import ChromeTokens
-from .dock_styled import DockStyled
-from .dock_theme import DockStyleCategory
+from lace.enums import TitleBarButton, DockWidgetFeature
+from lace.dock_area_layout import DockAreaLayout
+from lace.dock_chrome import ChromeFrame
+from lace.dock_paint import ChromeTokens
+from lace.dock_styled import DockStyled
+from lace.dock_theme import DockStyleCategory
 
 if TYPE_CHECKING:
-    from . import DockContainerWidget, DockManager, DockWidget, DockAreaTabBar, DockAreaTitleBar
+    from lace import DockContainerWidget, DockManager, DockWidget, DockAreaTabBar, DockAreaTitleBar
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         return f'<{self.__class__.__name__}>'
 
     def _create_title_bar(self):
-        from .dock_area_title_bar import DockAreaTitleBar
+        from lace.dock_area_title_bar import DockAreaTitleBar
         self._title_bar = DockAreaTitleBar(self)
         self._layout.addWidget(self._title_bar)
 
@@ -236,7 +236,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
     def hide_area_with_no_visible_content(self):
         self.toggle_view(False)
 
-        from .dock_splitter import DockSplitter
+        from lace.dock_splitter import DockSplitter
         splitter = find_parent(DockSplitter, self)
         hide_empty_parent_splitters(splitter)
 
@@ -279,7 +279,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         return self._dock_manager
 
     def dock_container(self) -> 'DockContainerWidget':
-        from .dock_container_widget import DockContainerWidget
+        from lace.dock_container_widget import DockContainerWidget
         return find_parent(DockContainerWidget, self)
 
     def title_bar_geometry(self) -> QRect:

@@ -29,7 +29,7 @@ from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QMenuBar, QWidget
 
-from .dock_theme import DockStyleCategory
+from lace.dock_theme import DockStyleCategory
 
 
 def _color_hex(col, alpha: Optional[float] = None) -> str:
@@ -74,7 +74,7 @@ class FramelessTitleBarStyler:
         menu_bar: Optional[QMenuBar] = None,
         parent: Optional[QWidget] = None,
     ) -> None:
-        from .dock_style_manager import get_dock_style_manager
+        from lace.dock_style_manager import get_dock_style_manager
 
         self._parent = parent
         self._title_bar = title_bar
@@ -274,7 +274,7 @@ class FramelessTitleBarStyler:
             # QSS polish snapshots a stale palette into the widget, so
             # set it explicitly from the current theme to keep
             # hover/pressed item colours from lagging one theme behind.
-            from .dock_theme import build_dock_palette
+            from lace.dock_theme import build_dock_palette
 
             palette = build_dock_palette(is_panel=False)
             if bg is not None:

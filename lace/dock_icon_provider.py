@@ -18,8 +18,8 @@ from PySide6.QtGui import QColor, QIcon, QPixmap, QPainter
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication
 
-from .dock_style_manager import get_dock_style_manager
-from .dock_theme import DockStyleCategory
+from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_theme import DockStyleCategory
 
 import logging
 logger = logging.getLogger(__name__)
