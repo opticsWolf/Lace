@@ -147,8 +147,16 @@ class LaceStandardTitleBar(StandardTitleBar):
             | win32con.TPM_LEFTALIGN
             | win32con.TPM_TOPALIGN
         )
+        # Qt global coordinates are device-independent (logical) pixels,
+        # but TrackPopupMenu positions the menu on the Win32 virtual
+        # desktop, which is in physical device pixels.  On scaled displays
+        # (e.g. 125% / 150%) the two differ, so convert before showing or
+        # the menu appears offset from the cursor.
+        dpr = self.window().devicePixelRatioF()
+        x = round(global_pos.x() * dpr)
+        y = round(global_pos.y() * dpr)
         cmd = win32gui.TrackPopupMenu(
-            hmenu, flags, global_pos.x(), global_pos.y(), 0, hwnd, None
+            hmenu, flags, x, y, 0, hwnd, None
         )
         if cmd:
             win32gui.PostMessage(hwnd, win32con.WM_SYSCOMMAND, cmd, 0)
