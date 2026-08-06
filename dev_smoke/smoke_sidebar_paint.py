@@ -155,7 +155,8 @@ def sample_decorations(theme: str):
 
 
 def sample_buttons(theme: str):
-    """ChromeToolButton: exact size preserved + painted hover fill (forced flag)."""
+    """ChromeToolButton: uniform sizing within [minimum, sizeHint] preserved,
+    plus painted hover fill (forced flag)."""
     apply_dock_theme(theme)
     dw = list(dm.dock_widgets_map().values())[0]
     if not side.is_pinned(dw):
@@ -164,8 +165,13 @@ def sample_buttons(theme: str):
     overlay = side._overlay
     overlay.show_widget(dw, DockWidgetArea.left, animate=False, size=QSize(300, 500))
     app.processEvents()
-    btn = overlay._title_bar._close_btn
+    title_bar = overlay._title_bar
+    buttons = (title_bar._reattach_btn, title_bar._float_btn,
+               title_bar._maximize_btn, title_bar._close_btn)
+    btn = title_bar._close_btn
     size = (btn.width(), btn.height())
+    size_hint = (btn.sizeHint().width(), btn.sizeHint().height())
+    sizes = {(b.width(), b.height()) for b in buttons}
 
     hb = sm.get(DockStyleCategory.SIDEPANEL, "button_hover_bg")
     exp_hb = hb.getRgb()[:3] if hb else None
@@ -183,7 +189,8 @@ def sample_buttons(theme: str):
     nimg = btn.grab().toImage()
     npx = nimg.pixelColor(2, 2)          # corner: no fill -> not the hover colour
 
-    res = {"size": size, "hover_px": (hpx.red(), hpx.green(), hpx.blue()),
+    res = {"size": size, "size_hint": size_hint, "sizes": sizes,
+           "hover_px": (hpx.red(), hpx.green(), hpx.blue()),
            "exp_hb": exp_hb, "idle_px": (npx.red(), npx.green(), npx.blue()),
            "pressed_px": (ppx.red(), ppx.green(), ppx.blue())}
     side.unpin_widget(dw)
@@ -194,9 +201,17 @@ def sample_buttons(theme: str):
 print("--- ChromeToolButton (size + painted hover) ---")
 for theme in ("default", "light", "monokai"):
     b = sample_buttons(theme)
-    print(f"[{theme}] size={b['size']} hover={b['hover_px']}/{b['exp_hb']} "
+    print(f"[{theme}] size={b['size']} hint={b['size_hint']} sizes={b['sizes']} "
+          f"hover={b['hover_px']}/{b['exp_hb']} "
           f"pressed={b['pressed_px']} idle={b['idle_px']}")
-    assert b["size"] == (25, 25), f"{theme}: button size changed -> {b['size']}"
+    # The shared styler must size every title-bar button identically (no button
+    # is special-cased).  With 4 buttons + the title label the layout may
+    # legitimately squeeze them toward their CSS minimum (min-width 18 +
+    # 2x2 padding = 22), so assert uniform size within the declared
+    # [minimum, sizeHint] range rather than a hard-coded snapshot.
+    assert len(b["sizes"]) == 1, f"{theme}: buttons not uniformly sized -> {b['sizes']}"
+    for got, hint in zip(b["size"], b["size_hint"]):
+        assert 22 <= got <= hint + 1, f"{theme}: button size {b['size']} outside [22, hint+1]"
     for got, want in zip(b["hover_px"], b["exp_hb"]):
         assert abs(got - want) <= 2, f"{theme}: hover fill {b['hover_px']} != {b['exp_hb']}"
     # pressed reads distinctly from hover (translucent dark wash on top)

@@ -149,6 +149,9 @@ def run_test():
 
     # 8. Test sidebar_area_has_maximize_button
     assert DockFlags.sidebar_area_has_maximize_button in mgr.config_flags
+    # Section 5 disabled pinnable_tabs; pin_widget() is gated on that flag, so
+    # re-enable it here or the pin (and thus the whole section) silently no-ops.
+    mgr.set_config_flags(mgr.config_flags | DockFlags.pinnable_tabs)
     sm = mgr.sidebar_manager
     sm.pin_widget(dw2, area=DockWidgetArea.right)
     app.processEvents()
