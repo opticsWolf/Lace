@@ -31,6 +31,44 @@ from qframelesswindow import FramelessMainWindow, FramelessWindow
 from qframelesswindow.titlebar import StandardTitleBar
 
 
+_DARK_MODE_OPTED_IN = False
+
+
+def _enable_system_dark_mode_menus() -> None:
+    """Opt the process into Windows dark mode so native menus follow the
+    system theme.
+
+    Without this, Win32 popup menus opened via ``TrackPopupMenu`` always
+    render with the classic light theme, even when the system Apps theme
+    is dark (the ``AppsUseLightTheme`` setting).  Calling
+    ``SetPreferredAppMode(AllowDark)`` tells Windows the process accepts
+    dark mode, so its native menus follow the OS light/dark mode — dark
+    when the system is dark, light when it is light.
+
+    The call is process-wide and idempotent; it only needs to happen once
+    per process.  ``SetPreferredAppMode`` is an undocumented export of
+    ``uxtheme.dll`` (ordinal 135), so it is resolved by ordinal inside a
+    try/except and silently skipped on platforms/versions where it is
+    unavailable.
+    """
+    global _DARK_MODE_OPTED_IN
+    if _DARK_MODE_OPTED_IN or sys.platform != "win32":
+        return
+    _DARK_MODE_OPTED_IN = True
+    try:
+        import ctypes
+
+        # PreferredAppMode.AllowDark = 1: menus/chrome may follow the
+        # system light/dark theme instead of forcing light.
+        uxtheme = ctypes.WinDLL("uxtheme")
+        set_preferred_app_mode = uxtheme[135]
+        set_preferred_app_mode.argtypes = [ctypes.c_int]
+        set_preferred_app_mode.restype = ctypes.c_int
+        set_preferred_app_mode(1)
+    except Exception:
+        pass
+
+
 # Type alias for the flexible title-bar descriptor accepted by Lace frameless
 # windows: ``None`` selects :class:`LaceStandardTitleBar`, a :class:`QWidget`
 # instance is used as-is, a class is instantiated as ``class(parent)``, and a
@@ -242,6 +280,8 @@ class FramelessLaceMainWindow(FramelessMainWindow):
         title_bar: TitleBarDescriptor = None,
     ):
         super().__init__(parent)
+        # Let native Win32 popup menus follow the system light/dark theme.
+        _enable_system_dark_mode_menus()
         self._menu_bar: Optional[QMenuBar] = None
         self._menu_bar_container: Optional[QWidget] = None
         self._titlebar_styler: Optional["FramelessTitleBarStyler"] = None
@@ -389,6 +429,8 @@ class FramelessLaceWindow(FramelessWindow):
         title_bar: TitleBarDescriptor = None,
     ):
         super().__init__(parent)
+        # Let native Win32 popup menus follow the system light/dark theme.
+        _enable_system_dark_mode_menus()
         if title_bar is not None:
             self.setTitleBar(_resolve_title_bar(title_bar, self))
 

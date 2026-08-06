@@ -611,7 +611,10 @@ Right-clicking the window **icon** opens the standard system menu
 (Restore / Move / Size / Minimize / Maximize / Close).  On Windows this uses
 the real system menu via `TrackPopupMenu` (so items are localized and
 automatically enabled/disabled for the current window state); other platforms
-fall back to an equivalent `QMenu`.
+fall back to an equivalent `QMenu`.  Creating a Lace frameless window also
+calls `SetPreferredAppMode(AllowDark)` (uxtheme) so native menus follow the
+system light/dark theme — dark when the OS is in dark mode, light when it is
+in light mode.
 
 ### Chromeless Floating Windows
 
