@@ -47,9 +47,10 @@
 
 - **14 built-in themes** — Dark, light, midnight, warm, nordic, monokai, neutral, tokyo_night, catppuccin, dracula, solarized_dark/light, and cyberpunk_neon
 - **Declarative `ThemeSpec`** — Define custom themes with color palettes and geometrical tokens (corner radius, border width, title height, tab radius, content margin, etc.)
+- **JSON theme files** — Ship themes as JSON (Pydantic-validated via `ThemeJson`/`load_theme_json`); colors as `[r,g,b,a]` lists or `"#rrggbb"` strings
 - **Reactive borders** — Active dock area shows a vibrant focus border; inactive areas show a subtle neutral border
-- **OS auto-sync** — Automatically switch between light/dark themes when the OS changes
-- **Custom QSS/stylesheet support** — Point themes to external `.qss` or `.css` files
+- **OS auto-sync** — Automatically switch between light/dark themes when the OS changes (`ThemeManager.sync_theme(force, path)`)
+- **Custom QSS/stylesheet support** — Point themes to external `.qss` or `.css` files, or a directory of `<name>.json|.qss|.css` files via `default_theme_path`
 
 ### ⚙️ Configuration
 
@@ -202,6 +203,7 @@ lace/
 │   ├── dock_paint.py              # Painting primitives
 │   ├── dock_theme.py              # Theme schemas, ThemeSpec, color math
 │   ├── dock_custom_theme.py       # 14 built-in theme presets
+│   ├── theme_models.py            # ThemeJson — Pydantic JSON theme loading
 │   ├── dock_style_manager.py      # Singleton style manager (subscriber model)
 │   ├── dock_theme_bridge.py       # QPalette push to Qt children
 │   ├── theme_manager.py           # OS-aware auto dark/light switching
@@ -223,11 +225,35 @@ lace/
 │   └── _trace.py                  # Optional debug tracing
 ├── demo_app.py                    # Full-featured demo application
 ├── dev_smoke/                     # Smoke tests for individual features
+├── tests/                         # pytest suite (theme engine, JSON themes, style manager, enums, paint, layout errors, circular-import detector)
 ├── docs/                          # Documentation
 ├── lace/resources/lace_icons/     # SVG icons (close, dock, float, pin, etc.)
 ├── LICENSE                        # Apache-2.0
 └── README.md                      # This file
 ```
+
+---
+
+## Testing
+
+Two complementary test layers:
+
+- **`tests/` (pytest)** — fast logic/contract tests for the theme engine,
+  `ThemeJson` loading, `DockStyleManager`, enums/config masks, paint
+  primitives, layout-serializer errors, and an AST-based circular-import
+  detector that fails if a real module-level import cycle is introduced.
+
+  ```bash
+  pytest tests/
+  ```
+
+- **`dev_smoke/` (offscreen Qt)** — each check builds its own `QApplication`
+  and drives real widgets offscreen (theme switching, sidebar chrome,
+  save/restore round-trips, dock flags, JSON theme application):
+
+  ```bash
+  python dev_smoke/run_all.py
+  ```
 
 ---
 

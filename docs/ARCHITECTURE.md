@@ -18,6 +18,7 @@ Lace provides a complete docking system supporting:
 - **Perspectives** — save/restore complete layout configurations
 - **JSON serialization** — full layout persistence with atomic file I/O
 - **Theming engine** — 14+ built-in themes with dynamic color computation and live switching
+- **JSON theme files** — validated via Pydantic (`ThemeJson`), applied through the same engine as built-ins
 - **Custom icon provider** — SVG-based icon system with theme-aware tinting
 
 ### High-Level Component Map
@@ -52,6 +53,7 @@ DockManager (facade)
 ├── DockThemeBridge (QPalette push to Qt children)
 ├── DockOverlay (×2: container + dock-area drop targets)
 ├── DockSignals (internal event bus)
+├── ThemeJson / load_theme_json (Pydantic-validated JSON theme loading)
 └── ThemeManager (OS-aware auto dark/light switching)
 ```
 
@@ -227,8 +229,8 @@ Visual drop-target overlays during drag-and-drop.
 | `top_rounded_path(rect, radius) → QPainterPath` | Path with only top corners rounded |
 | `bottom_rounded_path(rect, radius) → QPainterPath` | Path with only bottom corners rounded |
 | `ChromeTokens(bg, border, border_width, radius, focus_border)` | Frozen dataclass; `content_margin()` method |
-| `paint_panel(p, rect, c, focused)` | Core panel painter: fill + outline + focus swap |
-| `paint_tab(p, rect, bg, bg_gradient, radius, indicator, indicator_width, indicator_edge)` | Tab painter with optional indicator strip |
+| `paint_panel(p, rect, c, focused)` | Core panel painter: fill + outline + focus swap, driven by a `ChromeTokens` bundle (`paint_panel_bg` / `paint_panel_border` split) |
+| `paint_tab(p, rect, *, bg, bg_gradient, radius, indicator, indicator_width, indicator_edge)` | Tab painter (keyword-only) with optional indicator strip; `indicator_edge` is a `Qt.Edge` |
 | `create_high_dpi_drop_indicator_pixmap(size, area, mode, colors, dpr) → QPixmap` | Drop-zone icon painter |
 
 ---
@@ -428,7 +430,8 @@ All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()
 |---|---|
 | **Signals** | `style_changed(category, changes)` |
 | **Singleton** | `instance() → DockStyleManager` |
-| **Theme** | `apply_theme(name) → bool`, `_reset_to_defaults()` |
+| **Theme** | `apply_theme(name) → bool`, `apply_theme_dict(theme_data) → bool`, `_reset_to_defaults()` |
+| | `apply_theme_dict()` applies a raw `{DockStyleCategory: {token: value}}` dict (e.g. from `load_theme_json`) through the same reset-to-defaults + broadcast path as named themes |
 | **Subscribers** | `register(subscriber, category)`, `unregister(subscriber, category?)` |
 | **Get** | `get(category, key, default)`, `get_all(category) → dict` |
 | **Update** | `update(category, **kwargs) → set` (returns changed keys) |
@@ -454,9 +457,45 @@ OS-aware auto dark/light theme switching.
 |---|---|
 | **Signals** | `theme_changed(theme_name, is_dark)` |
 | **OS Detection** | `is_windows_dark_mode()` — checks Qt 6.5+ colorScheme, Windows registry, or palette fallback |
-| **Sync** | `sync_theme(force) → bool` — applies dark/light theme from user preferences |
+| **Sync** | `sync_theme(force, path) → bool` — applies dark/light theme from user preferences; `path` overrides the resolved source with an explicit theme file |
 | **Events** | `eventFilter(obj, event)`, `_on_color_scheme_changed()`, `install_listener(target)`, `remove_listener(target)` |
-| **User prefs** | `user_light_theme`, `user_dark_theme`, `auto_mode_enabled` |
+| **User prefs** | `user_light_theme`, `user_dark_theme`, `auto_mode_enabled`, `default_theme_path` |
+
+**Theme source resolution** (`sync_theme` with `path=None`):
+
+1. `user_dark_theme` / `user_light_theme` if the value is itself an existing file path (JSON / QSS / CSS),
+2. `default_theme_path` — a single theme file, or a directory of `<theme_name>.json|.qss|.css` files,
+3. a registered Lace theme name (e.g. `"dark"`), or a raw QSS string.
+
+`.json` files are loaded through `ThemeJson` (Pydantic validation) and applied via `DockStyleManager.apply_theme_dict()`; QSS/CSS files are applied via `setStyleSheet()`.
+
+### 3.13 `theme_models.py` — `ThemeJson` (JSON theme loading)
+
+Pydantic-validated loading of declarative themes from JSON files. The JSON schema mirrors `ThemeSpec` (see §3.2): the same 3–5 seed colors plus geometry/status overrides, so a JSON theme derives its full token set through `build_theme()` exactly like the built-in presets.
+
+| Member | Description |
+|---|---|
+| **`ThemeJson`** | Pydantic `BaseModel`; fields match `ThemeSpec`; unknown keys are ignored; colors accept `[r, g, b(, a)]` lists or `"#rrggbb"` / SVG-name strings |
+| **`ThemeJson.load(path)`** | Parse + validate a JSON file; raises `JSONDecodeError` / `ValidationError` |
+| **`to_theme_spec()`** | Convert the validated model into a `ThemeSpec` (hex strings resolved via `to_qcolor`) |
+| **`build_theme_dict()`** | Derive the full `{DockStyleCategory: {token: value}}` theme dict |
+| **`load_theme_json(path)`** | One-shot helper: `ThemeJson.load(path).build_theme_dict()` |
+
+Example `theme.json`:
+
+```json
+{
+    "name": "MyTheme",
+    "base": [14, 11, 28, 255],
+    "accent": "#ff007f",
+    "text": [245, 245, 255, 255],
+    "surface": [24, 19, 44, 255],
+    "corner_radius": 8,
+    "tab_dimming": true
+}
+```
+
+Apply with `get_dock_style_manager().apply_theme_dict(load_theme_json("theme.json"))` or through `ThemeManager.sync_theme(path="theme.json")`.
 
 ---
 

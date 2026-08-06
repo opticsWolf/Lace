@@ -168,3 +168,65 @@ In Lace's docking architecture, card borders (`border_width`) on `DockAreaWidget
    ├── TAB       ──> [DockWidgetTab (corner_radius, margin)]
    └── PANEL     ──> [DockWidget (content_margin -> setContentsMargins)]
 ```
+
+---
+
+## 8. JSON Theme Files (`theme_models.py`)
+
+Declarative themes can also be shipped as **JSON files**, validated by Pydantic
+before they touch the engine. The JSON schema mirrors `ThemeSpec` (see §1): the
+same 3–5 seed colors plus every geometry/status token, so a JSON theme derives
+its complete token set through the same `build_theme()` pipeline as the
+built-in presets.
+
+### Format
+
+- **Colors** may be `[r, g, b(, a)]` lists **or** `"#rrggbb"` / SVG-name strings.
+  Channel lists are validated (ints in `0..255`, 3 or 4 channels); strings are
+  resolved through Qt's canonical `QColor` conversion.
+- **Unknown keys are ignored**, so future metadata can be embedded safely.
+- **Schema violations raise `pydantic.ValidationError`** (e.g. out-of-range
+  channel, missing required `base`/`accent`/`text`), and malformed JSON raises
+  `JSONDecodeError`.
+
+```json
+{
+    "name": "MyTheme",
+    "base": [14, 11, 28, 255],
+    "accent": "#ff007f",
+    "text": [245, 245, 255, 255],
+    "surface": [24, 19, 44, 255],
+    "border": [0, 180, 205, 205],
+    "is_light": false,
+    "corner_radius": 10,
+    "border_width": 1.5,
+    "title_height": 32,
+    "tab_radius": 8,
+    "content_margin": [8, 2],
+    "tab_dimming": true
+}
+```
+
+### Loading & Applying
+
+```python
+from lace import load_theme_json, get_dock_style_manager
+
+# Validate + build the full theme dict
+theme = load_theme_json("my_theme.json")      # -> {DockStyleCategory: {token: value}}
+
+# Apply through the same path as named themes (resets to defaults first)
+get_dock_style_manager().apply_theme_dict(theme)
+
+# Or route it through the OS-aware switcher:
+from lace import ThemeManager
+
+tm = ThemeManager(QApplication.instance(), default_theme_path="themes/")
+tm.sync_theme()                                # loads themes/dark.json or themes/light.json
+
+tm.sync_theme(path="my/custom/theme.json")    # explicit override
+```
+
+`ThemeManager.default_theme_path` may point at a single theme file (`.json` /
+`.qss` / `.css`) or a directory containing `<theme_name>.json|.qss|.css`, used
+when `sync_theme()` is called without an explicit `path`.

@@ -241,15 +241,33 @@ apply_dock_theme("cyberpunk_neon")
 ```python
 from lace import ThemeManager
 
-theme_manager = ThemeManager(QApplication.instance())
+# default_theme_path: single theme file, or a directory of
+# <theme_name>.json|.qss|.css files used when no explicit path is given
+theme_manager = ThemeManager(QApplication.instance(), default_theme_path="themes/")
 theme_manager.auto_mode_enabled = True  # enables OS dark/light detection
 
 # Override light/dark theme preferences
 theme_manager.user_light_theme = "light"
 theme_manager.user_dark_theme = "dark"
 
-# Or point to a custom .qss/.css file
+# Or point to a custom .qss/.css/.json file
 theme_manager.user_light_theme = "/path/to/my_theme.qss"
+
+# Sync now; optionally force a re-apply or pin an explicit theme file:
+theme_manager.sync_theme()                    # resolve from user prefs / default path
+theme_manager.sync_theme(force=True)          # re-apply even if unchanged
+theme_manager.sync_theme(path="themes/nordic.json")  # explicit file wins
+```
+
+### JSON Theme File (Pydantic-validated)
+
+```python
+from lace import load_theme_json, get_dock_style_manager
+
+# theme.json mirrors ThemeSpec; colors accept [r,g,b,a] lists or "#rrggbb"
+# strings; unknown keys are ignored; violations raise ValidationError.
+theme = load_theme_json("my_theme.json")
+get_dock_style_manager().apply_theme_dict(theme)
 ```
 
 ### Custom Theme with ThemeSpec
