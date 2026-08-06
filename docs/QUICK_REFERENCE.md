@@ -607,6 +607,12 @@ is still pressed, so the maximize silently failed (the "stale" double-click).
 The synchronous toggle works regardless of the button state, and is also used
 automatically on every frameless floating container.
 
+Right-clicking the window **icon** opens the standard system menu
+(Restore / Move / Size / Minimize / Maximize / Close).  On Windows this uses
+the real system menu via `TrackPopupMenu` (so items are localized and
+automatically enabled/disabled for the current window state); other platforms
+fall back to an equivalent `QMenu`.
+
 ### Chromeless Floating Windows
 
 ```python

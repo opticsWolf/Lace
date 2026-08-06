@@ -21,11 +21,12 @@ On Windows this resolves to ``WindowsFramelessMainWindow`` /
 
 from __future__ import annotations
 
+import sys
 from typing import Optional, Union
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QMenuBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QMenu, QMenuBar, QVBoxLayout, QWidget
 from qframelesswindow import FramelessMainWindow, FramelessWindow
 from qframelesswindow.titlebar import StandardTitleBar
 
@@ -97,7 +98,97 @@ class LaceStandardTitleBar(StandardTitleBar):
     Using :meth:`QWidget.showMaximized` / :meth:`QWidget.showNormal`
     directly takes effect regardless of the button state, so the toggle is
     deterministic.
+
+    Right-clicking the window icon opens the standard system menu
+    (Restore / Move / Size / Minimize / Maximize / Close).  On Windows the
+    native ``TrackPopupMenu`` system menu is used so items are localized
+    and enabled/disabled automatically; on other platforms a ``QMenu``
+    fallback with the same actions is shown.
     """
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.iconLabel.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.iconLabel.customContextMenuRequested.connect(self._show_system_menu)
+
+    # -- system menu -----------------------------------------------------
+
+    def _show_system_menu(self, pos: QPoint) -> None:
+        """Show the window's system menu for a right-click on the icon."""
+        global_pos = self.iconLabel.mapToGlobal(pos)
+        if sys.platform == "win32":
+            self._show_native_system_menu(global_pos)
+        else:
+            self._show_qt_system_menu(global_pos)
+
+    def _show_native_system_menu(self, global_pos: QPoint) -> None:
+        """Show the real Windows system menu via ``TrackPopupMenu``.
+
+        The menu is owned by the window (``GetSystemMenu``) so it is
+        localized and its items are enabled/disabled to match the current
+        window state.  Selecting an item returns its ``SC_*`` command id,
+        which is then posted back to the window as ``WM_SYSCOMMAND`` — the
+        same mechanism the native title bar uses.
+        """
+        try:
+            import win32con
+            import win32gui
+        except ImportError:
+            self._show_qt_system_menu(global_pos)
+            return
+
+        hwnd = int(self.window().winId())
+        hmenu = win32gui.GetSystemMenu(hwnd, False)
+        if not hmenu:
+            return
+        flags = (
+            win32con.TPM_RETURNCMD
+            | win32con.TPM_NONOTIFY
+            | win32con.TPM_LEFTALIGN
+            | win32con.TPM_TOPALIGN
+        )
+        cmd = win32gui.TrackPopupMenu(
+            hmenu, flags, global_pos.x(), global_pos.y(), 0, hwnd, None
+        )
+        if cmd:
+            win32gui.PostMessage(hwnd, win32con.WM_SYSCOMMAND, cmd, 0)
+
+    def _show_qt_system_menu(self, global_pos: QPoint) -> None:
+        """Fallback system menu for non-Windows platforms."""
+        window = self.window()
+        maximized = window.isMaximized()
+        minimized = window.isMinimized()
+
+        menu = QMenu(self)
+        if maximized or minimized:
+            menu.addAction("Restore", window.showNormal)
+        menu.addAction("Move", self._start_system_move).setEnabled(not maximized)
+        menu.addAction("Size", self._start_system_resize).setEnabled(not maximized)
+        menu.addSeparator()
+        menu.addAction("Minimize", window.showMinimized)
+        menu.addAction("Maximize", window.showMaximized).setEnabled(not maximized)
+        menu.addSeparator()
+        menu.addAction("Close", window.close)
+        menu.exec(global_pos)
+
+    def _start_system_move(self) -> None:
+        """Start an OS move loop for the parent window (cross-platform)."""
+        handle = self.window().windowHandle()
+        if handle is not None:
+            handle.startSystemMove()
+
+    def _start_system_resize(self) -> None:
+        """Start an OS resize loop for the parent window (cross-platform)."""
+        handle = self.window().windowHandle()
+        if handle is not None:
+            handle.startSystemResize(
+                Qt.Edges(
+                    Qt.Edge.LeftEdge
+                    | Qt.Edge.RightEdge
+                    | Qt.Edge.TopEdge
+                    | Qt.Edge.BottomEdge
+                )
+            )
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         if event.button() != Qt.LeftButton or not self._isDoubleClickEnabled:
