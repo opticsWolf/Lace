@@ -618,7 +618,7 @@ class DockWidgetTab(QFrame, DockStyled):
         self._close_button.setIconSize(QSize(icon_size_val, icon_size_val))
         v_policy = (
             QSizePolicy.Expanding
-            if styles.get("close_btn_expand_vertical", True)
+            if styles.get("close_btn_expand_vertical", False)
             else QSizePolicy.Fixed
         )
         self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
