@@ -21,6 +21,8 @@ VALID_THEME = {
     "text": [245, 245, 255, 255],
     "surface": [24, 19, 44, 255],
     "focus_border_color": "#00f0ff",
+    "tooltip_bg": "#1b2430",
+    "tooltip_text": [225, 230, 240, 255],
     "title_mode": "darker",
     "hover_mode": "lighter",
     "corner_radius": 10,
@@ -65,6 +67,8 @@ def test_hex_colors_resolve_to_rgba(theme_file):
     core = theme_dict[DockStyleCategory.CORE]
     assert deep_to_serializable(core["accent_color"]) == [255, 0, 127, 255]
     assert deep_to_serializable(core["focus_border_color"]) == [0, 240, 255, 255]
+    assert deep_to_serializable(core["tooltip_bg"]) == [27, 36, 48, 255]
+    assert deep_to_serializable(core["tooltip_text"]) == [225, 230, 240, 255]
 
 
 def test_load_theme_json_helper_matches_build(theme_file):
@@ -78,6 +82,8 @@ def test_applying_json_theme_dict(qapp, theme_file):
     assert sm.get(DockStyleCategory.CORE, "accent_color").getRgb()[:3] == (255, 0, 127)
     assert sm.get(DockStyleCategory.TAB, "corner_radius") == 8
     assert sm.get(DockStyleCategory.PANEL, "content_margin") == [8.0, 2.0]
+    assert sm.get(DockStyleCategory.CORE, "tooltip_bg").getRgb()[:3] == (27, 36, 48)
+    assert sm.get(DockStyleCategory.CORE, "tooltip_text").getRgb()[:3] == (225, 230, 240)
 
 
 # ---------------------------------------------------------------------------

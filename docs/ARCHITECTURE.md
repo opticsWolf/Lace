@@ -307,6 +307,8 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | `warning_color` | `QColor` / `List[int]` | Status: warning/yellow |
 | `error_color` | `QColor` / `List[int]` | Status: error/red |
 | `info_color` | `QColor` / `List[int]` | Status: info/cyan |
+| `tooltip_bg` | `QColor` / `List[int]` | Tooltip background (`QToolTip` palette); derived from panel when unset |
+| `tooltip_text` | `QColor` / `List[int]` | Tooltip text color; defaults to full-strength `text` |
 | `corner_radius` | `int` | Rounded corner radius for dock cards |
 | `border_width` | `float` | Stroke width for card outlines |
 | `title_height` | `int` | Height of the title bar |

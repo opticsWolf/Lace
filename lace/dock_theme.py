@@ -68,6 +68,10 @@ class DockCoreStyleSchema(_FontFields):
     text_color: Optional[List[int]] = None
     disabled_text_color: Optional[List[int]] = None
 
+    # Tooltips (QToolTip palette: ToolTipBase / ToolTipText)
+    tooltip_bg: Optional[List[int]] = None
+    tooltip_text: Optional[List[int]] = None
+
 @dataclass
 class DockPanelStyleSchema:
     """Content area inside the dock widgets."""
@@ -316,6 +320,10 @@ class ThemeSpec:
     indicator_width: Optional[int] = None
     indicator_position: Optional[Union[str, List[str], Tuple[str, ...]]] = None
 
+    # Tooltip colors — when omitted, derived from the panel/text seed colors.
+    tooltip_bg: Optional[Union[QColor, List[int]]] = None
+    tooltip_text: Optional[Union[QColor, List[int]]] = None
+
 
 def _as_rgba(col: Union[QColor, List[int]]) -> List[int]:
     """Normalise a QColor or list to an ``[r, g, b, a]`` list for the colour math."""
@@ -352,6 +360,8 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         tab_dimming=spec.tab_dimming,
         indicator_width=spec.indicator_width,
         indicator_position=spec.indicator_position,
+        tooltip_bg=_as_rgba(spec.tooltip_bg) if spec.tooltip_bg is not None else None,
+        tooltip_text=_as_rgba(spec.tooltip_text) if spec.tooltip_text is not None else None,
     )
 
 
@@ -385,6 +395,8 @@ def _build_theme(
     tab_dimming: bool = False,
     indicator_width: Optional[int] = None,
     indicator_position: Optional[Union[str, List[str], Tuple[str, ...]]] = None,
+    tooltip_bg: Optional[list] = None,
+    tooltip_text: Optional[list] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
     Build a complete dock theme from 3 to 5 primary colors plus status tokens.
@@ -419,6 +431,12 @@ def _build_theme(
     
     # Title bar / header background: step darker (-0.06) or lighter (+0.06) relative to panel without double-inverting via d
     _title_bg   = _adjust_color(_panel, l_off= t_mode * 0.06)
+
+    # Tooltip surface: a clearly-distinct step off the panel so the popup pops
+    # against any surface (lighter on dark themes, darker on light themes);
+    # text defaults to the full-strength seed text color.
+    _tooltip_bg   = tooltip_bg if tooltip_bg is not None else _adjust_color(_panel, l_off=d * 0.09)
+    _tooltip_text = tooltip_text if tooltip_text is not None else text
     
     # Interactive hovers: always step in the direction of high contrast (lighter on dark containers, darker on light containers)
     _hover      = _contrasting_hover(base, amount=hover_amt)
@@ -466,7 +484,7 @@ def _build_theme(
     _shadow      = [0, 0, 0, 64 if not is_light else 32]
     
     theme = {
-        DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_border, _success, _warning, _error, _info),
+        DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_border, _success, _warning, _error, _info, _tooltip_bg, _tooltip_text),
         DockStyleCategory.PANEL: _build_panel(text, _panel, _input_bg, _alternate_base, _button_bg, _color_light, _color_mid, _color_dark, _color_shadow),
         DockStyleCategory.SIDEBAR: _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent),
         DockStyleCategory.SIDEPANEL: _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow, _focus_border, _neutral_border),
@@ -516,7 +534,7 @@ def _build_theme(
     return theme
 
 
-def _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_border, _success, _warning, _error, _info):
+def _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_border, _success, _warning, _error, _info, _tooltip_bg, _tooltip_text):
     return {
         "canvas_bg":          base,
         "border_color":       _neutral_border,
@@ -528,6 +546,8 @@ def _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_bord
         "warning_color":      _warning,
         "error_color":        _error,
         "info_color":         _info,
+        "tooltip_bg":         _tooltip_bg,
+        "tooltip_text":       _tooltip_text,
     }
 
 
@@ -778,6 +798,8 @@ class DockThemeColors:
     warning_color:    QColor
     error_color:      QColor
     info_color:       QColor
+    tooltip_bg:       QColor
+    tooltip_text:     QColor
 
 
 def resolve_dock_colors() -> DockThemeColors:
@@ -853,6 +875,8 @@ def _resolve_uncached(sm) -> DockThemeColors:
     warning = to_qcolor(sm.get(DockStyleCategory.CORE, "warning_color", [230, 167, 0]))
     error = to_qcolor(sm.get(DockStyleCategory.CORE, "error_color", [241, 76, 76]))
     info = to_qcolor(sm.get(DockStyleCategory.CORE, "info_color", [55, 148, 255]))
+    tooltip_bg = to_qcolor(sm.get(DockStyleCategory.CORE, "tooltip_bg", [48, 48, 48]))
+    tooltip_text = to_qcolor(sm.get(DockStyleCategory.CORE, "tooltip_text", [220, 220, 220]))
 
     return DockThemeColors(
         canvas_bg=canvas_bg, title_bg=title_bg, panel_bg=panel_bg,
@@ -862,7 +886,8 @@ def _resolve_uncached(sm) -> DockThemeColors:
         color_dark=color_dark, color_shadow=color_shadow,
         disabled_text=disabled_text, placeholder_text=placeholder_text,
         highlighted_text=highlighted_text, success_color=success,
-        warning_color=warning, error_color=error, info_color=info
+        warning_color=warning, error_color=error, info_color=info,
+        tooltip_bg=tooltip_bg, tooltip_text=tooltip_text
     )
 
 
@@ -874,8 +899,8 @@ def _apply_shared_roles(pal: QPalette, c: DockThemeColors):
         pal.setColor(QPalette.ColorRole.Link, c.accent_color)
     if hasattr(QPalette.ColorRole, "LinkVisited"):
         pal.setColor(QPalette.ColorRole.LinkVisited, c.accent_color)
-    pal.setColor(QPalette.ColorRole.ToolTipBase, c.title_bg)
-    pal.setColor(QPalette.ColorRole.ToolTipText, c.text_color)
+    pal.setColor(QPalette.ColorRole.ToolTipBase, c.tooltip_bg)
+    pal.setColor(QPalette.ColorRole.ToolTipText, c.tooltip_text)
     pal.setColor(QPalette.ColorRole.PlaceholderText, c.placeholder_text)
     
     for role in (QPalette.ColorRole.Text, QPalette.ColorRole.WindowText, QPalette.ColorRole.ButtonText):
@@ -909,4 +934,24 @@ def build_dock_palette(
     pal.setColor(QPalette.ColorRole.Shadow, c.color_shadow)
 
     _apply_shared_roles(pal, c)
+    return pal
+
+
+def build_tooltip_palette(
+    base_palette: Optional[QPalette] = None,
+    colors: Optional[DockThemeColors] = None,
+) -> QPalette:
+    """Build a :class:`QPalette` carrying the theme's tooltip colors.
+
+    Qt renders tooltips in a top-level ``QTipLabel`` that reads its palette
+    from ``QToolTip::palette()`` (cached the first time a tooltip is shown) —
+    never from the widget that triggered the tooltip, and never from the
+    application palette alone.  Hand the result to ``QToolTip.setPalette()``
+    whenever a theme is applied so every tooltip in the app follows it.
+    """
+    c = colors or resolve_dock_colors()
+    pal = QPalette(base_palette) if base_palette else QPalette()
+    for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+        pal.setColor(group, QPalette.ColorRole.ToolTipBase, c.tooltip_bg)
+        pal.setColor(group, QPalette.ColorRole.ToolTipText, c.tooltip_text)
     return pal

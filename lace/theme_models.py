@@ -115,6 +115,10 @@ class ThemeJson(BaseModel):
     error_color: Optional[Color] = None
     info_color: Optional[Color] = None
 
+    # --- Tooltip colours -----------------------------------------------------
+    tooltip_bg: Optional[Color] = None
+    tooltip_text: Optional[Color] = None
+
     # --- Geometry / typography overrides -------------------------------------
     corner_radius: Optional[int] = None
     border_width: Optional[float] = None
@@ -166,6 +170,8 @@ class ThemeJson(BaseModel):
             warning_color=rgba(self.warning_color) if self.warning_color is not None else None,
             error_color=rgba(self.error_color) if self.error_color is not None else None,
             info_color=rgba(self.info_color) if self.info_color is not None else None,
+            tooltip_bg=rgba(self.tooltip_bg) if self.tooltip_bg is not None else None,
+            tooltip_text=rgba(self.tooltip_text) if self.tooltip_text is not None else None,
             corner_radius=self.corner_radius,
             border_width=self.border_width,
             title_height=self.title_height,

@@ -26,6 +26,10 @@ class ThemeSpec:
     error_color: Optional[Union[QColor, List[int]]] = None
     info_color: Optional[Union[QColor, List[int]]] = None
     
+    # Tooltip Tokens (default: derived from panel/text; drive QToolTip palette)
+    tooltip_bg: Optional[Union[QColor, List[int]]] = None
+    tooltip_text: Optional[Union[QColor, List[int]]] = None
+    
     # Geometrical Tokens
     corner_radius: Optional[int] = None
     border_width: Optional[float] = None

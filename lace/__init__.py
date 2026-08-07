@@ -31,6 +31,7 @@ from lace.dock_theme import (
     DockStyleCategory,
     ThemeSpec,
     build_theme,
+    build_tooltip_palette,
     deep_to_qcolor,
     deep_to_serializable,
 )

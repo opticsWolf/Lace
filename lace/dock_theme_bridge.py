@@ -14,10 +14,12 @@ import logging
 from typing import Any, Dict, Optional, Union
 
 from PySide6.QtCore import QObject, QTimer
-from PySide6.QtWidgets import QApplication, QWidget, QStyleFactory
+from PySide6.QtWidgets import QApplication, QToolTip, QWidget, QStyleFactory
 
 from lace.dock_style_manager import get_dock_style_manager
-from lace.dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_palette
+from lace.dock_theme import (
+    DockStyleCategory, resolve_dock_colors, build_dock_palette, build_tooltip_palette,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +136,13 @@ class DockThemeBridge(QObject):
         # 1. Apply the CORE palette to the application/manager (is_panel=False)
         palette = build_dock_palette(is_panel=False, colors=colors)
         self._target.setPalette(palette)
+
+        # 2. Tooltips render in a top-level QTipLabel that reads its palette
+        #    from QToolTip::palette() (cached at first show), so the app/widget
+        #    palette never reaches them.  Push the theme's tooltip colors there
+        #    so every tooltip in the app follows the active theme, regardless
+        #    of what the bridge targets.
+        QToolTip.setPalette(build_tooltip_palette(colors=colors))
 
         # The old "stylesheet nudge" (re-setting each window's stylesheet to force
         # QSS re-evaluation) is gone: all dock chrome is now painted or

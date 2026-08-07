@@ -7,12 +7,13 @@ Covers the declarative ThemeSpec -> build_theme pipeline, the HSL color math
 QPalette construction used by DockThemeBridge.
 """
 
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QPalette
 
 from lace.dock_theme import (
     DockStyleCategory,
     ThemeSpec,
     build_theme,
+    build_tooltip_palette,
     _adjust_color,
     _contrasting_hover,
     to_qcolor,
@@ -28,7 +29,7 @@ from lace.dock_theme import (
 REQUIRED_CORE = {
     "canvas_bg", "border_color", "accent_color", "focus_border_color",
     "text_color", "disabled_text_color", "success_color", "warning_color",
-    "error_color", "info_color",
+    "error_color", "info_color", "tooltip_bg", "tooltip_text",
 }
 SEED = ThemeSpec(base=[20, 23, 30, 255], accent=[45, 85, 170, 255],
                  text=[200, 205, 215, 255])
@@ -167,8 +168,38 @@ def test_build_dock_palette_roles_match_resolved_colors(qapp):
     assert pal.highlight().color().rgb() == colors.accent_color.rgb()
     assert pal.base().color().rgb() == colors.input_bg.rgb()
     assert pal.text().color().rgb() == colors.text_color.rgb()
+    assert pal.toolTipBase().color().rgb() == colors.tooltip_bg.rgb()
+    assert pal.toolTipText().color().rgb() == colors.tooltip_text.rgb()
     panel_pal = build_dock_palette(is_panel=True, colors=colors)
     assert panel_pal.window().color().rgb() == colors.panel_bg.rgb()
+
+
+def test_tooltip_palette_matches_theme_colors(qapp):
+    from PySide6.QtGui import QPalette
+
+    colors = resolve_dock_colors()
+    pal = build_tooltip_palette(colors=colors)
+    for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+        assert pal.color(group, QPalette.ColorRole.ToolTipBase).rgb() == colors.tooltip_bg.rgb()
+        assert pal.color(group, QPalette.ColorRole.ToolTipText).rgb() == colors.tooltip_text.rgb()
+
+
+def test_tooltip_tokens_derived_and_overridable():
+    # Derived defaults: tooltip bg differs from the panel, text is full-strength.
+    theme = build_theme(SEED)
+    core = theme[DockStyleCategory.CORE]
+    panel_bg = theme[DockStyleCategory.PANEL]["bg_normal"]
+    assert core["tooltip_bg"] != panel_bg
+    assert core["tooltip_text"] == SEED.text
+
+    # Explicit ThemeSpec overrides flow through build_theme.
+    custom = ThemeSpec(
+        base=[20, 23, 30, 255], accent=[45, 85, 170, 255], text=[200, 205, 215, 255],
+        tooltip_bg=[10, 20, 30, 255], tooltip_text=[1, 2, 3, 255],
+    )
+    custom_core = build_theme(custom)[DockStyleCategory.CORE]
+    assert custom_core["tooltip_bg"] == [10, 20, 30, 255]
+    assert custom_core["tooltip_text"] == [1, 2, 3, 255]
 
 
 def test_highlighted_text_contrasts_with_accent(qapp):
@@ -180,3 +211,54 @@ def test_highlighted_text_contrasts_with_accent(qapp):
     # The pure helper agrees: bright background -> dark text, and vice versa.
     assert _get_contrasting_text_color(QColor(255, 255, 255)) == QColor(20, 20, 20)
     assert _get_contrasting_text_color(QColor(0, 0, 0)) == QColor(255, 255, 255)
+
+
+def test_theme_bridge_pushes_tooltip_palette_to_qtooltip(qapp):
+    """DockThemeBridge must propagate theme tooltip colors to ``QToolTip``.
+
+    Qt renders tooltips in a top-level ``QTipLabel`` that reads its palette
+    from ``QToolTip::palette()`` (cached the first time a tooltip is shown) —
+    never from the widget/app palette.  The bridge is therefore the only path
+    that themes app-wide tooltips, and it must push a new palette on every
+    theme change.
+    """
+    from PySide6.QtWidgets import QToolTip, QWidget
+
+    from lace import apply_dock_theme
+    from lace.dock_theme_bridge import DockThemeBridge
+
+    # Hold a strong reference: DockManager/demos keep the bridge alive; a
+    # dropped reference lets Python GC destroy the QObject and its pending
+    # singleShot(0) refresh timers before they fire.
+    bridge = DockThemeBridge(target=qapp)
+
+    def tip_bg():
+        p = QToolTip.palette()
+        return p.color(QPalette.ColorGroup.Active, QPalette.ColorRole.ToolTipBase)
+
+    default_bg = tip_bg()
+
+    apply_dock_theme("dark")
+    qapp.processEvents()  # flush the debounced refresh
+    dark_bg = tip_bg()
+    assert dark_bg != default_bg
+
+    apply_dock_theme("light")
+    qapp.processEvents()
+    light_bg = tip_bg()
+    assert light_bg != dark_bg
+    assert light_bg.lightness() > dark_bg.lightness()  # light theme → lighter tooltip
+
+    # The pushed palette must match the theme engine's resolved tooltip tokens.
+    from lace.dock_theme import resolve_dock_colors
+
+    assert tip_bg().rgb() == resolve_dock_colors().tooltip_bg.rgb()
+
+    # A widget-targeted bridge also updates the global tooltip palette.
+    w = QWidget()
+    w.show()
+    DockThemeBridge(target=w, style_name="")
+    apply_dock_theme("dark")
+    qapp.processEvents()
+    assert tip_bg().rgb() == resolve_dock_colors().tooltip_bg.rgb()
+    w.close()
