@@ -601,10 +601,10 @@ class DockWidgetTab(QFrame, DockStyled):
         # 2b. Close-button box: same QSS box strategy as the title-bar buttons
         #     (min-width/min-height + padding + border-radius), so the painted
         #     hover fill and icon margins match the title-bar close button.
-        btn_size = styles.get("close_btn_size", 20)
+        btn_size = styles.get("close_btn_size", 17)
         icon_size_val = styles.get("close_btn_icon_size", 14)
         radius = styles.get("close_btn_corner_radius", 3)
-        padding = styles.get("close_btn_padding", 1)
+        padding = styles.get("close_btn_padding", 2)
         self._close_button.setStyleSheet(f"""
             QToolButton {{
                 background: transparent;
