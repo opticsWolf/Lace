@@ -573,9 +573,10 @@ class DockWidgetTab(QFrame, DockStyled):
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
 
-        # 2. Label colour via palette; close-button hover painted (no QSS at all
-        #    on the tab, so its painted background is never masked by a sheet and
-        #    the label palette isn't overridden by a parent-stylesheet cascade).
+        # 2. Label colour via palette; close-button hover painted.  The tab
+        #    itself still carries no stylesheet (its painted background must not
+        #    be masked by a sheet); the close button's sheet is sizing-only
+        #    (no colour), so it never goes stale on a theme change.
         text_active = styles.get("text_active")
         text_normal = styles.get("text_normal")
 
@@ -597,10 +598,30 @@ class DockWidgetTab(QFrame, DockStyled):
             styles.get("close_btn_corner_radius", 3),
         )
 
+        # 2b. Close-button box: same QSS box strategy as the title-bar buttons
+        #     (min-width/min-height + padding + border-radius), so the painted
+        #     hover fill and icon margins match the title-bar close button.
         btn_size = styles.get("close_btn_size", 20)
-        icon_size_val = styles.get("close_btn_icon_size", 16)
-        self._close_button.setFixedSize(QSize(btn_size, btn_size))
+        icon_size_val = styles.get("close_btn_icon_size", 14)
+        radius = styles.get("close_btn_corner_radius", 3)
+        padding = styles.get("close_btn_padding", 2)
+        self._close_button.setStyleSheet(f"""
+            QToolButton {{
+                background: transparent;
+                border: none;
+                border-radius: {radius}px;
+                padding: {padding}px;
+                min-width: {btn_size}px;
+                min-height: {btn_size}px;
+            }}
+        """)
         self._close_button.setIconSize(QSize(icon_size_val, icon_size_val))
+        v_policy = (
+            QSizePolicy.Expanding
+            if styles.get("close_btn_expand_vertical", True)
+            else QSizePolicy.Fixed
+        )
+        self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
 
         # 3. Typography.
         font = self.font()

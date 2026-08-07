@@ -129,10 +129,12 @@ class DockTabStyleSchema(_FontFields):
     close_btn_bg_hover: Optional[List[int]] = None
     close_btn_bg_disable: Optional[List[int]] = None
     close_btn_size: int = 20
-    close_btn_icon_size: int = 12   # smaller than the 20px button so the boxed
-                                    # square-x icon sits inside the hover fill
-                                    # with clear margin (no box-in-box crowding)
+    close_btn_icon_size: int = 14   # matches the title-bar button icon size; sits
+                                    # inside the padded hover fill with clear margin
     close_btn_corner_radius: int = 3
+    close_btn_padding: int = 2      # hover-fill padding — same QSS box model as the
+                                    # title-bar buttons (min-size + padding + radius)
+    close_btn_expand_vertical: bool = True  # stretch to the tab height like title-bar buttons
 
 
 @dataclass
