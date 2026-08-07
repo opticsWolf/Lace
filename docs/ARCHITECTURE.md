@@ -76,6 +76,7 @@ The central orchestrator. All public API flows through this class.
 | **Config** | `config_flags` (prop), `notify_config_flags_changed()` |
 | **Overlays** | `container_overlay()`, `dock_area_overlay()` |
 | **Containers** | `dock_containers()`, `register_floating_widget()`, `remove_floating_widget()` |
+| **Floating icon** | `floating_window_icon` (prop), `set_floating_window_icon(icon)`, `resolve_floating_window_icon()` |
 | **View Menu** | `view_menu`, `menu_insertion_order`, `add_toggle_view_action_to_menu(action, group)`, `_rebuild_view_menu()` |
 | **Delegated (root)** | `root_container()`, `add_dock_area()`, `remove_dock_area()`, `dock_area(i)`, `dock_area_count()`, `opened_dock_areas()`, `dock_area_at(pos)`, `is_floating()`, `top_level_dock_area()`, `top_level_dock_widget()`, `dock_widgets()`, `features()`, `floating_widget()`, `close_other_areas(area)`, `refresh_style()`, `dump_layout()`, `root_splitter()`, `drop_floating_widget(fw, pos)` |
 | **Internal** | `_handle_request_overlay_show()`, `_handle_request_overlay_hide()`, `_handle_floating_widget_dropped()`, `_on_app_focus_changed()`, `set_active_dock_area(area)`, `ensure_active_dock_area()` |
@@ -193,6 +194,7 @@ Top-level window for detached dock content.
 | **Config** | `update_window_flags_from_config()`, `_test_config_flag(flag)` |
 | **State** | `restore_state(state, testing)`, `update_window_title()`, `dock_container() → DockContainerWidget`, `has_top_level_dock_widget()`, `top_level_dock_widget()`, `dock_widgets()`, `is_closable()` |
 | **Title** | `on_dock_areas_added_or_removed()`, `on_dock_area_current_changed(index)`, `_set_window_title(text)` |
+| **Icon** | Window icon resolved at construction via `DockManager.resolve_floating_window_icon()` — dedicated `set_floating_window_icon()` icon, else application / root-window icon (shared by the frameless variant) |
 | **Qt events** | `changeEvent()`, `moveEvent()`, `event(e)`, `closeEvent()`, `hideEvent()`, `eventFilter(watched, event)`, `resizeEvent()`, `paintEvent()`, `mousePressEvent()`, `mouseMoveEvent()`, `mouseReleaseEvent()` |
 | **Styling** | `refresh_style()` |
 
