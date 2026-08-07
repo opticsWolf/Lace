@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication
 app = QApplication(sys.argv)
 
 from PySide6.QtGui import QPalette
-from demo_app import DemoMainWindow
+from demos.demo_app import DemoMainWindow
 from lace.dock_widget import DockWidget
 from lace.dock_area_title_bar import DockAreaTitleBar
 from lace.dock_theme import DockStyleCategory

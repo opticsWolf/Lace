@@ -47,15 +47,15 @@ def main() -> int:
         for s in CHECKLISTS:
             print_checklist(s)
 
-    print(f"Starting demo_app.py with LACE_TRACE=1...")
+    print(f"Starting demos/demo_app.py with LACE_TRACE=1...")
     print(f"Only lines containing '[TRACE]' will be written to: {out_path}\n")
 
     env = os.environ.copy()
     env["LACE_TRACE"] = "1"
 
-    demo_app_path = Path(__file__).parent.parent.parent / "demo_app.py"
+    demo_app_path = Path(__file__).parent.parent.parent / "demos" / "demo_app.py"
     
-    # Run demo_app.py, capturing stdout and stderr
+    # Run demos/demo_app.py, capturing stdout and stderr
     proc = subprocess.Popen(
         [sys.executable, str(demo_app_path)],
         env=env,

@@ -12,7 +12,7 @@ from PySide6.QtCore import QSize
 app = QApplication(sys.argv)
 
 from PySide6.QtGui import QPalette, QColor
-from demo_app import DemoMainWindow
+from demos.demo_app import DemoMainWindow
 from lace.enums import DockWidgetArea
 from lace.dock_theme import DockStyleCategory
 from lace.dock_style_manager import get_dock_style_manager, apply_dock_theme

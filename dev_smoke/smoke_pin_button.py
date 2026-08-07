@@ -12,7 +12,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 logging.disable(logging.CRITICAL)
 from PySide6.QtWidgets import QApplication
 app = QApplication(sys.argv)
-from demo_app import DemoMainWindow
+from demos.demo_app import DemoMainWindow
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea, DockWidgetFeature, TitleBarButton, DockFlags
 

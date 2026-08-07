@@ -13,7 +13,7 @@ Run the capture script or execute manually with `LACE_TRACE=1`:
 ```powershell
 # Using powershell
 $env:LACE_TRACE=1
-python demo_app.py > baseline_S1.trace 2>&1
+python -m demos.demo_app > baseline_S1.trace 2>&1
 ```
 or using python:
 ```powershell

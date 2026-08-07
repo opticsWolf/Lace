@@ -123,7 +123,7 @@ app.exec()
 Run the demo application to explore all features:
 
 ```bash
-python demo_app.py
+python -m demos.demo_app
 ```
 
 The demo includes:
@@ -135,8 +135,8 @@ The demo includes:
 For frameless/custom-title-bar examples, see:
 
 ```bash
-python demo_app_custom_titlebar.py          # standard custom title bar
-python demo_app_custom_titlebar_menus.py    # menu-embedded main title bar + search bar for floats
+python -m demos.demo_app_custom_titlebar.py          # standard custom title bar
+python -m demos.demo_app_custom_titlebar_menus.py      # menu-embedded main title bar + search bar for floats
 ```
 
 The second demo shows **configurable custom title bars**: the main window
@@ -260,7 +260,10 @@ lace/
 │   ├── enums.py                   # All enumerations and flags
 │   ├── util.py                    # Utility functions
 │   └── _trace.py                  # Optional debug tracing
-├── demo_app.py                    # Full-featured demo application
+├── demos/                          # Demo applications (python -m demos.demo_app)
+│   ├── demo_app.py                  # Full-featured demo application
+│   ├── demo_app_custom_titlebar.py  # Custom title-bar demo
+│   └── demo_app_custom_titlebar_menus.py  # Menu-embedded title-bar demo
 ├── dev_smoke/                     # Smoke tests for individual features
 ├── tests/                         # pytest suite (theme engine, JSON themes, style manager, enums, paint, layout errors, circular-import detector)
 ├── docs/                          # Documentation

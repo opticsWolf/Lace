@@ -579,10 +579,10 @@ class MainWindow(FramelessLaceMainWindow):
 
 #### Custom title-bar examples
 
-See `demo_app_custom_titlebar_menus.py` for a complete, runnable example:
+See `demos/demo_app_custom_titlebar_menus.py` for a complete, runnable example:
 
 ```bash
-python demo_app_custom_titlebar_menus.py
+python -m demos.demo_app_custom_titlebar_menus
 ```
 
 It defines two custom title bars:
@@ -821,7 +821,7 @@ class ThemeSwitcher:
 
 ## 14. Full Working Example
 
-See `demo_app.py` for a comprehensive example demonstrating:
+See `demos/demo_app.py` for a comprehensive example demonstrating:
 - Multiple dock widgets with different feature flags
 - Sidebar setup with badges
 - Theme switching menu
@@ -831,13 +831,13 @@ See `demo_app.py` for a comprehensive example demonstrating:
 - Preset configurations (Default, Minimal, Full)
 
 ```bash
-python demo_app.py
+python -m demos.demo_app
 ```
 
 Frameless / custom-title-bar demos (see [§5 Frameless Windows & the Custom
 Title Bar](#frameless-windows--the-custom-title-bar)):
 
 ```bash
-python demo_app_custom_titlebar.py          # standard custom title bar
-python demo_app_custom_titlebar_menus.py    # menu-embedded main title bar + search bar for floats
+python -m demos.demo_app_custom_titlebar.py          # standard custom title bar
+python -m demos.demo_app_custom_titlebar_menus.py      # menu-embedded main title bar + search bar for floats
 ```

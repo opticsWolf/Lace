@@ -2,7 +2,7 @@ import sys, logging
 logging.disable(logging.CRITICAL)
 from PySide6.QtWidgets import QApplication
 app = QApplication(sys.argv)
-from demo_app import DemoMainWindow
+from demos.demo_app import DemoMainWindow
 from lace.floating_dock_container import FloatingDockContainer
 
 win = DemoMainWindow()

@@ -2,7 +2,7 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 app = QApplication(sys.argv)
-from demo_app import DemoMainWindow
+from demos.demo_app import DemoMainWindow
 
 win = DemoMainWindow()
 state = win.dock_manager.save_state()

@@ -21,7 +21,7 @@ This application shows how to:
 
 Run with:
 
-    python demo_app_custom_titlebar_menus.py
+    python -m demos.demo_app_custom_titlebar_menus
 """
 
 from __future__ import annotations

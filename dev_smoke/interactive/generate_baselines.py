@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
 # Ensure lace and demo_app can be imported
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from demo_app import DemoMainWindow
+from demos.demo_app import DemoMainWindow
 import lace._trace as _trace
 _trace.TRACE_ON = True
 
