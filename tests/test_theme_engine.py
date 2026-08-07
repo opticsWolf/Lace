@@ -224,7 +224,7 @@ def test_tab_close_btn_color_is_brighter_than_normal_text():
 
 
 def test_tab_close_btn_color_blends_text_with_tab_bg():
-    """close_btn_color = 80% text_active + 20% tab background (_panel): its
+    """close_btn_color = 70% text_active + 30% tab background (_panel): its
     lightness must sit between the two and differ from both."""
     theme = build_theme(SEED)
     tab = theme[DockStyleCategory.TAB]
@@ -235,11 +235,11 @@ def test_tab_close_btn_color_blends_text_with_tab_bg():
     assert lo <= close.lightness() <= hi
     assert close != active_text
     assert close != panel
-    # exact 80/20 blend (per channel)
+    # exact 70/30 blend (per channel)
     expected = [
-        round(active_text.red() * 0.8 + panel.red() * 0.2),
-        round(active_text.green() * 0.8 + panel.green() * 0.2),
-        round(active_text.blue() * 0.8 + panel.blue() * 0.2),
+        round(active_text.red() * 0.7 + panel.red() * 0.3),
+        round(active_text.green() * 0.7 + panel.green() * 0.3),
+        round(active_text.blue() * 0.7 + panel.blue() * 0.3),
     ]
     assert [close.red(), close.green(), close.blue()] == expected
 
