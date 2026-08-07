@@ -148,6 +148,9 @@ def style_title_bar_buttons(
             min-width: {size}px;
             min-height: {size}px;
         }}
+        QToolButton::menu-indicator {{
+            image: none;
+        }}
     """
     v_policy = QSizePolicy.Expanding if expand_vertical else QSizePolicy.Fixed
     icon = QSize(icon_size, icon_size)
