@@ -172,8 +172,15 @@ class DemoMainWindow(FramelessLaceMainWindow):
         self.dock_manager = DockManager(self)
         self.dock_manager.title_bar_mode = TitleBarMode.custom
         self.setCentralWidget(getattr(self.dock_manager, '_root', None) or self.dock_manager)
+
+        # 2. Dedicated icon for the frameless floating dock windows.
+        floating_icon_path = base_path / "icon2.ico"
+        if floating_icon_path.exists():
+            floating_icon = QIcon(str(floating_icon_path.resolve()))
+            if not floating_icon.isNull() and not floating_icon.pixmap(16, 16).isNull():
+                self.dock_manager.set_floating_window_icon(floating_icon)
         
-        # 2. Build the UI Components
+        # 3. Build the UI Components
         self.create_dock_widgets()
         
         # 3. Create Menus
