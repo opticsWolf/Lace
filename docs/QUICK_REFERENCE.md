@@ -508,6 +508,24 @@ for fw in dock_manager.floating_widgets():
     print(f"  Geometry: {fw.geometry()}")
 ```
 
+### Dedicated Floating-Window Icon
+
+Give floating dock windows (native **and** frameless) an icon separate from
+the main window / application icon:
+
+```python
+from PySide6.QtGui import QIcon
+
+# From a file, the icon provider, or any QIcon
+icon = QIcon("path/to/float_icon.png")
+dock_manager.set_floating_window_icon(icon)
+```
+
+The icon applies immediately to every currently-open floating window and to
+all future ones.  Resolution priority: dedicated icon → application icon →
+root window icon.  Pass `None` (or an empty `QIcon`) to revert to the
+fallback.
+
 ### Frameless Windows & the Custom Title Bar
 
 Frameless chrome (custom title bar, resize borders, DWM shadow) is driven by

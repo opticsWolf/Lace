@@ -77,14 +77,14 @@ class FloatingDockContainer(QWidget, DockStyled):
         self._z_order_index = _z_order_counter
         self._dock_manager = dock_manager
         
-        # Apply application icon or fallback to root main window icon
-        app_icon = QApplication.instance().windowIcon()
-        if (app_icon.isNull() or app_icon.pixmap(16, 16).isNull()) and getattr(dock_manager, '_root', None) and hasattr(dock_manager._root, 'windowIcon'):
-            app_icon = dock_manager._root.windowIcon()
-        if not app_icon.isNull() and not app_icon.pixmap(16, 16).isNull():
-            self.setWindowIcon(app_icon)
-            if QApplication.instance().windowIcon().isNull():
-                QApplication.instance().setWindowIcon(app_icon)
+        # Apply the dedicated floating-window icon if configured (see
+        # DockManager.set_floating_window_icon), else fall back to the
+        # application icon and finally the root window icon.
+        floating_icon = dock_manager.resolve_floating_window_icon()
+        if not floating_icon.isNull() and not floating_icon.pixmap(16, 16).isNull():
+            self.setWindowIcon(floating_icon)
+            if QApplication.instance() and QApplication.instance().windowIcon().isNull():
+                QApplication.instance().setWindowIcon(floating_icon)
 
         dock_container = DockContainerWidget(dock_manager, self)
         self._dock_container = dock_container

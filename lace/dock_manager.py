@@ -15,8 +15,8 @@ import pathlib
 from typing import Dict, List, Optional, Any, Union
 
 from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
-from PySide6.QtWidgets import QMainWindow, QMenu, QWidget
-from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QWidget
+from PySide6.QtGui import QAction, QIcon
 
 from lace.enums import InsertionOrder, DockFlags, DockWidgetArea, OverlayMode, SideBarFocusBehavior, TitleBarMode
 from lace.frameless_window import TitleBarDescriptor
@@ -66,6 +66,7 @@ class DockManager(QObject):
         self._title_bar_mode = TitleBarMode.native
         self._main_title_bar: TitleBarDescriptor = None
         self._floating_title_bar: TitleBarDescriptor = None
+        self._floating_window_icon: Optional[QIcon] = None
         self._is_restoring_state = False
         self._active_dock_area: Optional['DockAreaWidget'] = None
 
@@ -236,6 +237,48 @@ class DockManager(QObject):
         """Resolve :attr:`floating_title_bar` into a QWidget for *parent*."""
         from lace.frameless_window import _resolve_title_bar
         return _resolve_title_bar(self._floating_title_bar, parent)
+
+    # ── Floating window icon ────────────────────────────────────────────
+
+    @property
+    def floating_window_icon(self) -> Optional[QIcon]:
+        """The dedicated icon configured for floating dock windows, or ``None``
+        when the application / root-window icon fallback is in use."""
+        return self._floating_window_icon
+
+    def set_floating_window_icon(self, icon: Optional[QIcon]) -> None:
+        """Set a dedicated icon for floating dock windows — native **and**
+        frameless ones.
+
+        The icon is applied immediately to every currently-open floating
+        window and to all future floating windows created by this manager.
+        Pass ``None`` or an empty :class:`QIcon` to revert to the default
+        resolution (application icon, then the root window icon).
+
+        Args:
+            icon: The :class:`QIcon` to use, or ``None`` to clear.
+        """
+        self._floating_window_icon = QIcon(icon) if icon is not None else None
+        resolved = self.resolve_floating_window_icon()
+        for fw in list(self._floating_widgets):
+            if _is_widget_alive(fw):
+                fw.setWindowIcon(resolved)
+
+    def resolve_floating_window_icon(self) -> QIcon:
+        """Resolve the icon a floating window should use.
+
+        Priority: the dedicated :meth:`set_floating_window_icon` icon, then
+        the application icon, then the root dock window icon.
+        """
+        if (self._floating_window_icon is not None
+                and not self._floating_window_icon.isNull()):
+            return self._floating_window_icon
+        app_icon = QApplication.instance().windowIcon() if QApplication.instance() else QIcon()
+        if (app_icon.isNull() or app_icon.pixmap(16, 16).isNull()) and getattr(self, '_root', None):
+            root_icon = self._root.windowIcon()
+            if not root_icon.isNull():
+                app_icon = root_icon
+        return app_icon
 
     def floating_container_class(self) -> type:
         """Return the :class:`FloatingDockContainer` class for new floating windows.
