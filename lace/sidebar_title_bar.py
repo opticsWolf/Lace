@@ -329,7 +329,7 @@ class SideBarTitleBar(QFrame, DockStyled):
             color=btn_color, hover_bg=btn_hover, disabled=disabled_color,
             radius=styles.get("button_corner_radius", 3),
             padding=styles.get("button_padding", 2),
-            size=styles.get("button_size", 18),
+            size=styles.get("button_size", 17),
             icon_size=styles.get("button_icon_size", 16),
             expand_vertical=styles.get("button_expand_vertical", False),
         )

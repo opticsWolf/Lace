@@ -18,7 +18,7 @@ for key in BTN:
     assert key in sp, f"SIDEPANEL missing {key}"
 
 # shared defaults identical, per-host spacing preserved
-assert tb["button_size"] == 18 == sp["button_size"]
+assert tb["button_size"] == 17 == sp["button_size"]
 assert tb["button_corner_radius"] == 3 == sp["button_corner_radius"]
 assert tb["button_spacing"] == 4, tb["button_spacing"]
 assert sp["button_spacing"] == 2, sp["button_spacing"]

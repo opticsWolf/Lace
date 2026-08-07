@@ -173,7 +173,7 @@ class FramelessTitleBarStyler:
         btn_col = sm.get(DockStyleCategory.TITLE_BAR, "button_color")
         btn_hover = sm.get(DockStyleCategory.TITLE_BAR, "button_hover_bg")
         btn_disable = sm.get(DockStyleCategory.TITLE_BAR, "button_disable_clr")
-        btn_size = sm.get(DockStyleCategory.TITLE_BAR, "button_size", 18)
+        btn_size = sm.get(DockStyleCategory.TITLE_BAR, "button_size", 17)
         btn_icon = sm.get(DockStyleCategory.TITLE_BAR, "button_icon_size", 16)
         btn_radius = sm.get(DockStyleCategory.TITLE_BAR, "button_corner_radius", 3)
         font_family = sm.get(DockStyleCategory.TITLE_BAR, "font_family", "Segoe UI")

@@ -154,7 +154,9 @@ class _ActionButtonFields:
     button_corner_radius: int = 3
     button_padding: int = 2
     button_expand_vertical: bool = False
-    button_size: int = 18
+    button_size: int = 17   # QSS box = min + 2*padding + 3; 17/2 -> 24x24 box with an
+                            # even 20px content rect so the 16px icon centers exactly
+                            # (18/2 gave a 25px box with odd 21px content -> 0.5px drift)
     button_icon_size: int = 16
 
 
