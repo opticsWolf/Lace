@@ -174,20 +174,14 @@ class DockIconProvider:
             return color.name()
         return self._FALLBACK_COLOR
 
-    def _resolve_color(self, category: DockStyleCategory, active: bool = False, disabled: bool = False) -> str:
-        """Fetch the correct tint color from the Style Manager."""
-        styles = self._style_mgr.get_all(category)
-        if disabled:
-            return self._resolve_disabled_color(category, styles)
-        return self._resolve_normal_color(category, styles, active)
-
     def get(
         self,
         name: str,
         category: DockStyleCategory,
         active: bool = False,
         disabled: bool = False,
-        size: int = 16
+        size: int = 16,
+        token: Optional[str] = None,
     ) -> QIcon:
         """
         Get a theme-tinted icon.
@@ -198,6 +192,9 @@ class DockIconProvider:
             active: Whether icon is in active/selected state.
             disabled: Whether icon is in disabled state (takes precedence over active).
             size: Icon size in pixels.
+            token: Optional explicit style token name to tint with (e.g.
+                ``"close_btn_color"``) instead of the category's default
+                active/normal resolution.  Ignored for disabled icons.
 
         Returns:
             QIcon tinted with the appropriate color for the state.
@@ -205,7 +202,17 @@ class DockIconProvider:
         key = name.lower()
         if key == "minimize":
             key = "restore"
-        color = self._resolve_color(category, active, disabled)
+        styles = self._style_mgr.get_all(category)
+        if disabled:
+            color = self._resolve_disabled_color(category, styles)
+        elif token is not None:
+            color = styles.get(token)
+            if isinstance(color, QColor) and color.isValid():
+                color = color.name()
+            else:
+                color = self._resolve_normal_color(category, styles, active)
+        else:
+            color = self._resolve_normal_color(category, styles, active)
         cache_key = (key, color, active, disabled, size)
 
         if cache_key in self._icon_cache:

@@ -611,7 +611,7 @@ def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_activ
         "text_normal":        _text_muted,
         "text_active":        _text_active,
         "indicator_color":    accent,
-        "close_btn_color":    _text_muted,
+        "close_btn_color":    _text_active,
         "close_btn_bg_hover": _btn_hover_panel,
         "close_btn_bg_disable": _btn_disabled,
         "title_text_color":   text,

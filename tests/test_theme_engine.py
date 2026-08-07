@@ -213,6 +213,40 @@ def test_highlighted_text_contrasts_with_accent(qapp):
     assert _get_contrasting_text_color(QColor(0, 0, 0)) == QColor(255, 255, 255)
 
 
+def test_tab_close_btn_color_is_brighter_than_normal_text():
+    """close_btn_color must be more legible than the muted text_normal so the
+    close icon pops against the colored tab backgrounds."""
+    theme = build_theme(SEED)
+    tab = theme[DockStyleCategory.TAB]
+    normal = to_qcolor(tab["text_normal"])
+    close = to_qcolor(tab["close_btn_color"])
+    assert close.lightness() > normal.lightness()
+
+
+def test_tab_close_icon_tinted_with_close_btn_color(qapp):
+    """dock_icon(..., token="close_btn_color") must tint the glyph with the
+    close_btn_color token rather than the muted text_normal."""
+    from collections import Counter
+
+    from lace.dock_menu import dock_icon
+    from lace.dock_style_manager import get_dock_style_manager
+
+    sm = get_dock_style_manager()
+    expected = sm.get(DockStyleCategory.TAB, "close_btn_color")
+    pm = dock_icon("close_tab", DockStyleCategory.TAB, token="close_btn_color").pixmap(14, 14)
+    img = pm.toImage()
+    counts = Counter()
+    for y in range(img.height()):
+        for x in range(img.width()):
+            c = img.pixelColor(x, y)
+            if c.alpha() > 0:
+                counts[c.name()] += 1
+    dominant, _ = counts.most_common(1)[0]
+    assert dominant == expected.name()
+    # and it is NOT the muted text_normal
+    assert dominant != sm.get(DockStyleCategory.TAB, "text_normal").name()
+
+
 def test_theme_bridge_pushes_tooltip_palette_to_qtooltip(qapp):
     """DockThemeBridge must propagate theme tooltip colors to ``QToolTip``.
 

@@ -99,7 +99,9 @@ class DockWidgetTab(QFrame, DockStyled):
         # flat by default (autoRaise), matching the old border-less push button.
         self._close_button = ChromeToolButton()
         self._close_button.setObjectName("tabCloseButton")
-        self._close_button.setIcon(dock_icon("close_tab", DockStyleCategory.TAB))
+        # Tinted with the dedicated close_btn_color token (brighter than the
+        # muted text_normal) so it stays legible on the colored tab backgrounds.
+        self._close_button.setIcon(dock_icon("close_tab", DockStyleCategory.TAB, token="close_btn_color"))
 
         self._close_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._close_button.setVisible(False)
@@ -622,6 +624,13 @@ class DockWidgetTab(QFrame, DockStyled):
             else QSizePolicy.Fixed
         )
         self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
+
+        # 2c. Re-tint the close icon for the current theme (mirrors the
+        #     title-bar buttons re-setting icons on refresh), so it recolors
+        #     when the theme changes instead of keeping the construction color.
+        self._close_button.setIcon(
+            dock_icon("close_tab", DockStyleCategory.TAB, token="close_btn_color")
+        )
 
         # 3. Typography.
         font = self.font()

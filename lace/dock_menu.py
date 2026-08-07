@@ -67,18 +67,26 @@ _ICON_SPECS: Dict[str, tuple] = {
 }
 
 
-def dock_icon(key: str, category: DockStyleCategory = DockStyleCategory.TITLE_BAR) -> QIcon:
-    """Return the canonical icon for key, tinted for Normal and Disabled states."""
+def dock_icon(
+    key: str,
+    category: DockStyleCategory = DockStyleCategory.TITLE_BAR,
+    token: Optional[str] = None,
+) -> QIcon:
+    """Return the canonical icon for key, tinted for Normal and Disabled states.
+
+    ``token`` optionally names an explicit style token to tint with (e.g.
+    ``"close_btn_color"``) instead of the category's default resolution.
+    """
     sm = get_dock_style_manager()
     provider = get_icon_provider()
     
     icon_dim = sm.get(category, "button_icon_size", 14)
     size = QSize(icon_dim, icon_dim)
     
-    normal_icon = provider.get(key, category, active=False, disabled=False, size=icon_dim)
+    normal_icon = provider.get(key, category, active=False, disabled=False, size=icon_dim, token=token)
     
     if not normal_icon.isNull():
-        disabled_icon = provider.get(key, category, active=False, disabled=True, size=icon_dim)
+        disabled_icon = provider.get(key, category, active=False, disabled=True, size=icon_dim, token=token)
         
         icon = QIcon()
         normal_pixmap = normal_icon.pixmap(size)
