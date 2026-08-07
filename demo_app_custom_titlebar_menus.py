@@ -49,6 +49,7 @@ from lace import (
     DockWidget,
     DockWidgetArea,
     DockWidgetFeature,
+    DockThemeBridge,
     TitleBarMode,
     apply_dock_theme,
     get_icon_provider,
@@ -347,6 +348,12 @@ class DemoMainWindow(FramelessLaceMainWindow):
         self.dock_manager = DockManager(self)
         self.dock_manager.title_bar_mode = TitleBarMode.custom
         self.dock_manager.floating_title_bar = SearchTitleBar
+
+        # App-wide theme bridge (as in the other demos): popup menus (QMenu)
+        # are top-level windows that read the application palette, not the
+        # dock root's — without this the dock-area title-bar tabs menu and
+        # context menus stay on the default system palette.
+        self.theme_bridge = DockThemeBridge()
 
         # Set the central widget *after* the dock manager so the title bar
         # stays on top.
