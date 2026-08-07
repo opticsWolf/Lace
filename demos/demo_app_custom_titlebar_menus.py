@@ -369,8 +369,8 @@ class DemoMainWindow(FramelessLaceMainWindow):
 
     def _setup_icon(self) -> None:
         """Load the application icon from the project root."""
-        base_path = Path(__file__).parent
-        icon_dir = base_path / "lace" / "resources" / "lace_icons"
+        base_path = Path(__file__).resolve().parent          # demos/
+        icon_dir = base_path.parent / "lace" / "resources" / "lace_icons"  # repo root
         try:
             get_icon_provider(icon_dir)
         except Exception as exc:

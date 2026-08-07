@@ -143,8 +143,8 @@ class DemoMainWindow(FramelessLaceMainWindow):
         self.resize(1200, 800)
 
         # Resolve the path to your icon directory
-        base_path = Path(__file__).parent
-        icon_dir = base_path / "lace" / "resources" / "lace_icons"
+        base_path = Path(__file__).resolve().parent          # demos/
+        icon_dir = base_path.parent / "lace" / "resources" / "lace_icons"  # repo root
 
         # Initialize the provider singleton
         try:
