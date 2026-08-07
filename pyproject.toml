@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pyside6",
     "PySideSix-Frameless-Window",
+    "pydantic>=2.0",
 ]
 readme = "README.md"
 
