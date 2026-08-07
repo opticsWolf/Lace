@@ -1,6 +1,6 @@
 # Lace System: Enumerations & Flags Comprehensive Mapping (`enump_mapping.md`)
 
-**Version:** 0.4.5
+**Version:** 0.5.0
 
 This document provides a comprehensive, structured mapping of all **14 enumerations and flag classes** across the **Lace** docking and sidebar architecture (`lace/enums.py`, `lace/sidebar_tab.py`, and `lace/dock_theme.py`). It documents the architectural responsibility of every enumeration, provides member-by-member descriptions with exact clickable file paths and line links, and highlights which enumerations or flags are **currently unwired or inactive** in the codebase.
 
