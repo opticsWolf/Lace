@@ -611,7 +611,10 @@ def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_activ
         "text_normal":        _text_muted,
         "text_active":        _text_active,
         "indicator_color":    accent,
-        "close_btn_color":    _text_active,
+        # close_btn_color: bright text blended 80/20 with the tab background
+        # (_panel), so the glyph reads clearly but harmonizes with the tab
+        # instead of floating as pure white/grey.
+        "close_btn_color":    _blend_rgba(_text_active, _panel, 0.20),
         "close_btn_bg_hover": _btn_hover_panel,
         "close_btn_bg_disable": _btn_disabled,
         "title_text_color":   text,
@@ -662,8 +665,20 @@ def _contrasting_hover(col, amount: float = 0.10):
     return _adjust_color(col, l_off=direction * amount)
 
 
-def _adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):
-    # Normalize input and separate alpha
+def _blend_rgba(c1: list, c2: list, factor: float = 0.2) -> list:
+    """Blend color list ``c2`` into ``c1`` by ``factor`` (0..1), per channel.
+
+    ``factor=0.2`` -> 80% of ``c1`` + 20% of ``c2``.  Used to harmonize a
+    glyph color with its container (e.g. the tab close icon against the tab
+    background) instead of leaving it as a pure isolated color.
+    """
+    return [
+        round(c1[i] * (1.0 - factor) + c2[i] * factor)
+        for i in range(min(len(c1), len(c2)))
+    ]
+
+
+def _adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):    # Normalize input and separate alpha
     rgba = [x / 255.0 for x in col]
     rgb, a = rgba[:3], rgba[3:]
 

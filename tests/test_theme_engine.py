@@ -223,6 +223,27 @@ def test_tab_close_btn_color_is_brighter_than_normal_text():
     assert close.lightness() > normal.lightness()
 
 
+def test_tab_close_btn_color_blends_text_with_tab_bg():
+    """close_btn_color = 80% text_active + 20% tab background (_panel): its
+    lightness must sit between the two and differ from both."""
+    theme = build_theme(SEED)
+    tab = theme[DockStyleCategory.TAB]
+    active_text = to_qcolor(tab["text_active"])
+    panel = to_qcolor(tab["bg_active"])
+    close = to_qcolor(tab["close_btn_color"])
+    lo, hi = sorted((active_text.lightness(), panel.lightness()))
+    assert lo <= close.lightness() <= hi
+    assert close != active_text
+    assert close != panel
+    # exact 80/20 blend (per channel)
+    expected = [
+        round(active_text.red() * 0.8 + panel.red() * 0.2),
+        round(active_text.green() * 0.8 + panel.green() * 0.2),
+        round(active_text.blue() * 0.8 + panel.blue() * 0.2),
+    ]
+    assert [close.red(), close.green(), close.blue()] == expected
+
+
 def test_tab_close_icon_tinted_with_close_btn_color(qapp):
     """dock_icon(..., token="close_btn_color") must tint the glyph with the
     close_btn_color token rather than the muted text_normal."""
@@ -242,7 +263,12 @@ def test_tab_close_icon_tinted_with_close_btn_color(qapp):
             if c.alpha() > 0:
                 counts[c.name()] += 1
     dominant, _ = counts.most_common(1)[0]
-    assert dominant == expected.name()
+    # The 4x-supersampled downscale quantizes thin-stroke pixels by a few
+    # levels, so compare the dominant glyph color within a small tolerance.
+    dominant_q = QColor(dominant)
+    assert abs(dominant_q.red() - expected.red()) <= 5
+    assert abs(dominant_q.green() - expected.green()) <= 5
+    assert abs(dominant_q.blue() - expected.blue()) <= 5
     # and it is NOT the muted text_normal
     assert dominant != sm.get(DockStyleCategory.TAB, "text_normal").name()
 
