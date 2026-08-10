@@ -213,33 +213,20 @@ class LayoutStateBuilder:
             return {}
 
     def _save_widget_states(self) -> Dict[str, Dict[str, Any]]:
-        states = {}
-        for name, dock_widget in self._manager.dock_widgets_map().items():
-            widget_state = {
-                "closed": dock_widget.is_closed(),
-                "state": dock_widget.widget_state().name if hasattr(dock_widget.widget_state(), 'name') else str(dock_widget.widget_state()),
-            }
-            
-            dock_area = dock_widget.dock_area_widget()
-            if dock_area:
-                container = dock_area.dock_container()
-                widget_state["container_id"] = self._transient_id_map.get(container, "unknown")
-                widget_state["in_dock_area"] = True
-                try:
-                    widget_state["tab_index"] = dock_area.dock_widgets().index(dock_widget)
-                except ValueError:
-                    widget_state["tab_index"] = -1
-            else:
-                widget_state["in_dock_area"] = False
-                widget_state["tab_index"] = -1
-            
-            if hasattr(self._manager, 'sidebar_manager') and self._manager.sidebar_manager:
-                if self._manager.sidebar_manager.is_pinned(dock_widget):
-                    widget_state["pinned"] = True
-            
-            states[name] = widget_state
-            
-        return states
+        """The roster of widgets this layout refers to.
+
+        Restore reads the keys — to drop references to widgets an application no
+        longer registers — and nothing else.  Placement itself lives in the
+        container tree (order, current tab, per-widget closed flag) and in
+        ``sidebars``; earlier versions also wrote ``state``, ``container_id``,
+        ``in_dock_area``, ``tab_index`` and ``pinned`` here, which were never
+        read back and could silently contradict the tree.  ``closed`` is kept
+        because it makes a saved layout readable on its own.
+        """
+        return {
+            name: {"closed": dock_widget.is_closed()}
+            for name, dock_widget in self._manager.dock_widgets_map().items()
+        }
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -291,7 +278,7 @@ class LayoutEngine:
         # the open-state pass, which would otherwise close it permanently.
         self._restore_sidebar_state(state_dict.get("sidebars", {}))
         self._restore_dock_widgets_open_state()
-        self._restore_dock_areas_indices(state_dict.get("widget_states", {}))
+        self._restore_dock_areas_indices()
         self._emit_top_level_events()
 
         # Apply deferred visibility states to prevent mid-restoration UI flicker
@@ -418,7 +405,8 @@ class LayoutEngine:
             except Exception:
                 pass
 
-    def _restore_dock_areas_indices(self, widget_states: Dict[str, Dict[str, Any]]) -> None:
+    def _restore_dock_areas_indices(self) -> None:
+        """Select each area's current tab from the name the tree recorded."""
         for dock_container in self._manager.dock_containers():
             for i in range(dock_container.dock_area_count()):
                 dock_area = dock_container.dock_area(i)
