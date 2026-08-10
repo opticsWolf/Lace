@@ -220,15 +220,19 @@ class DockAreaWidget(ChromeFrame, DockStyled):
 
     def next_open_dock_widget(self, dock_widget: 'DockWidget') -> Optional['DockWidget']:
         open_dock_widgets = self.opened_dock_widgets()
-        count = len(open_dock_widgets)
-        if count > 1 or (count == 1 and open_dock_widgets[0] != dock_widget):
-            if open_dock_widgets[-1] == dock_widget:
-                next_dock_widget = open_dock_widgets[-2]
-            else:
-                next_index = open_dock_widgets.index(dock_widget) + 1
-                next_dock_widget = open_dock_widgets[next_index]
-            return next_dock_widget
-        return None
+        if dock_widget not in open_dock_widgets:
+            # The widget is already flagged closed before it is hidden.  That is
+            # the normal path during a layout restore, which writes the closed
+            # state first and only then replays toggle_view().  Any widget still
+            # open in this area is a valid successor; falling through would have
+            # raised ValueError from list.index().
+            return open_dock_widgets[-1] if open_dock_widgets else None
+
+        if len(open_dock_widgets) < 2:
+            return None
+        if open_dock_widgets[-1] == dock_widget:
+            return open_dock_widgets[-2]
+        return open_dock_widgets[open_dock_widgets.index(dock_widget) + 1]
 
     def index(self, dock_widget: 'DockWidget') -> int:
         return self._contents_layout.index_of(dock_widget)
