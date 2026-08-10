@@ -20,7 +20,6 @@ from dataclasses import dataclass, asdict
 from typing import TYPE_CHECKING, Dict, Any, List
 
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtCore import QRect
 
 from lace.dock_container_state import save_container_state, restore_container_state
 from lace.floating_dock_container import FloatingDockContainer
@@ -261,12 +260,12 @@ class LayoutEngine:
                 fw = floating_pool.pop() if floating_pool else self._manager.floating_container_class()(dock_manager=self._manager)
                 fw.restore_state(c_data, testing=False)
                 
-                # Link geometry immediately via the transient ID
+                # The Qt geometry blob in c_data has already been applied by
+                # restore_state(); only rescue a window that landed off-screen.
+                self._apply_container_geometry(fw)
                 geo = state_dict.get("container_geometries", {}).get(cid)
-                if geo:
-                    self._apply_container_geometry(fw, geo)
-                    if geo.get("is_maximized", False):
-                        to_maximize.append(fw)
+                if geo and geo.get("is_maximized", False):
+                    to_maximize.append(fw)
 
         # Cleanup unused pool windows
         for orphan_fw in floating_pool:
@@ -320,44 +319,38 @@ class LayoutEngine:
             for m in missing:
                 del state_dict["widget_states"][m]
 
-    def _apply_container_geometry(self, fw: 'FloatingDockContainer', geo: Dict[str, Any]) -> None:
-        """
-        Applies geometry data, validating against actual active screens.
-        Safely rescues off-screen windows (e.g. unplugged multi-monitor).
-        """
-        x = int(geo.get("x", 100))
-        y = int(geo.get("y", 100))
-        w = max(50, int(geo.get("width", 400)))
-        h = max(50, int(geo.get("height", 300)))
+    def _apply_container_geometry(self, fw: 'FloatingDockContainer') -> None:
+        """Sanity-check the geometry restoreGeometry() has already applied.
 
-        target_rect = QRect(x, y, w, h)
-        is_on_screen = False
-
-        # Cross-reference target geometry with all currently active monitors
+        The floating container's own state carries a Qt saveGeometry() blob,
+        which encodes screen assignment, DPI context and window state. This
+        method used to overwrite that with a plain setGeometry() from the
+        x/y/width/height copy in ``container_geometries``, throwing all of it
+        away. It now only intervenes in the one case the blob cannot cover:
+        the window landing entirely off-screen because a monitor the layout
+        was saved on is no longer attached.
+        """
         screens = QGuiApplication.screens()
-        for screen in screens:
-            screen_geo = screen.availableGeometry()
-            if screen_geo.intersects(target_rect):
-                is_on_screen = True
-                
-                # Prevent window from being vastly larger than the display it's currently on
-                w = min(w, screen_geo.width())
-                h = min(h, screen_geo.height())
-                target_rect.setWidth(w)
-                target_rect.setHeight(h)
-                break
+        if not screens:
+            return
 
-        # If the window would spawn entirely off-screen (monitor was unplugged),
-        # relocate it to the center of the primary screen to rescue it.
-        if not is_on_screen and screens:
-            primary_screen = QGuiApplication.primaryScreen()
-            if primary_screen:
-                avail_geo = primary_screen.availableGeometry()
-                w = min(w, avail_geo.width())
-                h = min(h, avail_geo.height())
-                x = avail_geo.x() + (avail_geo.width() - w) // 2
-                y = avail_geo.y() + (avail_geo.height() - h) // 2
+        try:
+            target = fw.geometry()
+        except Exception as e:
+            logger.warning(f"Failed to read restored geometry: {e}")
+            return
 
+        if any(screen.availableGeometry().intersects(target) for screen in screens):
+            return
+
+        primary_screen = QGuiApplication.primaryScreen() or screens[0]
+        avail_geo = primary_screen.availableGeometry()
+        w = min(max(50, target.width()), avail_geo.width())
+        h = min(max(50, target.height()), avail_geo.height())
+        x = avail_geo.x() + (avail_geo.width() - w) // 2
+        y = avail_geo.y() + (avail_geo.height() - h) // 2
+
+        logger.info("Floating container restored off-screen; recentering on the primary screen")
         try:
             fw.setGeometry(x, y, w, h)
         except Exception as e:

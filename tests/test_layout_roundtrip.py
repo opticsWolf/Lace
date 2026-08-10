@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QLabel, QMainWindow
 from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
+from lace.floating_dock_container import FloatingDockContainer
 
 
 @pytest.fixture
@@ -142,6 +143,26 @@ def test_unlocked_layout_omits_lock_keys(manager, qapp):
     state = manager.save_state()
     assert "locked_to_area" not in state
     assert "locked_name" not in state
+
+
+def test_floating_geometry_survives_roundtrip(manager, qapp):
+    manager.add_dock_widget(DockWidgetArea.left, _mk("Alpha"))
+    beta = _mk("Beta")
+    beta.set_dock_manager(manager)
+    manager.dock_widgets_map()[beta.objectName()] = beta
+    floating = FloatingDockContainer(dock_widget=beta)
+    floating.show()
+    qapp.processEvents()
+
+    floating.setGeometry(220, 180, 480, 360)
+    qapp.processEvents()
+    before = floating.geometry()
+
+    manager.restore_state(manager.save_state())
+    qapp.processEvents()
+
+    after = manager.find_dock_widget("Beta").dock_container().floating_widget().geometry()
+    assert after == before, "restore did not reproduce the floating window geometry"
 
 
 def test_restore_reports_failure_on_corrupt_payload(manager, qapp):
