@@ -286,8 +286,11 @@ class LayoutEngine:
             self._manager.remove_dock_container(orphan_fw.dock_container())
             orphan_fw.deleteLater()
 
-        self._restore_dock_widgets_open_state()
+        # Sidebars first: a pinned widget lives in no dock area, so the rebuild
+        # above leaves it marked unassigned.  Pinning it here re-homes it before
+        # the open-state pass, which would otherwise close it permanently.
         self._restore_sidebar_state(state_dict.get("sidebars", {}))
+        self._restore_dock_widgets_open_state()
         self._restore_dock_areas_indices(state_dict.get("widget_states", {}))
         self._emit_top_level_events()
 
@@ -377,9 +380,24 @@ class LayoutEngine:
         for dock_widget in self._manager.dock_widgets_map().values():
             dock_widget.setProperty("_lace_unassigned_marker", True)
 
+    def _is_pinned(self, dock_widget: 'DockWidget') -> bool:
+        sidebar_manager = getattr(self._manager, 'sidebar_manager', None)
+        if sidebar_manager is None:
+            return False
+        try:
+            return sidebar_manager.is_pinned(dock_widget)
+        except Exception:
+            return False
+
     def _restore_dock_widgets_open_state(self) -> None:
         for dock_widget in self._manager.dock_widgets_map().values():
-            if dock_widget.property("_lace_unassigned_marker"):
+            if self._is_pinned(dock_widget):
+                # Already re-homed into a sidebar by _restore_sidebar_state().
+                # It has no dock area by design, so neither branch below applies:
+                # flag_as_unassigned() would close it and toggle_view_internal()
+                # would try to show it outside the overlay.
+                pass
+            elif dock_widget.property("_lace_unassigned_marker"):
                 dock_widget.flag_as_unassigned()
             else:
                 dock_widget.toggle_view_internal(not dock_widget.property("closed"))

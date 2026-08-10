@@ -103,6 +103,24 @@ def test_maximize_state_is_not_left_dangling(manager, qapp):
         "restore left _maximized_dock_area pointing at a destroyed area"
 
 
+def test_pinned_widget_survives_roundtrip(manager, qapp):
+    manager.add_dock_widget(DockWidgetArea.left, _mk("Alpha"))
+    beta = _mk("Beta")
+    manager.add_dock_widget(DockWidgetArea.right, beta)
+    manager.sidebar_manager.pin_widget(beta, area=DockWidgetArea.left)
+    qapp.processEvents()
+    assert manager.sidebar_manager.is_pinned(beta)
+
+    manager.restore_state(manager.save_state())
+    qapp.processEvents()
+
+    restored = manager.find_dock_widget("Beta")
+    assert manager.sidebar_manager.is_pinned(restored), \
+        "a pinned widget was not returned to its sidebar"
+    assert not restored.is_closed(), \
+        "a pinned widget came back closed"
+
+
 def test_locking_survives_roundtrip(manager, qapp):
     beta = _mk("Beta")
     area = manager.add_dock_widget(DockWidgetArea.left, beta)
