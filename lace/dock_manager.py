@@ -365,9 +365,14 @@ class DockManager(QObject):
             self._is_restoring_state = False
 
         if success:
-            self.ensure_active_dock_area()
+            # Post-restore housekeeping must never turn a successful restore
+            # into an exception escaping the public API.
+            try:
+                self.ensure_active_dock_area()
+            except Exception:
+                logger.exception("DockManager: could not select an active dock area after restore")
             self.state_restored.emit()
-        
+
         if not is_hidden:
             self._root.show()
 
@@ -764,20 +769,32 @@ class DockManager(QObject):
             area.set_chrome_focused(True)
 
     def ensure_active_dock_area(self):
-        if getattr(self, '_active_dock_area', None) is not None and _is_widget_alive(self._active_dock_area):
+        """Make sure some visible, non-empty dock area is the active one.
+
+        Walks the registered containers rather than the widget tree: the root
+        container is parented to the application window, not to this QObject,
+        so a findChildren() search from here would never reach a dock area.
+        """
+        current = getattr(self, '_active_dock_area', None)
+        if current is not None and _is_widget_alive(current):
             try:
-                if not self._active_dock_area.isHidden():
+                if not current.isHidden():
                     return
             except RuntimeError:
                 pass
-        from lace.dock_area_widget import DockAreaWidget
-        for area in self.find_children(DockAreaWidget):
+
+        for container in self.dock_containers():
             try:
-                if not area.isHidden() and area.open_dock_widgets_count() > 0:
-                    self.set_active_dock_area(area)
-                    break
+                areas = container.opened_dock_areas()
             except RuntimeError:
                 continue
+            for area in areas:
+                try:
+                    if area.open_dock_widgets_count() > 0:
+                        self.set_active_dock_area(area)
+                        return
+                except RuntimeError:
+                    continue
 
 
 
