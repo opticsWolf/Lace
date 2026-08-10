@@ -171,7 +171,11 @@ def _restore_dock_area(c, state: dict, testing: bool) -> Tuple[bool, Optional[QW
             dock_widget.set_toggle_view_action_checked(not closed)
             dock_widget.set_closed_state(closed)
             dock_widget.setProperty("closed", closed)
-            dock_widget.setProperty("dirty", False)
+            # Clear the marker LayoutEngine set before the rebuild; a widget
+            # that reaches this point has been re-docked, so it must not be
+            # treated as unassigned.  The name must stay in sync with
+            # LayoutEngine._mark_dock_widgets_dirty().
+            dock_widget.setProperty("_lace_unassigned_marker", None)
 
     if testing:
         return True, None
