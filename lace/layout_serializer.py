@@ -17,7 +17,7 @@ import uuid
 import errno
 from pathlib import Path
 from dataclasses import dataclass, asdict
-from typing import TYPE_CHECKING, Dict, Any, List
+from typing import TYPE_CHECKING, Dict, Any, List, Tuple
 
 from PySide6.QtGui import QGuiApplication
 
@@ -151,7 +151,16 @@ class LayoutStateBuilder:
     Never mutates Qt objects or sets dynamic properties during serialization.
     """
     
-    SYSTEM_TYPE: str = "QtAdvancedDockingSystem"
+    SYSTEM_TYPE: str = "LaceDockingSystem"
+
+    #: Layouts written by Lace before the identifier was corrected. Accepted on
+    #: read so existing saved layouts keep working.
+    LEGACY_SYSTEM_TYPES: Tuple[str, ...] = ("QtAdvancedDockingSystem",)
+
+    #: Version of the *layout format* — bump whenever the shape of the tree
+    #: changes. Distinct from the ``version`` field, which is the calling
+    #: application's own data version and is passed in by the caller.
+    SCHEMA_VERSION: int = 1
 
     def __init__(self, manager: 'DockManager'):
         self._manager = manager
@@ -159,9 +168,10 @@ class LayoutStateBuilder:
 
     def build_state_dict(self, version: int) -> Dict[str, Any]:
         self._transient_id_map.clear()
-        
+
         state_dict = {
             "type": self.SYSTEM_TYPE,
+            "schema": self.SCHEMA_VERSION,
             "version": version,
             "containers": [],
             "sidebars": self._save_sidebar_state(),
@@ -441,6 +451,8 @@ class LayoutSerializer:
     """
     
     SYSTEM_TYPE: str = LayoutStateBuilder.SYSTEM_TYPE
+    LEGACY_SYSTEM_TYPES: Tuple[str, ...] = LayoutStateBuilder.LEGACY_SYSTEM_TYPES
+    SCHEMA_VERSION: int = LayoutStateBuilder.SCHEMA_VERSION
 
     def __init__(self, manager: 'DockManager'):
         self._manager = manager
@@ -460,8 +472,22 @@ class LayoutSerializer:
         except json.JSONDecodeError as e:
             raise InvalidFormatError(f"Invalid JSON data: {e}") from e
 
-        if state_dict.get("type") != self.SYSTEM_TYPE:
+        system_type = state_dict.get("type")
+        if system_type not in (self.SYSTEM_TYPE,) + self.LEGACY_SYSTEM_TYPES:
             raise InvalidFormatError(f"Invalid system type. Expected {self.SYSTEM_TYPE}.")
+
+        # Layouts written before the schema field existed are schema 0.
+        file_schema = state_dict.get("schema", 0)
+        if file_schema > self.SCHEMA_VERSION:
+            raise InvalidFormatError(
+                f"Layout schema v{file_schema} was written by a newer Lace; "
+                f"this build understands up to v{self.SCHEMA_VERSION}."
+            )
+        if file_schema < self.SCHEMA_VERSION:
+            logger.warning(
+                "Layout uses schema v%s (current is v%s); fields added since then "
+                "fall back to their defaults.", file_schema, self.SCHEMA_VERSION
+            )
 
         file_version = state_dict.get("version", 0)
         if file_version != target_version:

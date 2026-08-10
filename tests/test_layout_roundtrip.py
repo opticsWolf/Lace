@@ -7,6 +7,8 @@ dock widget, and the only round-trip check in the repo (a dev_smoke script
 asserting that boolean) passed on the broken build.
 """
 
+import json
+
 import pytest
 from PySide6.QtWidgets import QLabel, QMainWindow
 
@@ -171,6 +173,29 @@ def test_restore_reports_failure_on_corrupt_payload(manager, qapp):
 
     assert manager.restore_state("{not valid json") is False
     assert manager.restore_state('{"type": "NotLace", "version": 0}') is False
+
+
+def test_legacy_system_type_is_still_accepted(manager, qapp):
+    manager.add_dock_widget(DockWidgetArea.left, _mk("Alpha"))
+    qapp.processEvents()
+
+    state = json.loads(manager.save_state())
+    assert state["type"] == "LaceDockingSystem"
+    assert state["schema"] == 1
+
+    # A layout written before the identifier was corrected.
+    state["type"] = "QtAdvancedDockingSystem"
+    del state["schema"]
+    assert manager.restore_state(json.dumps(state)) is True
+
+
+def test_future_schema_is_rejected(manager, qapp):
+    manager.add_dock_widget(DockWidgetArea.left, _mk("Alpha"))
+    qapp.processEvents()
+
+    state = json.loads(manager.save_state())
+    state["schema"] = 999
+    assert manager.restore_state(json.dumps(state)) is False
 
 
 def test_restore_ignores_widgets_that_no_longer_exist(manager, qapp):
