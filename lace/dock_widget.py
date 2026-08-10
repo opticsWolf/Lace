@@ -220,11 +220,16 @@ class DockWidget(QFrame, DockStyled):
 
     def save_state(self) -> dict:
         """Phase 2: Modernized dict-based state saving."""
-        return {
+        state = {
             "type": "Widget",
             "name": self.objectName(),
             "closed": self._closed
         }
+        # Only written when set, so a layout from an application that does not
+        # use locking stays byte-identical to what earlier versions produced.
+        if self._locked_to_area is not None:
+            state["locked_to_area"] = self._locked_to_area
+        return state
 
     def flag_as_unassigned(self):
         self._closed = True

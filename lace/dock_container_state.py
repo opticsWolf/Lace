@@ -183,6 +183,10 @@ def _restore_dock_area(c, state: dict, testing: bool) -> Tuple[bool, Optional[QW
             # treated as unassigned.  The name must stay in sync with
             # LayoutEngine._mark_dock_widgets_dirty().
             dock_widget.setProperty("_lace_unassigned_marker", None)
+            # Absent key means "written before locking was serialized" — leave
+            # whatever the application configured in code alone.
+            if "locked_to_area" in widget_state:
+                dock_widget.locked_to_area = widget_state["locked_to_area"]
 
     if testing:
         return True, None
@@ -191,6 +195,8 @@ def _restore_dock_area(c, state: dict, testing: bool) -> Tuple[bool, Optional[QW
         dock_area.deleteLater()
         dock_area = None
     else:
+        if "locked_name" in state:
+            dock_area.locked_name = state["locked_name"]
         dock_area.setProperty("currentDockWidget", current_dock_widget)
         c._append_dock_areas(dock_area)
 

@@ -103,6 +103,29 @@ def test_maximize_state_is_not_left_dangling(manager, qapp):
         "restore left _maximized_dock_area pointing at a destroyed area"
 
 
+def test_locking_survives_roundtrip(manager, qapp):
+    beta = _mk("Beta")
+    area = manager.add_dock_widget(DockWidgetArea.left, beta)
+    area.locked_name = "sidebar"
+    beta.locked_to_area = "sidebar"
+    qapp.processEvents()
+
+    manager.restore_state(manager.save_state())
+    qapp.processEvents()
+
+    restored = manager.find_dock_widget("Beta")
+    assert restored.locked_to_area == "sidebar"
+    assert restored.dock_area_widget().locked_name == "sidebar"
+
+
+def test_unlocked_layout_omits_lock_keys(manager, qapp):
+    manager.add_dock_widget(DockWidgetArea.left, _mk("Alpha"))
+    qapp.processEvents()
+    state = manager.save_state()
+    assert "locked_to_area" not in state
+    assert "locked_name" not in state
+
+
 def test_restore_reports_failure_on_corrupt_payload(manager, qapp):
     manager.add_dock_widget(DockWidgetArea.left, _mk("Alpha"))
     qapp.processEvents()

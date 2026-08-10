@@ -336,12 +336,17 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         logger.debug('DockAreaWidget.saveState TabCount: %s current: %s',
                      self._contents_layout.count(), name)
 
-        return {
+        state = {
             "type": "Area",
             "tabs": self._contents_layout.count(),
             "current": name,
             "widgets": [self.dock_widget(i).save_state() for i in range(self._contents_layout.count())]
         }
+        # See DockWidget.save_state(): omitted when unset so layouts produced by
+        # applications that do not use locking are unchanged.
+        if self._locked_name is not None:
+            state["locked_name"] = self._locked_name
+        return state
 
     @property
     def closable(self):
