@@ -61,6 +61,13 @@ def restore_container_state(c, state: dict, testing: bool = False) -> bool:
         c._visible_dock_area_count = -1
         c._dock_areas.clear()
         c._last_added_area_cache.clear()
+        # Every dock area is about to be rebuilt from scratch, so any cached
+        # reference to one is about to dangle.  Clearing the maximize state
+        # here also means a layout saved while an area was maximized restores
+        # un-maximized rather than "maximized, pointing at a deleted area".
+        c._maximized_dock_area = None
+        c._pre_maximize_splitter_sizes = None
+        c._top_level_dock_area = None
 
     if is_floating:
         logger.debug('Restore floating widget')
