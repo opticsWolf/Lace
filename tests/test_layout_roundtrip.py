@@ -175,6 +175,24 @@ def test_restore_reports_failure_on_corrupt_payload(manager, qapp):
     assert manager.restore_state('{"type": "NotLace", "version": 0}') is False
 
 
+def test_structurally_broken_tree_leaves_layout_intact(manager, qapp):
+    manager.add_dock_widget(DockWidgetArea.left, _mk("Alpha"))
+    manager.add_dock_widget(DockWidgetArea.bottom, _mk("Gamma"))
+    qapp.processEvents()
+    before = _snapshot(manager)
+
+    # A splitter whose sizes list contradicts its count: structurally valid
+    # JSON that only blows up partway through the rebuild.
+    state = json.loads(manager.save_state())
+    root = state["containers"][0]["data"]["root_splitter"]
+    root["sizes"] = root["sizes"][:-1]
+
+    assert manager.restore_state(json.dumps(state)) is False
+    qapp.processEvents()
+    assert _snapshot(manager) == before, \
+        "a rejected layout still tore down the live one"
+
+
 def test_legacy_system_type_is_still_accepted(manager, qapp):
     manager.add_dock_widget(DockWidgetArea.left, _mk("Alpha"))
     qapp.processEvents()

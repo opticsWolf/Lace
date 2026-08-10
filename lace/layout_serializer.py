@@ -252,6 +252,8 @@ class LayoutEngine:
         """Applies state ONLY after deep reality validation."""
         self._validate_can_restore(state_dict)
 
+        self._dry_run_containers(state_dict)
+
         self._hide_floating_widgets()
         self._mark_dock_widgets_dirty()
         self._close_sidebar_overlay()
@@ -328,6 +330,35 @@ class LayoutEngine:
             logger.warning(f"Layout references missing widgets: {missing}. Safely ignoring them.")
             for m in missing:
                 del state_dict["widget_states"][m]
+
+    def _dry_run_containers(self, state_dict: Dict[str, Any]) -> None:
+        """Rebuild every container tree with testing=True before mutating anything.
+
+        _validate_can_restore() only checks the root keys, geometry bounds and
+        the widget roster. Structural faults inside the tree — a splitter whose
+        ``sizes`` list does not match its ``count``, a dock area entry with no
+        ``name``, a floating container with an empty geometry blob — were only
+        discovered by restore_container_state() *after* the old layout had
+        already been torn down, leaving the UI half-restored with no way back.
+
+        The testing path allocates no widgets and touches no container state, so
+        the root container can stand in for the floating ones here.
+        """
+        probe = getattr(self._manager, '_root', None) or self._manager
+
+        for index, c_info in enumerate(state_dict["containers"]):
+            c_data = c_info.get("data", {})
+            try:
+                ok = restore_container_state(probe, c_data, testing=True)
+            except Exception as e:
+                raise RestoreFailureError(
+                    f"Container {index} ({c_info.get('id', '?')}) is malformed: {e}"
+                ) from e
+            if not ok:
+                raise RestoreFailureError(
+                    f"Container {index} ({c_info.get('id', '?')}) failed structural "
+                    "validation; the current layout has been left untouched."
+                )
 
     def _apply_container_geometry(self, fw: 'FloatingDockContainer') -> None:
         """Sanity-check the geometry restoreGeometry() has already applied.
