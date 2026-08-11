@@ -15,7 +15,9 @@ import pytest
 from PySide6.QtGui import QColor
 
 from lace.dock_custom_theme import DOCK_THEMES
-from lace.dock_style_manager import _SCHEMA_MAP, BASE_DOCK_DEFAULTS, get_dock_style_manager
+from lace.dock_style_manager import (
+    _SCHEMA_MAP, BASE_DOCK_DEFAULTS, _color_fields, get_dock_style_manager
+)
 from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 
 
@@ -87,7 +89,21 @@ def test_title_border_bottom_survives_to_the_paint_layer(manager):
     assert isinstance(title_bar["border_color"], QColor)
 
 
-@pytest.mark.xfail(reason="colour coercion is shape-based; fixed in 0.5.15", strict=True)
+def test_colour_fields_are_classified_by_declaration(qapp):
+    """Colour-ness comes from the field's declared type, never the value's shape."""
+    panel = _SCHEMA_MAP[DockStyleCategory.PANEL]
+    assert "bg_normal" in _color_fields(panel)
+    # Declared Union[int, float, List[int], Tuple[int, ...]] — *contains*
+    # List[int] without being a colour, which is why substring matching on the
+    # annotation would not do.
+    assert "content_margin" not in _color_fields(panel)
+    assert "corner_radius" not in _color_fields(panel)
+
+    title_bar = _SCHEMA_MAP[DockStyleCategory.TITLE_BAR]
+    assert "border_color" in _color_fields(title_bar)
+    assert "border_bottom" not in _color_fields(title_bar)
+
+
 def test_content_margin_is_not_coerced_to_a_colour(manager):
     """content_margin takes list/tuple values that look like RGBA to a shape check."""
     for margin in (6, (8, 2), [6, 4, 6], [6, 4, 6, 4]):
@@ -99,3 +115,42 @@ def test_content_margin_is_not_coerced_to_a_colour(manager):
         )))
         stored = manager.get(DockStyleCategory.PANEL, "content_margin")
         assert not isinstance(stored, QColor), f"{margin!r} was coerced to a colour"
+        assert stored == margin
+
+
+def test_every_content_margin_form_reaches_the_layout(manager, qapp):
+    """A four-sided margin used to be truncated to its first two entries."""
+    from PySide6.QtWidgets import QLabel, QMainWindow
+
+    from lace.dock_manager import DockManager
+    from lace.dock_widget import DockWidget
+    from lace.enums import DockWidgetArea
+
+    win = QMainWindow()
+    dock_manager = DockManager(win)
+    dock_widget = DockWidget("Alpha")
+    dock_widget.set_widget(QLabel("x"))
+    dock_manager.add_dock_widget(DockWidgetArea.left, dock_widget)
+    win.show()
+    qapp.processEvents()
+
+    cases = {
+        6: (6, 6, 6, 6),
+        (8, 2): (8, 2, 8, 8),          # historic (horizontal, top) form
+        (6, 4, 6): (6, 4, 6, 4),
+        (6, 4, 6, 4): (6, 4, 6, 4),
+    }
+    try:
+        for margin, expected in cases.items():
+            manager.apply_theme_dict(build_theme(ThemeSpec(
+                base=[24, 24, 24, 255],
+                accent=[0, 120, 212, 255],
+                text=[204, 204, 204, 255],
+                content_margin=margin,
+            )))
+            qapp.processEvents()
+            m = dock_widget.layout().contentsMargins()
+            assert (m.left(), m.top(), m.right(), m.bottom()) == expected, \
+                f"content_margin={margin!r}"
+    finally:
+        win.close()

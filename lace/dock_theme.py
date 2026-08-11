@@ -97,8 +97,11 @@ class DockPanelStyleSchema:
     corner_radius: int = 8
     padding: int = 0
     margin: int = 0
-    # Content inset DockWidget applies to its own layout. A scalar, or a
-    # (horizontal, top) pair, or a 4-tuple. NOT a colour — see _COLOR_FIELDS.
+    # Content inset DockWidget applies to its own layout. A scalar, a
+    # (horizontal, top) pair, a (left, top, right) triple, or a
+    # (left, top, right, bottom) 4-tuple. NOT a colour: colour-ness is decided
+    # by the declared annotation, and this one is deliberately not
+    # Optional[List[int]] — see dock_style_manager._color_fields.
     content_margin: Union[int, float, List[int], Tuple[int, ...]] = 6
 
 @dataclass

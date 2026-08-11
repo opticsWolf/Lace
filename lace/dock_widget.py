@@ -535,17 +535,29 @@ class DockWidget(QFrame, DockStyled):
             self.setAutoFillBackground(True)
             self.setBackgroundRole(QPalette.ColorRole.Window)
 
+        # content_margin accepts, by length:
+        #   scalar / [m]        -> all four sides
+        #   [horizontal, top]   -> bottom follows horizontal (historic form)
+        #   [left, top, right]  -> bottom follows top
+        #   [left, top, right, bottom]  -> Qt's setContentsMargins order
+        # The 3- and 4-value forms used to fall into the ">= 2" branch and be
+        # truncated to the first two entries.
         margin_raw = self._style_mgr.get(DockStyleCategory.PANEL, "content_margin", 6)
+        left = right = top = bottom = 6
         if isinstance(margin_raw, (int, float)):
             left = right = top = bottom = int(margin_raw)
-        elif isinstance(margin_raw, (list, tuple)):
-            if len(margin_raw) == 1:
-                left = right = top = bottom = int(margin_raw[0])
-            elif len(margin_raw) >= 2:
-                left = right = bottom = int(margin_raw[0])
-                top = int(margin_raw[1])
-        else:
-            left = right = top = bottom = 6
+        elif isinstance(margin_raw, (list, tuple)) and margin_raw:
+            values = [int(v) for v in margin_raw]
+            if len(values) == 1:
+                left = right = top = bottom = values[0]
+            elif len(values) == 2:
+                left = right = bottom = values[0]
+                top = values[1]
+            elif len(values) == 3:
+                left, top, right = values
+                bottom = top
+            else:
+                left, top, right, bottom = values[:4]
         self._layout.setContentsMargins(left, top, right, bottom)
 
         # Force the panel palette onto the immediate content layer

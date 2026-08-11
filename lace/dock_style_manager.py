@@ -11,7 +11,8 @@
 import copy
 import logging
 from dataclasses import fields
-from typing import Dict, Any, Optional, Set
+from functools import lru_cache
+from typing import Dict, Any, List, Optional, Set
 from weakref import WeakSet
 
 from PySide6.QtCore import QObject, Signal
@@ -37,6 +38,40 @@ _SCHEMA_MAP: Dict[DockStyleCategory, type] = {
     DockStyleCategory.PANEL:     DockPanelStyleSchema,  # <--- Added to map
 }
 
+#: The declared type every colour token uses. Matching on the exact annotation
+#: rather than a substring matters: PANEL.content_margin is declared
+#: Union[int, float, List[int], Tuple[int, ...]] and *contains* List[int]
+#: without being a colour.
+_COLOR_ANNOTATIONS = frozenset((
+    Optional[List[int]],
+    "Optional[List[int]]",
+    "typing.Optional[typing.List[int]]",
+))
+
+
+@lru_cache(maxsize=None)
+def _color_fields(schema_type: type) -> frozenset:
+    """Names of the fields on *schema_type* that hold a colour."""
+    return frozenset(
+        f.name for f in fields(schema_type)
+        if f.type in _COLOR_ANNOTATIONS or str(f.type) in _COLOR_ANNOTATIONS
+    )
+
+
+def _coerce(schema: Any, key: str, value: Any) -> Any:
+    """Convert *value* for storage, by what the field is rather than how it looks.
+
+    deep_to_qcolor() used to run on every token, and its is_color_list() decides
+    purely by shape — "a list/tuple of 3 to 4 numbers". A CSS-style
+    content_margin of [6, 4, 6] is exactly that shape, so it was stored as a
+    QColor and DockWidget.refresh_style() then matched neither the numeric nor
+    the list branch and silently fell back to a uniform margin.
+    """
+    if key in _color_fields(type(schema)):
+        return deep_to_qcolor(value)
+    return value
+
+
 def _create_default_schema(category: DockStyleCategory) -> Any:
     schema = _SCHEMA_MAP[category]()
     if category in BASE_DOCK_DEFAULTS:
@@ -52,8 +87,8 @@ def _create_default_schema(category: DockStyleCategory) -> Any:
                 )
                 continue
             # Store colours natively as QColor (converted once here) so reads
-            # are free; non-colour scalars pass through unchanged.
-            setattr(schema, key, deep_to_qcolor(val))
+            # are free; geometry and typography pass through unchanged.
+            setattr(schema, key, _coerce(schema, key, val))
     return schema
 
 
@@ -189,7 +224,7 @@ class DockStyleManager(QObject):
                            key, type(schema).__name__)
             return
         # Convert colours to QColor once, on write.
-        store_value = deep_to_qcolor(value)
+        store_value = _coerce(schema, key, value)
         if getattr(schema, key) != store_value:
             setattr(schema, key, store_value)
             changed.add(key)
