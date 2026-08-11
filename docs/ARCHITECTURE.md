@@ -607,7 +607,42 @@ Title bar inside the overlay panel.
 
 **Exceptions:** `LayoutError`, `LayoutIOError`, `InvalidFormatError`, `RestoreFailureError`.
 
-**LayoutEngine internals:** `_validate_can_restore()`, `_hide_floating_widgets()`, `_mark_dock_widgets_dirty()`, `_restore_dock_widgets_open_state()`, `_restore_sidebar_state()`, `_restore_dock_areas_indices()`, `_emit_top_level_events()`, `_apply_container_geometry(fw, geo)` — rescues off-screen windows.
+**LayoutEngine internals:** `_validate_can_restore()`, `_dry_run_containers()`, `_hide_floating_widgets()`, `_restore_dock_widgets_open_state(assigned)`, `_restore_sidebar_state()`, `_restore_dock_areas_indices()`, `_emit_top_level_events()`, `_apply_container_geometry(fw)` — rescues off-screen windows.
+
+**Restore is validated before it mutates anything.** `_validate_can_restore()` checks the root
+keys, geometry bounds and the widget roster; `_dry_run_containers()` then replays every container
+tree with `testing=True`, which allocates nothing, and raises `RestoreFailureError` on a
+structural fault. Only after both pass is the live layout torn down.
+
+### 5.1.1 Format identity and versioning
+
+Two independent numbers live in a saved layout:
+
+| Field | Owner | Meaning |
+|---|---|---|
+| `type` | Lace | `"LaceDockingSystem"`. The legacy value `"QtAdvancedDockingSystem"` is still accepted on read. |
+| `schema` | Lace | `LayoutStateBuilder.SCHEMA_VERSION`. **Bump on every change to the layout format.** A newer schema is refused; an older one warns and falls back to defaults. |
+| `version` | The application | Whatever integer the caller passes to `save_state(version=N)`. Lace only checks it round-trips. |
+
+### 5.1.2 What is *not* persisted
+
+A layout records **placement**, not configuration. The following are properties of the widgets
+the application constructs, and are expected to be re-applied in code on every startup *before*
+`restore_state()` runs:
+
+| Not saved | Where it comes from instead |
+|---|---|
+| `DockWidget` features (`closable`, `movable`, `floatable`, `pinnable`, …) | Set by the application via `set_feature()` |
+| Widget titles, icons and tab icons | Constructor arguments / `set_icon()` |
+| The content widget itself | `set_widget()` — restore matches by `objectName()` only |
+| Toolbars added with `set_toolbar()`, and their actions | Application code |
+| Badges and badge positions | Runtime state, reset on restore |
+| `DockManager` config flags, the floating-window icon, title-bar descriptors | `DockManager` setup |
+| The active theme | `ThemeManager` / `DockStyleManager`, which have their own persistence |
+| Scroll positions, selections, and any state inside the content widget | Application code |
+
+A widget the layout names but the application has not registered is dropped with a warning; a
+widget the application registers but the layout does not name is left closed and unassigned.
 
 ### 5.2 `dock_container_state.py`
 
@@ -616,11 +651,16 @@ Low-level container state save/restore (used by LayoutEngine).
 | Function | Description |
 |---|---|
 | `save_container_state(c) → dict` | Serializes floating state, geometry, root splitter tree |
-| `restore_container_state(c, state, testing) → bool` | Restores tree structure, splitter orientations, dock areas |
+| `restore_container_state(c, state, testing, assigned) → bool` | Restores tree structure, splitter orientations, dock areas |
 | `_save_child_nodes_state(c, widget)` | Recursive: QSplitter → orientation/sizes/children, DockAreaWidget → area state |
-| `_restore_child_nodes(c, state, testing)` | Dispatches to `_restore_splitter()` or `_restore_dock_area()` |
-| `_restore_splitter(c, state, testing)` | Rebuilds splitter hierarchy with sizes |
-| `_restore_dock_area(c, state, testing)` | Rebuilds dock area with widgets, closed states, current index |
+| `_restore_child_nodes(c, state, testing, assigned)` | Dispatches to `_restore_splitter()` or `_restore_dock_area()` |
+| `_restore_splitter(c, state, testing, assigned)` | Rebuilds splitter hierarchy with sizes |
+| `_restore_dock_area(c, state, testing, assigned)` | Rebuilds dock area with widgets, closed states, locking, current index |
+
+The optional `assigned` dict is filled with `{dock_widget: closed_flag}` for every widget the
+rebuild re-docked. `LayoutEngine` uses membership in it to decide which widgets the layout did
+not mention and must therefore be flagged unassigned — previously communicated through Qt dynamic
+properties written in one module and read in another.
 
 ---
 
@@ -861,13 +901,14 @@ DockManager.save_state(version)
 
 DockManager.restore_state(json, version)
   → LayoutSerializer.deserialize(json, version)
-    → json.loads() → validates type/version
+    → json.loads() → validates type / schema / version
     → LayoutEngine.apply_state(state_dict)
-      → _validate_can_restore()
-      → Hides floating widgets, marks widgets dirty
-      → Restores containers (root + floating)
-      → Restores widget open/closed states
-      → Restores sidebar state
+      → _validate_can_restore()      ─┐ nothing is mutated until
+      → _dry_run_containers()        ─┘ both of these pass
+      → Hides floating widgets
+      → Restores containers (root + floating), collecting `assigned`
+      → Restores sidebar state (pinned widgets first — they own no dock area)
+      → Restores widget open/closed states from `assigned`
       → Sets current indices
       → Emits top_level_changed events
 ```
