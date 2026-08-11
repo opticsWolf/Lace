@@ -258,8 +258,6 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         title_padding_right = 8,            # 8px padding on right side
         title_button_spacing = 6,           # 6px spacing between action buttons
         title_margin = 0,                   # 0 = flush against card edges (or set 2-3 for an inset border)
-        title_border_bottom = 1.5,          # 1.5px glowing cyan dividing line below title bar
-        title_border_color = [0, 240, 255, 255],
         tab_radius = 8,                     # 8px rounded top corners on tabs
         tab_margin = 3,                     # 3px gap separating adjacent tabs
         content_margin = (8, 2),            # 8px left/right/bottom, tight 2px top gap under title bar

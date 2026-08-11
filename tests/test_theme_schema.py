@@ -80,10 +80,18 @@ def test_every_token_is_reachable_through_get_all(manager):
 def test_title_border_bottom_survives_to_the_paint_layer(manager):
     """ThemeSpec.title_border_bottom -> TITLE_BAR.border_bottom, via get_all().
 
-    This token was dead at three independent points; cyberpunk_neon has shipped
-    a 1.5px cyan rule that drew nothing.
+    This token was dead at three independent points, so a theme asking for a
+    rule under the title bar got nothing. Asserted against a theme built here
+    rather than a shipped one: whether any given preset *wants* the rule is a
+    cosmetic choice that must not be able to break this regression test.
     """
-    manager.apply_theme("cyberpunk_neon")
+    manager.apply_theme_dict(build_theme(ThemeSpec(
+        base=[24, 24, 24, 255],
+        accent=[0, 120, 212, 255],
+        text=[204, 204, 204, 255],
+        title_border_bottom=1.5,
+        title_border_color=[0, 240, 255, 255],
+    )))
     title_bar = manager.get_all(DockStyleCategory.TITLE_BAR)
     assert title_bar["border_bottom"] == 1.5
     assert isinstance(title_bar["border_color"], QColor)
