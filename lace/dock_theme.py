@@ -126,7 +126,7 @@ class DockTabStyleSchema(_FontFields):
 
     # Visual Indicators
     indicator_color: Optional[List[int]] = None
-    indicator_width: int = 2
+    indicator_width: float = 2.0
     indicator_position: str = "bottom"   # "top" or "bottom"
     tab_dimming: bool = False
 
@@ -321,6 +321,10 @@ class ThemeSpec:
     focus_border_color: Optional[Union[QColor, List[int]]] = None
     is_light: bool = False
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
+    #: Explicit tab/title-bar background. Overrides the derived value, which
+    #: is a fixed 0.06 lightness step off the panel and so cannot be widened
+    #: from a preset. Same role for the header that `surface` plays for the panel.
+    title_bg: Optional[Union[QColor, List[int]]] = None
     hover_mode: str = "lighter"  # "darker" | "lighter" relative to panel
     success_color: Optional[Union[QColor, List[int]]] = None
     warning_color: Optional[Union[QColor, List[int]]] = None
@@ -343,7 +347,7 @@ class ThemeSpec:
     tab_margin: Optional[int] = None
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
     tab_dimming: bool = False
-    indicator_width: Optional[int] = None
+    indicator_width: Optional[float] = None
     indicator_position: Optional[Union[str, List[str], Tuple[str, ...]]] = None
 
     # Tooltip colors — when omitted, derived from the panel/text seed colors.
@@ -377,6 +381,7 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         title_padding_right=spec.title_padding_right,
         title_button_spacing=spec.title_button_spacing,
         title_margin=spec.title_margin,
+        title_bg=_as_rgba(spec.title_bg) if spec.title_bg is not None else None,
         title_border_width=spec.title_border_width,
         title_border_bottom=spec.title_border_bottom,
         title_border_color=_as_rgba(spec.title_border_color) if spec.title_border_color is not None else None,
@@ -413,6 +418,7 @@ def _build_theme(
     title_padding_right: Optional[int] = None,
     title_button_spacing: Optional[int] = None,
     title_margin: Optional[int] = None,
+    title_bg: Optional[list] = None,
     title_border_width: Optional[float] = None,
     title_border_bottom: Optional[float] = None,
     title_border_color: Optional[list] = None,
@@ -458,7 +464,7 @@ def _build_theme(
     _focus_border   = focus_border_color if focus_border_color is not None else (border if border is not None else _adjust_color(accent, l_off=0.15))
     
     # Title bar / header background: step darker (-0.06) or lighter (+0.06) relative to panel without double-inverting via d
-    _title_bg   = _adjust_color(_panel, l_off= t_mode * 0.06)
+    _title_bg   = title_bg if title_bg is not None else _adjust_color(_panel, l_off= t_mode * 0.06)
 
     # Tooltip surface: a clearly-distinct step off the panel so the popup pops
     # against any surface (lighter on dark themes, darker on light themes);

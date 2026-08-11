@@ -101,6 +101,7 @@ class ThemeJson(BaseModel):
     accent: Color
     text: Color
     surface: Optional[Color] = None
+    title_bg: Optional[Color] = None
     border: Optional[Color] = None
     focus_border_color: Optional[Color] = None
 
@@ -136,7 +137,7 @@ class ThemeJson(BaseModel):
     tab_margin: Optional[int] = None
     content_margin: Optional[Union[int, float, List[float]]] = None
     tab_dimming: bool = False
-    indicator_width: Optional[int] = None   # matches ThemeSpec.indicator_width
+    indicator_width: Optional[float] = None   # matches ThemeSpec.indicator_width
     indicator_position: Optional[Union[str, List[str]]] = None
 
     # ---------------------------------------------------------------------------
@@ -161,6 +162,7 @@ class ThemeJson(BaseModel):
             accent=rgba(self.accent),
             text=rgba(self.text),
             surface=rgba(self.surface) if self.surface is not None else None,
+            title_bg=rgba(self.title_bg) if self.title_bg is not None else None,
             border=rgba(self.border) if self.border is not None else None,
             focus_border_color=rgba(self.focus_border_color)
             if self.focus_border_color is not None

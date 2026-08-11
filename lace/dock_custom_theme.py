@@ -285,8 +285,12 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         accent     = [255, 154, 0, 255],    # Sodium-lamp amber
         text       = [242, 232, 224, 255],  # Warm off-white, not clinical
         surface    = [31, 24, 36, 255],     # Deep aubergine inner panel
+        title_bg   = [10, 7, 13, 255],      # Near-black header: a deeper step
+                                            # off the panel than the derived
+                                            # 0.06 lightness, so the tab strip
+                                            # reads as a distinct band
         border     = [110, 72, 148, 190],   # Muted violet, unfocused
-        focus_border_color = [255, 138, 0, 255],   # Amber, focused
+        focus_border_color = [255, 154, 0, 255],   # Amber, focused
         title_mode = "darker",
         hover_mode = "lighter",
         success_color = [120, 224, 143, 255],   # Muted jade
@@ -305,12 +309,17 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         title_border_bottom = 1.5,          # the rule this preset demonstrates
         # No title_border_color: the rule inherits the muted violet border while
         # the area is unfocused and swaps to amber when it is focused — the same
-        # active/inactive treatment as the card outline.
-        title_border_focus_color = [255, 138, 0, 255],
+        # active/inactive treatment as the card outline.  The focus colour is
+        # the theme accent, which is also the active tab's indicator colour, so
+        # the two segments of the line agree on hue as well as width.
+        title_border_focus_color = [255, 154, 0, 255],
         tab_radius = 8,
         tab_margin = 3,
         content_margin = (8, 2),
-        indicator_width = 2,
+        # Matches title_border_bottom: the active tab's indicator sits on the
+        # same edge as the rule, so a different width made the line step
+        # thicker under the active tab (measured 2px vs 1.5px).
+        indicator_width = 1.5,
         indicator_position = "bottom",
         tab_dimming        = True,
     ),

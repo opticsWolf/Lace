@@ -158,6 +158,26 @@ def test_border_colour_falls_back_to_core(qapp):
         manager.apply_theme("default")
 
 
+def test_cyberpunk_edge_indicator_matches_the_rule(qapp):
+    """The active tab's indicator shares the rule's edge, so it must not differ.
+
+    With indicator_position="bottom" the indicator lands on exactly the pixels
+    the rule occupies on every other tab. A mismatched width made the line step
+    from 1.5px to 2px under the active tab; a mismatched colour made that step
+    look like a rendering artifact.
+    """
+    manager = get_dock_style_manager()
+    manager.apply_theme("cyberpunk_edge")
+    try:
+        tab = manager.get_all(DockStyleCategory.TAB)
+        title_bar = manager.get_all(DockStyleCategory.TITLE_BAR)
+        assert tab["indicator_position"] == "bottom"
+        assert tab["indicator_width"] == title_bar["border_bottom"]
+        assert tab["indicator_color"] == title_bar["focus_border_color"]
+    finally:
+        manager.apply_theme("default")
+
+
 def test_cyberpunk_edge_shows_the_focus_swap(desk, qapp):
     """The reference preset must actually demonstrate both states."""
     dock_manager, area, other = desk
