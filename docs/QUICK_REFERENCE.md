@@ -233,7 +233,7 @@ from lace import apply_dock_theme
 apply_dock_theme("cyberpunk_neon")
 # Themes: default, dark, light, midnight, warm, nordic, monokai,
 #         neutral, tokyo_night, catppuccin, dracula, solarized_dark,
-#         solarized_light, cyberpunk_neon
+#         solarized_light, cyberpunk_neon, cyberpunk_edge
 ```
 
 ### Auto Theme (OS Sync)
@@ -727,7 +727,8 @@ class ThemeSwitcher:
         self.themes = [
             "default", "dark", "light", "midnight", "warm", "nordic",
             "monokai", "neutral", "tokyo_night", "catppuccin",
-            "dracula", "solarized_dark", "solarized_light", "cyberpunk_neon"
+            "dracula", "solarized_dark", "solarized_light", "cyberpunk_neon",
+            "cyberpunk_edge"
         ]
         self.current = 0
 

@@ -426,6 +426,7 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `solarized_dark` | Teal/cyan dark palette |
 | `solarized_light` | Warm cream light palette |
 | `cyberpunk_neon` | Vibrant, ultra-contrasty |
+| `cyberpunk_edge` | As `cyberpunk_neon`, plus a cyan rule under the tab bar (reference preset for `title_border_bottom`) |
 
 All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
 

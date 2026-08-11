@@ -392,6 +392,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
         add_theme_action("Solarized Dark", "solarized_dark")
         add_theme_action("Solarized Light", "solarized_light")
         add_theme_action("Cyberpunk Neon", "cyberpunk_neon")
+        add_theme_action("Cyberpunk Edge", "cyberpunk_edge")
 
         theme_menu.addSeparator()
         self._auto_theme_action = QAction("Auto Theme (OS Sync)", self, checkable=True)
@@ -425,6 +426,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
                 ("Solarized Dark", "solarized_dark"),
                 ("Solarized Light", "solarized_light"),
                 ("Cyberpunk Neon", "cyberpunk_neon"),
+                ("Cyberpunk Edge", "cyberpunk_edge"),
             ]
 
             for name, key in themes_list:

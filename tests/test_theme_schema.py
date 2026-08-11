@@ -97,6 +97,24 @@ def test_title_border_bottom_survives_to_the_paint_layer(manager):
     assert isinstance(title_bar["border_color"], QColor)
 
 
+def test_cyberpunk_edge_ships_the_title_bar_rule(manager):
+    """cyberpunk_edge exists to demonstrate title_border_bottom.
+
+    Its sibling cyberpunk_neon deliberately has no rule, so the pair also
+    pins that the token is per-theme and not global.
+    """
+    manager.apply_theme("cyberpunk_edge")
+    edge = manager.get_all(DockStyleCategory.TITLE_BAR)
+    assert edge["border_bottom"] == 1.5
+    assert edge["border_color"].getRgb() == (0, 240, 255, 255)
+    # border_width must stay 0: dock_area_title_bar paints the full outline
+    # when it is set and never reaches the bottom-rule branch.
+    assert not edge["border_width"]
+
+    manager.apply_theme("cyberpunk_neon")
+    assert not manager.get_all(DockStyleCategory.TITLE_BAR)["border_bottom"]
+
+
 def test_colour_fields_are_classified_by_declaration(qapp):
     """Colour-ness comes from the field's declared type, never the value's shape."""
     panel = _SCHEMA_MAP[DockStyleCategory.PANEL]

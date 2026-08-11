@@ -439,6 +439,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
             ("Dark", "dark"),
             ("Light", "light"),
             ("Cyberpunk Neon", "cyberpunk_neon"),
+                ("Cyberpunk Edge", "cyberpunk_edge"),
             ("Nordic", "nordic"),
             ("Tokyo Night", "tokyo_night"),
         ])
