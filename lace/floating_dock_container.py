@@ -392,18 +392,17 @@ class FloatingDockContainer(QWidget, DockStyled):
         self._pending_restore_geometry = None
         self.setGeometry(geom)
 
-        # setWindowFlags() destroys and recreates the native window handle.
-        # The new OS chrome (title bar, borders) does not automatically pick
-        # up the current QApplication style — it falls back to the default
-        # system style ("Windows 98" look).  Re-apply the current style so
-        # the native frame gets polished correctly.
+        # setWindowFlags() destroys and recreates the native window handle, and
+        # the new one does not carry the DWM dark-mode attribute. Re-push the
+        # palette and re-set that attribute for this window; deferred so the
+        # handle is fully registered with DWM first.
+        #
+        # There used to be a qapp.setStyle(qapp.style().objectName()) here as
+        # well, which re-polished every widget in the process. DockThemeBridge
+        # already owns style application (it applies Fusion to the target), so
+        # the window does not need to re-style the application to fix its own
+        # frame.
         if not self._chromeless:
-            qapp = QApplication.instance()
-            if qapp:
-                qapp.setStyle(qapp.style().objectName())
-            # Re-trigger the dock theme palette push so Qt/DWM re-evaluates
-            # the dark/light appearance for this window's new native handle.
-            # Defer to ensure the new window handle is fully registered with DWM.
             QTimer.singleShot(0, self._apply_dock_palette_to_window)
 
         # Re-apply the chromeless rounded-corner mask so corners render
@@ -417,44 +416,58 @@ class FloatingDockContainer(QWidget, DockStyled):
         self.repaint()
 
     def _apply_dock_palette_to_window(self) -> None:
-        """Re-push the current dock theme palette so Qt/DWM re-evaluates
-        the dark/light title bar for this window's native handle.
+        """Re-push the dock theme palette onto this window's new native handle.
 
-        After setWindowFlags() the new handle does not inherit the DWM
-        dark-mode attribute.  Re-building and setting the palette from
-        the dock theme forces Qt to re-notify DWM for this window.
+        After setWindowFlags() the recreated handle does not inherit the DWM
+        dark-mode attribute, so the title bar comes back light on a dark theme.
 
-        Since setPalette() with the same palette is a no-op (Qt sees no
-        change and doesn't notify DWM), we also toggle the global
-        QStyleHints.colorScheme to force the DWM update.  We read the
-        current scheme, set it to the target, then toggle it to the
-        opposite and back to ensure the change notification fires.
+        This used to be forced with ``qapp.setPalette()`` plus a toggle of the
+        global ``QStyleHints.colorScheme`` (to the opposite scheme and back,
+        because setting the current one is a no-op). Both are process-wide: the
+        palette call re-polished every widget in the application, and the
+        toggle emitted ``colorSchemeChanged`` twice, once with the *wrong*
+        scheme — enough to make an application using
+        ``ThemeManager.install_listener()`` flip to its light theme and back.
+        Toggling one dock flag visibly strobed the whole UI.
         """
-        qapp = QApplication.instance()
-        if qapp is None:
-            return
+        palette = self.palette()
         try:
             from lace.dock_theme import resolve_dock_colors, build_dock_palette
-            colors = resolve_dock_colors()
-            palette = build_dock_palette(is_panel=False, colors=colors)
-            qapp.setPalette(palette)
+            palette = build_dock_palette(is_panel=False, colors=resolve_dock_colors())
             self.setPalette(palette)
         except Exception:
-            pass  # Dock theme not loaded; fall back to default
+            logger.debug("Dock theme unavailable; keeping the current palette",
+                         exc_info=True)
 
-        # Derive target dark/light from the current application palette.
-        pal = qapp.palette()
-        is_dark = pal.color(pal.ColorRole.Window).lightness() < 128
-        target = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
-        opposite = Qt.ColorScheme.Light if is_dark else Qt.ColorScheme.Dark
+        is_dark = palette.color(QPalette.ColorRole.Window).lightness() < 128
+        self._apply_dwm_dark_frame(is_dark)
 
-        hints = qapp.styleHints()
-        if hints is not None and hasattr(hints, "setColorScheme"):
-            # Toggle: set to opposite first, then to target.
-            # This forces Qt to re-notify DWM even if the target was
-            # already the current scheme.
-            hints.setColorScheme(opposite)
-            hints.setColorScheme(target)
+    def _apply_dwm_dark_frame(self, is_dark: bool) -> None:
+        """Set the immersive dark-mode frame attribute on *this* window only."""
+        if sys.platform != "win32":
+            handle = self.windowHandle()
+            if handle is not None:
+                handle.requestUpdate()
+            return
+
+        try:
+            import ctypes
+
+            hwnd = int(self.winId())
+            if not hwnd:
+                return
+            value = ctypes.c_int(1 if is_dark else 0)
+            # DWMWA_USE_IMMERSIVE_DARK_MODE: 20 since Windows 10 build 19041,
+            # 19 on the earlier builds that supported it at all.
+            for attribute in (20, 19):
+                if ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    ctypes.c_void_p(hwnd), ctypes.c_int(attribute),
+                    ctypes.byref(value), ctypes.sizeof(value)
+                ) == 0:
+                    return
+            logger.debug("DWM rejected the dark-frame attribute for this window")
+        except Exception:
+            logger.debug("DWM dark-frame update unavailable", exc_info=True)
 
     def _test_config_flag(self, flag: DockFlags) -> bool:
         if self._dock_manager:
