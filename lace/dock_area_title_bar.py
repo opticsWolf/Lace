@@ -442,7 +442,11 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._bg_color = bg
         self._top_radius = max(0.0, card_radius - margin)
         self._border_width = styles.get("border_width", 0.0)
-        self._border_bottom = styles.get("border_bottom", self._border_width)
+        # border_bottom is now a declared field, so it is always present and
+        # defaults to 0.0 — the dict default above would never fire. Zero keeps
+        # meaning "no dedicated bottom rule, use the general border width".
+        border_bottom = styles.get("border_bottom") or 0.0
+        self._border_bottom = border_bottom if border_bottom > 0 else self._border_width
         self._border_color = styles.get("border_color", core_styles.get("border_color"))
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)

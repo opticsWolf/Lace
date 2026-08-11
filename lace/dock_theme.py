@@ -97,6 +97,9 @@ class DockPanelStyleSchema:
     corner_radius: int = 8
     padding: int = 0
     margin: int = 0
+    # Content inset DockWidget applies to its own layout. A scalar, or a
+    # (horizontal, top) pair, or a 4-tuple. NOT a colour — see _COLOR_FIELDS.
+    content_margin: Union[int, float, List[int], Tuple[int, ...]] = 6
 
 @dataclass
 class DockTabStyleSchema(_FontFields):
@@ -178,6 +181,9 @@ class DockTitleBarStyleSchema(_ActionButtonFields, _FontFields):
     padding_right: int = 6
     padding_top: int = 0
     border_width: float = 0.0
+    # Bottom-edge rule under the title bar, drawn in border_color. Falls back
+    # to border_width when 0. Fed by ThemeSpec.title_border_bottom.
+    border_bottom: float = 0.0
     corner_radius: int = 0
     padding: int = 4 #distance for the tab from edge
     margin: int = 0
@@ -260,6 +266,9 @@ class DockSidePanelStyleSchema(_ActionButtonFields):
 
     # Panel geometry
     corner_radius: int = 0
+    border_width: float = 1.0
+    border_color: Optional[List[int]] = None
+    focus_border_color: Optional[List[int]] = None
     shadow_blur_radius: int = 20
     shadow_color: Optional[List[int]] = None
 
@@ -617,7 +626,6 @@ def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_activ
         "close_btn_color":    _blend_rgba(_text_active, _panel, 0.30),
         "close_btn_bg_hover": _btn_hover_panel,
         "close_btn_bg_disable": _btn_disabled,
-        "title_text_color":   text,
     }
 
 

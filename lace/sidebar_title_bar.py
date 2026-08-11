@@ -297,8 +297,11 @@ class SideBarTitleBar(QFrame, DockStyled):
         else:
             self._top_radius = max(0.0, float(card_radius - bw_int))
 
-        self._title_border_bottom = title_styles.get("title_border_bottom")
-        self._title_border_color = title_styles.get("title_border_color")
+        # The TITLE_BAR schema names these "border_bottom" / "border_color";
+        # the "title_" prefix belongs to ThemeSpec, not to the token dict, so
+        # both lookups used to return None and the paint guard never fired.
+        self._title_border_bottom = title_styles.get("border_bottom")
+        self._title_border_color = title_styles.get("border_color")
 
         self._bg_color = bg
         self.update()

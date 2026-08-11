@@ -41,6 +41,16 @@ def _create_default_schema(category: DockStyleCategory) -> Any:
     schema = _SCHEMA_MAP[category]()
     if category in BASE_DOCK_DEFAULTS:
         for key, val in copy.deepcopy(BASE_DOCK_DEFAULTS[category]).items():
+            # setattr on a non-slotted dataclass *creates* attributes that are
+            # not fields, so an undeclared token here would become a "ghost":
+            # visible to get(), invisible to get_all(), which iterates fields().
+            if not hasattr(schema, key):
+                logger.warning(
+                    "Default theme sets unknown token %s.%s — ignored. "
+                    "Declare it as a field on %s.",
+                    category.name, key, type(schema).__name__
+                )
+                continue
             # Store colours natively as QColor (converted once here) so reads
             # are free; non-colour scalars pass through unchanged.
             setattr(schema, key, deep_to_qcolor(val))
@@ -175,6 +185,8 @@ class DockStyleManager(QObject):
     def _set_field(self, schema: Any, key: str, value: Any, changed: Set[str]) -> None:
         """Coerce and write one flat field; record it in ``changed`` if it moved."""
         if not hasattr(schema, key):
+            logger.warning("Theme sets unknown token %s on %s — ignored.",
+                           key, type(schema).__name__)
             return
         # Convert colours to QColor once, on write.
         store_value = deep_to_qcolor(value)
