@@ -599,8 +599,8 @@ class FloatingDockContainer(QWidget, DockStyled):
     #  State persistence
     # ─────────────────────────────────────────────────────────────────────
 
-    def restore_state(self, state: dict, testing: bool) -> bool:
-        if not restore_container_state(self._dock_container, state, testing):
+    def restore_state(self, state: dict, testing: bool, assigned: dict = None) -> bool:
+        if not restore_container_state(self._dock_container, state, testing, assigned):
             return False
         self.on_dock_areas_added_or_removed()
         return True

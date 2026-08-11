@@ -52,8 +52,17 @@ def _save_child_nodes_state(c, widget: QWidget) -> dict:
     return {}
 
 
-def restore_container_state(c, state: dict, testing: bool = False) -> bool:
-    """Phase 2: Use dict for state deserialization instead of stream."""
+def restore_container_state(c, state: dict, testing: bool = False,
+                            assigned: Optional[dict] = None) -> bool:
+    """Rebuild *c*'s splitter/dock-area tree from *state*.
+
+    *assigned*, when given, is filled in with ``{dock_widget: closed_flag}`` for
+    every widget this call re-docked. The caller uses it to tell re-docked
+    widgets from ones the layout no longer mentions, which must be flagged
+    unassigned. It replaces a pair of Qt dynamic properties that were written
+    here and read in layout_serializer, where a typo in either name silently
+    orphaned the whole layout.
+    """
     is_floating = state.get("floating", False)
     logger.debug('Restore DockContainerWidget Floating %s', is_floating)
 
@@ -84,7 +93,7 @@ def restore_container_state(c, state: dict, testing: bool = False) -> bool:
             floating_widget.restoreGeometry(geometry)
 
     root_splitter_state = state.get("root_splitter", {})
-    res, new_root_splitter = _restore_child_nodes(c, root_splitter_state, testing)
+    res, new_root_splitter = _restore_child_nodes(c, root_splitter_state, testing, assigned)
     if not res:
         return False
 
@@ -101,16 +110,18 @@ def restore_container_state(c, state: dict, testing: bool = False) -> bool:
     return True
 
 
-def _restore_child_nodes(c, state: dict, testing: bool) -> Tuple[bool, Optional[QWidget]]:
+def _restore_child_nodes(c, state: dict, testing: bool,
+                         assigned: Optional[dict] = None) -> Tuple[bool, Optional[QWidget]]:
     node_type = state.get("type")
     if node_type == "Splitter":
-        return _restore_splitter(c, state, testing)
+        return _restore_splitter(c, state, testing, assigned)
     elif node_type == "Area":
-        return _restore_dock_area(c, state, testing)
+        return _restore_dock_area(c, state, testing, assigned)
     return True, None
 
 
-def _restore_splitter(c, state: dict, testing: bool) -> Tuple[bool, Optional[QWidget]]:
+def _restore_splitter(c, state: dict, testing: bool,
+                      assigned: Optional[dict] = None) -> Tuple[bool, Optional[QWidget]]:
     orientation_str = state.get("orientation", "-")
     orientation = Qt.Horizontal if orientation_str == "-" else Qt.Vertical
 
@@ -125,7 +136,7 @@ def _restore_splitter(c, state: dict, testing: bool) -> Tuple[bool, Optional[QWi
     sizes = state.get("sizes", [])
 
     for child_state in state.get("children", []):
-        result, child_node = _restore_child_nodes(c, child_state, testing)
+        result, child_node = _restore_child_nodes(c, child_state, testing, assigned)
         if not result:
             return False, None
 
@@ -151,7 +162,8 @@ def _restore_splitter(c, state: dict, testing: bool) -> Tuple[bool, Optional[QWi
     return True, splitter
 
 
-def _restore_dock_area(c, state: dict, testing: bool) -> Tuple[bool, Optional[QWidget]]:
+def _restore_dock_area(c, state: dict, testing: bool,
+                       assigned: Optional[dict] = None) -> Tuple[bool, Optional[QWidget]]:
     tabs = state.get("tabs", 0)
     current_dock_widget = state.get("current", "")
     logger.debug('Restore NodeDockArea Tabs: %s current: %s', tabs, current_dock_widget)
@@ -177,12 +189,8 @@ def _restore_dock_area(c, state: dict, testing: bool) -> Tuple[bool, Optional[QW
             dock_area.add_dock_widget(dock_widget)
             dock_widget.set_toggle_view_action_checked(not closed)
             dock_widget.set_closed_state(closed)
-            dock_widget.setProperty("closed", closed)
-            # Clear the marker LayoutEngine set before the rebuild; a widget
-            # that reaches this point has been re-docked, so it must not be
-            # treated as unassigned.  The name must stay in sync with
-            # LayoutEngine._mark_dock_widgets_dirty().
-            dock_widget.setProperty("_lace_unassigned_marker", None)
+            if assigned is not None:
+                assigned[dock_widget] = closed
             # Absent key means "written before locking was serialized" — leave
             # whatever the application configured in code alone.
             if "locked_to_area" in widget_state:

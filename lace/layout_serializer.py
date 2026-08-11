@@ -26,6 +26,7 @@ from lace.floating_dock_container import FloatingDockContainer
 
 if TYPE_CHECKING:
     from lace.dock_manager import DockManager
+    from lace.dock_widget import DockWidget
 
 logger = logging.getLogger(__name__)
 
@@ -255,22 +256,26 @@ class LayoutEngine:
         self._dry_run_containers(state_dict)
 
         self._hide_floating_widgets()
-        self._mark_dock_widgets_dirty()
         self._close_sidebar_overlay()
 
         # Existing floating widgets are treated as an anonymous reusable pool to prevent UI flicker
         floating_pool = list(self._manager.floating_widgets())
         to_maximize = []
-        
+        # Filled in by the container rebuild: {dock_widget: closed_flag} for
+        # every widget this layout re-docked. Whatever is missing from it when
+        # the loop ends is a widget the layout does not mention.
+        assigned: Dict['DockWidget', bool] = {}
+
         for c_info in state_dict["containers"]:
             cid = c_info.get("id")
             c_data = c_info.get("data", {})
-            
+
             if c_info.get("is_main"):
-                restore_container_state(getattr(self._manager, '_root', None) or self._manager, c_data, testing=False)
+                restore_container_state(getattr(self._manager, '_root', None) or self._manager,
+                                        c_data, testing=False, assigned=assigned)
             else:
                 fw = floating_pool.pop() if floating_pool else self._manager.floating_container_class()(dock_manager=self._manager)
-                fw.restore_state(c_data, testing=False)
+                fw.restore_state(c_data, testing=False, assigned=assigned)
                 
                 # The Qt geometry blob in c_data has already been applied by
                 # restore_state(); only rescue a window that landed off-screen.
@@ -288,7 +293,7 @@ class LayoutEngine:
         # above leaves it marked unassigned.  Pinning it here re-homes it before
         # the open-state pass, which would otherwise close it permanently.
         self._restore_sidebar_state(state_dict.get("sidebars", {}))
-        self._restore_dock_widgets_open_state()
+        self._restore_dock_widgets_open_state(assigned)
         self._restore_dock_areas_indices()
         self._emit_top_level_events()
 
@@ -397,10 +402,6 @@ class LayoutEngine:
         except Exception as e:
             logger.warning(f"Failed to apply geometry: {e}")
 
-    def _mark_dock_widgets_dirty(self) -> None:
-        for dock_widget in self._manager.dock_widgets_map().values():
-            dock_widget.setProperty("_lace_unassigned_marker", True)
-
     def _is_pinned(self, dock_widget: 'DockWidget') -> bool:
         sidebar_manager = getattr(self._manager, 'sidebar_manager', None)
         if sidebar_manager is None:
@@ -410,19 +411,23 @@ class LayoutEngine:
         except Exception:
             return False
 
-    def _restore_dock_widgets_open_state(self) -> None:
+    def _restore_dock_widgets_open_state(self, assigned: Dict['DockWidget', bool]) -> None:
+        """Show or hide each widget according to where the rebuild put it.
+
+        *assigned* comes straight from the container rebuild, so membership is
+        the authoritative answer to "did this layout mention the widget?".
+        """
         for dock_widget in self._manager.dock_widgets_map().values():
             if self._is_pinned(dock_widget):
                 # Already re-homed into a sidebar by _restore_sidebar_state().
                 # It has no dock area by design, so neither branch below applies:
                 # flag_as_unassigned() would close it and toggle_view_internal()
                 # would try to show it outside the overlay.
-                pass
-            elif dock_widget.property("_lace_unassigned_marker"):
-                dock_widget.flag_as_unassigned()
+                continue
+            if dock_widget in assigned:
+                dock_widget.toggle_view_internal(not assigned[dock_widget])
             else:
-                dock_widget.toggle_view_internal(not dock_widget.property("closed"))
-            dock_widget.setProperty("_lace_unassigned_marker", None)
+                dock_widget.flag_as_unassigned()
 
     def _restore_sidebar_state(self, sidebar_state: Dict[str, Any]) -> None:
         if not sidebar_state or not hasattr(self._manager, 'sidebar_manager') or not self._manager.sidebar_manager:
