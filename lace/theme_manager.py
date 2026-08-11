@@ -83,7 +83,7 @@ class ThemeManager(QObject):
                 val = settings.value("AppsUseLightTheme")
                 if val is not None:
                     return int(val) == 0
-            except (ValueError, TypeError, Exception) as e:
+            except Exception as e:
                 logger.debug(f"Failed to read AppsUseLightTheme from Windows registry: {e}")
 
         # Fallback if registry check is unavailable or not on Windows
@@ -218,7 +218,16 @@ class ThemeManager(QObject):
         return None
 
     def _apply_stylesheet_file(self, path: Path) -> bool:
-        """Load a .qss/.css (or any text) theme file and apply it as a stylesheet."""
+        """Load a .qss/.css (or any text) theme file and apply it as a stylesheet.
+
+        .. note::
+           QSS wins over the palette engine. A stylesheet rule that sets a
+           colour on a widget class overrides whatever ``DockStyleManager``
+           resolved for it, and the dock chrome is painted rather than styled,
+           so a QSS theme can end up half-applied — styled Qt widgets follow the
+           sheet while the chrome keeps the dock theme. Prefer a JSON theme
+           (:meth:`_apply_json_theme`), which drives both from one source.
+        """
         try:
             qss_content = path.read_text(encoding="utf-8")
         except OSError as e:

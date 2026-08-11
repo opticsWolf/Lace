@@ -62,6 +62,8 @@ class DockThemeBridge(QObject):
             )
 
         self._refresh_scheduled = False
+        #: Owns the QStyle handed to the target — see _apply_base_style().
+        self._style = None
 
         # Apply a palette-friendly base style before setting colours.
         resolved_style = style_name if style_name is not None else DOCK_WIDGET_STYLE
@@ -97,10 +99,11 @@ class DockThemeBridge(QObject):
             )
             return
 
-        if isinstance(self._target, QApplication):
-            self._target.setStyle(style)
-        else:
-            self._target.setStyle(style)
+        # Neither QApplication.setStyle() nor QWidget.setStyle() takes ownership
+        # of the QStyle, so without a Python reference the object created above
+        # is garbage-collected and the target is left pointing at freed memory.
+        self._style = style
+        self._target.setStyle(style)
 
         logger.debug("Applied '%s' style to %s.", style_name,
                       type(self._target).__name__)

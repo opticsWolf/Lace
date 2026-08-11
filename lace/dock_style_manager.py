@@ -177,6 +177,15 @@ class DockStyleManager(QObject):
                 sub_set.discard(subscriber)
                 
     def get(self, category: DockStyleCategory, key: str, default: Any = None) -> Any:
+        """Read one token.
+
+        .. warning::
+           The returned ``QColor`` is the live theme object, not a copy.
+           Mutating it (``setAlpha``, ``setRgb``, …) corrupts the theme for
+           every consumer in the process. Wrap it — ``QColor(value)`` — before
+           changing anything. Copying here instead was rejected: this sits on
+           the per-widget refresh path.
+        """
         # Values are stored natively (QColor for colours, scalars otherwise),
         # so reads need no conversion.
         schema = self._schemas.get(category)
@@ -186,6 +195,11 @@ class DockStyleManager(QObject):
         return default
 
     def get_all(self, category: DockStyleCategory) -> Dict[str, Any]:
+        """Every token in *category* as a dict.
+
+        The dict is a fresh copy, but its values are **not** — see the warning
+        on :meth:`get`. Treat the colours as read-only.
+        """
         if self._dict_cache[category] is None:
             schema = self._schemas[category]
             self._dict_cache[category] = {f.name: getattr(schema, f.name) for f in fields(schema)}

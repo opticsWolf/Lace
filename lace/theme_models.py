@@ -126,7 +126,9 @@ class ThemeJson(BaseModel):
     title_padding_left: Optional[int] = None
     title_padding_right: Optional[int] = None
     title_button_spacing: Optional[int] = None
-    title_margin: Optional[float] = None
+    # int, not float — ThemeSpec.title_margin is int. Kept aligned so the JSON
+    # schema and the dataclass cannot drift apart.
+    title_margin: Optional[int] = None
     title_border_width: Optional[float] = None
     title_border_bottom: Optional[float] = None
     title_border_color: Optional[Color] = None
@@ -134,7 +136,7 @@ class ThemeJson(BaseModel):
     tab_margin: Optional[int] = None
     content_margin: Optional[Union[int, float, List[float]]] = None
     tab_dimming: bool = False
-    indicator_width: Optional[float] = None
+    indicator_width: Optional[int] = None   # matches ThemeSpec.indicator_width
     indicator_position: Optional[Union[str, List[str]]] = None
 
     # ---------------------------------------------------------------------------
