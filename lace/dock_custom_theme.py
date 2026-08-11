@@ -267,30 +267,32 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     ),
 
     # -------------------------------------------------------------------------
-    # CYBERPUNK EDGE (as cyberpunk_neon, plus a rule under the tab bar)
+    # CYBERPUNK EDGE (amber / violet "night city" — sodium light, not neon gas)
     #
     # The reference theme for title_border_bottom: a dedicated line along the
-    # bottom edge of the tab/title bar, separate from the card outline.
+    # bottom edge of the tab/title bar, separate from the card outline, which
+    # dims to violet when the dock area loses focus and burns amber when it has
+    # it.  Deliberately a different cyberpunk palette from cyberpunk_neon
+    # (indigo / pink / cyan) so the two are told apart at a glance.
     #
-    # Note the two tokens interact — dock_area_title_bar paints the full
+    # Note the two border tokens interact — dock_area_title_bar paints the full
     # outline when TITLE_BAR.border_width > 0 and only otherwise falls through
     # to the bottom rule. title_border_width is therefore left unset here;
     # setting it would suppress the very line this preset exists to show.
-    # Both draw in title_border_color, so they cannot be coloured separately.
     # -------------------------------------------------------------------------
     "cyberpunk_edge": ThemeSpec(
-        base       = [14, 11, 28, 255],     # Deep cyber indigo
-        accent     = [255, 0, 127, 255],    # Electric neon pink
-        text       = [245, 245, 255, 255],  # Crisp white text
-        surface    = [24, 19, 44, 255],     # Rich violet inner panel
-        border     = [0, 180, 205, 205],    # Glowing cyan structural border
-        focus_border_color = [0, 240, 255, 255],
+        base       = [17, 13, 20, 255],     # Near-black plum, rain-slick asphalt
+        accent     = [255, 154, 0, 255],    # Sodium-lamp amber
+        text       = [242, 232, 224, 255],  # Warm off-white, not clinical
+        surface    = [31, 24, 36, 255],     # Deep aubergine inner panel
+        border     = [110, 72, 148, 190],   # Muted violet, unfocused
+        focus_border_color = [255, 138, 0, 255],   # Amber, focused
         title_mode = "darker",
         hover_mode = "lighter",
-        success_color = [57, 255, 20, 255],
-        warning_color = [255, 215, 0, 255],
-        error_color   = [255, 42, 109, 255],
-        info_color    = [5, 217, 232, 255],
+        success_color = [120, 224, 143, 255],   # Muted jade
+        warning_color = [255, 196, 61, 255],    # Warm amber
+        error_color   = [255, 84, 84, 255],     # Signal red
+        info_color    = [186, 137, 255, 255],   # Violet
 
         # Geometrical Adjustments
         corner_radius = 10,
@@ -301,7 +303,10 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         title_button_spacing = 6,
         title_margin = 0,
         title_border_bottom = 1.5,          # the rule this preset demonstrates
-        title_border_color = [0, 240, 255, 255],   # glowing cyan
+        # No title_border_color: the rule inherits the muted violet border while
+        # the area is unfocused and swaps to amber when it is focused — the same
+        # active/inactive treatment as the card outline.
+        title_border_focus_color = [255, 138, 0, 255],
         tab_radius = 8,
         tab_margin = 3,
         content_margin = (8, 2),

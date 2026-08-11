@@ -93,8 +93,23 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         except RuntimeError:
             return
 
+    def is_chrome_focused(self) -> bool:
+        """Whether this area is the manager's active one.
+
+        The single definition of "focused" for everything that colours itself
+        against the area's focus state — the card outline, the title bar's
+        border and bottom rule, and the tabs that continue that rule.
+        """
+        if self._dock_manager is not None:
+            return self is getattr(self._dock_manager, '_active_dock_area', None)
+        return bool(getattr(self, '_chrome_focused', False))
+
     def set_chrome_focused(self, focused: bool):
         super().set_chrome_focused(focused)
+        # The title bar's border and its bottom rule swap to the focus colour
+        # too, and the tabs continue that rule, so both restyle here.
+        if self._title_bar is not None:
+            self._title_bar.refresh_style()
         for widget in self.opened_dock_widgets():
             tab = widget.tab_widget()
             if tab:

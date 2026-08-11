@@ -173,6 +173,10 @@ class DockTitleBarStyleSchema(_ActionButtonFields, _FontFields):
     bg_normal: Optional[List[int]] = None
     bg_active: Optional[List[int]] = None
     border_color: Optional[List[int]] = None
+    # Swapped in for border_color while the dock area holds focus, exactly as
+    # CORE.focus_border_color swaps for CORE.border_color on the area's own
+    # outline. Falls back to the CORE pair when unset.
+    focus_border_color: Optional[List[int]] = None
 
     # Active Edge — colored strip on focused dock area (VS Code style)
     active_edge_color: Optional[List[int]] = None
@@ -332,6 +336,9 @@ class ThemeSpec:
     title_border_width: Optional[float] = None
     title_border_bottom: Optional[float] = None
     title_border_color: Optional[Union[QColor, List[int]]] = None
+    #: Title-bar border colour while the dock area is focused. Defaults to the
+    #: theme's focus_border_color, mirroring the area's own outline.
+    title_border_focus_color: Optional[Union[QColor, List[int]]] = None
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
@@ -373,6 +380,7 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         title_border_width=spec.title_border_width,
         title_border_bottom=spec.title_border_bottom,
         title_border_color=_as_rgba(spec.title_border_color) if spec.title_border_color is not None else None,
+        title_border_focus_color=_as_rgba(spec.title_border_focus_color) if spec.title_border_focus_color is not None else None,
         tab_radius=spec.tab_radius,
         tab_margin=spec.tab_margin,
         content_margin=spec.content_margin,
@@ -408,6 +416,7 @@ def _build_theme(
     title_border_width: Optional[float] = None,
     title_border_bottom: Optional[float] = None,
     title_border_color: Optional[list] = None,
+    title_border_focus_color: Optional[list] = None,
     tab_radius: Optional[int] = None,
     tab_margin: Optional[int] = None,
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None,
@@ -508,7 +517,7 @@ def _build_theme(
         DockStyleCategory.SIDEBAR: _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent),
         DockStyleCategory.SIDEPANEL: _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow, _focus_border, _neutral_border),
         DockStyleCategory.TAB: _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _neutral_border),
-        DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border),
+        DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border, _focus_border),
         DockStyleCategory.SPLITTER: _build_splitter(base, accent),
         DockStyleCategory.OVERLAY: _build_overlay(text, _panel, _accent_bright, _accent_dim, _shadow),
     }
@@ -537,6 +546,8 @@ def _build_theme(
         theme[DockStyleCategory.TITLE_BAR]["border_bottom"] = title_border_bottom
     if title_border_color is not None:
         theme[DockStyleCategory.TITLE_BAR]["border_color"] = title_border_color
+    if title_border_focus_color is not None:
+        theme[DockStyleCategory.TITLE_BAR]["focus_border_color"] = title_border_focus_color
     if tab_radius is not None:
         theme[DockStyleCategory.TAB]["corner_radius"] = tab_radius
     if tab_margin is not None:
@@ -632,11 +643,12 @@ def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_activ
     }
 
 
-def _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border):
+def _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border, _focus_border):
     return {
         "bg_normal":          _title_bg,
         "bg_active":          _title_bg,
         "border_color":       _neutral_border,
+        "focus_border_color": _focus_border,
         "text_normal":        _text_muted,
         "text_active":        _text_active,
         "active_edge_color":  _accent_bright,

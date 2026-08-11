@@ -19,7 +19,9 @@ from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizeP
 
 from lace.enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea, WidgetState
 from lace.util import start_drag_distance
-from lace.dock_chrome import style_title_bar_buttons, ChromeToolButton
+from lace.dock_chrome import (style_title_bar_buttons, ChromeToolButton,
+                              resolve_title_bar_border_color,
+                              resolve_title_bar_bottom_rule)
 from lace.dock_paint import chrome_content_margin, top_rounded_path
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
@@ -442,12 +444,14 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._bg_color = bg
         self._top_radius = max(0.0, card_radius - margin)
         self._border_width = styles.get("border_width", 0.0)
-        # border_bottom is now a declared field, so it is always present and
-        # defaults to 0.0 — the dict default above would never fire. Zero keeps
-        # meaning "no dedicated bottom rule, use the general border width".
-        border_bottom = styles.get("border_bottom") or 0.0
-        self._border_bottom = border_bottom if border_bottom > 0 else self._border_width
-        self._border_color = styles.get("border_color", core_styles.get("border_color"))
+        # The bottom rule and its colour are resolved centrally: DockWidgetTab
+        # continues the same rule across inactive tabs and must not compute a
+        # different width, colour, or existence test.  Zero width keeps meaning
+        # "no dedicated bottom rule, use the general border width".
+        focused = bool(self._dock_area and self._dock_area.is_chrome_focused())
+        bottom_width, _ = resolve_title_bar_bottom_rule(self._style_mgr, focused)
+        self._border_bottom = bottom_width if bottom_width > 0 else self._border_width
+        self._border_color = resolve_title_bar_border_color(self._style_mgr, focused)
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
         self.update()

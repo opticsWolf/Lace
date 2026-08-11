@@ -49,6 +49,59 @@ class DragDetector(QObject):
         return False  # never consume — observers only
 
 
+def resolve_title_bar_border_color(style_mgr, focused: bool = False):
+    """The title bar's border colour for the given focus state.
+
+    Mirrors what ``paint_panel_border`` does for the dock area's own outline —
+    ``focus_border`` while focused, ``border`` otherwise — so the title bar and
+    the area it sits in light up together. ``TITLE_BAR`` wins over ``CORE`` for
+    both, letting a theme colour the strip independently of the card.
+    """
+    from lace.dock_theme import DockStyleCategory
+
+    styles = style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+    core = style_mgr.get_all(DockStyleCategory.CORE)
+
+    if focused:
+        color = styles.get("focus_border_color") or core.get("focus_border_color")
+        if color is not None:
+            return color
+    return styles.get("border_color") or core.get("border_color")
+
+
+def resolve_title_bar_bottom_rule(style_mgr, focused: bool = False) -> tuple:
+    """The effective ``(width, colour)`` of the rule under the tab/title bar.
+
+    Returns ``(0.0, None)`` when no rule is drawn. Two callers need the same
+    answer — :class:`DockAreaTitleBar`, which paints the rule across the strip,
+    and :class:`DockWidgetTab`, which continues it across an inactive tab —
+    so the precedence lives here rather than in each paint site.
+
+    Precedence, mirroring ``DockAreaTitleBar.paintEvent``:
+
+    * ``TITLE_BAR.border_width > 0`` paints a *full outline* around the strip
+      and the bottom-rule branch is never reached, so this returns no rule.
+    * otherwise ``border_bottom`` gives the width.
+    * the colour follows :func:`resolve_title_bar_border_color`, so the rule
+      swaps to the focus colour with the rest of the area's chrome.
+    """
+    from lace.dock_theme import DockStyleCategory
+
+    styles = style_mgr.get_all(DockStyleCategory.TITLE_BAR)
+    if (styles.get("border_width") or 0.0) > 0:
+        return 0.0, None
+
+    width = styles.get("border_bottom") or 0.0
+    if width <= 0:
+        return 0.0, None
+
+    color = resolve_title_bar_border_color(style_mgr, focused)
+    if color is None:
+        return 0.0, None
+
+    return float(width), color
+
+
 def _contrast_step(color: QColor, amount: float) -> QColor:
     """Shift ``color`` by ``amount`` lightness in the contrasting direction
     (lighten a dark colour, darken a light one) — the same rule the theme uses

@@ -13,15 +13,16 @@
 from typing import TYPE_CHECKING, Optional, Union
 import logging
 
-from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QAction, QColor, QContextMenuEvent, QCursor, QFontMetrics, QIcon, QMouseEvent, QPainter, QPalette
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import (QAction, QColor, QContextMenuEvent, QCursor, QFontMetrics,
+                           QIcon, QMouseEvent, QPainter, QPalette, QPen)
 from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget, QPushButton
 
 from lace.util import start_drag_distance
 from lace.enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature, WidgetState
 from lace.eliding_label import ElidingLabel
 from lace.dock_paint import paint_tab
-from lace.dock_chrome import ChromeToolButton
+from lace.dock_chrome import ChromeToolButton, resolve_title_bar_bottom_rule
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
 from lace.dock_menu import (
@@ -40,7 +41,11 @@ logger = logging.getLogger(__name__)
 
 
 class DockWidgetTab(QFrame, DockStyled):
-    STYLE_CATEGORIES = (DockStyleCategory.TAB,)
+    # TITLE_BAR and CORE are read for the bottom rule an inactive tab continues
+    # across itself; both must be declared or the tabs would not repaint when a
+    # theme changes only the title-bar border.
+    STYLE_CATEGORIES = (DockStyleCategory.TAB, DockStyleCategory.TITLE_BAR,
+                        DockStyleCategory.CORE)
     _menu_sections = MenuSection.TAB
 
     active_tab_changed = Signal()
@@ -78,6 +83,8 @@ class DockWidgetTab(QFrame, DockStyled):
         self._ind_width = 2
         self._ind_top = False
         self._radius = 0.0
+        self._bottom_rule_width = 0.0
+        self._bottom_rule_color = None
         self.setAttribute(Qt.WA_Hover, True)
 
         self._create_layout()
@@ -546,8 +553,8 @@ class DockWidgetTab(QFrame, DockStyled):
         elif self._dock_widget:
             dock_manager = self._dock_widget.dock_manager()
 
-        if self._dock_area and dock_manager:
-            is_area_focused = (self._dock_area is getattr(dock_manager, '_active_dock_area', None))
+        if self._dock_area is not None:
+            is_area_focused = self._dock_area.is_chrome_focused()
 
         tab_dimming = styles.get("tab_dimming", False)
 
@@ -572,6 +579,14 @@ class DockWidgetTab(QFrame, DockStyled):
         self._ind_width = styles.get("indicator_width", 2)
         self._ind_pos = styles.get("indicator_position", "bottom")
         self._radius = styles.get("corner_radius", 0)
+
+        # When the title bar draws a rule along its bottom edge, an inactive
+        # tab continues it across its own bottom so the line reads as unbroken;
+        # the active tab leaves the gap, which is what makes it look joined to
+        # the panel below.  Resolved centrally so this and DockAreaTitleBar
+        # cannot disagree about width, colour, or whether a rule exists at all.
+        self._bottom_rule_width, self._bottom_rule_color = \
+            resolve_title_bar_bottom_rule(self._style_mgr, is_area_focused)
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
 
@@ -661,6 +676,19 @@ class DockWidgetTab(QFrame, DockStyled):
             indicator_width=self._ind_width,
             indicator_edge=self._ind_pos,
         )
+
+        # Continue the title bar's bottom rule across this tab, so the line
+        # reads as unbroken behind the tab strip.  Only inactive tabs take it:
+        # the gap under the active tab is what makes it look joined to the
+        # panel below.  Tabs are flush with the title bar's bottom edge and are
+        # square-cornered there (top_rounded_path), so a plain line needs no
+        # clipping and lands on exactly the same pixels as the strip's own rule.
+        if (not self._is_active_tab and self._bottom_rule_width > 0
+                and self._bottom_rule_color is not None):
+            p.setPen(QPen(self._bottom_rule_color, self._bottom_rule_width))
+            r = QRectF(self.rect())
+            y = r.bottom() - self._bottom_rule_width / 2.0
+            p.drawLine(QPointF(r.left(), y), QPointF(r.right(), y))
 
     def enterEvent(self, event):
         self._hovered = True

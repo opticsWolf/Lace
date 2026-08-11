@@ -105,11 +105,16 @@ def test_cyberpunk_edge_ships_the_title_bar_rule(manager):
     """
     manager.apply_theme("cyberpunk_edge")
     edge = manager.get_all(DockStyleCategory.TITLE_BAR)
-    assert edge["border_bottom"] == 1.5
-    assert edge["border_color"].getRgb() == (0, 240, 255, 255)
+    assert edge["border_bottom"] > 0
     # border_width must stay 0: dock_area_title_bar paints the full outline
     # when it is set and never reaches the bottom-rule branch.
     assert not edge["border_width"]
+    # Both focus states must be present and distinct, so the preset actually
+    # demonstrates the swap. The specific hues are a design choice and are
+    # deliberately not asserted.
+    assert edge["border_color"] is not None
+    assert edge["focus_border_color"] is not None
+    assert edge["border_color"] != edge["focus_border_color"]
 
     manager.apply_theme("cyberpunk_neon")
     assert not manager.get_all(DockStyleCategory.TITLE_BAR)["border_bottom"]
