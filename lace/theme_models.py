@@ -135,6 +135,11 @@ class ThemeJson(BaseModel):
     title_border_color: Optional[Color] = None
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
+    # Tab outline (left/top/right edges; the bottom stays open). A fully
+    # transparent tab_border_color outlines only the active tab.
+    tab_border_width: Optional[float] = None
+    tab_border_color: Optional[Color] = None
+    tab_border_active_color: Optional[Color] = None
     content_margin: Optional[Union[int, float, List[float]]] = None
     tab_dimming: bool = False
     indicator_width: Optional[float] = None   # matches ThemeSpec.indicator_width
@@ -190,6 +195,13 @@ class ThemeJson(BaseModel):
             else None,
             tab_radius=self.tab_radius,
             tab_margin=self.tab_margin,
+            tab_border_width=self.tab_border_width,
+            tab_border_color=rgba(self.tab_border_color)
+            if self.tab_border_color is not None
+            else None,
+            tab_border_active_color=rgba(self.tab_border_active_color)
+            if self.tab_border_active_color is not None
+            else None,
             content_margin=self.content_margin,
             tab_dimming=self.tab_dimming,
             indicator_width=self.indicator_width,

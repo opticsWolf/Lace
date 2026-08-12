@@ -323,6 +323,131 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_position = "bottom",
         tab_dimming        = True,
     ),
+
+    # -------------------------------------------------------------------------
+    # SLATE AMBER — cyberpunk_edge's warmth on neutral's light industrial grey.
+    #
+    # The third of the trio below that shows how tab edges can be drawn, and the
+    # only light one: it keeps cyberpunk_edge's *bottom rule* (the line runs
+    # under the whole tab strip, and the active tab breaks it) to prove the rule
+    # is not a dark-theme trick.  Amber is darkened from the neon 255,154,0 —
+    # that hue has too little contrast against a light panel to read as a line.
+    # -------------------------------------------------------------------------
+    "slate_amber": ThemeSpec(
+        base       = [196, 194, 190, 255],  # Warm machine grey
+        accent     = [186, 98, 0, 255],     # Burnt amber, legible on light
+        text       = [38, 34, 30, 255],     # Warm near-black
+        surface    = [216, 214, 209, 255],  # Paper-white inner panel
+        border     = [166, 162, 154, 255],  # Grey, unfocused
+        focus_border_color = [186, 98, 0, 255],    # Amber, focused
+        is_light   = True,
+        title_mode = "darker",
+        hover_mode = "lighter",
+
+        # Geometrical Adjustments
+        corner_radius = 4,
+        border_width = 1.5,
+        title_margin = 0.5,
+        tab_radius = 4,
+        content_margin = 0.5,
+        # The rule, exactly as cyberpunk_edge draws it: no title_border_width
+        # (which would paint the full outline and suppress the rule), and the
+        # focus colour matched to the indicator so both segments of the line
+        # agree on hue as well as width.
+        title_border_bottom = 1.5,
+        title_border_focus_color = [186, 98, 0, 255],
+        indicator_width = 1.5,
+        indicator_position = "bottom",
+        tab_dimming = True,
+    ),
+
+    # -------------------------------------------------------------------------
+    # NEON DUSK — cyberpunk_neon's neon on dracula's softer indigo.
+    #
+    # Shows the tab *outline*: every tab is drawn on its left, top and right
+    # edges, the bottom left open so the tab reads as joined to the panel below.
+    # Inactive tabs take the muted indigo, the active one the neon pink — the
+    # inverse of slate_amber, where the line is on the inactive tabs.
+    #
+    # Note what is deliberately absent: no title_border_bottom (the rule and
+    # the outline are alternatives; both would box the inactive tabs on all four
+    # sides), and no indicator at all — the outline already marks the active tab
+    # in the accent colour.  At "bottom" the indicator would land on exactly the
+    # edge the outline leaves open and fill the gap back in; at "top" it would
+    # stack on the outline's own top edge at a different width, thickening it.
+    # -------------------------------------------------------------------------
+    "neon_dusk": ThemeSpec(
+        base       = [34, 36, 48, 255],     # Dracula's indigo, a shade cooler
+        accent     = [255, 92, 170, 255],   # Neon pink, pulled toward pastel
+        text       = [240, 240, 248, 255],
+        surface    = [50, 53, 70, 255],     # Lifted indigo inner panel
+        title_bg   = [24, 26, 36, 255],     # Darker strip, so outlines read
+        border     = [98, 114, 164, 200],   # Dracula "comment" blue-grey
+        focus_border_color = [139, 233, 253, 255],  # Dracula cyan
+        title_mode = "darker",
+        hover_mode = "lighter",
+        success_color = [80, 250, 123, 255],
+        warning_color = [241, 250, 140, 255],
+        error_color   = [255, 85, 85, 255],
+        info_color    = [139, 233, 253, 255],
+
+        # Geometrical Adjustments
+        corner_radius = 8,
+        border_width = 1.5,
+        title_height = 32,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        # The outline both states share a width; only the colour differs, so
+        # every tab's edges sit on the same pixels and the strip stays even.
+        tab_border_width = 1.5,
+        tab_border_color = [98, 114, 164, 160],     # Inactive: muted indigo
+        tab_border_active_color = [255, 92, 170, 255],   # Active: neon pink
+        indicator_position = "none",
+        tab_dimming = True,
+    ),
+
+    # -------------------------------------------------------------------------
+    # VIOLET HAZE — dracula's palette with cyberpunk_edge's geometry.
+    #
+    # The same outline as neon_dusk, with the inactive colour set fully
+    # transparent so only the *active* tab is drawn: the classic browser look,
+    # where the selected tab is a framed notch out of the strip and the rest
+    # are bare.  A transparent colour, rather than a missing one, is what turns
+    # a state off — the theme builder seeds both colours for every theme.
+    # -------------------------------------------------------------------------
+    "violet_haze": ThemeSpec(
+        base       = [40, 42, 54, 255],     # Dracula background
+        accent     = [189, 147, 249, 255],  # Dracula purple
+        text       = [248, 248, 242, 255],  # Dracula foreground
+        surface    = [58, 61, 78, 255],     # Lifted panel, so the notch shows
+        title_bg   = [30, 31, 40, 255],     # Recessed strip
+        border     = [68, 71, 90, 255],
+        focus_border_color = [189, 147, 249, 255],
+        title_mode = "darker",
+        hover_mode = "lighter",
+        success_color = [80, 250, 123, 255],
+        warning_color = [241, 250, 140, 255],
+        error_color   = [255, 85, 85, 255],
+        info_color    = [139, 233, 253, 255],
+
+        # Geometrical Adjustments
+        corner_radius = 10,
+        border_width = 1.5,
+        title_height = 32,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        tab_border_width = 1.5,
+        tab_border_color = [0, 0, 0, 0],            # Inactive: no outline
+        tab_border_active_color = [189, 147, 249, 255],
+        indicator_position = "none",
+        tab_dimming = True,
+    ),
 }
 
 # =============================================================================

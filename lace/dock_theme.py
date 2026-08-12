@@ -111,9 +111,15 @@ class DockTabStyleSchema(_FontFields):
     bg_normal: Optional[List[int]] = None
     bg_hover: Optional[List[int]] = None
     bg_active: Optional[List[int]] = None
-    border_color: Optional[List[int]] = None
+    # Tab outline, drawn on the left/top/right edges only — the bottom stays
+    # open so the tab reads as joined to the panel below.  Paired
+    # normal/active like bg_* and text_*.  A transparent colour on either side
+    # skips that state, so a theme can outline only the active tab.
+    border_normal_color: Optional[List[int]] = None
+    border_active_color: Optional[List[int]] = None
 
     # Geometry
+    #: Master switch for the outline above: 0.0 draws none at all.
     border_width: float = 0.0
     corner_radius: int = 0
     padding: int = 10
@@ -345,6 +351,17 @@ class ThemeSpec:
     title_border_focus_color: Optional[Union[QColor, List[int]]] = None
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
+    #: Tab outline width; 0 (the default) draws no outline. The outline runs
+    #: along the left/top/right edges only — the bottom is left open, which is
+    #: what makes a tab read as joined to the panel below. An alternative to
+    #: ``title_border_bottom``, not a companion: setting both boxes in the
+    #: inactive tabs on all four sides.
+    tab_border_width: Optional[float] = None
+    #: Outline colour for inactive tabs. A fully transparent colour
+    #: (``[0, 0, 0, 0]``) outlines only the active tab — the browser-tab look.
+    tab_border_color: Optional[Union[QColor, List[int]]] = None
+    #: Outline colour for the active tab. Defaults to the theme's accent.
+    tab_border_active_color: Optional[Union[QColor, List[int]]] = None
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
     tab_dimming: bool = False
     indicator_width: Optional[float] = None
@@ -388,6 +405,9 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         title_border_focus_color=_as_rgba(spec.title_border_focus_color) if spec.title_border_focus_color is not None else None,
         tab_radius=spec.tab_radius,
         tab_margin=spec.tab_margin,
+        tab_border_width=spec.tab_border_width,
+        tab_border_color=_as_rgba(spec.tab_border_color) if spec.tab_border_color is not None else None,
+        tab_border_active_color=_as_rgba(spec.tab_border_active_color) if spec.tab_border_active_color is not None else None,
         content_margin=spec.content_margin,
         tab_dimming=spec.tab_dimming,
         indicator_width=spec.indicator_width,
@@ -425,6 +445,9 @@ def _build_theme(
     title_border_focus_color: Optional[list] = None,
     tab_radius: Optional[int] = None,
     tab_margin: Optional[int] = None,
+    tab_border_width: Optional[float] = None,
+    tab_border_color: Optional[list] = None,
+    tab_border_active_color: Optional[list] = None,
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None,
     tab_dimming: bool = False,
     indicator_width: Optional[int] = None,
@@ -558,6 +581,12 @@ def _build_theme(
         theme[DockStyleCategory.TAB]["corner_radius"] = tab_radius
     if tab_margin is not None:
         theme[DockStyleCategory.TAB]["margin"] = tab_margin
+    if tab_border_width is not None:
+        theme[DockStyleCategory.TAB]["border_width"] = tab_border_width
+    if tab_border_color is not None:
+        theme[DockStyleCategory.TAB]["border_normal_color"] = tab_border_color
+    if tab_border_active_color is not None:
+        theme[DockStyleCategory.TAB]["border_active_color"] = tab_border_active_color
     if content_margin is not None:
         theme[DockStyleCategory.PANEL]["content_margin"] = content_margin
 
@@ -636,7 +665,10 @@ def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_activ
         "bg_normal":          _title_bg,
         "bg_hover":           _hover,
         "bg_active":          _panel,
-        "border_color":       _neutral_border,
+        # Outline colours are seeded but inert: border_width defaults to 0, so
+        # a theme opts in by setting tab_border_width.
+        "border_normal_color": _neutral_border,
+        "border_active_color": accent,
         "text_normal":        _text_muted,
         "text_active":        _text_active,
         "indicator_color":    accent,

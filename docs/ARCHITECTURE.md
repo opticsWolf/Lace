@@ -427,8 +427,29 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `solarized_light` | Warm cream light palette |
 | `cyberpunk_neon` | Vibrant, ultra-contrasty |
 | `cyberpunk_edge` | Amber/violet "night city"; focus-reactive rule under the tab bar (reference preset for `title_border_bottom`) |
+| `slate_amber` | Light industrial grey + burnt amber (`neutral` × `cyberpunk_edge`); the bottom rule on a light palette |
+| `neon_dusk` | Indigo + neon pink (`dracula` × `cyberpunk_neon`); every tab outlined (reference preset for `tab_border_width`) |
+| `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; only the active tab outlined — the browser-tab look |
 
 All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
+
+#### Tab edge treatments
+
+Two mutually exclusive ways to draw a tab's edge. The last three presets above exist to
+demonstrate one each.
+
+| | Token | Where the line runs | Which tabs |
+|---|---|---|---|
+| Rule | `title_border_bottom` | under the whole strip, horizontally | inactive; the active tab breaks it |
+| Outline | `tab_border_width` | around each tab: left, top, right — never the bottom | whichever of `tab_border_color` / `tab_border_active_color` is opaque |
+
+Setting both boxes the inactive tabs on all four sides. An outline preset also wants
+`indicator_position = "none"`: at `"bottom"` the indicator lands on the edge the outline
+deliberately leaves open, and at `"top"` it stacks on the outline's own top edge.
+
+A **transparent** colour — not a missing one — is what turns a state off: `build_theme()` seeds
+both colours for every theme, so `tab_border_color = [0, 0, 0, 0]` is how `violet_haze` outlines
+only the active tab.
 
 ### 3.10 `dock_style_manager.py` — `DockStyleManager` (singleton)
 

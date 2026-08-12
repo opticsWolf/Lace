@@ -54,6 +54,33 @@ def top_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
     return path
 
 
+def top_open_path(rect: QRectF, radius: float) -> QPainterPath:
+    """Path along the left, top and right edges only — the bottom is left open.
+
+    :func:`top_rounded_path` without its closing bottom segment.  Stroked, it
+    outlines a tab on three sides so the tab reads as joined to the panel
+    below, the way a browser tab does; filled it would be identical to the
+    closed path, so only stroke it.
+    """
+    path = QPainterPath()
+    r = max(0.0, radius)
+    left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
+    if r <= 0:
+        path.moveTo(left, bottom)
+        path.lineTo(left, top)
+        path.lineTo(right, top)
+        path.lineTo(right, bottom)
+        return path
+    d = 2.0 * r
+    path.moveTo(left, bottom)
+    path.lineTo(left, top + r)
+    path.arcTo(left, top, d, d, 180.0, -90.0)          # top-left
+    path.lineTo(right - r, top)
+    path.arcTo(right - d, top, d, d, 90.0, -90.0)       # top-right
+    path.lineTo(right, bottom)
+    return path
+
+
 def bottom_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
     """Path for a rect with only its two bottom corners rounded.
 
@@ -158,13 +185,19 @@ def paint_tab(p: QPainter, rect: QRectF, *, bg: Optional[QColor] = None,
               bg_gradient: Optional[Tuple[QColor, QColor]] = None,
               radius: float = 0.0,
               indicator: Optional[QColor] = None, indicator_width: int = 0,
-              indicator_edge: Qt.Edge = Qt.Edge.BottomEdge) -> None:
+              indicator_edge: Qt.Edge = Qt.Edge.BottomEdge,
+              border: Optional[QColor] = None, border_width: float = 0.0) -> None:
     """Paint a tab: top-rounded background (solid ``bg`` or a horizontal
     ``bg_gradient``) + an optional active-edge indicator strip.
 
     The strip is clipped to the tab path so it follows the rounded corners.
     ``indicator_edge`` selects which of the four edges it hugs — Top/Bottom for
     horizontal dock tabs, Left/Right for the vertical sidebar tabs.
+
+    ``border`` / ``border_width`` add an outline along the left, top and right
+    edges — never the bottom, which stays open so the tab reads as joined to
+    the panel below.  It is inset by half the pen width so the stroke lands
+    inside the tab rather than being clipped in half at its edge.
     """
     p.setRenderHint(QPainter.Antialiasing, True)
     path = top_rounded_path(rect, radius)
@@ -207,6 +240,16 @@ def paint_tab(p: QPainter, rect: QRectF, *, bg: Optional[QColor] = None,
                     continue
             p.fillRect(_edge_strip(rect, q_edge, indicator_width), indicator)
         p.restore()
+
+    if border is not None and border_width > 0 and border.alpha() > 0:
+        inset = border_width / 2.0
+        outline = top_open_path(
+            rect.adjusted(inset, inset, -inset, 0.0), max(0.0, radius - inset))
+        pen = QPen(border, border_width)
+        pen.setJoinStyle(Qt.RoundJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(outline)
 
 
 def create_high_dpi_drop_indicator_pixmap(
