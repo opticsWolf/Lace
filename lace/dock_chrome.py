@@ -102,6 +102,68 @@ def resolve_title_bar_bottom_rule(style_mgr, focused: bool = False) -> tuple:
     return float(width), color
 
 
+def _indicator_edges(position) -> frozenset:
+    """Normalise ``TAB.indicator_position`` to a set of lowercase edge names.
+
+    The token accepts a single name, a whitespace/comma separated list, or a
+    sequence — the same forms ``paint_tab`` parses. Anything that is not a
+    recognisable name (a ``Qt.Edge``, say) is passed through as-is so callers
+    can still test membership without this rejecting it outright.
+    """
+    if position is None:
+        return frozenset()
+    if isinstance(position, str):
+        parts = position.replace(",", " ").split()
+    elif isinstance(position, (list, tuple, set, frozenset)):
+        parts = list(position)
+    else:
+        parts = [position]
+    return frozenset(
+        p.lower().strip() if isinstance(p, str) else p
+        for p in parts if p is not None
+    )
+
+
+def tab_has_bottom_indicator(style_mgr) -> bool:
+    """Whether the active tab draws an indicator along its bottom edge.
+
+    All three of width, colour and position have to line up: a theme turns the
+    indicator off with ``indicator_position = "none"`` as readily as with a
+    zero width.
+    """
+    from lace.dock_theme import DockStyleCategory
+
+    styles = style_mgr.get_all(DockStyleCategory.TAB)
+    if (styles.get("indicator_width") or 0.0) <= 0:
+        return False
+    if styles.get("indicator_color") is None:
+        return False
+    return "bottom" in _indicator_edges(styles.get("indicator_position", "bottom"))
+
+
+def resolve_sidebar_title_bar_rule(style_mgr, focused: bool = False) -> tuple:
+    """The ``(width, colour)`` of the stripe under the *sidebar* title bar.
+
+    The sidebar overlay hosts a single widget and has no tab strip, so its
+    header stands in for one. The stripe therefore tracks what a dock area
+    draws along that same edge, and only appears when *both* halves of that
+    edge exist:
+
+    * the dock-area title bar draws a bottom rule
+      (:func:`resolve_title_bar_bottom_rule`), which supplies the colour and
+      width, and
+    * tabs draw an indicator along their bottom
+      (:func:`tab_has_bottom_indicator`).
+
+    A theme with a rule but no bottom indicator — ``neon_dusk`` and
+    ``violet_haze``, which mark the active tab with an outline instead — gets
+    no stripe, rather than a line the rest of the theme never echoes.
+    """
+    if not tab_has_bottom_indicator(style_mgr):
+        return 0.0, None
+    return resolve_title_bar_bottom_rule(style_mgr, focused)
+
+
 def _contrast_step(color: QColor, amount: float) -> QColor:
     """Shift ``color`` by ``amount`` lightness in the contrasting direction
     (lighten a dark colour, darken a light one) — the same rule the theme uses

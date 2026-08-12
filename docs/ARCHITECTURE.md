@@ -449,6 +449,16 @@ width**: the active tab's outline continues the rule around it, so a mismatch st
 where they meet. `neon_dusk` and `violet_haze` pair them this way and drop the card outline
 (`border_width = 0`) so the rule is the only structural line.
 
+The **sidebar overlay's** title bar draws a matching stripe along its own bottom edge. That
+overlay hosts a single widget and has no tab strip, so its header stands in for one, and the
+stripe appears only when both halves of a dock area's equivalent edge exist: the title bar
+draws a bottom rule *and* tabs draw an indicator along their bottom
+(`indicator_width > 0`, an `indicator_color`, and `bottom` in `indicator_position`). It takes
+the rule's width and its resting colour — the overlay has no focus state of its own.
+`neon_dusk` and `violet_haze` therefore show no stripe: they have the rule but mark the active
+tab with an outline instead of a bottom indicator. `resolve_sidebar_title_bar_rule()` in
+`dock_chrome.py` is the single decision point.
+
 Two settings genuinely conflict with the outline:
 
 - `title_border_width` — the title bar then paints a full outline and never reaches the

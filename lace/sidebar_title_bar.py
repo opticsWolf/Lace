@@ -14,7 +14,8 @@ from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
 )
 from lace.enums import DockWidgetFeature, DockFlags
-from lace.dock_chrome import style_title_bar_buttons, DragDetector, ChromeToolButton
+from lace.dock_chrome import (style_title_bar_buttons, DragDetector, ChromeToolButton,
+                              resolve_sidebar_title_bar_rule)
 from lace.dock_menu import MenuSection, dock_icon, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
 from lace.dock_theme import DockStyleCategory
 from lace.dock_styled import DockStyled
@@ -46,7 +47,11 @@ class SideBarTitleBar(QFrame, DockStyled):
         self.setFixedHeight(32)
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
+        # Painted-chrome state (populated by refresh_style, read by paintEvent).
         self._bg_color: Optional[QColor] = None   # painted in paintEvent (no hex QSS)
+        self._top_radius = 0.0
+        self._title_border_bottom = 0.0
+        self._title_border_color: Optional[QColor] = None
 
         self._active_widget: Optional['DockWidget'] = None
 
@@ -297,11 +302,14 @@ class SideBarTitleBar(QFrame, DockStyled):
         else:
             self._top_radius = max(0.0, float(card_radius - bw_int))
 
-        # The TITLE_BAR schema names these "border_bottom" / "border_color";
-        # the "title_" prefix belongs to ThemeSpec, not to the token dict, so
-        # both lookups used to return None and the paint guard never fired.
-        self._title_border_bottom = title_styles.get("border_bottom")
-        self._title_border_color = title_styles.get("border_color")
+        # Resolved centrally, not read straight off the TITLE_BAR tokens: this
+        # stripe stands in for the line under a dock area's tab strip, so it
+        # has to agree with DockAreaTitleBar about whether that line exists at
+        # all (border_width > 0 suppresses it) and gate on the tab indicator.
+        # The overlay has no focus state of its own, so it takes the resting
+        # colour — the same one an unfocused dock area shows.
+        self._title_border_bottom, self._title_border_color = \
+            resolve_sidebar_title_bar_rule(self._style_mgr)
 
         self._bg_color = bg
         self.update()
@@ -355,24 +363,23 @@ class SideBarTitleBar(QFrame, DockStyled):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
         if bg is not None and bg.alpha() > 0:
-            top_radius = getattr(self, "_top_radius", 0.0)
+            top_radius = self._top_radius
             if top_radius > 0:
                 path = top_rounded_path(QRectF(self.rect()), top_radius)
                 p.fillPath(path, bg)
             else:
                 p.fillRect(self.rect(), bg)
 
-        border_bottom = getattr(self, "_title_border_bottom", None)
-        if border_bottom and border_bottom > 0:
-            bcolor = getattr(self, "_title_border_color", None)
-            if not bcolor:
-                colors = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
-                bcolor = colors.get("border_color")
-            if bcolor and isinstance(bcolor, QColor) and bcolor.alpha() > 0:
-                pen = QPen(bcolor, float(border_bottom))
-                p.setPen(pen)
-                y = self.height() - float(border_bottom) / 2.0
-                p.drawLine(0, int(y), self.width(), int(y))
+        # resolve_sidebar_title_bar_rule() returns width and colour together —
+        # a zero width always comes with no colour — so there is no fallback
+        # lookup here: re-deriving the colour would put the stripe back on the
+        # themes the resolver deliberately excludes.
+        border_bottom = self._title_border_bottom
+        bcolor = self._title_border_color
+        if border_bottom > 0 and bcolor is not None and bcolor.alpha() > 0:
+            p.setPen(QPen(bcolor, float(border_bottom)))
+            y = self.height() - float(border_bottom) / 2.0
+            p.drawLine(0, int(y), self.width(), int(y))
         p.end()
 
 
