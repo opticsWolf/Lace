@@ -229,14 +229,24 @@ class SideBarContainer(QFrame, DockStyled):
                 if getattr(self, '_sidebar_focused', False):
                     self._sidebar_focused = False
                     self.update()
+                    self._title_bar.refresh_focus_tint()
                 return
             
             is_ours = self.isAncestorOf(new_widget) or (new_widget is self)
             if is_ours != getattr(self, '_sidebar_focused', False):
                 self._sidebar_focused = is_ours
                 self.update()
+                self._title_bar.refresh_focus_tint()
         except RuntimeError:
             pass
+
+    def is_chrome_focused(self) -> bool:
+        """Whether this overlay holds focus — the same test its outline paints by.
+
+        Named to match :meth:`DockAreaWidget.is_chrome_focused`, so the title
+        bars of both can ask their parent the same question.
+        """
+        return bool(self._sidebar_focused)
 
     def _focus_inner_widget(self):
         """Pass keyboard focus to the actual content."""

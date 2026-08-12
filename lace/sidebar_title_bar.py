@@ -306,10 +306,8 @@ class SideBarTitleBar(QFrame, DockStyled):
         # stripe stands in for the line under a dock area's tab strip, so it
         # has to agree with DockAreaTitleBar about whether that line exists at
         # all (border_width > 0 suppresses it) and gate on the tab indicator.
-        # The overlay has no focus state of its own, so it takes the resting
-        # colour — the same one an unfocused dock area shows.
         self._title_border_bottom, self._title_border_color = \
-            resolve_sidebar_title_bar_rule(self._style_mgr)
+            resolve_sidebar_title_bar_rule(self._style_mgr, self._is_overlay_focused())
 
         self._bg_color = bg
         self.update()
@@ -354,6 +352,34 @@ class SideBarTitleBar(QFrame, DockStyled):
         else:
             self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL))
         self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL))
+
+    def _is_overlay_focused(self) -> bool:
+        """Whether the overlay this header belongs to holds focus.
+
+        The overlay paints its own outline with the focus colour while focused,
+        so the stripe has to ask the same question or the two disagree — an
+        amber card outline over a violet stripe, on cyberpunk_edge.
+        """
+        parent = self.parent()
+        while parent is not None:
+            if hasattr(parent, "is_chrome_focused"):
+                return parent.is_chrome_focused()
+            parent = parent.parent()
+        return False
+
+    def refresh_focus_tint(self) -> None:
+        """Cheap path: re-resolve only the focus-dependent stripe and repaint.
+
+        Mirrors :meth:`DockAreaTitleBar.refresh_focus_tint` — focus changes on
+        every click, so the button stylesheets and icon re-tinting in
+        :meth:`refresh_style` must not run here.
+        """
+        width, color = resolve_sidebar_title_bar_rule(
+            self._style_mgr, self._is_overlay_focused())
+        if (width, color) == (self._title_border_bottom, self._title_border_color):
+            return
+        self._title_border_bottom, self._title_border_color = width, color
+        self.update()
 
     def paintEvent(self, event):
         from PySide6.QtCore import QRectF

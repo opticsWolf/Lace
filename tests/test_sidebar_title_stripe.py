@@ -60,6 +60,15 @@ def overlay(qapp):
     get_dock_style_manager().apply_theme("default")
 
 
+def _panel(title_bar):
+    """The SideBarContainer hosting this header."""
+    parent = title_bar.parent()
+    while parent is not None and not hasattr(parent, "is_chrome_focused"):
+        parent = parent.parent()
+    assert parent is not None, "the header is not inside a sidebar container"
+    return parent
+
+
 def _spec(**overrides):
     base = dict(
         base=[20, 20, 30, 255],
@@ -158,7 +167,10 @@ def test_zero_indicator_width_means_no_bottom_indicator(qapp):
 def test_striped_presets_paint_the_area_rule_colour(overlay, theme):
     title_bar = overlay(theme)
     manager = get_dock_style_manager()
-    width, color = resolve_title_bar_bottom_rule(manager)
+    # Focus-aware: a shown overlay takes focus, so its stripe is the focus
+    # colour, not the resting one.
+    focused = _panel(title_bar).is_chrome_focused()
+    width, color = resolve_title_bar_bottom_rule(manager, focused)
 
     assert title_bar._title_border_bottom == width > 0
     assert title_bar._title_border_color.getRgb() == color.getRgb(), \
@@ -184,11 +196,55 @@ def test_outline_presets_show_no_stripe(overlay, theme, qapp):
     assert len(row) == 1, f"{theme} painted something along the header's bottom: {row}"
 
 
+@pytest.mark.parametrize("theme", ["cyberpunk_edge", "slate_amber"])
+def test_stripe_tracks_the_overlay_focus(overlay, theme, qapp):
+    """The stripe must be the colour the overlay's own outline is using.
+
+    The overlay paints its card outline with focus_border_color while focused,
+    so a stripe pinned to the resting colour put a violet line under an amber
+    outline on cyberpunk_edge.
+    """
+    title_bar = overlay(theme)
+    panel = _panel(title_bar)
+
+    seen = {}
+    for focused in (False, True):
+        panel._sidebar_focused = focused
+        title_bar.refresh_focus_tint()
+        qapp.processEvents()
+        outline = panel._focus_border_color if focused else panel._border_color
+        assert title_bar._title_border_color.getRgb() == outline.getRgb(), \
+            f"focused={focused}: stripe does not match the panel outline"
+        seen[focused] = title_bar._title_border_color.getRgb()
+
+    assert seen[False] != seen[True], \
+        f"{theme} renders both focus states identically; this proves nothing"
+
+
+def test_focus_change_repaints_the_stripe(overlay, qapp):
+    """A stale cached colour is the failure mode: the container used to
+    update() itself on focus without telling its header."""
+    title_bar = overlay("cyberpunk_edge")
+    panel = _panel(title_bar)
+
+    panel._sidebar_focused = False
+    title_bar.refresh_focus_tint()
+    resting = title_bar._title_border_color.getRgb()
+
+    # Leave the flag alone: _on_app_focus_changed derives it, and pre-setting
+    # it would make the transition a no-op and the test vacuous.
+    panel._on_app_focus_changed(None, title_bar)
+    qapp.processEvents()
+    assert title_bar._title_border_color.getRgb() != resting, \
+        "the header kept the resting colour after the overlay took focus"
+
+
 @pytest.mark.parametrize("theme", sorted(DOCK_THEMES))
 def test_every_theme_agrees_with_the_gate(overlay, theme):
     """The widget must never disagree with the resolver, for any shipped theme."""
     title_bar = overlay(theme)
-    width, color = resolve_sidebar_title_bar_rule(get_dock_style_manager())
+    width, color = resolve_sidebar_title_bar_rule(
+        get_dock_style_manager(), _panel(title_bar).is_chrome_focused())
     assert title_bar._title_border_bottom == width
     if color is None:
         assert title_bar._title_border_color is None

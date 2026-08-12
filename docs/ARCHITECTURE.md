@@ -454,7 +454,8 @@ overlay hosts a single widget and has no tab strip, so its header stands in for 
 stripe appears only when both halves of a dock area's equivalent edge exist: the title bar
 draws a bottom rule *and* tabs draw an indicator along their bottom
 (`indicator_width > 0`, an `indicator_color`, and `bottom` in `indicator_position`). It takes
-the rule's width and its resting colour — the overlay has no focus state of its own.
+the rule's width, and its colour follows the overlay's own focus state (`_sidebar_focused`,
+the same flag its card outline paints by) so the stripe and the outline never disagree.
 `neon_dusk` and `violet_haze` therefore show no stripe: they have the rule but mark the active
 tab with an outline instead of a bottom indicator. `resolve_sidebar_title_bar_rule()` in
 `dock_chrome.py` is the single decision point.
