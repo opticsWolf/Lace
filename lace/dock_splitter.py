@@ -71,28 +71,47 @@ class DockSplitterHandle(QSplitterHandle, DockStyled):
     #  Junction detection
     # ─────────────────────────────────────────────────────────────────────
 
-    def _find_intersecting_handles(self, global_pos) -> list:
-        """Return all visible handles in this container whose hitbox contains
-        *global_pos* (excluding ``self``)."""
+    def _all_handles(self) -> list:
+        """Every splitter handle in this container, cached on the container.
+
+        ``findChildren`` is a full recursive tree walk, and this runs on every
+        hover-move over a handle.  The cache lives on the container and is
+        cleared from its two layout-change choke points (``_emit_dock_areas_``
+        ``added``/``_removed``), which is where handles come and go.
+        """
         from lace.dock_container_widget import DockContainerWidget
         from lace.util import find_parent
 
         container = find_parent(DockContainerWidget, self)
         if container is None:
-            container = self.window()
+            # Not inside a dock container (e.g. mid-reparent) — walk the tree
+            # rather than caching against a widget nothing invalidates.
+            window = self.window()
+            return window.findChildren(DockSplitterHandle) if window else []
 
+        handles = container._handle_cache
+        if handles is None:
+            handles = container.findChildren(DockSplitterHandle)
+            container._handle_cache = handles
+        return handles
+
+    def _find_intersecting_handles(self, global_pos) -> list:
+        """Return all visible handles in this container whose hitbox contains
+        *global_pos* (excluding ``self``)."""
         intersecting = []
-        if container is None:
-            return intersecting
-
         hitbox_radius = 8
-        for h in container.findChildren(DockSplitterHandle):
-            if not h.isVisible() or h is self:
+        for h in self._all_handles():
+            try:
+                if not h.isVisible() or h is self:
+                    continue
+                # Get global rect
+                rect = h.rect()
+                top_left = h.mapToGlobal(rect.topLeft())
+                bottom_right = h.mapToGlobal(rect.bottomRight())
+            except RuntimeError:
+                # Cached handle whose C++ object is gone; the next layout
+                # change clears the cache, so simply skip it here.
                 continue
-            # Get global rect
-            rect = h.rect()
-            top_left = h.mapToGlobal(rect.topLeft())
-            bottom_right = h.mapToGlobal(rect.bottomRight())
             global_rect = QRect(top_left, bottom_right).adjusted(
                 -hitbox_radius, -hitbox_radius, hitbox_radius, hitbox_radius)
             if global_rect.contains(global_pos):
@@ -248,6 +267,16 @@ class DockSplitterHandle(QSplitterHandle, DockStyled):
     #  Cursor helpers
     # ─────────────────────────────────────────────────────────────────────
 
+    def _shares_window_with_active_drag(self) -> bool:
+        """Whether the handle that owns the running junction drag is ours."""
+        owner = DockSplitterHandle._active_drag_owner
+        if owner is None:
+            return False
+        try:
+            return owner.window() is self.window()
+        except RuntimeError:
+            return False
+
     def _split_cursor(self) -> Qt.CursorShape:
         return (Qt.SplitHCursor if self.orientation() == Qt.Horizontal
                 else Qt.SplitVCursor)
@@ -300,7 +329,15 @@ class DockSplitterHandle(QSplitterHandle, DockStyled):
         is_hovered = self._is_hovered
         if DockSplitterHandle.active_drag_handles:
             try:
-                is_hovered = self in DockSplitterHandle.active_drag_handles
+                if self in DockSplitterHandle.active_drag_handles:
+                    is_hovered = True
+                elif self._shares_window_with_active_drag():
+                    # A junction drag is running here: only the co-dragged
+                    # handles look active.  Handles in *other* windows keep
+                    # their own hover state — active_drag_handles is class
+                    # level, so it is shared across every DockManager in the
+                    # process.
+                    is_hovered = False
             except RuntimeError:
                 pass  # deleted handle lingering in the shared set
 

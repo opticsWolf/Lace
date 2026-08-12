@@ -281,6 +281,10 @@ class DockContainerWidget(QFrame, DockStyled):
         self._drop_controller = DropController(self)
         self._maximized_dock_area: DockAreaWidget = None
         self._pre_maximize_splitter_sizes: dict = None  # {id(splitter): sizes_list}
+        # DockSplitterHandle junction detection reads this on every hover-move;
+        # None means "rebuild from findChildren".  Cleared wherever the area
+        # layout changes, which is where handles are created and destroyed.
+        self._handle_cache: Optional[list] = None
 
         # --- ADDED: Style Manager Integration ---
         self._init_dock_style()
@@ -683,11 +687,13 @@ class DockContainerWidget(QFrame, DockStyled):
 
     def _emit_dock_areas_removed(self):
             self._visible_dock_area_count = -1  # Force cache invalidation
+            self._handle_cache = None
             self._on_visible_dock_area_count_changed()
             self.dock_areas_removed.emit()
 
     def _emit_dock_areas_added(self):
         self._visible_dock_area_count = -1  # Force cache invalidation
+        self._handle_cache = None
         self._on_visible_dock_area_count_changed()
         self.dock_areas_added.emit()
 
