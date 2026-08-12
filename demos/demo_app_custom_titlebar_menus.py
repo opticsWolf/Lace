@@ -59,6 +59,8 @@ from lace.dock_theme import DockStyleCategory
 from lace.frameless_titlebar import _color_hex
 from lace.frameless_window import FramelessLaceMainWindow, LaceStandardTitleBar
 
+from demos import theme_choices
+
 
 # ── Custom main-window title bar with embedded menu bar ──────────────
 
@@ -434,15 +436,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
             return
 
         title_bar.add_window_menu()
-        title_bar.add_themes_menu([
-            ("Default", "default"),
-            ("Dark", "dark"),
-            ("Light", "light"),
-            ("Cyberpunk Neon", "cyberpunk_neon"),
-                ("Cyberpunk Edge", "cyberpunk_edge"),
-            ("Nordic", "nordic"),
-            ("Tokyo Night", "tokyo_night"),
-        ])
+        title_bar.add_themes_menu(theme_choices())
 
 
 if __name__ == "__main__":

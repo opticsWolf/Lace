@@ -24,6 +24,8 @@ from lace import (
 )
 from lace.frameless_window import FramelessLaceMainWindow
 
+from demos import theme_choices
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -378,21 +380,8 @@ class DemoMainWindow(FramelessLaceMainWindow):
             action.triggered.connect(on_theme_triggered)
             theme_menu.addAction(action)
 
-        add_theme_action("Default", "default")
-        add_theme_action("Dark", "dark")
-        add_theme_action("Light", "light")
-        add_theme_action("Midnight", "midnight")
-        add_theme_action("Monokai", "monokai")
-        add_theme_action("Neutral", "neutral")
-        add_theme_action("Nordic", "nordic")
-        add_theme_action("Warm", "warm")
-        add_theme_action("Tokyo Night", "tokyo_night")
-        add_theme_action("Catppuccin", "catppuccin")
-        add_theme_action("Dracula", "dracula")
-        add_theme_action("Solarized Dark", "solarized_dark")
-        add_theme_action("Solarized Light", "solarized_light")
-        add_theme_action("Cyberpunk Neon", "cyberpunk_neon")
-        add_theme_action("Cyberpunk Edge", "cyberpunk_edge")
+        for name, key in theme_choices():
+            add_theme_action(name, key)
 
         theme_menu.addSeparator()
         self._auto_theme_action = QAction("Auto Theme (OS Sync)", self, checkable=True)
@@ -411,23 +400,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
 
             current_target = self.theme_manager.user_dark_theme if is_dark_target else self.theme_manager.user_light_theme
 
-            themes_list = [
-                ("Default", "default"),
-                ("Dark", "dark"),
-                ("Light", "light"),
-                ("Midnight", "midnight"),
-                ("Monokai", "monokai"),
-                ("Neutral", "neutral"),
-                ("Nordic", "nordic"),
-                ("Warm", "warm"),
-                ("Tokyo Night", "tokyo_night"),
-                ("Catppuccin", "catppuccin"),
-                ("Dracula", "dracula"),
-                ("Solarized Dark", "solarized_dark"),
-                ("Solarized Light", "solarized_light"),
-                ("Cyberpunk Neon", "cyberpunk_neon"),
-                ("Cyberpunk Edge", "cyberpunk_edge"),
-            ]
+            themes_list = theme_choices()
 
             for name, key in themes_list:
                 act = QAction(name, self, checkable=True)
