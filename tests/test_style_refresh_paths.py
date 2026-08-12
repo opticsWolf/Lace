@@ -154,6 +154,31 @@ def test_repeated_restyle_reapplies_nothing(desk, qapp):
     assert not close_applied, "the close-button stylesheet was rebuilt unchanged"
 
 
+def test_theme_apply_refreshes_each_dock_widget_once(desk, qapp, monkeypatch):
+    """DockWidget subscribes to PANEL *and* CORE, and the bridge used to sweep.
+
+    Three restyles per theme apply for every visible widget: one per subscribed
+    category, plus one from DockThemeBridge.refresh_dock_palette() walking
+    findChildren(DockWidget). The DockStyled debounce collapses the first two;
+    the sweep is gone because the subscription already covers it.
+    """
+    dock_manager, area, _ = desk
+    calls = []
+    original = DockWidget.refresh_style
+    monkeypatch.setattr(
+        DockWidget, "refresh_style",
+        lambda self, *a, **k: (calls.append(self), original(self, *a, **k))[1])
+
+    get_dock_style_manager().apply_theme_dict(_dimming_theme())
+    qapp.processEvents()
+
+    visible = [dw for dw in calls if dw.isVisible()]
+    assert visible, "no visible dock widget restyled on a theme change"
+    for dock_widget in set(visible):
+        assert visible.count(dock_widget) == 1, \
+            f"{dock_widget.objectName()} restyled {visible.count(dock_widget)}x"
+
+
 def test_theme_change_still_reaches_the_guarded_setters(desk, qapp):
     """A guard that never lets go would be worse than no guard."""
     dock_manager, area, _ = desk

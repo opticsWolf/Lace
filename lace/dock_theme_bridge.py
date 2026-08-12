@@ -152,12 +152,9 @@ class DockThemeBridge(QObject):
         # palette-driven, so there is no hex/`palette()` QSS left to go stale on a
         # theme change.  Verified by dev_smoke/smoke_nudge.py.
 
-        # --- RE-APPLY DOCK WIDGET LOCAL PALETTES ---
-        from lace.dock_widget import DockWidget
-        if isinstance(self._target, QApplication):
-            for window in self._target.topLevelWidgets():
-                for dw in window.findChildren(DockWidget):
-                    dw.refresh_style()
-        elif isinstance(self._target, QWidget):
-            for dw in self._target.findChildren(DockWidget):
-                dw.refresh_style()
+        # No sweep over findChildren(DockWidget) here: every DockWidget
+        # registers itself with the style manager in _init_dock_style(), so it
+        # gets the same theme change through its own subscription (debounced to
+        # one refresh per frame).  The sweep only added a third restyle per
+        # theme apply, and a widget that does not update without it has a
+        # missing registration, not a missing sweep.

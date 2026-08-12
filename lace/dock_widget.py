@@ -632,12 +632,16 @@ class DockWidget(QFrame, DockStyled):
     def on_style_changed(self, category: DockStyleCategory, changes: dict):
         """Callback triggered by DockStyleManager when the theme switches."""
         # Listen for both PANEL and CORE changes just in case shared colors update
-        if category in (DockStyleCategory.PANEL, DockStyleCategory.CORE):
-            if self.isVisible():
-                self.refresh_style()
-            else:
-                # Defer refresh until widget becomes visible
-                self._style_dirty = True
+        if category not in (DockStyleCategory.PANEL, DockStyleCategory.CORE):
+            return
+        if not self.isVisible():
+            # Defer refresh until widget becomes visible
+            self._style_dirty = True
+            return
+        # Delegate to DockStyled, which coalesces to one refresh per frame.
+        # Calling refresh_style() directly here restyled twice per theme apply,
+        # once for each subscribed category.
+        super().on_style_changed(category, changes)
 
     def toggle_view(self, open_: bool):
         sender = self.sender()
