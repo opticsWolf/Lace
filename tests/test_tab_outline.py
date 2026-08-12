@@ -292,13 +292,56 @@ def test_violet_haze_outlines_only_the_active_tab(qapp):
 
 
 @pytest.mark.parametrize("name", OUTLINE_THEMES)
-def test_outline_presets_avoid_the_conflicting_settings(name):
-    """The rule and the outline are alternatives, and so are the outline and a
-    bottom indicator: at "bottom" the indicator fills the gap the outline
-    deliberately leaves open."""
+def test_outline_presets_pair_the_rule_with_the_outline(name):
+    """Both presets carry the rule *and* the outline, at a matching width.
+
+    The two are compatible, not alternatives: the rule is a strip-level line
+    and the outline is per-tab, so together they close the inactive tabs while
+    the active tab keeps its open bottom. They must agree on width, since the
+    active tab's outline continues the rule around it — a mismatch steps the
+    line where they meet.
+
+    What genuinely conflicts is title_border_width, which makes the title bar
+    paint a full outline and suppresses the bottom rule entirely, and an
+    indicator at "bottom", which fills the gap the outline leaves open.
+    """
     spec = THEME_SPECS[name]
     assert spec.tab_border_width, f"{name} is meant to demonstrate the outline"
-    assert not spec.title_border_bottom, \
-        f"{name} sets both the rule and the outline; that boxes inactive tabs"
+    assert spec.title_border_bottom == spec.tab_border_width, \
+        f"{name}: the rule and the tab outline must be the same width"
+    assert not spec.title_border_width, \
+        f"{name} sets title_border_width, which suppresses the bottom rule"
     assert spec.indicator_position == "none", \
         f"{name} stacks an indicator on an edge the outline already owns"
+    assert not spec.border_width, \
+        f"{name} keeps the card outline; the rule is meant to be its only line"
+
+
+def test_rule_and_outline_meet_without_a_step(desk, qapp):
+    """The active tab's outline continues the rule around it.
+
+    In violet_haze the inactive tabs are unoutlined, so the rule runs unbroken
+    behind them and the active tab's own edge picks it up — same colour, same
+    width. That continuity is the whole effect, and it breaks if either side
+    drifts.
+    """
+    dock_manager, area, _ = desk
+    manager = get_dock_style_manager()
+    manager.apply_theme("violet_haze")
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(area)
+    qapp.processEvents()
+
+    active, inactive = _tabs(area)
+    title_bar = area._title_bar
+
+    assert active._outline_width == title_bar._border_bottom
+    assert active._outline_color.getRgb() == title_bar._border_color.getRgb(), \
+        "the active tab's outline and the rule disagree on colour"
+
+    # The rule crosses the inactive tab's bottom; the active tab's stays open.
+    img_inactive = _render(inactive, qapp)
+    img_active = _render(active, qapp)
+    rule = title_bar._border_color
+    assert img_inactive.pixelColor(inactive.width() // 2, inactive.height() - 1) == rule
+    assert img_active.pixelColor(active.width() // 2, active.height() - 1) != rule

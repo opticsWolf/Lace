@@ -369,12 +369,17 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     # Inactive tabs take the muted indigo, the active one the neon pink — the
     # inverse of slate_amber, where the line is on the inactive tabs.
     #
-    # Note what is deliberately absent: no title_border_bottom (the rule and
-    # the outline are alternatives; both would box the inactive tabs on all four
-    # sides), and no indicator at all — the outline already marks the active tab
-    # in the accent colour.  At "bottom" the indicator would land on exactly the
-    # edge the outline leaves open and fill the gap back in; at "top" it would
-    # stack on the outline's own top edge at a different width, thickening it.
+    # There is no card outline: border_width is 0, so the rule under the tab
+    # strip is the only structural line, and the panel below it is bounded by
+    # its own background rather than a stroke.  The rule and the tab outline
+    # together close the inactive tabs on all four sides while the active tab
+    # keeps its open bottom — which is what makes the active one read as a notch
+    # cut out of the strip.
+    #
+    # No indicator at all: the outline already marks the active tab in the
+    # accent colour.  At "bottom" the indicator would land on exactly the edge
+    # the outline leaves open and fill the gap back in; at "top" it would stack
+    # on the outline's own top edge at a different width, thickening it.
     # -------------------------------------------------------------------------
     "neon_dusk": ThemeSpec(
         base       = [34, 36, 48, 255],     # Dracula's indigo, a shade cooler
@@ -393,13 +398,19 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 
         # Geometrical Adjustments
         corner_radius = 8,
-        border_width = 1.5,
+        border_width = 0.0,                 # No card outline around the area
         title_height = 32,
         title_padding_right = 8,
         title_button_spacing = 6,
         tab_radius = 8,
         tab_margin = 3,
         content_margin = (8, 2),
+        # Matches tab_border_width: the rule and the tabs' own edges meet along
+        # the same line, so a different width would step where they join.  No
+        # title_border_color / _focus_color: the rule inherits the theme's
+        # border while unfocused and its focus colour when focused, the same
+        # swap the tab outline makes.
+        title_border_bottom = 1.5,
         # The outline both states share a width; only the colour differs, so
         # every tab's edges sit on the same pixels and the strip stays even.
         tab_border_width = 1.5,
@@ -417,6 +428,11 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     # where the selected tab is a framed notch out of the strip and the rest
     # are bare.  A transparent colour, rather than a missing one, is what turns
     # a state off — the theme builder seeds both colours for every theme.
+    #
+    # Like neon_dusk it drops the card outline and rules off the tab strip
+    # instead, which here is the whole effect: with no outline on the inactive
+    # tabs, the rule runs unbroken behind them and stops only at the active
+    # tab's open bottom.
     # -------------------------------------------------------------------------
     "violet_haze": ThemeSpec(
         base       = [40, 42, 54, 255],     # Dracula background
@@ -435,13 +451,14 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 
         # Geometrical Adjustments
         corner_radius = 10,
-        border_width = 1.5,
+        border_width = 0.0,                 # No card outline around the area
         title_height = 32,
         title_padding_right = 8,
         title_button_spacing = 6,
         tab_radius = 8,
         tab_margin = 3,
         content_margin = (8, 2),
+        title_border_bottom = 1.5,          # Matches tab_border_width below
         tab_border_width = 1.5,
         tab_border_color = [0, 0, 0, 0],            # Inactive: no outline
         tab_border_active_color = [189, 147, 249, 255],
