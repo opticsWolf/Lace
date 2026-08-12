@@ -1591,11 +1591,11 @@ green test suite.
 
 | | Task | Files |
 |---|---|---|
-| ☐ | Fix the restore-marker mismatch (§1.1, minimal fix first) | `dock_container_state.py` |
-| ☐ | Fix `ensure_active_dock_area` and move the call inside the `try` (§1.2) | `dock_manager.py` |
-| ☐ | Reset maximize state in `restore_container_state` (§1.4) | `dock_container_state.py` |
-| ☐ | Add `tests/test_layout_roundtrip.py` (§6b) | new |
-| ☐ | Wire pytest into CI (§6a) | `.github/workflows/publish.yml` |
+| ☑ | Fix the restore-marker mismatch (§1.1, minimal fix first) | `dock_container_state.py` |
+| ☑ | Fix `ensure_active_dock_area` and move the call inside the `try` (§1.2) | `dock_manager.py` |
+| ☑ | Reset maximize state in `restore_container_state` (§1.4) | `dock_container_state.py` |
+| ☑ | Add `tests/test_layout_roundtrip.py` (§6b) | new |
+| ☑ | Wire pytest into CI (§6a) | `.github/workflows/publish.yml` |
 
 Ship this as **0.5.1**. `README.md:64` currently advertises a feature that does not work.
 
@@ -1603,14 +1603,14 @@ Ship this as **0.5.1**. `README.md:64` currently advertises a feature that does 
 
 | | Task | Files |
 |---|---|---|
-| ☐ | Serialize `locked_name` / `locked_to_area` (§2.1) | `dock_area_widget.py`, `dock_widget.py`, `dock_container_state.py` |
-| ☐ | Reorder sidebar restore; fix pinned `closed` (§2.2) | `layout_serializer.py` |
-| ☐ | Reduce `widget_states` to what is actually read (§2.3) | `layout_serializer.py` |
-| ☐ | Collapse duplicated floating geometry (§2.4) | `layout_serializer.py`, `dock_container_state.py` |
-| ☐ | Add `schema` version; fix `SYSTEM_TYPE` with back-compat (§2.5) | `layout_serializer.py` |
-| ☐ | Pre-validate with `testing=True`; raise `RestoreFailureError` (§1.3) | `layout_serializer.py` |
-| ☐ | Replace the dynamic-property marker with an explicit set (§1.1 structural) | `dock_container_state.py`, `layout_serializer.py` |
-| ☐ | Document what is *not* persisted (features, icons, toolbars) | `docs/ARCHITECTURE.md` |
+| ☑ | Serialize `locked_name` / `locked_to_area` (§2.1) | `dock_area_widget.py`, `dock_widget.py`, `dock_container_state.py` |
+| ☑ | Reorder sidebar restore; fix pinned `closed` (§2.2) | `layout_serializer.py` |
+| ☑ | Reduce `widget_states` to what is actually read (§2.3) | `layout_serializer.py` |
+| ☑ | Collapse duplicated floating geometry (§2.4) | `layout_serializer.py`, `dock_container_state.py` |
+| ☑ | Add `schema` version; fix `SYSTEM_TYPE` with back-compat (§2.5) | `layout_serializer.py` |
+| ☑ | Pre-validate with `testing=True`; raise `RestoreFailureError` (§1.3) | `layout_serializer.py` |
+| ☑ | Replace the dynamic-property marker with an explicit set (§1.1 structural) | `dock_container_state.py`, `layout_serializer.py` |
+| ☑ | Document what is *not* persisted (features, icons, toolbars) | `docs/ARCHITECTURE.md` |
 
 Extend the round-trip test with each item as you go.
 
@@ -1618,25 +1618,41 @@ Extend the round-trip test with each item as you go.
 
 | | Task | Files |
 |---|---|---|
-| ☐ | Declare all five ghost tokens as real fields (§3.1a) | `dock_theme.py` |
-| ☐ | Warn on unknown tokens in both write paths (§3.1b) | `dock_style_manager.py` |
-| ☐ | Fix the `border_bottom` / `border_color` key names (§3.2) | `sidebar_title_bar.py` |
-| ☐ | Coerce colours by field, not by value shape (§3.4) | `dock_style_manager.py` |
-| ☐ | Scope the DWM nudge to one window (§3.5) | `floating_dock_container.py` ×2 |
-| ☐ | Retain the `QStyle` reference (§3.6) | `dock_theme_bridge.py` |
-| ☐ | Add `tests/test_theme_schema.py` (§6c) | new |
+| ☑ | Declare all five ghost tokens as real fields (§3.1a) | `dock_theme.py` |
+| ☑ | Warn on unknown tokens in both write paths (§3.1b) | `dock_style_manager.py` |
+| ☑ | Fix the `border_bottom` / `border_color` key names (§3.2) | `sidebar_title_bar.py` |
+| ☑ | Coerce colours by field, not by value shape (§3.4) | `dock_style_manager.py` |
+| ☑ | Scope the DWM nudge to one window (§3.5) | `floating_dock_container.py` ×2 |
+| ☑ | Retain the `QStyle` reference (§3.6) | `dock_theme_bridge.py` |
+| ☑ | Add `tests/test_theme_schema.py` (§6c) | new |
 
 ### Phase 4 — Performance (1 day)
 
 | | Task | Files |
 |---|---|---|
-| ☐ | Split `refresh_focus_tint()` out of `refresh_style()` (§4.1) | `dock_widget_tab.py`, `dock_area_widget.py` |
-| ☐ | Guard expensive setters on value change (§4.1) | `dock_widget_tab.py`, `dock_area_title_bar.py`, `dock_chrome.py` |
-| ☐ | Debounce `DockWidget.on_style_changed`; drop the bridge sweep (§4.2) | `dock_widget.py`, `dock_theme_bridge.py` |
-| ☐ | Cache splitter handles (§4.3) | `dock_splitter.py`, `dock_container_widget.py` |
-| ☐ | Make the drop rect a pure function; `repaint` → `update` (§4.4) | `dock_overlay.py` |
+| ☑ | Split `refresh_focus_tint()` out of `refresh_style()` (§4.1) | `dock_widget_tab.py`, `dock_area_widget.py` |
+| ☑ | Guard expensive setters on value change (§4.1) | `dock_widget_tab.py`, `dock_area_title_bar.py`, `dock_chrome.py` |
+| ☑ | Debounce `DockWidget.on_style_changed`; drop the bridge sweep (§4.2) | `dock_widget.py`, `dock_theme_bridge.py` |
+| ☑ | Cache splitter handles (§4.3) | `dock_splitter.py`, `dock_container_widget.py` |
+| ☑ | Make the drop rect a pure function; `repaint` → `update` (§4.4) | `dock_overlay.py` |
 
 Re-run the probe afterwards; target < 0.5 ms per focus switch and < 10 ms per theme switch.
+
+**Result** (same 4-area × 5-tab layout, offscreen, `0.5.25`):
+
+| Probe | Before | After |
+|---|---|---|
+| Focus switch (restyle work alone) | 3.572 ms | **0.086 ms** |
+| Focus switch (incl. repaint + `processEvents`) | 6.11 ms | 1.41 ms |
+| Junction lookup per hover-move | 39.8 µs | 21.4 µs |
+| Theme switch | 30.6 ms | 14.5 ms |
+| `setStyleSheet` calls per 12 theme switches | 545 | 209 |
+| `DockWidget.refresh_style` per theme switch | 3 × per widget | 1 × per widget |
+
+The focus target is met with room to spare. The theme switch does not reach 10 ms: what is left is
+icon SVG re-rendering (~14 per switch, which is real work for a new palette) and Qt's own layout and
+paint inside `processEvents`, not redundant Python. Getting further means caching tinted pixmaps
+across themes, which is a separate change.
 
 ### Phase 5 — Structural cleanup (2–3 days)
 

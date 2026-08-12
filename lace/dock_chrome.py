@@ -208,11 +208,18 @@ def style_title_bar_buttons(
     v_policy = QSizePolicy.Expanding if expand_vertical else QSizePolicy.Fixed
     icon = QSize(icon_size, icon_size)
     for btn in buttons:
-        btn.setStyleSheet(css)
+        # The sheet is sizing-only, so it is usually identical across themes.
+        # setStyleSheet() unpolishes and repolishes the widget subtree either
+        # way, so skip it unless the text actually changed.
+        if getattr(btn, "_applied_chrome_qss", None) != css:
+            btn._applied_chrome_qss = css
+            btn.setStyleSheet(css)
         if isinstance(btn, ChromeToolButton):
             btn.set_hover_chrome(hover_bg, radius)
-        btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
-        btn.setIconSize(icon)
+        if btn.sizePolicy().verticalPolicy() != v_policy:
+            btn.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        if btn.iconSize() != icon:
+            btn.setIconSize(icon)
 
 
 class _ChromeBorderOverlay(QWidget):

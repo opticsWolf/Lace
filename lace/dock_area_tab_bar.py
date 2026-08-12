@@ -51,6 +51,7 @@ class DockAreaTabBar(QScrollArea, DockStyled):
         self._tabs_container_widget: QWidget = None
         self._tabs_layout: QBoxLayout = None
         self._current_index = -1
+        self._transparent_qss_applied = False
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Ignored)
         self.setFrameStyle(QFrame.NoFrame)
@@ -386,11 +387,14 @@ class DockAreaTabBar(QScrollArea, DockStyled):
         # The tab bar is transparent: the dock-area title bar paints the strip
         # background (rounded to match the card), and individual tabs paint
         # their own state.  A square opaque bar here would clash with the
-        # card's rounded corners.
-        self.setStyleSheet("""
-            DockAreaTabBar { background: transparent; border: none; }
-            QWidget#tabsContainerWidget { background: transparent; }
-        """)
+        # card's rounded corners.  The sheet carries no colour, so it is the
+        # same for every theme and only needs applying once.
+        if not self._transparent_qss_applied:
+            self._transparent_qss_applied = True
+            self.setStyleSheet("""
+                DockAreaTabBar { background: transparent; border: none; }
+                QWidget#tabsContainerWidget { background: transparent; }
+            """)
         self.viewport().setAutoFillBackground(False)
 
 

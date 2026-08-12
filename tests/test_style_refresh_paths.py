@@ -179,6 +179,40 @@ def test_theme_apply_refreshes_each_dock_widget_once(desk, qapp, monkeypatch):
             f"{dock_widget.objectName()} restyled {visible.count(dock_widget)}x"
 
 
+def test_chrome_button_sheets_survive_a_theme_change(desk, qapp):
+    """style_title_bar_buttons' sheet is sizing-only: same text, every theme.
+
+    It was reapplied to every title-bar and tab close button on every restyle
+    anyway, and setStyleSheet unpolishes/repolishes the subtree regardless of
+    whether the text changed.
+    """
+    dock_manager, area, _ = desk
+    manager = get_dock_style_manager()
+    manager.apply_theme_dict(_dimming_theme())
+    qapp.processEvents()
+
+    button = area._title_bar._close_button
+    assert button._applied_chrome_qss, "the sheet was never applied at all"
+
+    applied = []
+    original = button.setStyleSheet
+    button.setStyleSheet = lambda qss: (applied.append(qss), original(qss))[1]
+
+    area._title_bar.refresh_style()
+    area._title_bar.refresh_style()
+    assert not applied, "an unchanged button sheet was reapplied"
+
+    # A theme that changes the button geometry must still get through.
+    manager.apply_theme_dict(build_theme(ThemeSpec(
+        base=[14, 11, 28, 255],
+        accent=[255, 0, 127, 255],
+        text=[245, 245, 255, 255],
+        title_height=40,
+    )))
+    qapp.processEvents()
+    area._title_bar.refresh_style()
+
+
 def test_theme_change_still_reaches_the_guarded_setters(desk, qapp):
     """A guard that never lets go would be worse than no guard."""
     dock_manager, area, _ = desk
