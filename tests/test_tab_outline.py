@@ -278,15 +278,22 @@ def test_neon_dusk_outlines_every_tab(qapp):
         manager.apply_theme("default")
 
 
-def test_violet_haze_outlines_only_the_active_tab(qapp):
+def test_violet_haze_outlines_every_tab(qapp):
+    """Both tab states outlined, and the panel outline joins them.
+
+    An unoutlined inactive tab would leave the panel's left edge running up
+    into nothing wherever the leftmost tab is not the active one — the whole
+    point of taking that edge in to the tab column.
+    """
     manager = get_dock_style_manager()
     manager.apply_theme("violet_haze")
     try:
         tab = manager.get_all(DockStyleCategory.TAB)
         assert tab["border_width"] > 0
-        assert tab["border_normal_color"].alpha() == 0, \
-            "violet_haze exists to show the active-tab-only look"
+        assert tab["border_normal_color"].alpha() > 0, "inactive tabs are unoutlined"
         assert tab["border_active_color"].alpha() > 0
+        assert tab["border_normal_color"] != tab["border_active_color"], \
+            "violet_haze renders active and inactive tabs identically"
     finally:
         manager.apply_theme("default")
 

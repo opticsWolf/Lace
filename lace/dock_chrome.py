@@ -298,7 +298,8 @@ class _ChromeBorderOverlay(QWidget):
         p = QPainter(self)
         paint_panel_border(p, QRectF(self.rect()), self._parent._chrome,
                            self._parent._chrome_focused,
-                           self._parent.chrome_border_top())
+                           self._parent.chrome_border_top(),
+                           self._parent.chrome_border_inset())
 
 
 class ChromeFrame(QFrame):
@@ -354,6 +355,17 @@ class ChromeFrame(QFrame):
         it depends on the title bar's laid-out geometry — which changes with the
         title height, the window size, and whether the bar is shown at all.
         Subclasses that own a title bar override this.
+        """
+        return None
+
+    def chrome_border_inset(self) -> Optional[float]:
+        """How far in from the panel's edge a ``border_below_title`` outline
+        should sit, or None to hug the edge.
+
+        The horizontal counterpart to :meth:`chrome_border_top`: that one says
+        where the outline starts, this one says how far in it runs, so the three
+        sides align with the tab strip above them instead of straddling it.
+        Resolved per repaint for the same reason.
         """
         return None
 

@@ -13,12 +13,13 @@ token-level check.
 
 import pytest
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_custom_theme import THEME_SPECS
 from lace.dock_manager import DockManager
-from lace.dock_paint import bottom_open_path, top_rounded_path
+from lace.dock_paint import (ChromeTokens, bottom_open_path,
+                             paint_panel_border, top_rounded_path)
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 from lace.dock_widget import DockWidget
@@ -59,6 +60,10 @@ def _spec(**overrides):
 
 
 def _render(dock_area, qapp):
+    # Twice: the first pass runs the DockStyled debounce, the second lets the
+    # layout it invalidated settle. Rendering in between catches the area a
+    # couple of pixels short of its final size.
+    qapp.processEvents()
     qapp.processEvents()
     image = QImage(dock_area.size(), QImage.Format_ARGB32)
     image.fill(0)
@@ -66,65 +71,145 @@ def _render(dock_area, qapp):
     return image
 
 
-def _edge_has_ink(image, dock_area, edge, bg):
-    """Whether the outermost row/column of *edge* carries anything but bg."""
+def _bg(image, dock_area):
+    return image.pixelColor(dock_area.width() // 2, dock_area.height() // 2)
+
+
+def _differential(dock_area, qapp, **overrides):
+    """Render the area with and without the outline, so the two can be diffed.
+
+    Above the join the outline runs through the title bar and the tabs, which
+    paint their own background and their own outline in the same pixels. A test
+    that compared those pixels against the *content* background would call the
+    tab strip an outline. Diffing two renders that differ only in border_width
+    isolates what the outline itself puts on screen.
+    """
+    manager = get_dock_style_manager()
+    manager.apply_theme_dict(build_theme(_spec(**overrides)))
+    inked = _render(dock_area, qapp)
+    # A transparent outline rather than a zero-width one: border_width feeds the
+    # content margins, so dropping it would resize the area and leave the two
+    # renders misaligned by a couple of pixels — a diff of everything.
+    manager.apply_theme_dict(build_theme(
+        _spec(**{**overrides, "border": [0, 0, 0, 0],
+                 "focus_border_color": [0, 0, 0, 0]})))
+    bare = _render(dock_area, qapp)
+    assert inked.size() == bare.size(), "the two renders must line up"
+    return inked, bare
+
+
+def _edge_is_inked(inked, bare, dock_area, edge, inset=0):
+    """Whether the outline puts anything on the row/column *inset* in from
+    *edge*."""
     w, h = dock_area.width(), dock_area.height()
-    # Middle third only — the rounded corners fall outside the straight edges.
+    i = int(inset)
     xs = range(w // 3, w - w // 3)
     ys = range(h // 3, h - h // 3)
     points = {
-        "top": [(x, 0) for x in xs],
-        "bottom": [(x, h - 1) for x in xs],
-        "left": [(0, y) for y in ys],
-        "right": [(w - 1, y) for y in ys],
+        "top": [(x, i) for x in xs],
+        "bottom": [(x, h - 1 - i) for x in xs],
+        "left": [(i, y) for y in ys],
+        "right": [(w - 1 - i, y) for y in ys],
     }[edge]
-    return any(image.pixelColor(x, y) != bg for x, y in points)
-
-
-def _bg(image, dock_area):
-    return image.pixelColor(dock_area.width() // 2, dock_area.height() // 2)
+    return any(inked.pixelColor(x, y) != bare.pixelColor(x, y) for x, y in points)
 
 
 # ── Geometry ──────────────────────────────────────────────────────────────
 def test_full_outline_covers_all_four_edges(area, qapp):
     """The default — the token off — is unchanged."""
     dock_manager, dock_area = area
-    get_dock_style_manager().apply_theme_dict(build_theme(_spec()))
-    image = _render(dock_area, qapp)
-    bg = _bg(image, dock_area)
+    inked, bare = _differential(dock_area, qapp)
 
     for edge in ("top", "bottom", "left", "right"):
-        assert _edge_has_ink(image, dock_area, edge, bg), f"no outline on the {edge}"
+        assert _edge_is_inked(inked, bare, dock_area, edge), f"no outline on the {edge}"
 
 
 def test_below_title_drops_only_the_top_edge(area, qapp):
     dock_manager, dock_area = area
-    get_dock_style_manager().apply_theme_dict(
-        build_theme(_spec(border_below_title=True)))
-    image = _render(dock_area, qapp)
-    bg = _bg(image, dock_area)
+    inked, bare = _differential(dock_area, qapp, border_below_title=True)
+    inset = dock_area.chrome_border_inset()
 
-    assert not _edge_has_ink(image, dock_area, "top", bg), \
+    assert not _edge_is_inked(inked, bare, dock_area, "top", inset), \
         "the top edge is still drawn"
     for edge in ("bottom", "left", "right"):
-        assert _edge_has_ink(image, dock_area, edge, bg), f"lost the {edge} edge"
+        assert _edge_is_inked(inked, bare, dock_area, edge, inset), \
+            f"lost the {edge} edge"
 
 
 def test_sides_start_at_the_title_bar_underside(area, qapp):
     """Above that line the sides must be bare; below it they must be drawn."""
     dock_manager, dock_area = area
-    get_dock_style_manager().apply_theme_dict(
-        build_theme(_spec(border_below_title=True)))
-    image = _render(dock_area, qapp)
-    bg = _bg(image, dock_area)
+    inked, bare = _differential(dock_area, qapp, border_below_title=True)
     top = int(dock_area.chrome_border_top())
+    x = int(dock_area.chrome_border_inset())
 
     # A few rows above the join, clear of the rounded top corner.
     for y in range(top - 12, top - 6):
-        assert image.pixelColor(0, y) == bg, f"left side drawn at y={y}, above the title bar"
+        assert inked.pixelColor(x, y) == bare.pixelColor(x, y), \
+            f"left side drawn at y={y}, above the title bar"
     # ...and below it.
     for y in range(top + 2, top + 8):
-        assert image.pixelColor(0, y) != bg, f"left side missing at y={y}"
+        assert inked.pixelColor(x, y) != bare.pixelColor(x, y), \
+            f"left side missing at y={y}"
+
+
+# ── The side inset ────────────────────────────────────────────────────────
+def test_sides_sit_at_the_title_bar_edges_not_the_widget_edges(area, qapp):
+    """The three sides move in to the tab column, so they are not at x=0."""
+    dock_manager, dock_area = area
+    get_dock_style_manager().apply_theme_dict(
+        build_theme(_spec(border_below_title=True)))
+    inked, bare = _differential(dock_area, qapp, border_below_title=True)
+    inset = dock_area.chrome_border_inset()
+
+    assert inset and inset > 0, "no inset to test — the title bar is flush"
+    for edge in ("left", "right", "bottom"):
+        assert not _edge_is_inked(inked, bare, dock_area, edge, 0), \
+            f"the {edge} edge still hugs the widget edge"
+        assert _edge_is_inked(inked, bare, dock_area, edge, inset), \
+            f"the {edge} edge is not at the title bar's edge"
+
+
+def test_side_meets_the_leftmost_tabs_outline(area, qapp):
+    """One continuous line from the tab down the panel, with no step.
+
+    The panel's left stroke and the tab's are both centred half a pen width in
+    from the same edge; if either used a different inset the column would break
+    at the join, which is exactly what this asserts cannot happen.
+    """
+    dock_manager, dock_area = area
+    get_dock_style_manager().apply_theme_dict(
+        build_theme(_spec(border_below_title=True,
+                          tab_border_width=2.0,
+                          tab_border_color=[189, 147, 249, 255],
+                          tab_border_active_color=[189, 147, 249, 255],
+                          indicator_position="none")))
+    image = _render(dock_area, qapp)
+    bg = _bg(image, dock_area)
+    x = int(dock_area.chrome_border_inset())
+    top = int(dock_area.chrome_border_top())
+
+    # Unbroken from inside the tab strip, across the join, into the panel.
+    for y in range(8, top + 8):
+        assert image.pixelColor(x, y) != bg, \
+            f"gap at y={y} — the tab outline and the panel edge are not aligned"
+
+
+def test_no_inset_keeps_the_outline_at_the_widget_edge(area, qapp):
+    """A frame that does not override the hook is unmoved."""
+    dock_manager, dock_area = area
+    get_dock_style_manager().apply_theme_dict(
+        build_theme(_spec(border_below_title=True)))
+    qapp.processEvents()
+    dock_area.chrome_border_inset = lambda: None
+    try:
+        inked, bare = _differential(dock_area, qapp, border_below_title=True)
+    finally:
+        del dock_area.chrome_border_inset
+
+    for edge in ("left", "right", "bottom"):
+        assert _edge_is_inked(inked, bare, dock_area, edge, 0), \
+            f"the {edge} edge moved without an inset to move it"
 
 
 def test_border_top_follows_the_title_bar(area, qapp):
@@ -154,24 +239,29 @@ def test_no_title_bar_leaves_the_outline_closed(area, qapp):
     qapp.processEvents()
 
     dock_area._title_bar.setVisible(False)
-    qapp.processEvents()
+    inked, bare = _differential(dock_area, qapp, border_below_title=True)
     assert dock_area.chrome_border_top() is None
+    assert dock_area.chrome_border_inset() is None
 
-    image = _render(dock_area, qapp)
-    bg = _bg(image, dock_area)
-    assert _edge_has_ink(image, dock_area, "top", bg), \
+    assert _edge_is_inked(inked, bare, dock_area, "top"), \
         "the top edge should come back when there is no title bar to close it"
 
 
-def test_zero_border_width_draws_nothing(area, qapp):
-    dock_manager, dock_area = area
-    get_dock_style_manager().apply_theme_dict(
-        build_theme(_spec(border_width=0.0, border_below_title=True)))
-    image = _render(dock_area, qapp)
-    bg = _bg(image, dock_area)
-    for edge in ("top", "bottom", "left", "right"):
-        assert not _edge_has_ink(image, dock_area, edge, bg), \
-            f"border_width=0 still drew the {edge} edge"
+def test_zero_border_width_draws_nothing(qapp):
+    """Straight at the primitive — a rendered area's edges would have to be
+    told apart from the title bar's own strip, which is a different claim."""
+    image = QImage(60, 40, QImage.Format_ARGB32)
+    image.fill(0)
+    p = QPainter(image)
+    paint_panel_border(
+        p, QRectF(0, 0, 60, 40),
+        ChromeTokens(bg=QColor(0, 0, 0, 0), border=QColor(255, 0, 0),
+                     border_width=0.0, radius=8.0, border_below_title=True),
+        top=10.0, side_inset=2.0)
+    p.end()
+    assert all(image.pixelColor(x, y).alpha() == 0
+               for x in range(60) for y in range(40)), \
+        "border_width=0 still put ink on the canvas"
 
 
 # ── The path helper ───────────────────────────────────────────────────────
@@ -210,9 +300,10 @@ def test_violet_haze_frame_meets_the_title_rule(area, qapp):
     bg = _bg(image, dock_area)
 
     top = int(dock_area.chrome_border_top())
+    inset = int(dock_area.chrome_border_inset())
     w = dock_area.width()
-    # The rule sits on the title bar's last row; both far ends must carry ink
-    # so the verticals have something to meet.
+    # The rule sits on the title bar's last row and spans it end to end; the
+    # verticals now run up the title bar's own edges, so they meet it there.
     rule_row = top - 1
-    assert image.pixelColor(0, rule_row) != bg, "nothing at the left corner"
-    assert image.pixelColor(w - 1, rule_row) != bg, "nothing at the right corner"
+    assert image.pixelColor(inset, rule_row) != bg, "nothing at the left corner"
+    assert image.pixelColor(w - 1 - inset, rule_row) != bg, "nothing at the right corner"

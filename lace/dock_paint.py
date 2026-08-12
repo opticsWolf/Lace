@@ -173,12 +173,24 @@ def paint_panel_bg(p: QPainter, rect: QRectF, c: ChromeTokens) -> None:
 
 def paint_panel_border(p: QPainter, rect: QRectF, c: ChromeTokens,
                        focused: bool = False,
-                       top: Optional[float] = None) -> None:
+                       top: Optional[float] = None,
+                       side_inset: Optional[float] = None) -> None:
     """Paint only the outline stroke of a rounded panel.
 
     With :attr:`ChromeTokens.border_below_title` and a ``top`` coordinate, the
     stroke covers the left, right and bottom edges only, running up to ``top``
     (the underside of the title bar) instead of closing across it.
+
+    ``side_inset`` moves that three-sided outline inwards by that many pixels
+    on the left, right and bottom, so it lines up with the tab strip's own
+    outline rather than sitting a couple of pixels outside it.  Pass the
+    distance from the panel's edge to the title bar's — the tab column starts
+    there, so the leftmost tab's outline and the panel's left edge become one
+    continuous line.  Both strokes are then centred half a pen width in from
+    that same edge; a mismatch of even half a pixel antialiases into a visible
+    step, so this branch deliberately drops the extra half-pixel the closed
+    path uses to stay clear of the widget edge (``side_inset`` already provides
+    that clearance).
     """
     w = c.border_width
     border_col = c.focus_border if (focused and c.focus_border is not None) else c.border
@@ -186,19 +198,21 @@ def paint_panel_border(p: QPainter, rect: QRectF, c: ChromeTokens,
         return
 
     p.setRenderHint(QPainter.Antialiasing, True)
-    inset = (w / 2.0) + 0.5 if w > 0 else 0.0
-    r = QRectF(rect).adjusted(inset, inset, -inset, -inset)
-    radius = max(0.0, c.radius - inset)
 
     if c.border_below_title and top is not None:
         # The verticals start at the title bar's bottom edge, so the rule the
         # title bar draws there becomes the fourth side.  The top corner radius
         # is dropped with the top edge — there is no corner left to round.
+        m = 0.0 if side_inset is None else max(0.0, float(side_inset))
+        inset = m + (w / 2.0)
+        r = QRectF(rect).adjusted(inset, 0.0, -inset, -inset)
         r.setTop(min(float(top), r.bottom()))
-        path = bottom_open_path(r, radius)
+        path = bottom_open_path(r, max(0.0, c.radius - inset))
     else:
+        inset = (w / 2.0) + 0.5
+        r = QRectF(rect).adjusted(inset, inset, -inset, -inset)
         path = QPainterPath()
-        path.addRoundedRect(r, radius, radius)
+        path.addRoundedRect(r, max(0.0, c.radius - inset), max(0.0, c.radius - inset))
 
     p.setPen(QPen(border_col, w))
     p.setBrush(Qt.NoBrush)

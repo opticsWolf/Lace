@@ -104,6 +104,18 @@ class DockAreaWidget(ChromeFrame, DockStyled):
             return None
         return float(title_bar.geometry().bottom() + 1)
 
+    def chrome_border_inset(self):
+        """Left edge of the title bar — where the tab column starts.
+
+        Taking the outline in this far makes it continue the leftmost tab's own
+        outline instead of running a second line just outside it.  None when
+        there is no visible title bar, matching :meth:`chrome_border_top`.
+        """
+        title_bar = self._title_bar
+        if title_bar is None or not title_bar.isVisible():
+            return None
+        return float(title_bar.geometry().left())
+
     def is_chrome_focused(self) -> bool:
         """Whether this area is the manager's active one.
 
