@@ -429,7 +429,7 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `cyberpunk_edge` | Amber/violet "night city"; focus-reactive rule under the tab bar (reference preset for `title_border_bottom`) |
 | `slate_amber` | Light industrial grey + burnt amber (`neutral` × `cyberpunk_edge`); the bottom rule on a light palette |
 | `neon_dusk` | Indigo + neon pink (`dracula` × `cyberpunk_neon`); every tab outlined, no card outline (reference preset for `tab_border_width`) |
-| `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; only the active tab outlined, no card outline — the browser-tab look |
+| `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; only the active tab outlined; area outline limited to three sides (reference preset for `border_below_title`) |
 
 All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
 
@@ -459,6 +459,24 @@ the same flag its card outline paints by) so the stripe and the outline never di
 `neon_dusk` and `violet_haze` therefore show no stripe: they have the rule but mark the active
 tab with an outline instead of a bottom indicator. `resolve_sidebar_title_bar_rule()` in
 `dock_chrome.py` is the single decision point.
+
+#### Limiting the area outline — `border_below_title`
+
+`CORE.border_below_title` (`ThemeSpec.border_below_title`) draws the dock area's outline on the
+**left, right and bottom only**, running up to the underside of the title bar instead of closing
+across the top. `title_border_bottom` then supplies the fourth side, so the frame closes without a
+second horizontal line above the header.
+
+* No effect when `border_width` is 0 — there is no outline to limit.
+* The join is resolved on every repaint from the title bar's laid-out geometry
+  (`ChromeFrame.chrome_border_top()`, overridden by `DockAreaWidget`), so it tracks the title
+  height and the window size.
+* With no visible title bar the outline stays closed: three sides around nothing reads as a
+  broken frame, not a design.
+* The background fill is unaffected and still covers the whole rounded card; only the stroke
+  changes.
+
+`violet_haze` uses it, paired with its `title_border_bottom` rule.
 
 Two settings genuinely conflict with the outline:
 

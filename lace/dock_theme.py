@@ -60,6 +60,10 @@ class DockCoreStyleSchema(_FontFields):
 
     # Geometry
     border_width: float = 0.0 #Dock Area Widget border
+    #: Draw the area outline on the left, right and bottom only, stopping at
+    #: the underside of the title bar, whose own bottom rule then closes the
+    #: top. No effect when border_width is 0.
+    border_below_title: bool = False
     corner_radius: int = 2.0 #Dock Area Widget corner radius
     margin: int = 0 #to be kept at zero
     padding: int = 0 #probably not even used, need to check or connect
@@ -349,6 +353,10 @@ class ThemeSpec:
     #: Title-bar border colour while the dock area is focused. Defaults to the
     #: theme's focus_border_color, mirroring the area's own outline.
     title_border_focus_color: Optional[Union[QColor, List[int]]] = None
+    #: Limit the dock-area outline to the left, right and bottom edges, ending
+    #: at the title bar's underside so its bottom rule closes the frame. Pair
+    #: with title_border_bottom, which supplies that fourth side.
+    border_below_title: Optional[bool] = None
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
     #: Tab outline width; 0 (the default) draws no outline. The outline runs
@@ -403,6 +411,7 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         title_border_bottom=spec.title_border_bottom,
         title_border_color=_as_rgba(spec.title_border_color) if spec.title_border_color is not None else None,
         title_border_focus_color=_as_rgba(spec.title_border_focus_color) if spec.title_border_focus_color is not None else None,
+        border_below_title=spec.border_below_title,
         tab_radius=spec.tab_radius,
         tab_margin=spec.tab_margin,
         tab_border_width=spec.tab_border_width,
@@ -443,6 +452,7 @@ def _build_theme(
     title_border_bottom: Optional[float] = None,
     title_border_color: Optional[list] = None,
     title_border_focus_color: Optional[list] = None,
+    border_below_title: Optional[bool] = None,
     tab_radius: Optional[int] = None,
     tab_margin: Optional[int] = None,
     tab_border_width: Optional[float] = None,
@@ -581,6 +591,8 @@ def _build_theme(
         theme[DockStyleCategory.TAB]["corner_radius"] = tab_radius
     if tab_margin is not None:
         theme[DockStyleCategory.TAB]["margin"] = tab_margin
+    if border_below_title is not None:
+        theme[DockStyleCategory.CORE]["border_below_title"] = border_below_title
     if tab_border_width is not None:
         theme[DockStyleCategory.TAB]["border_width"] = tab_border_width
     if tab_border_color is not None:

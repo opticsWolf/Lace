@@ -54,6 +54,32 @@ def top_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
     return path
 
 
+def bottom_open_path(rect: QRectF, radius: float) -> QPainterPath:
+    """Path along the left, bottom and right edges only — the top is left open.
+
+    The mirror of :func:`top_open_path`: a "U" whose bottom corners follow the
+    card's radius. Stroked, it outlines a panel whose top edge is closed by
+    something else — the rule under a dock area's title bar.
+    """
+    path = QPainterPath()
+    r = max(0.0, radius)
+    left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
+    if r <= 0:
+        path.moveTo(left, top)
+        path.lineTo(left, bottom)
+        path.lineTo(right, bottom)
+        path.lineTo(right, top)
+        return path
+    d = 2.0 * r
+    path.moveTo(left, top)
+    path.lineTo(left, bottom - r)
+    path.arcTo(left, bottom - d, d, d, 180.0, 90.0)          # bottom-left
+    path.lineTo(right - r, bottom)
+    path.arcTo(right - d, bottom - d, d, d, 270.0, 90.0)     # bottom-right
+    path.lineTo(right, top)
+    return path
+
+
 def top_open_path(rect: QRectF, radius: float) -> QPainterPath:
     """Path along the left, top and right edges only — the bottom is left open.
 
@@ -113,6 +139,10 @@ class ChromeTokens:
     border_width: float = 0.0
     radius: float = 0.0
     focus_border: Optional[QColor] = None
+    #: Draw the outline on the left, right and bottom only, starting below the
+    #: title bar — the rule under the title bar closes the top. The fill is
+    #: unaffected and still covers the whole rounded card.
+    border_below_title: bool = False
 
     def content_margin(self) -> int:
         """Margin that keeps a square child clear of both the straight border
@@ -142,8 +172,14 @@ def paint_panel_bg(p: QPainter, rect: QRectF, c: ChromeTokens) -> None:
 
 
 def paint_panel_border(p: QPainter, rect: QRectF, c: ChromeTokens,
-                       focused: bool = False) -> None:
-    """Paint only the outline stroke of a rounded panel."""
+                       focused: bool = False,
+                       top: Optional[float] = None) -> None:
+    """Paint only the outline stroke of a rounded panel.
+
+    With :attr:`ChromeTokens.border_below_title` and a ``top`` coordinate, the
+    stroke covers the left, right and bottom edges only, running up to ``top``
+    (the underside of the title bar) instead of closing across it.
+    """
     w = c.border_width
     border_col = c.focus_border if (focused and c.focus_border is not None) else c.border
     if w <= 0 or border_col is None:
@@ -154,8 +190,16 @@ def paint_panel_border(p: QPainter, rect: QRectF, c: ChromeTokens,
     r = QRectF(rect).adjusted(inset, inset, -inset, -inset)
     radius = max(0.0, c.radius - inset)
 
-    path = QPainterPath()
-    path.addRoundedRect(r, radius, radius)
+    if c.border_below_title and top is not None:
+        # The verticals start at the title bar's bottom edge, so the rule the
+        # title bar draws there becomes the fourth side.  The top corner radius
+        # is dropped with the top edge — there is no corner left to round.
+        r.setTop(min(float(top), r.bottom()))
+        path = bottom_open_path(r, radius)
+    else:
+        path = QPainterPath()
+        path.addRoundedRect(r, radius, radius)
+
     p.setPen(QPen(border_col, w))
     p.setBrush(Qt.NoBrush)
     p.drawPath(path)

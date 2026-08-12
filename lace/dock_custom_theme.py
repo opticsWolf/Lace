@@ -451,7 +451,12 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 
         # Geometrical Adjustments
         corner_radius = 10,
-        border_width = 0.0,                 # No card outline around the area
+        # The outline runs down the left, across the bottom and back up the
+        # right, stopping at the title bar's underside — title_border_bottom
+        # below is the fourth side, so the frame closes without doubling a line
+        # across the header.
+        border_width = 1.5,
+        border_below_title = True,
         title_height = 32,
         title_padding_right = 8,
         title_button_spacing = 6,

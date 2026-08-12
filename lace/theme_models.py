@@ -135,6 +135,8 @@ class ThemeJson(BaseModel):
     title_border_color: Optional[Color] = None
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
+    # Limit the area outline to left/right/bottom, ending at the title bar.
+    border_below_title: Optional[bool] = None
     # Tab outline (left/top/right edges; the bottom stays open). A fully
     # transparent tab_border_color outlines only the active tab.
     tab_border_width: Optional[float] = None
@@ -195,6 +197,7 @@ class ThemeJson(BaseModel):
             else None,
             tab_radius=self.tab_radius,
             tab_margin=self.tab_margin,
+            border_below_title=self.border_below_title,
             tab_border_width=self.tab_border_width,
             tab_border_color=rgba(self.tab_border_color)
             if self.tab_border_color is not None

@@ -296,7 +296,9 @@ class _ChromeBorderOverlay(QWidget):
 
     def paintEvent(self, event) -> None:
         p = QPainter(self)
-        paint_panel_border(p, QRectF(self.rect()), self._parent._chrome, self._parent._chrome_focused)
+        paint_panel_border(p, QRectF(self.rect()), self._parent._chrome,
+                           self._parent._chrome_focused,
+                           self._parent.chrome_border_top())
 
 
 class ChromeFrame(QFrame):
@@ -344,6 +346,16 @@ class ChromeFrame(QFrame):
 
     def chrome(self) -> ChromeTokens:
         return self._chrome
+
+    def chrome_border_top(self) -> Optional[float]:
+        """Where an outline with ``border_below_title`` should start, or None.
+
+        Resolved on every repaint rather than cached with the tokens, because
+        it depends on the title bar's laid-out geometry — which changes with the
+        title height, the window size, and whether the bar is shown at all.
+        Subclasses that own a title bar override this.
+        """
+        return None
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

@@ -313,8 +313,13 @@ def test_outline_presets_pair_the_rule_with_the_outline(name):
         f"{name} sets title_border_width, which suppresses the bottom rule"
     assert spec.indicator_position == "none", \
         f"{name} stacks an indicator on an edge the outline already owns"
-    assert not spec.border_width, \
-        f"{name} keeps the card outline; the rule is meant to be its only line"
+    # A card outline is fine, but only one limited to below the title: a full
+    # one puts a second horizontal line above the header, competing with the
+    # rule. neon_dusk drops the outline entirely; violet_haze keeps three sides
+    # and lets the rule close the top.
+    assert not spec.border_width or spec.border_below_title, \
+        f"{name}: a full card outline draws a second line above the header — " \
+        f"either drop it or set border_below_title so the rule closes the frame"
 
 
 def test_rule_and_outline_meet_without_a_step(desk, qapp):

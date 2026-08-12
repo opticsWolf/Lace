@@ -93,6 +93,17 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         except RuntimeError:
             return
 
+    def chrome_border_top(self):
+        """Underside of the title bar, for a ``border_below_title`` outline.
+
+        Returns None when there is no visible title bar, which leaves the
+        outline closed rather than drawing three sides around nothing.
+        """
+        title_bar = self._title_bar
+        if title_bar is None or not title_bar.isVisible():
+            return None
+        return float(title_bar.geometry().bottom() + 1)
+
     def is_chrome_focused(self) -> bool:
         """Whether this area is the manager's active one.
 
@@ -462,6 +473,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
             border_width=core.get("border_width", 0.0),
             radius=core.get("corner_radius", 0),
             focus_border=core.get("focus_border_color"),
+            border_below_title=core.get("border_below_title", False),
         ))
 
         title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
