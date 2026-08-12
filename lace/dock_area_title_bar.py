@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Optional
 import logging
 
 from PySide6.QtCore import QPoint, QPointF, Qt, Signal, QSize, QRectF
-from PySide6.QtGui import QAction, QCursor, QMouseEvent, QPainter, QPen
+from PySide6.QtGui import QAction, QColor, QCursor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy, QToolButton
 
 from lace.enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea, WidgetState
@@ -64,6 +64,13 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._tab_bar: 'DockAreaTabBar' = None
         self._menu_outdated = True
         self._tabs_menu: QMenu = None
+
+        # Painted-chrome state (populated by refresh_style, read by paintEvent).
+        self._bg_color: Optional[QColor] = None
+        self._top_radius = 0.0
+        self._border_width = 0.0
+        self._border_bottom = 0.0
+        self._border_color: Optional[QColor] = None
 
         self._top_layout = QBoxLayout(QBoxLayout.LeftToRight)
         self._top_layout.setContentsMargins(0, 0, 0, 0)
@@ -408,6 +415,21 @@ class DockAreaTitleBar(QFrame, DockStyled):
     def update_pin_button_visibility(self):
         self._dock_area._update_title_bar_button_states()
 
+    def refresh_focus_tint(self) -> None:
+        """Cheap path: re-resolve only the focus-dependent border and repaint.
+
+        The border colour is the sole part of this widget's styling that follows
+        the dock area's focus state, and focus changes on every click — so the
+        button stylesheets and icon re-tinting in :meth:`refresh_style` must not
+        run here.
+        """
+        focused = bool(self._dock_area and self._dock_area.is_chrome_focused())
+        color = resolve_title_bar_border_color(self._style_mgr, focused)
+        if color == self._border_color:
+            return
+        self._border_color = color
+        self.update()
+
     def refresh_style(self):
         # Retrieve all relevant style schemas
         styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
@@ -473,18 +495,18 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self.update_button_states()
 
     def paintEvent(self, event):
-        bg = getattr(self, "_bg_color", None)
+        bg = self._bg_color
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
-        radius = getattr(self, "_top_radius", 0.0)
+        radius = self._top_radius
         path = top_rounded_path(QRectF(self.rect()), radius)
 
         if bg is not None and bg.alpha() > 0:
             p.fillPath(path, bg)
 
-        bw = getattr(self, "_border_width", 0.0)
-        bb = getattr(self, "_border_bottom", 0.0)
-        bc = getattr(self, "_border_color", None)
+        bw = self._border_width
+        bb = self._border_bottom
+        bc = self._border_color
         if bc is not None and (bw > 0 or bb > 0):
             if bw > 0:
                 inset = bw / 2.0

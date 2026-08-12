@@ -40,6 +40,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _blend_colors(c1: QColor, c2: QColor, factor: float = 0.75) -> QColor:
+    """Mix c1 towards c2; factor 0 keeps c1, factor 1 returns c2."""
+    return QColor(
+        int(c1.red() * (1 - factor) + c2.red() * factor),
+        int(c1.green() * (1 - factor) + c2.green() * factor),
+        int(c1.blue() * (1 - factor) + c2.blue() * factor),
+        int(c1.alpha() * (1 - factor) + c2.alpha() * factor),
+    )
+
+
 class DockWidgetTab(QFrame, DockStyled):
     # TITLE_BAR and CORE are read for the bottom rule an inactive tab continues
     # across itself; both must be declared or the tabs would not repaint when a
@@ -85,6 +95,12 @@ class DockWidgetTab(QFrame, DockStyled):
         self._radius = 0.0
         self._bottom_rule_width = 0.0
         self._bottom_rule_color = None
+        # Last-applied values, so the expensive setters in refresh_style() can
+        # be skipped when the theme did not actually change them.
+        self._applied_text_color: Optional[QColor] = None
+        self._applied_close_qss: Optional[str] = None
+        self._applied_close_icon_key: Optional[tuple] = None
+        self._applied_icon_key: Optional[tuple] = None
         self.setAttribute(Qt.WA_Hover, True)
 
         self._create_layout()
@@ -402,7 +418,12 @@ class DockWidgetTab(QFrame, DockStyled):
             return
         self._is_active_tab = active
         self.update_close_button_visibility()
-        self.refresh_style() 
+        # Only the focus/active-dependent parts change here — the colours, the
+        # font weight and the icon's active variant.  A full refresh_style()
+        # would rebuild stylesheets on every tab click for no visible gain.
+        self.refresh_focus_tint()
+        self._apply_font()
+        self.update_icon()
         self.active_tab_changed.emit()
 
     def dock_widget(self) -> 'DockWidget':
@@ -459,6 +480,17 @@ class DockWidgetTab(QFrame, DockStyled):
         icon_size = sm.get(DockStyleCategory.TAB, "tab_icon_size", 16)
 
         use_custom = self._test_config_flag(DockFlags.custom_tab_icons)
+
+        # Named icons are re-rendered and re-tinted by the provider, which is
+        # the expensive branch.  Everything that can change the result is in
+        # this key, so an unchanged key means an identical icon.
+        icon_key = (self._custom_icon_name, self._default_icon_name, use_custom,
+                    self.is_active_tab(), self.isEnabled(), icon_size,
+                    sm.generation)
+        if (self._custom_icon_name or self._default_icon_name) \
+                and icon_key == self._applied_icon_key:
+            return
+        self._applied_icon_key = icon_key
 
         if use_custom:
             if self._custom_icon_name:
@@ -539,54 +571,95 @@ class DockWidgetTab(QFrame, DockStyled):
             self._title_label.setToolTip(text)
         return super().event(e)
 
-    def refresh_style(self):
-        """Cache TAB colours for the painted background/indicator and style the
-        child label and close button (the only remaining stylesheet)."""
-        styles = self._style_mgr.get_all(DockStyleCategory.TAB)
-        is_active = self._is_active_tab
-
-        # Focus checking for tab dimming
-        is_area_focused = True
-        dock_manager = None
-        if self._dock_area:
-            dock_manager = self._dock_area.dock_manager()
-        elif self._dock_widget:
-            dock_manager = self._dock_widget.dock_manager()
-
+    # ── Focus-dependent styling ───────────────────────────────────────────
+    def _is_area_focused(self) -> bool:
         if self._dock_area is not None:
-            is_area_focused = self._dock_area.is_chrome_focused()
+            return self._dock_area.is_chrome_focused()
+        return True
 
+    def _resolve_focus_colors(self, styles: dict) -> tuple:
+        """The subset of the tab's styling that depends on focus/active state.
+
+        Returns ``(indicator, text_color, rule_width, rule_color)``.  Shared by
+        the full restyle and the cheap :meth:`refresh_focus_tint` path so the
+        two cannot compute different colours for the same state.
+        """
+        is_active = self._is_active_tab
+        is_area_focused = self._is_area_focused()
         tab_dimming = styles.get("tab_dimming", False)
+        dimmed = tab_dimming and not is_area_focused
 
-        def _blend_colors(c1, c2, factor=0.75):
-            return QColor(
-                int(c1.red() * (1 - factor) + c2.red() * factor),
-                int(c1.green() * (1 - factor) + c2.green() * factor),
-                int(c1.blue() * (1 - factor) + c2.blue() * factor),
-                int(c1.alpha() * (1 - factor) + c2.alpha() * factor)
-            )
-
-        # 1. Painted-chrome state (consumed by paintEvent).
-        self._bg_normal = styles.get("bg_normal")
-        self._bg_active = styles.get("bg_active")
-        self._bg_hover = styles.get("bg_hover")
-        
         indicator = styles.get("indicator_color")
-        if tab_dimming and not is_area_focused and is_active and indicator and self._bg_active:
-            indicator = _blend_colors(indicator, self._bg_active, 0.5)
-        self._indicator = indicator
+        bg_active = styles.get("bg_active")
+        if dimmed and is_active and indicator and bg_active:
+            indicator = _blend_colors(indicator, bg_active, 0.5)
 
-        self._ind_width = styles.get("indicator_width", 2)
-        self._ind_pos = styles.get("indicator_position", "bottom")
-        self._radius = styles.get("corner_radius", 0)
+        text_active = styles.get("text_active")
+        text_normal = styles.get("text_normal")
+        if not is_active:
+            text_color = text_normal
+        elif dimmed and text_active and text_normal:
+            text_color = _blend_colors(text_active, text_normal, 0.5)
+        else:
+            text_color = text_active
 
         # When the title bar draws a rule along its bottom edge, an inactive
         # tab continues it across its own bottom so the line reads as unbroken;
         # the active tab leaves the gap, which is what makes it look joined to
         # the panel below.  Resolved centrally so this and DockAreaTitleBar
         # cannot disagree about width, colour, or whether a rule exists at all.
-        self._bottom_rule_width, self._bottom_rule_color = \
-            resolve_title_bar_bottom_rule(self._style_mgr, is_area_focused)
+        rule_width, rule_color = resolve_title_bar_bottom_rule(
+            self._style_mgr, is_area_focused)
+        return indicator, text_color, rule_width, rule_color
+
+    def _apply_text_color(self, text_color: Optional[QColor]) -> None:
+        """Set the label colour, skipping the stylesheet when it is unchanged.
+
+        ``setStyleSheet`` forces an unpolish/repolish of the label, so this
+        guard is what makes the focus path cheap enough to run on every click.
+        """
+        if text_color is None or self._title_label is None:
+            return
+        if self._applied_text_color is not None and text_color == self._applied_text_color:
+            return
+        self._applied_text_color = QColor(text_color)
+        pal = self._title_label.palette()
+        pal.setColor(QPalette.WindowText, text_color)
+        self._title_label.setPalette(pal)
+        self._title_label.setStyleSheet(f"color: {text_color.name()};")
+
+    def refresh_focus_tint(self) -> None:
+        """Cheap path: recompute only the focus-dependent colours and repaint.
+
+        Runs on every focus change and tab switch — a single click restyles both
+        the losing and the gaining area.  The expensive work in
+        :meth:`refresh_style` (stylesheets, icon re-render, fonts) is
+        theme-dependent, not focus-dependent, and must not run here.
+        """
+        styles = self._style_mgr.get_all(DockStyleCategory.TAB)
+        (self._indicator, text_color,
+         self._bottom_rule_width, self._bottom_rule_color) = self._resolve_focus_colors(styles)
+        self._apply_text_color(text_color)
+        self.update()
+
+    def refresh_style(self):
+        """Cache TAB colours for the painted background/indicator and style the
+        child label and close button (the only remaining stylesheet)."""
+        styles = self._style_mgr.get_all(DockStyleCategory.TAB)
+        is_active = self._is_active_tab
+
+        # 1. Painted-chrome state (consumed by paintEvent).
+        self._bg_normal = styles.get("bg_normal")
+        self._bg_active = styles.get("bg_active")
+        self._bg_hover = styles.get("bg_hover")
+
+        (self._indicator, text_color,
+         self._bottom_rule_width, self._bottom_rule_color) = self._resolve_focus_colors(styles)
+
+        self._ind_width = styles.get("indicator_width", 2)
+        self._ind_pos = styles.get("indicator_position", "bottom")
+        self._radius = styles.get("corner_radius", 0)
+
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
 
@@ -594,22 +667,7 @@ class DockWidgetTab(QFrame, DockStyled):
         #    itself still carries no stylesheet (its painted background must not
         #    be masked by a sheet); the close button's sheet is sizing-only
         #    (no colour), so it never goes stale on a theme change.
-        text_active = styles.get("text_active")
-        text_normal = styles.get("text_normal")
-
-        if is_active:
-            if tab_dimming and not is_area_focused and text_active and text_normal:
-                text_color = _blend_colors(text_active, text_normal, 0.5)
-            else:
-                text_color = text_active
-        else:
-            text_color = text_normal
-
-        if text_color is not None and self._title_label is not None:
-            pal = self._title_label.palette()
-            pal.setColor(QPalette.WindowText, text_color)
-            self._title_label.setPalette(pal)
-            self._title_label.setStyleSheet(f"color: {text_color.name()};")
+        self._apply_text_color(text_color)
         self._close_button.set_hover_chrome(
             styles.get("close_btn_bg_hover"),
             styles.get("close_btn_corner_radius", 3),
@@ -618,11 +676,15 @@ class DockWidgetTab(QFrame, DockStyled):
         # 2b. Close-button box: same QSS box strategy as the title-bar buttons
         #     (min-width/min-height + padding + border-radius), so the painted
         #     hover fill and icon margins match the title-bar close button.
+        #     Every setter below is guarded on the value actually changing:
+        #     refresh_style() is subscribed to three categories, so a single
+        #     theme apply reaches it repeatedly, and setStyleSheet() is the most
+        #     expensive routine operation in Qt.
         btn_size = styles.get("close_btn_size", 17)
         icon_size_val = styles.get("close_btn_icon_size", 14)
         radius = styles.get("close_btn_corner_radius", 3)
         padding = styles.get("close_btn_padding", 2)
-        self._close_button.setStyleSheet(f"""
+        close_qss = f"""
             QToolButton {{
                 background: transparent;
                 border: none;
@@ -631,33 +693,57 @@ class DockWidgetTab(QFrame, DockStyled):
                 min-width: {btn_size}px;
                 min-height: {btn_size}px;
             }}
-        """)
-        self._close_button.setIconSize(QSize(icon_size_val, icon_size_val))
+        """
+        if close_qss != self._applied_close_qss:
+            self._applied_close_qss = close_qss
+            self._close_button.setStyleSheet(close_qss)
+        icon_size = QSize(icon_size_val, icon_size_val)
+        if self._close_button.iconSize() != icon_size:
+            self._close_button.setIconSize(icon_size)
         v_policy = (
             QSizePolicy.Expanding
             if styles.get("close_btn_expand_vertical", False)
             else QSizePolicy.Fixed
         )
-        self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
+        if self._close_button.sizePolicy().verticalPolicy() != v_policy:
+            self._close_button.setSizePolicy(QSizePolicy.Fixed, v_policy)
 
         # 2c. Re-tint the close icon for the current theme (mirrors the
         #     title-bar buttons re-setting icons on refresh), so it recolors
         #     when the theme changes instead of keeping the construction color.
-        self._close_button.setIcon(
-            dock_icon("close_tab", DockStyleCategory.TAB, token="close_btn_color")
-        )
+        #     Keyed on the style generation: the tint is derived purely from
+        #     theme tokens, which only change when the generation does.
+        icon_key = (self._style_mgr.generation, icon_size_val)
+        if icon_key != self._applied_close_icon_key:
+            self._applied_close_icon_key = icon_key
+            self._close_button.setIcon(
+                dock_icon("close_tab", DockStyleCategory.TAB, token="close_btn_color")
+            )
 
         # 3. Typography.
+        self._apply_font(styles)
+        self.update_icon()
+        self.update()
+
+    def _apply_font(self, styles: Optional[dict] = None) -> None:
+        """Build and apply the tab font, skipping the setters when unchanged.
+
+        The bold weight depends on the active state, so this also runs from
+        :meth:`set_active_tab` — but only when the theme actually distinguishes
+        the two weights.
+        """
+        if styles is None:
+            styles = self._style_mgr.get_all(DockStyleCategory.TAB)
         font = self.font()
         font.setFamily(styles.get("font_family", "Segoe UI"))
         font.setPointSize(styles.get("font_size", 10))
-        weight = styles.get("active_font_weight" if is_active else "font_weight", "normal")
+        weight = styles.get(
+            "active_font_weight" if self._is_active_tab else "font_weight", "normal")
         font.setBold(weight in ("bold", 700))
-        self.setFont(font)
-        if self._title_label:
+        if font != self.font():
+            self.setFont(font)
+        if self._title_label is not None and self._title_label.font() != font:
             self._title_label.setFont(font)
-        self.update_icon()
-        self.update()
 
     def paintEvent(self, event):
         if self._bg_active is None:

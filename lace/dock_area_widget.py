@@ -107,13 +107,16 @@ class DockAreaWidget(ChromeFrame, DockStyled):
     def set_chrome_focused(self, focused: bool):
         super().set_chrome_focused(focused)
         # The title bar's border and its bottom rule swap to the focus colour
-        # too, and the tabs continue that rule, so both restyle here.
+        # too, and the tabs continue that rule, so both restyle here.  This runs
+        # on the losing *and* the gaining area of every click, so both take the
+        # focus-only path: nothing a full restyle would additionally do
+        # (stylesheets, icons, fonts) depends on focus.
         if self._title_bar is not None:
-            self._title_bar.refresh_style()
+            self._title_bar.refresh_focus_tint()
         for widget in self.opened_dock_widgets():
             tab = widget.tab_widget()
             if tab:
-                tab.refresh_style()
+                tab.refresh_focus_tint()
 
     def mousePressEvent(self, event):
         try:
