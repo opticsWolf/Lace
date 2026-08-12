@@ -14,7 +14,7 @@ Public API is imported explicitly at the top level for discoverability
 and IDE/mypy compatibility.
 """
 
-__version__ = "0.5.27"
+__version__ = "0.5.28"
 
 # ---------------------------------------------------------------------------
 # Core Classes
@@ -39,6 +39,7 @@ from lace.dock_style_manager import (
     DockStyleManager,
     apply_dock_theme,
     get_dock_style_manager,
+    theme_choices,
 )
 from lace.dock_theme_bridge import DockThemeBridge
 from lace.dock_menu_bar import DockMenuBarStyler

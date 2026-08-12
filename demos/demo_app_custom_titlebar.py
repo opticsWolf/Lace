@@ -20,11 +20,10 @@ from lace import (
     DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
     ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition,
-    TitleBarMode
+    TitleBarMode,
+    theme_choices,
 )
 from lace.frameless_window import FramelessLaceMainWindow
-
-from demos import theme_choices
 
 logging.basicConfig(level=logging.DEBUG)
 

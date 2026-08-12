@@ -53,13 +53,12 @@ from lace import (
     TitleBarMode,
     apply_dock_theme,
     get_icon_provider,
+    theme_choices,
 )
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
 from lace.frameless_titlebar import _color_hex
 from lace.frameless_window import FramelessLaceMainWindow, LaceStandardTitleBar
-
-from demos import theme_choices
 
 
 # ── Custom main-window title bar with embedded menu bar ──────────────

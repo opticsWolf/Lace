@@ -4,12 +4,12 @@
 Each demo used to carry its own hardcoded (label, key) list, and all of them
 silently went stale when presets were added — a Themes menu missing themes,
 with nothing to catch it. They now derive from DOCK_THEMES via
-demos.theme_choices(); this pins that they keep doing so.
+lace.theme_choices(); this pins that they keep doing so.
 """
 
 import pytest
 
-from demos import theme_choices
+from lace import theme_choices
 from lace.dock_custom_theme import DOCK_THEMES
 
 DEMOS = ("demos.demo_app",
@@ -28,6 +28,27 @@ def test_labels_are_human_readable():
     assert labels["slate_amber"] == "Slate Amber"
     assert all(label and "_" not in label and not label.islower()
                for label in labels.values())
+
+
+@pytest.mark.parametrize("module_name", DEMOS)
+def test_demo_runs_as_a_script(module_name):
+    """`python demos/demo_app.py` puts demos/ on sys.path, not the repo root.
+
+    A sibling-package import then raises ModuleNotFoundError before the window
+    ever opens — which is exactly how these demos are meant to be run. Shared
+    helpers therefore have to come from lace, not from the demos package.
+    """
+    import importlib
+    import inspect
+
+    module = importlib.import_module(module_name)
+    offenders = [
+        line for line in inspect.getsource(module).splitlines()
+        if line.startswith(("from demos", "import demos"))
+    ]
+    assert not offenders, \
+        f"{module_name} imports its own package, so it cannot run as a script:\n" \
+        + "\n".join(offenders)
 
 
 @pytest.mark.parametrize("module_name", DEMOS)

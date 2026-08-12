@@ -12,7 +12,7 @@ import copy
 import logging
 from dataclasses import fields
 from functools import lru_cache
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional, Set, Tuple
 from weakref import WeakSet
 
 from PySide6.QtCore import QObject, Signal
@@ -268,8 +268,22 @@ def get_dock_style_manager() -> DockStyleManager:
 def apply_dock_theme(theme_name: str) -> bool:
     return DockStyleManager.instance().apply_theme(theme_name)
 
+
+def theme_choices() -> List[Tuple[str, str]]:
+    """``(label, key)`` for every built-in theme, in definition order.
+
+    For building a themes menu: pair each label with :func:`apply_dock_theme`.
+    Derived from ``DOCK_THEMES`` so a menu cannot fall behind the presets --
+    every hand-written copy of this list in the demos had gone stale.
+
+    Keys are snake_case, so ``"tokyo_night"`` becomes ``"Tokyo Night"``.
+    """
+    from lace.dock_custom_theme import DOCK_THEMES
+    return [(key.replace("_", " ").title(), key) for key in DOCK_THEMES]
+
+
 from lace.theme_manager import ThemeManager
 __all__ = [
     "DockStyleCategory", "DockStyleManager", "get_dock_style_manager",
-    "apply_dock_theme", "ThemeManager"
+    "apply_dock_theme", "theme_choices", "ThemeManager"
 ]
