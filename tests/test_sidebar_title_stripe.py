@@ -42,15 +42,14 @@ def overlay(qapp):
 
     sidebar = dock_manager.sidebar_manager
 
-    def show(theme):
+    def show(theme, area=DockWidgetArea.left):
         get_dock_style_manager().apply_theme(theme)
         qapp.processEvents()
         if not sidebar.is_pinned(dock_widget):
-            sidebar.pin_widget(dock_widget, area=DockWidgetArea.left)
+            sidebar.pin_widget(dock_widget, area=area)
         qapp.processEvents()
         panel = sidebar._overlay
-        panel.show_widget(dock_widget, DockWidgetArea.left,
-                          animate=False, size=QSize(300, 400))
+        panel.show_widget(dock_widget, area, animate=False, size=QSize(320, 400))
         qapp.processEvents()
         return panel._title_bar
 
@@ -237,6 +236,60 @@ def test_focus_change_repaints_the_stripe(overlay, qapp):
     qapp.processEvents()
     assert title_bar._title_border_color.getRgb() != resting, \
         "the header kept the resting colour after the overlay took focus"
+
+
+@pytest.mark.parametrize("area", [DockWidgetArea.left, DockWidgetArea.right,
+                                  DockWidgetArea.bottom])
+def test_stripe_reaches_the_card_outline(overlay, area, qapp):
+    """No gap between the stripe's ends and the panel outline.
+
+    The layout insets the header by _RESIZE_HANDLE_WIDTH on whichever edge the
+    panel is resized from — the right edge for a left-docked panel, the left
+    edge for a right-docked one — so the header's own stripe stops several
+    pixels short on that side. SideBarContainer continues the line out to the
+    outline; this pins that the two together leave no hole.
+    """
+    title_bar = overlay("cyberpunk_edge", area)
+    panel = _panel(title_bar)
+    if panel.width() <= 0:
+        pytest.skip(f"{area.name} overlay has no width in this layout")
+
+    stripe = title_bar._title_border_color
+    assert stripe is not None, "cyberpunk_edge should be drawing a stripe"
+
+    geo = title_bar.geometry()
+    y = geo.y() + geo.height() - 1
+    row = [panel.grab().toImage().pixelColor(x, y) for x in range(panel.width())]
+
+    painted = [x for x, c in enumerate(row) if c == stripe]
+    assert painted, "no stripe found on the header's bottom row"
+    holes = [x for x in range(painted[0], painted[-1] + 1) if row[x] != stripe]
+    assert not holes, f"{area.name}: gaps in the stripe at x={holes}"
+
+    # ...and it runs the full interior: only the outline itself is outside it.
+    margin = int(panel._border_width) + 1
+    assert painted[0] <= margin, f"{area.name}: stripe starts {painted[0]}px in"
+    assert painted[-1] >= panel.width() - 1 - margin, \
+        f"{area.name}: stripe ends {panel.width() - 1 - painted[-1]}px short"
+
+
+def test_stripe_is_one_even_shade(overlay, qapp):
+    """The header's segment and the container's must land on the same y.
+
+    The header used to truncate its y to an int while the container used the
+    float, so the two halves antialiased differently and the line changed
+    shade partway along — a seam, not a gap.
+    """
+    title_bar = overlay("cyberpunk_edge")
+    panel = _panel(title_bar)
+    geo = title_bar.geometry()
+    y = geo.y() + geo.height() - 1
+    image = panel.grab().toImage()
+
+    inset = int(panel._border_width) + 1
+    shades = {image.pixelColor(x, y).name()
+              for x in range(inset, panel.width() - inset)}
+    assert len(shades) == 1, f"the stripe renders in several shades: {sorted(shades)}"
 
 
 @pytest.mark.parametrize("theme", sorted(DOCK_THEMES))

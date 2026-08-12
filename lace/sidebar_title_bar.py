@@ -8,7 +8,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import Qt, Signal, QPoint
+from PySide6.QtCore import Qt, Signal, QPoint, QPointF
 from PySide6.QtGui import QAction, QColor, QPainter, QPalette
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
@@ -404,8 +404,12 @@ class SideBarTitleBar(QFrame, DockStyled):
         bcolor = self._title_border_color
         if border_bottom > 0 and bcolor is not None and bcolor.alpha() > 0:
             p.setPen(QPen(bcolor, float(border_bottom)))
+            # Float coordinates, not int(): SideBarContainer continues this same
+            # line out to the card outline and computes y the same way, so
+            # truncating here put the two segments a fraction of a pixel apart
+            # and antialiasing rendered them as visibly different shades.
             y = self.height() - float(border_bottom) / 2.0
-            p.drawLine(0, int(y), self.width(), int(y))
+            p.drawLine(QPointF(0.0, y), QPointF(float(self.width()), y))
         p.end()
 
 

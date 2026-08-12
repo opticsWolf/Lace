@@ -10,7 +10,8 @@
 
 from typing import TYPE_CHECKING, List
 
-from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QRect, QPoint, QEvent
+from PySide6.QtCore import (Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QRect,
+                            QPoint, QPointF, QEvent)
 from PySide6.QtGui import QMouseEvent, QColor, QPainter
 from PySide6.QtWidgets import (
     QFrame, QSplitter, QVBoxLayout, QGraphicsDropShadowEffect, QWidget
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
 from lace.enums import DockWidgetArea, SideBarFocusBehavior
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
+from lace.dock_chrome import resolve_sidebar_title_bar_rule
 from lace.sidebar_title_bar import SideBarTitleBar
 
 if TYPE_CHECKING:
@@ -694,8 +696,40 @@ class SideBarContainer(QFrame, DockStyled):
         else:
             if self._bg is not None and self._bg.alpha() > 0:
                 p.fillRect(self.rect(), self._bg)
+
+        self._paint_title_stripe(p, r, bw)
         p.end()
         super().paintEvent(event)
+
+    def _paint_title_stripe(self, p, inner: "QRectF", bw: float) -> None:
+        """Continue the header's bottom stripe out to the card outline.
+
+        The header cannot reach: the layout insets it by _RESIZE_HANDLE_WIDTH on
+        whichever edge the panel is resized from, so its own stripe stopped
+        several pixels short of the outline on that side.  Widening the header
+        instead would put it over the resize zone, which is hit-tested on this
+        widget's mouse events and would then never see them.
+
+        So the same line is drawn here across the full interior, at the same y.
+        The header paints its portion on top with identical width and colour --
+        both ask resolve_sidebar_title_bar_rule() -- so the two cannot disagree
+        and the result reads as one unbroken line.
+        """
+        from PySide6.QtGui import QPen
+        title_bar = self._title_bar
+        if title_bar is None or not title_bar.isVisible():
+            return
+
+        width, color = resolve_sidebar_title_bar_rule(
+            self._style_mgr, self.is_chrome_focused())
+        if width <= 0 or color is None or color.alpha() <= 0:
+            return
+
+        geo = title_bar.geometry()
+        y = geo.y() + geo.height() - width / 2.0
+        half = bw / 2.0 if bw > 0 else 0.0
+        p.setPen(QPen(color, float(width)))
+        p.drawLine(QPointF(inner.left() + half, y), QPointF(inner.right() - half, y))
 
     def refresh_style(self):
         s = self._style_mgr.get_all(DockStyleCategory.SIDEPANEL)
