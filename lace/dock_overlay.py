@@ -36,7 +36,6 @@ class DockOverlay(QFrame, DockStyled):
         self._last_location = DockWidgetArea.invalid
         self._drop_preview_enabled = True
         self._mode = mode
-        self._drop_area_rect = QRect()
 
         # Cache for style colors to avoid repeated lookups
         self._cached_frame_color: Optional[QColor] = None
@@ -98,7 +97,11 @@ class DockOverlay(QFrame, DockStyled):
         if self._target_widget is target:
             da = self.drop_area_under_cursor()
             if da != self._last_location:
-                self.repaint()
+                # update(), not repaint(): this runs from the drag's mouse-move
+                # path, and a synchronous repaint there blocks the drag on a
+                # full paint.  Nothing reads back the painted result any more --
+                # drop_overlay_rect() computes its own geometry.
+                self.update()
                 self._last_location = da
             return da
 
@@ -126,19 +129,13 @@ class DockOverlay(QFrame, DockStyled):
         self._drop_preview_enabled = enable
         self.update()
 
-    def drop_overlay_rect(self) -> QRect:
-        return self._drop_area_rect
+    def _compute_drop_rect(self) -> QRect:
+        """Pure geometry: the preview rect for the area under the cursor.
 
-    def event(self, e: QEvent) -> bool:
-        result = super().event(e)
-        if e.type() == QEvent.Polish and self._cross:
-            self._cross.setup_overlay_cross(self._mode)
-        return result
-
-    def paintEvent(self, e):
+        Returns a null rect when there is nothing to preview.
+        """
         if not self._drop_preview_enabled:
-            self._drop_area_rect = QRect()
-            return
+            return QRect()
 
         r = self.rect()
         da = self.drop_area_under_cursor()
@@ -155,6 +152,29 @@ class DockOverlay(QFrame, DockStyled):
         elif da == DockWidgetArea.center:
             r = self.rect()
         else:
+            return QRect()
+        return r
+
+    def drop_overlay_rect(self) -> QRect:
+        """Where a drop would land, right now.
+
+        Computed on demand rather than read back from the last paintEvent:
+        _finalize_drag() tests this rect for validity, so deriving it from
+        painting made where a window lands depend on whether a repaint happened
+        to run -- an obscured or coalesced overlay handed back a stale or empty
+        rect.
+        """
+        return self._compute_drop_rect()
+
+    def event(self, e: QEvent) -> bool:
+        result = super().event(e)
+        if e.type() == QEvent.Polish and self._cross:
+            self._cross.setup_overlay_cross(self._mode)
+        return result
+
+    def paintEvent(self, e):
+        r = self._compute_drop_rect()
+        if r.isNull():
             return
 
         # Use cached colors for better performance
@@ -167,10 +187,9 @@ class DockOverlay(QFrame, DockStyled):
         pen.setWidth(1)
         pen.setCosmetic(True)
         painter.setPen(pen)
-        
+
         painter.setBrush(overlay_color)
         painter.drawRect(r.adjusted(0, 0, -1, -1))
-        self._drop_area_rect = r
 
         # FIX: End the painter
         painter.end()
