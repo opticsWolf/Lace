@@ -38,12 +38,12 @@ def run_test():
 
     # Create two dock areas in the main window
     dw1 = DockWidget("Panel A")
-    dw1.setWidget(QWidget())
+    dw1.set_widget(QWidget())
     dw1.set_features(DockWidgetFeature.all_features)
     area1 = mgr.add_dock_widget(DockWidgetArea.left, dw1)
 
     dw2 = DockWidget("Panel B")
-    dw2.setWidget(QWidget())
+    dw2.set_widget(QWidget())
     dw2.set_features(DockWidgetFeature.all_features)
     area2 = mgr.add_dock_widget(DockWidgetArea.right, dw2)
 
@@ -123,7 +123,11 @@ def run_test():
     app.processEvents()
     assert not area1.is_maximized(), "Area1 should be auto-restored when Area2 is maximized"
     assert area2.is_maximized(), "Area2 should now be maximized"
-    assert area1.isVisible(), "Area1 should be visible again"
+    # ...but NOT visible: it is Area2 that is maximized now, and a maximized
+    # area hides its siblings — the invariant asserted for Area1/Area2 above.
+    # This line used to assert isVisible(), contradicting that; the script was
+    # never in run_all.py's CHECKS, so nothing caught it.
+    assert not area1.isVisible(), "Area1 should be hidden while Area2 is maximized"
 
     # Clean up
     area2.toggle_maximize()
@@ -139,6 +143,10 @@ def run_test():
     
     # Create solo floating container hosting dw1
     fw = FloatingDockContainer(dock_widget=dw1, dock_manager=mgr)
+    # show() matters: isVisible() is False for every child of a hidden window,
+    # so without it the "button is hidden" assertions below pass vacuously and
+    # the "button is shown" ones can never pass.
+    fw.show()
     app.processEvents()
     
     float_area = dw1.dock_area_widget()
@@ -189,7 +197,10 @@ def run_test():
     fw.deleteLater()
     print("  [PASS] 7. Floating solo vs chromeless vs split maximize button")
 
-    print("\n✅ All maximize/restore smoke tests passed!")
+    # ASCII only: the Windows console defaults to cp1252, which cannot encode
+    # emoji, and a UnicodeEncodeError here fails the script after every
+    # assertion has already passed.
+    print("\nSMOKE MAXIMIZE OK")
 
 
 if __name__ == "__main__":

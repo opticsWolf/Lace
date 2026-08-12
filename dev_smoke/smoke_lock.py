@@ -1,21 +1,28 @@
 # -*- coding: utf-8 -*-
 import sys
-from PySide6.QtWidgets import QApplication
+import os
+# Run directly (python dev_smoke/smoke_lock.py) and sys.path[0] is
+# dev_smoke/; run_all.py sets PYTHONPATH instead.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtCore import Qt
 
 from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.dock_area_widget import DockAreaWidget
-from lace.enums import DockWidgetFeature, DragState
+from lace.enums import DockWidgetArea, DockWidgetFeature, DragState
 
 def run_test():
     app = QApplication.instance() or QApplication(sys.argv)
     
-    mgr = DockManager()
+    window = QMainWindow()
+    mgr = DockManager(window)
     
     # Create locked widgets
     dw = DockWidget("Design Item A")
-    mgr.add_dock_widget(0, dw)  # Add to central area
+    mgr.add_dock_widget(DockWidgetArea.center, dw)
     
     area = dw.dock_area_widget()
     assert area is not None, "DockAreaWidget should be initialized"
@@ -47,8 +54,14 @@ def run_test():
     # 5. Verify float prevention
     assert not tab._start_floating(), "_start_floating should return False for a locked widget"
     
-    # 6. Verify lock release behaves normally
+    # 6. Verify lock release behaves normally.
+    #    features() strips on EITHER lock, so clearing only the widget's leaves
+    #    the area's in force — assert that before clearing both.
     dw.locked_to_area = None
+    assert DockWidgetFeature.pinnable not in dw.features(), \
+        "the area's locked_name should still strip pinnable on its own"
+
+    area.locked_name = None
     features_unlocked = dw.features()
     assert DockWidgetFeature.pinnable in features_unlocked, "Pinnable feature should restore when unlocked"
     assert DockWidgetFeature.floatable in features_unlocked, "Floatable feature should restore when unlocked"

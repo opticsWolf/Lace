@@ -212,8 +212,8 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         
         if next_open_dock_widget is not None:
             self.set_current_dock_widget(next_open_dock_widget)
-        elif (self._contents_layout.is_empty() and
-                  dock_container.dock_area_count() > 1):
+        elif (self._contents_layout.is_empty() and dock_container is not None
+                  and dock_container.dock_area_count() > 1):
             logger.debug('Dock Area empty')
             dock_container.remove_dock_area(self)
             self.deleteLater()
@@ -222,13 +222,17 @@ class DockAreaWidget(ChromeFrame, DockStyled):
 
         self._update_title_bar_button_states()
         self.update_title_bar_visibility()
-        
-        top_level_dock_widget = dock_container.top_level_dock_widget()
-        if top_level_dock_widget is not None:
-            top_level_dock_widget.emit_top_level_changed(True)
 
-        if DEBUG_LEVEL > 0:
-            dock_container.dump_layout()
+        # An area already detached from its container has no container to
+        # consult — which happens while a widget is being moved between
+        # containers, since the area is unparented before the new home is set.
+        if dock_container is not None:
+            top_level_dock_widget = dock_container.top_level_dock_widget()
+            if top_level_dock_widget is not None:
+                top_level_dock_widget.emit_top_level_changed(True)
+
+            if DEBUG_LEVEL > 0:
+                dock_container.dump_layout()
 
         self.dock_widgets_changed.emit()
 
@@ -263,7 +267,9 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         hide_empty_parent_splitters(splitter)
 
         container = self.dock_container()
-        if not container.is_floating():
+        # A detached area (mid-move between containers) has nothing left to
+        # hide; update_title_bar_visibility() below already guards the same way.
+        if container is None or not container.is_floating():
             return
 
         self.update_title_bar_visibility()

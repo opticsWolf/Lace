@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QApplication, QWidget, QMessageBox,
 from PySide6.QtCore import QTimer, QEvent, QObject, Qt
 app = QApplication(sys.argv)
 
-from demo_app_custom_titlebar import DemoMainWindow
+from demos.demo_app_custom_titlebar import DemoMainWindow
 from lace.enums import DragState
 
 REPORT = []

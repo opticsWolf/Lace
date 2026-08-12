@@ -19,7 +19,7 @@ from PySide6.QtCore import QTimer, QPoint, QEvent, Qt
 from PySide6.QtGui import QMouseEvent
 app = QApplication(sys.argv)
 
-from demo_app_custom_titlebar import DemoMainWindow
+from demos.demo_app_custom_titlebar import DemoMainWindow
 from lace.floating_dock_container_frameless import (
     FloatingDockContainer as FramelessFloatingDockContainer)
 

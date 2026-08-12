@@ -6,6 +6,11 @@ Run before and after the QSS->painted-chrome conversion; the visible result must
 be identical (the container bg is mostly occluded by the title bar + content).
 """
 import sys, logging
+import os
+# Run directly (python dev_smoke/<name>.py) and sys.path[0] is dev_smoke/,
+# so the demos package below would not resolve. run_all.py sets PYTHONPATH
+# instead, which is why this only ever broke on direct invocation.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QSize
@@ -173,6 +178,13 @@ def sample_buttons(theme: str):
     size_hint = (btn.sizeHint().width(), btn.sizeHint().height())
     sizes = {(b.width(), b.height()) for b in buttons}
 
+    # The CSS minimum the shared styler writes, read from the same tokens it
+    # uses rather than hard-coded: this floor was pinned at 22 from a
+    # "min-width 18" that the tokens have since moved off, so the check failed
+    # on every theme for a size that was correct.
+    min_box = (sm.get(DockStyleCategory.SIDEPANEL, "button_size", 17)
+               + 2 * sm.get(DockStyleCategory.SIDEPANEL, "button_padding", 2))
+
     hb = sm.get(DockStyleCategory.SIDEPANEL, "button_hover_bg")
     exp_hb = hb.getRgb()[:3] if hb else None
     btn.set_hovered(True)
@@ -190,6 +202,7 @@ def sample_buttons(theme: str):
     npx = nimg.pixelColor(2, 2)          # corner: no fill -> not the hover colour
 
     res = {"size": size, "size_hint": size_hint, "sizes": sizes,
+           "min_box": min_box,
            "hover_px": (hpx.red(), hpx.green(), hpx.blue()),
            "exp_hb": exp_hb, "idle_px": (npx.red(), npx.green(), npx.blue()),
            "pressed_px": (ppx.red(), ppx.green(), ppx.blue())}
@@ -206,12 +219,12 @@ for theme in ("default", "light", "monokai"):
           f"pressed={b['pressed_px']} idle={b['idle_px']}")
     # The shared styler must size every title-bar button identically (no button
     # is special-cased).  With 4 buttons + the title label the layout may
-    # legitimately squeeze them toward their CSS minimum (min-width 18 +
-    # 2x2 padding = 22), so assert uniform size within the declared
+    # legitimately squeeze them toward their CSS minimum (button_size +
+    # 2x button_padding), so assert uniform size within the declared
     # [minimum, sizeHint] range rather than a hard-coded snapshot.
     assert len(b["sizes"]) == 1, f"{theme}: buttons not uniformly sized -> {b['sizes']}"
     for got, hint in zip(b["size"], b["size_hint"]):
-        assert 22 <= got <= hint + 1, f"{theme}: button size {b['size']} outside [22, hint+1]"
+        assert b["min_box"] <= got <= hint + 1,             f"{theme}: button size {b['size']} outside [{b['min_box']}, hint+1]"
     for got, want in zip(b["hover_px"], b["exp_hb"]):
         assert abs(got - want) <= 2, f"{theme}: hover fill {b['hover_px']} != {b['exp_hb']}"
     # pressed reads distinctly from hover (translucent dark wash on top)

@@ -43,7 +43,40 @@ CHECKS = [
     "smoke_flags.py",       # global DockFlags configuration checks
     "smoke_movable.py",     # DockWidgetFeature.movable property and drag blocking checks
     "smoke_pin_button.py",  # TitleBarButton.pin visibility, enablement, and pin/unpin toggling checks
+    "smoke_lock.py",        # locked_to_area / locked_name strip pinnable + floatable
+    "smoke_maximize.py",    # maximize/restore: siblings, splitter sizes, floating delegation
+    "smoke_tab_icons.py",   # DockFlags.custom_tab_icons resolution through the provider
+    "smoke_insertion_order.py",  # InsertionOrder placement of newly added widgets
 ]
+
+# Checks that cannot run headless, with the reason. Everything else in this
+# directory must appear in CHECKS above — see the guard below.
+NEEDS_DISPLAY = {
+    # Drives real WM_LBUTTONDOWN messages through PostMessage, which needs a
+    # genuine window handle; offscreen Qt has none.
+    "smoke_dblclick.py": "posts native window messages",
+}
+
+
+def _unlisted():
+    """Smoke scripts present on disk but in neither list.
+
+    smoke_lock.py and smoke_maximize.py sat unlisted long enough to rot against
+    renamed APIs (setWidget, DockManager()) and to accumulate assertions that
+    contradicted the behaviour asserted elsewhere in the same file. A check the
+    runner does not run is a check that is not maintained.
+    """
+    on_disk = {f for f in os.listdir(HERE)
+               if f.startswith("smoke_") and f.endswith(".py")}
+    return sorted(on_disk - set(CHECKS) - set(NEEDS_DISPLAY))
+
+unlisted = _unlisted()
+if unlisted:
+    print("ERROR: smoke checks exist but are not listed in run_all.py:")
+    for name in unlisted:
+        print(f"  {name}")
+    print("Add them to CHECKS, or to NEEDS_DISPLAY with a reason.")
+    sys.exit(1)
 
 failed = []
 for name in CHECKS:

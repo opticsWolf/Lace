@@ -20,7 +20,7 @@ from PySide6.QtCore import QTimer, QPoint, Qt
 from PySide6.QtGui import QCursor
 app = QApplication(sys.argv)
 
-from demo_app_custom_titlebar import DemoMainWindow
+from demos.demo_app_custom_titlebar import DemoMainWindow
 from lace.floating_dock_container_frameless import (
     FloatingDockContainer as FramelessFloatingDockContainer)
 from lace.dock_style_manager import apply_dock_theme
