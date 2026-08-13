@@ -121,6 +121,12 @@ class DockTabStyleSchema(_FontFields):
     # skips that state, so a theme can outline only the active tab.
     border_normal_color: Optional[List[int]] = None
     border_active_color: Optional[List[int]] = None
+    #: The active tab's outline while its dock area is *unfocused*.  Left
+    #: unset, the active colour is dimmed halfway into the tab's background
+    #: (with tab_dimming) or kept as-is.  A transparent colour makes the
+    #: outline — and, under border_below_title, the whole frame that continues
+    #: it — a focus indicator: present only on the area you are working in.
+    border_unfocused_color: Optional[List[int]] = None
 
     # Geometry
     #: Master switch for the outline above: 0.0 draws none at all.
@@ -370,6 +376,12 @@ class ThemeSpec:
     tab_border_color: Optional[Union[QColor, List[int]]] = None
     #: Outline colour for the active tab. Defaults to the theme's accent.
     tab_border_active_color: Optional[Union[QColor, List[int]]] = None
+    #: Outline colour for the active tab while its area is unfocused. Omitted,
+    #: the active colour dims (see ``tab_dimming``); transparent
+    #: (``[0, 0, 0, 0]``) drops the outline entirely, so only the area you are
+    #: working in is outlined. With ``border_below_title`` the area's frame
+    #: follows it, and the whole frame becomes the focus indicator.
+    tab_border_unfocused_color: Optional[Union[QColor, List[int]]] = None
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
     tab_dimming: bool = False
     indicator_width: Optional[float] = None
@@ -417,6 +429,7 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         tab_border_width=spec.tab_border_width,
         tab_border_color=_as_rgba(spec.tab_border_color) if spec.tab_border_color is not None else None,
         tab_border_active_color=_as_rgba(spec.tab_border_active_color) if spec.tab_border_active_color is not None else None,
+        tab_border_unfocused_color=_as_rgba(spec.tab_border_unfocused_color) if spec.tab_border_unfocused_color is not None else None,
         content_margin=spec.content_margin,
         tab_dimming=spec.tab_dimming,
         indicator_width=spec.indicator_width,
@@ -458,6 +471,7 @@ def _build_theme(
     tab_border_width: Optional[float] = None,
     tab_border_color: Optional[list] = None,
     tab_border_active_color: Optional[list] = None,
+    tab_border_unfocused_color: Optional[list] = None,
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None,
     tab_dimming: bool = False,
     indicator_width: Optional[int] = None,
@@ -599,6 +613,8 @@ def _build_theme(
         theme[DockStyleCategory.TAB]["border_normal_color"] = tab_border_color
     if tab_border_active_color is not None:
         theme[DockStyleCategory.TAB]["border_active_color"] = tab_border_active_color
+    if tab_border_unfocused_color is not None:
+        theme[DockStyleCategory.TAB]["border_unfocused_color"] = tab_border_unfocused_color
     if content_margin is not None:
         theme[DockStyleCategory.PANEL]["content_margin"] = content_margin
 

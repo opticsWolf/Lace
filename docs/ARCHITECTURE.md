@@ -429,7 +429,8 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `cyberpunk_edge` | Amber/violet "night city"; focus-reactive rule under the tab bar (reference preset for `title_border_bottom`) |
 | `slate_amber` | Light industrial grey + burnt amber (`neutral` × `cyberpunk_edge`); the bottom rule on a light palette |
 | `neon_dusk` | Indigo + neon pink (`dracula` × `cyberpunk_neon`); every tab outlined, no card outline (reference preset for `tab_border_width`) |
-| `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; only the active tab outlined; area outline limited to three sides (reference preset for `border_below_title`) |
+| `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; both tab states outlined; area outline limited to three sides (reference preset for `border_below_title`) |
+| `midnight_haze` | `violet_haze` × `midnight`: violet_haze's geometry over a near-black base. Only the focused area's active tab is outlined — everything else is drawn without a line (reference preset for `tab_border_unfocused_color`) |
 
 All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
 
@@ -441,13 +442,26 @@ presets above demonstrate the range.
 | | Token | Where the line runs | Which tabs |
 |---|---|---|---|
 | Rule | `title_border_bottom` | under the whole strip, horizontally | inactive; the active tab breaks it |
-| Outline | `tab_border_width` | around each tab: left, top, right — never the bottom | whichever of `tab_border_color` / `tab_border_active_color` is opaque |
+| Outline | `tab_border_width` | around each tab: left, top, right — never the bottom | whichever of `tab_border_color` / `tab_border_active_color` / `tab_border_unfocused_color` applies, when opaque |
 
 Together they close the inactive tabs on all four sides while the active tab keeps its open
 bottom, which is what makes it read as a notch cut out of the strip. Give them the **same
 width**: the active tab's outline continues the rule around it, so a mismatch steps the line
-where they meet. `neon_dusk` and `violet_haze` pair them this way and drop the card outline
-(`border_width = 0`) so the rule is the only structural line.
+where they meet. `neon_dusk`, `violet_haze` and `midnight_haze` pair them this way.
+
+The active tab's break in the rule is **painted**, in the tab's own background, rather than
+left to the tab's fill to cover: the strip and the tab are different widgets, and at a
+fractional pen width or on a scaled display they round onto slightly different pixels, leaving
+a sliver of the rule along the tab's bottom edge. That line stops an outline width short at
+both ends (with a flat pen cap, since Qt's default square cap would run straight back over
+them) so it cannot rub out the last rows of the tab's own left and right edges — which is
+exactly where the outline hands the line over to the area's frame below. An indicator on that
+edge already owns those pixels, so a theme with `indicator_position = "bottom"` draws no gap
+line at all.
+
+Prefer **whole-number widths**. A 1.5px pen has to straddle a pixel boundary: it renders as one
+solid row plus a half-covered one beside it, which reads as a faint second line rather than a
+soft edge.
 
 The **sidebar overlay's** title bar draws a matching stripe along its own bottom edge. That
 overlay hosts a single widget and has no tab strip, so its header stands in for one, and the
@@ -456,8 +470,8 @@ draws a bottom rule *and* tabs draw an indicator along their bottom
 (`indicator_width > 0`, an `indicator_color`, and `bottom` in `indicator_position`). It takes
 the rule's width, and its colour follows the overlay's own focus state (`_sidebar_focused`,
 the same flag its card outline paints by) so the stripe and the outline never disagree.
-`neon_dusk` and `violet_haze` therefore show no stripe: they have the rule but mark the active
-tab with an outline instead of a bottom indicator. `resolve_sidebar_title_bar_rule()` in
+`neon_dusk`, `violet_haze` and `midnight_haze` therefore show no stripe: they have the rule but
+mark the active tab with an outline instead of a bottom indicator. `resolve_sidebar_title_bar_rule()` in
 `dock_chrome.py` is the single decision point.
 
 #### Limiting the area outline — `border_below_title`
@@ -487,8 +501,22 @@ Two settings genuinely conflict with the outline:
   different width. Outline presets set `"none"`.
 
 A **transparent** colour — not a missing one — is what turns a state off: `build_theme()` seeds
-both colours for every theme, so `tab_border_color = [0, 0, 0, 0]` is how `violet_haze` outlines
-only the active tab.
+both colours for every theme, so `tab_border_color = [0, 0, 0, 0]` is how `midnight_haze`
+outlines only the active tab.
+
+#### The frame as a focus indicator — `tab_border_unfocused_color`
+
+`TAB.border_unfocused_color` (`ThemeSpec.tab_border_unfocused_color`) is the active tab's
+outline **while its dock area is unfocused**. Unset, that state is the active colour dimmed
+halfway into the tab's background (`tab_dimming`) or the active colour unchanged. Transparent
+drops the outline entirely.
+
+Under `border_below_title` that one token governs the whole frame, because the frame *is* the
+tab's outline continued: with no outline to continue, `resolve_below_title_frame_color()`
+answers transparent rather than falling back to `CORE.border_color`, and
+`resolve_title_bar_bottom_rule()` reads a transparent colour as "no rule" rather than stroking
+something invisible. An unfocused area then has no frame, no rule and no tab outline — every
+line on screen belongs to the area you are working in. `midnight_haze` is built on this.
 
 ### 3.10 `dock_style_manager.py` — `DockStyleManager` (singleton)
 

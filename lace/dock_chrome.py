@@ -67,12 +67,20 @@ def resolve_tab_outline_color(style_mgr, active: bool = True,
     outlines only the active tab. ``TAB.tab_dimming`` fades the *active* tab's
     outline halfway into its background while the area is unfocused — the
     inactive tabs are already the muted state, so they do not dim further.
+
+    ``TAB.border_unfocused_color`` replaces that dimming outright when the
+    theme sets it, so a transparent value drops the outline while the area is
+    unfocused rather than merely fading it.
     """
     from lace.dock_theme import DockStyleCategory
 
     tab = style_mgr.get_all(DockStyleCategory.TAB)
     if (tab.get("border_width") or 0.0) <= 0:
         return None
+
+    unfocused = tab.get("border_unfocused_color")
+    if active and not focused and unfocused is not None:
+        return None if unfocused.alpha() == 0 else unfocused
 
     color = tab.get("border_active_color" if active else "border_normal_color")
     if color is None or color.alpha() == 0:
@@ -92,15 +100,25 @@ def resolve_below_title_frame_color(style_mgr,
     outline turns the corner and becomes the frame's sides. The two therefore
     have to be one colour in every state — including the dimmed one, where a
     frame still on ``border_color`` would stay flat while the tab it runs up to
-    faded. Returns None when the token is off or no tab outlines itself, which
-    leaves each caller's own precedence untouched.
+    faded, and the *absent* one: a theme whose tab drops its outline when the
+    area loses focus gets a transparent frame rather than falling back to
+    ``border_color``, which would leave the frame behind without the tab edge
+    it continues.
+
+    Returns None when the token is off, or when no tab outlines itself at any
+    width — neither is this mode's business, so each caller's own precedence
+    stands.
     """
     from lace.dock_theme import DockStyleCategory
 
     core = style_mgr.get_all(DockStyleCategory.CORE)
     if not core.get("border_below_title", False):
         return None
-    return resolve_tab_outline_color(style_mgr, active=True, focused=focused)
+    tab = style_mgr.get_all(DockStyleCategory.TAB)
+    if (tab.get("border_width") or 0.0) <= 0:
+        return None
+    return (resolve_tab_outline_color(style_mgr, active=True, focused=focused)
+            or QColor(0, 0, 0, 0))
 
 
 def resolve_title_bar_border_color(style_mgr, focused: bool = False):
@@ -158,7 +176,11 @@ def resolve_title_bar_bottom_rule(style_mgr, focused: bool = False) -> tuple:
         return 0.0, None
 
     color = resolve_title_bar_border_color(style_mgr, focused)
-    if color is None:
+    if color is None or color.alpha() == 0:
+        # Transparent is a theme saying "no rule in this state", not a request
+        # to stroke nothing visible: returning it would have the tabs paint
+        # invisible lines and would report a rule to callers that ask whether
+        # one exists at all.
         return 0.0, None
 
     return float(width), color

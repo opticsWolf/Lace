@@ -142,6 +142,10 @@ class ThemeJson(BaseModel):
     tab_border_width: Optional[float] = None
     tab_border_color: Optional[Color] = None
     tab_border_active_color: Optional[Color] = None
+    # The active tab's outline while its area is unfocused; transparent
+    # drops it, making the outline (and the frame that continues it) a
+    # focus indicator.
+    tab_border_unfocused_color: Optional[Color] = None
     content_margin: Optional[Union[int, float, List[float]]] = None
     tab_dimming: bool = False
     indicator_width: Optional[float] = None   # matches ThemeSpec.indicator_width
@@ -204,6 +208,9 @@ class ThemeJson(BaseModel):
             else None,
             tab_border_active_color=rgba(self.tab_border_active_color)
             if self.tab_border_active_color is not None
+            else None,
+            tab_border_unfocused_color=rgba(self.tab_border_unfocused_color)
+            if self.tab_border_unfocused_color is not None
             else None,
             content_margin=self.content_margin,
             tab_dimming=self.tab_dimming,

@@ -474,6 +474,52 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_position = "none",
         tab_dimming = True,
     ),
+
+    # -------------------------------------------------------------------------
+    # MIDNIGHT HAZE (violet_haze's geometry over midnight's near-black, with
+    # the frame as the only focus indicator)
+    # -------------------------------------------------------------------------
+    # Every edge belongs to the focused area's active tab: its outline turns
+    # the corner at the title bar's underside and runs down, along the bottom
+    # and back up as the area's frame, with the rule under the strip closing
+    # the top.  Everything else — inactive tabs, and every widget in an area
+    # that does not have focus — is drawn without a single line, so the eye has
+    # exactly one place to land.  That is what tab_border_unfocused_color buys:
+    # unset, the outline would merely dim.
+    "midnight_haze": ThemeSpec(
+        base       = [24, 26, 35, 255],     # Halfway between the two bases
+        accent     = [125, 124, 252, 255],  # Dracula purple met electric blue
+        text       = [229, 232, 236, 255],
+        surface    = [36, 40, 52, 255],     # Lifted panel, so the notch shows
+        title_bg   = [16, 18, 25, 255],     # Recessed strip, near-black
+        border     = [42, 46, 60, 255],     # Splitters and seams only
+        focus_border_color = [125, 124, 252, 255],
+        title_mode = "darker",
+        hover_mode = "lighter",
+        success_color = [80, 250, 123, 255],
+        warning_color = [241, 250, 140, 255],
+        error_color   = [255, 85, 85, 255],
+        info_color    = [139, 233, 253, 255],
+
+        # Geometrical Adjustments — violet_haze's, unchanged
+        corner_radius = 10,
+        border_width = 2.0,
+        border_below_title = True,
+        title_height = 32,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        title_border_bottom = 2.0,          # Matches tab_border_width below
+        tab_border_width = 2.0,
+        tab_border_color = [0, 0, 0, 0],            # Inactive: no outline
+        tab_border_active_color = [125, 124, 252, 255],
+        tab_border_unfocused_color = [0, 0, 0, 0],  # Unfocused: no outline, no
+                                                    # rule, and so no frame
+        indicator_position = "none",
+        tab_dimming = True,
+    ),
 }
 
 # =============================================================================
