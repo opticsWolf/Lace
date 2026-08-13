@@ -36,7 +36,10 @@ def emit_top_level_event_for_widget(widget: Optional['DockWidget'], floating: bo
     if widget is None:
         return
 
-    widget.dock_area_widget().ensure_title_bar_visible()
+    # A widget between areas has no area yet; the signal still has to go out.
+    dock_area = widget.dock_area_widget()
+    if dock_area is not None:
+        dock_area.ensure_title_bar_visible()
     widget.emit_top_level_changed(floating)
 
 

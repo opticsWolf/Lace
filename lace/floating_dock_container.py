@@ -1009,14 +1009,26 @@ class FloatingDockContainer(QWidget, DockStyled):
     def dock_container(self) -> 'DockContainerWidget':
         return self._dock_container
 
+    # _destroyed() clears _dock_container, and closeEvent() calls is_closable()
+    # — a window torn down while closing used to raise from these delegators.
+    # A container-less floating window has nothing left to keep open or hold.
+
     def is_closable(self) -> bool:
+        if self._dock_container is None:
+            return True
         return DockWidgetFeature.closable in self._dock_container.features()
 
     def has_top_level_dock_widget(self) -> bool:
+        if self._dock_container is None:
+            return False
         return self._dock_container.has_top_level_dock_widget()
 
-    def top_level_dock_widget(self) -> 'DockWidget':
+    def top_level_dock_widget(self) -> Optional['DockWidget']:
+        if self._dock_container is None:
+            return None
         return self._dock_container.top_level_dock_widget()
 
     def dock_widgets(self) -> list:
+        if self._dock_container is None:
+            return []
         return self._dock_container.dock_widgets()

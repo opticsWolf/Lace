@@ -1665,7 +1665,7 @@ across themes, which is a separate change.
 | ☑ | Delete the `__init__.py` lazy loader; add `__all__` (§5.4) | `__init__.py` |
 | ☑ | Initialise painted-chrome attrs in `__init__`; drop `getattr` defaults (§5.5) | several |
 | ☑ | Replace `getattr(mgr, '_root', ...)` with `root_container()` (§5.5) | 13 sites |
-| ☐ | Add the null guards in §5.6 | several |
+| ☑ | Add the null guards in §5.6 | several |
 
 ---
 

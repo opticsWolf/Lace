@@ -765,6 +765,18 @@ class DockContainerWidget(QFrame, DockStyled):
 
         Returns True if *area* is a direct child of *splitter*.
         """
+        def collapse(widget):
+            """Take every pane of a losing subtree down to zero.
+
+            setSizes([0]) only reached the *first* pane: Qt applies as many
+            values as it is given and leaves the rest at their current size,
+            so a sibling splitter with two panes kept one of them on screen.
+            """
+            if isinstance(widget, QSplitter):
+                widget.setSizes([0] * max(1, widget.count()))
+            elif isinstance(widget, DockAreaWidget):
+                widget.setVisible(False)
+
         count = splitter.count()
         for i in range(count):
             child = splitter.widget(i)
@@ -774,21 +786,14 @@ class DockContainerWidget(QFrame, DockStyled):
                     # all other children of this splitter.
                     for j in range(count):
                         if j != i:
-                            sib = splitter.widget(j)
-                            if isinstance(sib, QSplitter):
-                                sib.setSizes([0])
-                            elif isinstance(sib, DockAreaWidget):
-                                sib.setVisible(False)
+                            collapse(splitter.widget(j))
                     # Give the winning child all available space.
                     sizes = list(splitter.sizes())
                     sizes[i] = sum(sizes)
                     splitter.setSizes(sizes)
                     return True
                 # Subtree does not contain area — zero it out.
-                if isinstance(child, QSplitter):
-                    child.setSizes([0])
-                elif isinstance(child, DockAreaWidget):
-                    child.setVisible(False)
+                collapse(child)
             elif isinstance(child, DockAreaWidget) and child is area:
                 # Found the maximized area at this level — give all space to it
                 # and hide all other dock areas at this level.
