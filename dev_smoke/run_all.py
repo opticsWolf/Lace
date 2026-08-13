@@ -55,6 +55,10 @@ NEEDS_DISPLAY = {
     # Drives real WM_LBUTTONDOWN messages through PostMessage, which needs a
     # genuine window handle; offscreen Qt has none.
     "smoke_dblclick.py": "posts native window messages",
+    # Reads GetWindowPlacement / GetWindowLong off a real HWND and applies the
+    # Win32 taskbar rules; offscreen Qt backs no window, so every answer would
+    # be meaningless. See docs/FRAMELESS_WINDOW_STATE.md.
+    "smoke_frameless_winstate.py": "reads the real Win32 window placement",
 }
 
 

@@ -135,7 +135,20 @@ class DockFlags(enum.IntFlag):
     
     chromeless_float = enum.auto()
     """Floating container windows are created without native OS title bars or borders (FramelessWindowHint)."""
-    
+
+    floating_taskbar_button = enum.auto()
+    """Floating windows get their own taskbar button, and may be minimized.
+
+    A float is parented to the main window, so Windows treats it as an *owned*
+    window and keeps it out of the taskbar and out of Alt-Tab. Minimizing one
+    would therefore leave it with no way back. Set, each float asks the shell
+    for its own button (``WS_EX_APPWINDOW``) and offers a minimize button;
+    cleared, the minimize button is hidden so nothing can throw a float away.
+
+    Opt-in: eight floating panels means eight taskbar entries.
+    """
+
+
     default_config = (
         opaque_splitter_resize | opaque_undocking | always_show_tabs |
         show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |

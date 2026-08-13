@@ -83,10 +83,8 @@ class FloatingDockContainer(FloatingContainerBehaviour, QWidget, DockStyled):
         dock_container.dock_areas_added.connect(self.on_dock_areas_added_or_removed)
         self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
         self._corner_radius = 0.0
-        flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
-        if self._chromeless:
-            flags |= Qt.FramelessWindowHint
-        self.setWindowFlags(flags)
+        self.setWindowFlags(self._window_flags())
+        self._apply_taskbar_presence()
         if self._chromeless:
             self.setAttribute(Qt.WA_TranslucentBackground)
         
@@ -179,11 +177,23 @@ class FloatingDockContainer(FloatingContainerBehaviour, QWidget, DockStyled):
     #  Window flags / native frame
     # ─────────────────────────────────────────────────────────────────────
 
-    def update_window_flags_from_config(self):
-        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
+    def _window_flags(self) -> Qt.WindowType:
+        """The window flags this float wants, given the current config.
+
+        One spelling, used by __init__ and update_window_flags_from_config;
+        they used to hardcode the set twice, which stopped being merely
+        redundant once the set depended on a config flag.
+        """
         flags = Qt.Window | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
         if self._chromeless:
             flags |= Qt.FramelessWindowHint
+        if self._wants_taskbar_button():
+            flags |= Qt.WindowMinimizeButtonHint
+        return flags
+
+    def update_window_flags_from_config(self):
+        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
+        flags = self._window_flags()
         if self.windowFlags() != flags:
             # Save client-area geometry so content size is preserved across
             # the flag change (setWindowFlags destroys/recreates the native
@@ -193,6 +203,10 @@ class FloatingDockContainer(FloatingContainerBehaviour, QWidget, DockStyled):
             self.setWindowFlags(flags)
             # Sync translucent background with chromeless state.
             self.setAttribute(Qt.WA_TranslucentBackground, self._chromeless)
+            # The recreated handle does not inherit the taskbar ex-style. Set
+            # it while the window is still hidden so the show() below is what
+            # the shell sees.
+            self._apply_taskbar_presence()
             if was_visible:
                 self.show()
             # Restore the saved client-area geometry and force a full repaint.
@@ -200,6 +214,7 @@ class FloatingDockContainer(FloatingContainerBehaviour, QWidget, DockStyled):
             self._pending_restore_geometry = saved_geometry
         else:
             self._pending_restore_geometry = None
+            self._apply_taskbar_presence()
 
         # Sync permanent event-filter state with the chromeless flag.
         if self._chromeless:

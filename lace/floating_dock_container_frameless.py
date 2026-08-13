@@ -109,9 +109,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
         # Floating containers are parented widgets, so promote this to a real
         # top-level frameless window first (the frameless base only ORs
         # Qt.FramelessWindowHint into the existing flags).
-        flags = (Qt.Window | Qt.FramelessWindowHint |
-                 Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
-        self.setWindowFlags(flags)
+        self.setWindowFlags(self._window_flags())
         # setWindowFlags() (re)creates the native window handle — re-apply the
         # DWM shadow / animation registered by the frameless base.
         updater = getattr(self, "updateFrameless", None)
@@ -120,6 +118,8 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                 updater()
             except Exception:
                 pass
+        # ...and the taskbar ex-style, which the new handle does not inherit.
+        self._apply_taskbar_presence()
 
         # Swap in a custom title bar if the DockManager (or constructor
         # argument) requests one; otherwise use the standard Lace title bar.
@@ -133,6 +133,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
         icon_setter = getattr(self.titleBar, "setIcon", None)
         if icon_setter is not None:
             icon_setter(self.windowIcon())
+        self._sync_minimize_button()
         if self._chromeless:
             # chromeless_float => bare floating surface: no title bar at all.
             self.titleBar.hide()
@@ -248,12 +249,38 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
     #  Window flags / frameless chrome
     # ─────────────────────────────────────────────────────────────────────
 
-    def update_window_flags_from_config(self):
-        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
-        # The frameless variant always keeps Qt.FramelessWindowHint (the base
-        # class sets it); the native OS title bar never returns.
+    def _window_flags(self) -> Qt.WindowType:
+        """The window flags this float wants, given the current config.
+
+        The frameless variant always keeps Qt.FramelessWindowHint (the base
+        class sets it); the native OS title bar never returns. The minimize
+        hint follows the taskbar flag — see :meth:`_sync_minimize_button`.
+        """
         flags = (Qt.Window | Qt.FramelessWindowHint |
                  Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+        if self._wants_taskbar_button():
+            flags |= Qt.WindowMinimizeButtonHint
+        return flags
+
+    def _sync_minimize_button(self) -> None:
+        """Show the title bar's minimize button only if the float can come back.
+
+        qframelesswindow builds a minimize button into every title bar and
+        wires it to showMinimized(), and its addWindowAnimation() ORs
+        WS_MINIMIZEBOX onto the handle, so minimizing works whether or not the
+        window has anywhere to minimize *to*. Without a taskbar button it has
+        nowhere — the float vanishes and is not in Alt-Tab either.
+
+        Hiding the button also widens the draggable region: qframelesswindow's
+        _isDragRegion() measures only the visible buttons.
+        """
+        min_button = getattr(self.titleBar, "minBtn", None)
+        if min_button is not None:
+            min_button.setVisible(self._wants_taskbar_button())
+
+    def update_window_flags_from_config(self):
+        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
+        flags = self._window_flags()
         if self.windowFlags() != flags:
             # Save client-area geometry so content size is preserved across
             # the flag change (setWindowFlags destroys/recreates the native
@@ -271,6 +298,9 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                     updater()
                 except Exception:
                     pass
+            # Set the taskbar ex-style while the window is still hidden, so the
+            # show() below is what the shell sees.
+            self._apply_taskbar_presence()
             if was_visible:
                 self.show()
             # Restore the saved client-area geometry and force a full repaint.
@@ -279,6 +309,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
         else:
             self.setAttribute(Qt.WA_TranslucentBackground, self._chromeless)
             self._pending_restore_geometry = None
+            self._apply_taskbar_presence()
 
         # The custom title bar follows the chromeless flag: chromeless floats
         # are bare surfaces without any title bar.
@@ -289,6 +320,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
             else:
                 tb.show()
                 tb.raise_()
+            self._sync_minimize_button()
 
         # Sync the rounded-corner mask with the chromeless state.
         if self._chromeless:

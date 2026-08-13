@@ -346,6 +346,7 @@ dock_manager.config_flags = DockFlags.default_config  # restore defaults
 | `opaque_splitter_resize` | Splitters resize instantly (no rubber band) |
 | `opaque_undocking` | Floating windows stay 100% opaque during drag (vs 60%) |
 | `chromeless_float` | Floating windows have no OS title bar/border |
+| `floating_taskbar_button` | Floats get their own taskbar button and a minimize button (opt-in) |
 | `always_show_tabs` | Tabs always visible, even with 1 widget |
 | `show_tab_close_button` | Individual close button on each tab |
 | `active_tab_has_close_button` | Only active tab shows close button |
