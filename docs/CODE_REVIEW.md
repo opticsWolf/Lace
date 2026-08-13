@@ -1662,7 +1662,7 @@ across themes, which is a separate change.
 | ☑ | Fix `_last_added_area_cache`; guard the `None` splitter (§5.2) | `dock_container_widget.py` |
 | ☑ | Implement `DockOverlayCross.reset()`; delete dead branches (§5.3) | `dock_overlay.py` |
 | ☑ | Fix stale enum docstrings (§5.3) | `enums.py` |
-| ☐ | Delete the `__init__.py` lazy loader; add `__all__` (§5.4) | `__init__.py` |
+| ☑ | Delete the `__init__.py` lazy loader; add `__all__` (§5.4) | `__init__.py` |
 | ☐ | Initialise painted-chrome attrs in `__init__`; drop `getattr` defaults (§5.5) | several |
 | ☐ | Replace `getattr(mgr, '_root', ...)` with `root_container()` (§5.5) | 13 sites |
 | ☐ | Add the null guards in §5.6 | several |
