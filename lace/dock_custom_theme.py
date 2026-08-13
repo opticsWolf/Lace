@@ -410,10 +410,13 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         # title_border_color / _focus_color: the rule inherits the theme's
         # border while unfocused and its focus colour when focused, the same
         # swap the tab outline makes.
-        title_border_bottom = 1.5,
+        # A whole number, so the stroke covers whole pixels: a 1.5px pen has to
+        # straddle a pixel boundary, and the half-covered row beside the solid
+        # one reads as a faint second line rather than a soft edge.
+        title_border_bottom = 1.0,
         # The outline both states share a width; only the colour differs, so
         # every tab's edges sit on the same pixels and the strip stays even.
-        tab_border_width = 1.5,
+        tab_border_width = 1.0,
         tab_border_color = [98, 114, 164, 160],     # Inactive: muted indigo
         tab_border_active_color = [255, 92, 170, 255],   # Active: neon pink
         indicator_position = "none",
@@ -455,7 +458,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         # right, stopping at the title bar's underside — title_border_bottom
         # below is the fourth side, so the frame closes without doubling a line
         # across the header.
-        border_width = 1.5,
+        border_width = 1.0,
         border_below_title = True,
         title_height = 32,
         title_padding_right = 8,
@@ -463,8 +466,9 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         tab_radius = 8,
         tab_margin = 3,
         content_margin = (8, 2),
-        title_border_bottom = 1.5,          # Matches tab_border_width below
-        tab_border_width = 1.5,
+        # Whole pixels, like the frame above — see neon_dusk.
+        title_border_bottom = 1.0,          # Matches tab_border_width below
+        tab_border_width = 1.0,
         tab_border_color = [98, 114, 164, 200],     # Inactive: Dracula comment
         tab_border_active_color = [189, 147, 249, 255],
         indicator_position = "none",
