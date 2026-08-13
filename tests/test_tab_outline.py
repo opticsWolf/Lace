@@ -330,12 +330,30 @@ def test_outline_presets_pair_the_rule_with_the_outline(name):
 
 
 def test_rule_and_outline_meet_without_a_step(desk, qapp):
-    """The active tab's outline continues the rule around it.
+    """The active tab's outline continues the rule around it — same colour,
+    same width. That continuity is the whole effect, and it breaks if either
+    side drifts."""
+    dock_manager, area, _ = desk
+    manager = get_dock_style_manager()
+    manager.apply_theme("violet_haze")
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(area)
+    qapp.processEvents()
 
-    In violet_haze the inactive tabs are unoutlined, so the rule runs unbroken
-    behind them and the active tab's own edge picks it up — same colour, same
-    width. That continuity is the whole effect, and it breaks if either side
-    drifts.
+    active, _inactive = _tabs(area)
+    title_bar = area._title_bar
+
+    assert active._outline_width == title_bar._border_bottom
+    assert active._outline_color.getRgb() == title_bar._border_color.getRgb(), \
+        "the active tab's outline and the rule disagree on colour"
+
+
+def test_an_outlined_tab_leaves_its_own_bottom_open(desk, qapp):
+    """Whether it is the active one or not.
+
+    An outlined tab is a three-sided box; running the rule across its bottom
+    would strike a differently coloured line through the box the outline just
+    drew — the tab would read as underlined rather than open.
     """
     dock_manager, area, _ = desk
     manager = get_dock_style_manager()
@@ -345,15 +363,30 @@ def test_rule_and_outline_meet_without_a_step(desk, qapp):
     qapp.processEvents()
 
     active, inactive = _tabs(area)
-    title_bar = area._title_bar
+    rule = area._title_bar._border_color
+    for tab, name in ((active, "active"), (inactive, "inactive")):
+        assert tab._outline_color is not None, f"the {name} tab is unoutlined"
+        image = _render(tab, qapp)
+        assert image.pixelColor(tab.width() // 2, tab.height() - 1) != rule, \
+            f"the rule crosses the {name} tab's bottom"
 
-    assert active._outline_width == title_bar._border_bottom
-    assert active._outline_color.getRgb() == title_bar._border_color.getRgb(), \
-        "the active tab's outline and the rule disagree on colour"
 
-    # The rule crosses the inactive tab's bottom; the active tab's stays open.
-    img_inactive = _render(inactive, qapp)
-    img_active = _render(active, qapp)
-    rule = title_bar._border_color
-    assert img_inactive.pixelColor(inactive.width() // 2, inactive.height() - 1) == rule
-    assert img_active.pixelColor(active.width() // 2, active.height() - 1) != rule
+def test_an_unoutlined_tab_still_continues_the_rule(desk, qapp):
+    """The rule-only look is unchanged: with nothing of its own to draw, an
+    inactive tab carries the line across so the strip reads unbroken."""
+    dock_manager, area, _ = desk
+    manager = get_dock_style_manager()
+    manager.apply_theme_dict(build_theme(_spec(
+        title_border_bottom=2.0, tab_border_width=0.0)))
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(area)
+    qapp.processEvents()
+
+    active, inactive = _tabs(area)
+    rule = area._title_bar._border_color
+    assert inactive._outline_color is None
+    assert _render(inactive, qapp).pixelColor(
+        inactive.width() // 2, inactive.height() - 1) == rule
+    assert _render(active, qapp).pixelColor(
+        active.width() // 2, active.height() - 1) != rule, \
+        "the active tab's gap is what makes it look joined to the panel"

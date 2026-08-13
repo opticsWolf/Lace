@@ -619,10 +619,21 @@ class DockWidgetTab(QFrame, DockStyled):
         # outlines only the active tab.
         outline = styles.get(
             "border_active_color" if is_active else "border_normal_color")
+        if (styles.get("border_width") or 0.0) <= 0:
+            # No outline at any width — the colour is inert.  It has to resolve
+            # to None rather than a colour paint happens to ignore, because
+            # "this tab outlines itself" is now what decides the rule below.
+            outline = None
         if outline is not None and outline.alpha() == 0:
             outline = None
         if outline is not None and dimmed and is_active and bg_active:
             outline = _blend_colors(outline, bg_active, 0.5)
+
+        if outline is not None:
+            # This tab closes its own three sides and leaves the bottom open,
+            # like the active one.  Continuing the rule across it would strike a
+            # differently coloured line through the box the outline just drew.
+            rule_width, rule_color = 0.0, None
 
         return indicator, text_color, rule_width, rule_color, outline
 
