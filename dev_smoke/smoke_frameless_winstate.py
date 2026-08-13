@@ -195,6 +195,34 @@ def main(dock_manager):
             flt.close()
             QTest.qWait(200)
 
+    # ── 3. recovery from an OS-side maximize ──────────────────────────────
+    print("\n[3] a float the OS maximized (Aero Snap, Win+Up) can still be"
+          " restored")
+    for name, restore in TOGGLES.items():
+        flt = new_float(dock_manager)
+        start = flt.geometry()
+        # What snapping to the top edge or pressing Win+Up does: a real
+        # SW_MAXIMIZED placement that Qt did not initiate.
+        win32gui.PostMessage(int(flt.winId()), win32con.WM_SYSCOMMAND,
+                             win32con.SC_MAXIMIZE, 0)
+        QTest.qWait(500)
+        if not check(f"native maximize then {name}: precondition",
+                     show_cmd(flt) == "SW_MAXIMIZED",
+                     f"win32={show_cmd(flt)}"):
+            flt.close()
+            QTest.qWait(200)
+            continue
+
+        restore(flt)
+        QTest.qWait(500)
+        check(f"native maximize then {name}: geometry restored",
+              flt.geometry() == start,
+              f"now {flt.geometry().getRect()} vs start {start.getRect()}")
+        check(f"native maximize then {name}: back to SW_NORMAL",
+              show_cmd(flt) == "SW_NORMAL", f"win32={show_cmd(flt)}")
+        flt.close()
+        QTest.qWait(200)
+
     # ── 4. rip out of maximize ────────────────────────────────────────────
     print("\n[4] dragging a maximized float restores it first")
     import qframelesswindow.utils as qf_utils

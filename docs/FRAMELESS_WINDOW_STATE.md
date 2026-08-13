@@ -49,6 +49,13 @@ mechanism.
 | 3 | Layout restore | `LayoutSerializer` → `fw.showMaximized()` ([layout_serializer.py:302](../lace/layout_serializer.py#L302)) | **Qt** |
 | 4 | **Title-bar maximize button** | `TitleBarBase.maxBtn.clicked` → `qframelesswindow.utils.toggleMaxState` | **Win32** |
 
+Fixed in 0.5.52: `LaceStandardTitleBar.__init__` disconnects the base wiring
+and reconnects `maxBtn` to `toggle_max_state()`, the same call the
+double-click makes. Entry points 2 and 3 route through the same helper, so
+all four are one mechanism. The rest of this section is the diagnosis that
+led there, kept because the OS can still maximize a window behind Lace's
+back and the recovery path below is what handles that.
+
 `toggleMaxState` on Qt ≥ 6.8 (we are on 6.11.1) does:
 
 ```python
@@ -214,7 +221,7 @@ threshold on a maximized float leaves `isMaximized() == True` and calls
 `startSystemMove` once — the window stays maximized and the OS is asked to
 move a maximized window.
 
-### 3.3 Double-click does not restore after the maximize button
+### 3.3 Double-click does not restore after the maximize button — FIXED in 0.5.52
 
 This is case **C** of §2.1 verbatim. Instrumented run:
 
@@ -240,7 +247,7 @@ For contrast, maximizing *and* restoring by double-click both work (§2.1
 case D) — which is why this only reproduces when the maximize button was
 used first.
 
-### 3.4 The float loses the ability to be moved
+### 3.4 The float loses the ability to be moved — FIXED in 0.5.52
 
 Direct consequence of being left at `showCmd == SW_MAXIMIZED`: Windows
 refuses `SC_MOVE` for a zoomed window. Measured (probe 8) — on a natively
@@ -277,9 +284,31 @@ every same-mechanism pair round-trips, every mixed pair breaks:
 
 | maximized by ↓ / restored by → | maximize button | double click | dock-area ⛶ |
 | --- | --- | --- | --- |
-| **maximize button** (Win32) | OK | **broken** | **broken** |
+| **maximize button** (was Win32) | OK | **broken** | **broken** |
 | **double click** (Qt) | **broken** | OK | OK |
 | **dock-area ⛶** (Qt) | **broken** | OK | OK |
+
+All nine round-trip since 0.5.52, and every cell now ends at `SW_NORMAL`.
+
+**The fix (0.5.52).** `lace.util` grew three helpers that all four entry
+points share:
+
+* `is_window_maximized()` — asks the OS first. Its answer is the one that
+  decides whether the window can still be moved, and it stays right when
+  Qt's has gone stale.
+* `restore_window()` — un-maximizes through whichever mechanism maximized
+  it: `ShowWindow(SW_RESTORE)` for a native maximize, `showNormal()`
+  otherwise. `ShowWindow` rather than a posted `SC_RESTORE` because it is
+  synchronous and Windows ignores `SC_*` while a mouse button is held —
+  the exact state a double-click is in.
+* `toggle_window_maximized()` — the two together.
+
+This matters beyond the button, because the OS can maximize a float behind
+Lace's back: Aero Snap against the top edge (reachable from our own drag,
+which runs the OS move loop) and Win+Up both produce a real
+`SW_MAXIMIZED`. Before, that state was terminal. The smoke check exercises
+it directly — a posted `SC_MAXIMIZE`, then restore through each of the
+three entry points.
 
 ### 3.5 A second, independent contributor: the stranded button state
 
@@ -307,16 +336,14 @@ on `canDrag()` for its drag routing.
 
 ## 4. Where a fix goes
 
-Items 3 and 4 landed in 0.5.51 (§3.1). The rest are still open — all three
-are the one maximize-mechanism defect.
+Items 3 and 4 landed in 0.5.51 (§3.1); item 1 in 0.5.52 (§3.3/§3.4).
+Items 2 and 5 are still open.
 
-1. **Pick one mechanism and route every entry point through it.**
-   Rewiring `titleBar.maxBtn` onto Lace's synchronous toggle makes all four
-   entry points Qt-side (§2.1 case D, which round-trips). Doing it in
-   `LaceStandardTitleBar.__init__` covers the main window and every float
-   at once, since both use that class. `TitleBarBase.__toggleMaxState` is
-   name-mangled, so the fix is to `disconnect()` and reconnect `maxBtn`
-   rather than to override.
+1. ~~**Pick one mechanism and route every entry point through it.**~~ Done
+   in `LaceStandardTitleBar.__init__` — `TitleBarBase.__toggleMaxState` is
+   name-mangled and cannot be overridden, so `maxBtn.clicked` is
+   disconnected and reconnected. It covers the main window and every float
+   at once, since both use that class.
 2. **Restore before dragging.** In `_handle_titlebar_drag`, on the
    threshold crossing, if the window is maximized: `showNormal()`, then
    re-anchor the window under the cursor (keep the horizontal fraction of
@@ -332,22 +359,19 @@ are the one maximize-mechanism defect.
 
 ## 5. What the new tests pin
 
-`tests/test_frameless_window_state.py` — 17 tests, offscreen, runs in CI.
-Thirteen pass: the parts that always worked (double-click round-trip,
-dock-area delegation, the drag state machine finishing clean) plus the new
-taskbar flag in both states, including toggling it on a float that already
-exists. Four are `xfail(strict=True)`, one per open defect; when a fix
-lands they XPASS, which fails the suite, which forces the marker out.
-Neither native entry point is allowed to reach a real HWND —
-`toggleMaxState` and `startSystemMove` are trapped by fixtures, which is
+`tests/test_frameless_window_state.py` — 27 tests, offscreen, runs in CI.
+Twenty-five pass, including the full 3×3 maximize/restore matrix and the
+taskbar flag in both states. Two are `xfail(strict=True)`, one per open
+defect; when a fix lands they XPASS, which fails the suite, which forces
+the marker out. Neither native entry point is allowed to reach a real HWND
+— `toggleMaxState` and `startSystemMove` are trapped by fixtures, which is
 also what makes the mechanism visible from a headless test.
 
 `dev_smoke/smoke_frameless_winstate.py` — needs a real display and Win32;
 listed in `run_all.py`'s `NEEDS_DISPLAY`, so it does not run in the normal
 smoke pass. It reads `GetWindowPlacement` and the Win32 ex-styles
 alongside Qt's view, exercises both states of the taskbar flag, walks the
-full 3×3 maximize matrix, and checks the geometry round-trip, the
-still-movable invariant and the rip-out gesture. After 0.5.51 the twelve
-taskbar checks pass; the remaining **12 failures** are the four mixed
-matrix cells (ten checks — the two Qt-maximized cells stay at `SW_NORMAL`,
-so "still movable" incidentally holds there) and both rip-out cases.
+full 3×3 maximize matrix, recovers from an OS-side `SC_MAXIMIZE` through
+each entry point, and checks the geometry round-trip, the still-movable
+invariant and the rip-out gesture. 45 of 47 checks pass after 0.5.52; the
+remaining **2 failures** are both rip-out cases (§3.2, open).

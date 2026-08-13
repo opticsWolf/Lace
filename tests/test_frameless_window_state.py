@@ -34,7 +34,8 @@ from PySide6.QtWidgets import QApplication, QLabel, QMainWindow
 from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockFlags, DragState, TitleBarMode
-from lace.util import start_drag_distance
+from lace.frameless_window import LaceStandardTitleBar
+from lace.util import is_window_maximized, start_drag_distance
 
 frameless = pytest.importorskip(
     "lace.floating_dock_container_frameless",
@@ -186,16 +187,14 @@ def test_every_reader_of_the_state_agrees_after_a_double_click(floater, qapp):
     assert floater.titleBar.maxBtn._isMax, "the title-bar icon still says 'maximize'"
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "the maximize button is still wired to qframelesswindow's toggleMaxState, "
-    "which posts WM_SYSCOMMAND SC_MAXIMIZE instead of using Qt's maximize"))
 def test_the_maximize_button_does_not_post_a_raw_window_message(
         floater, native_toggle, qapp):
-    """Four entry points, one mechanism. This is the odd one out.
+    """Four entry points, one mechanism. This one used to be the odd one out.
 
-    Lace already replaced the async SC_MAXIMIZE for the *double-click*
-    (LaceStandardTitleBar exists for exactly that); the button was left
-    behind, so one window ends up with two disagreeing maximize states.
+    Lace replaced the async SC_MAXIMIZE for the *double-click*
+    (LaceStandardTitleBar exists for exactly that) and left the button
+    behind, so one window ended up with two disagreeing maximize states.
+    LaceStandardTitleBar now disconnects the base wiring in __init__.
     """
     floater.titleBar.maxBtn.click()
     qapp.processEvents()
@@ -203,9 +202,6 @@ def test_the_maximize_button_does_not_post_a_raw_window_message(
     assert native_toggle == []
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "the maximize button takes the native path, so Qt never learns the "
-    "window was maximized and the restore click cannot undo it"))
 def test_the_maximize_button_round_trips(floater, native_toggle, qapp):
     """The user-visible contract, through the button rather than the bar."""
     start = floater.geometry()
@@ -218,6 +214,62 @@ def test_the_maximize_button_round_trips(floater, native_toggle, qapp):
     qapp.processEvents()
     assert not floater.isMaximized()
     assert floater.geometry() == start
+
+
+@pytest.mark.parametrize("maximize_by", ["button", "double click", "dock area"])
+@pytest.mark.parametrize("restore_by", ["button", "double click", "dock area"])
+def test_maximize_and_restore_round_trip_across_entry_points(
+        floater, native_toggle, qapp, maximize_by, restore_by):
+    """The matrix that used to fail on every mixed pair.
+
+    Same-mechanism pairs always worked; mixing them did not, because Qt's
+    frameless maximize and the native one are different operations and each
+    undoes only itself. There is one mechanism now, so all nine pairs are
+    the same operation.
+    """
+    def toggle(how):
+        if how == "button":
+            floater.titleBar.maxBtn.click()
+        elif how == "double click":
+            _double_click(floater.titleBar)
+        else:
+            container = floater.dock_container()
+            container.toggle_maximize_dock_area(container.opened_dock_areas()[0])
+        qapp.processEvents()
+
+    start = floater.geometry()
+
+    toggle(maximize_by)
+    assert floater.isMaximized(), f"{maximize_by} did not maximize"
+
+    toggle(restore_by)
+    assert not floater.isMaximized(), f"{restore_by} did not restore"
+    assert floater.geometry() == start, "restore did not give the size back"
+
+
+def test_the_double_click_and_the_button_share_one_toggle(
+        desk, native_toggle, qapp, monkeypatch):
+    """Both gestures route through LaceStandardTitleBar.toggle_max_state().
+
+    Pinned so a future edit cannot quietly give one of them its own body
+    again — that divergence is the whole defect. Patched on the class before
+    the float exists, because the button's connection binds in __init__.
+    """
+    win, dock_manager = desk
+    calls = []
+    monkeypatch.setattr(LaceStandardTitleBar, "toggle_max_state",
+                        lambda self: calls.append("toggle"))
+
+    floating = _make_float(dock_manager, qapp)
+    try:
+        floating.titleBar.maxBtn.click()
+        qapp.processEvents()
+        _double_click(floating.titleBar)
+        qapp.processEvents()
+
+        assert calls == ["toggle", "toggle"]
+    finally:
+        floating.close()
 
 
 # ── dragging out of maximize ──────────────────────────────────────────────
@@ -270,31 +322,42 @@ def test_a_maximize_restore_cycle_leaves_the_drag_machinery_clean(floater, qapp)
 
 @pytest.mark.xfail(strict=True, reason=(
     "qframelesswindow's TitleBarButton sets PRESSED on mousePressEvent and "
-    "only ever clears it from enterEvent/leaveEvent, so a completed click "
-    "leaves canDrag() False until the cursor happens to cross the button"))
+    "only ever clears it from enterEvent/leaveEvent, so the state outlives "
+    "the click unless something moves the button out from under the cursor"))
 def test_a_completed_button_click_leaves_the_title_bar_draggable(
-        floater, native_toggle, qapp):
+        desk, native_toggle, qapp, monkeypatch):
     """canDrag() is ``_isDragRegion(pos) and not _hasButtonPressed()``.
 
     A button stuck in PRESSED makes the whole bar undraggable, and
-    _handle_titlebar_drag then declines every press. On a real display the
-    maximize usually resizes the window out from under the cursor, which
-    delivers the leaveEvent that clears it — which is the "often" in the
-    report rather than a second, separate bug.
+    _handle_titlebar_drag then declines every press.
+
+    The handler is stubbed out so the window does not resize. A maximize
+    normally moves the right-aligned button away from the cursor, which
+    delivers the leaveEvent that clears the state — but that is a side
+    effect of the handler, not the button doing its own bookkeeping, and it
+    is the difference between "always" and the "often" in the bug report.
     """
-    button = floater.titleBar.maxBtn
-    centre = button.rect().center()
+    win, dock_manager = desk
+    monkeypatch.setattr(LaceStandardTitleBar, "toggle_max_state",
+                        lambda self: None)
+    floating = _make_float(dock_manager, qapp)
+    try:
+        button = floating.titleBar.maxBtn
+        centre = button.rect().center()
 
-    _send(button, QEvent.MouseButtonPress, centre)
-    qapp.processEvents()
-    assert button.isPressed()
-    assert not floater.titleBar.canDrag(GRIP), "precondition: a held button blocks the drag"
+        _send(button, QEvent.MouseButtonPress, centre)
+        qapp.processEvents()
+        assert button.isPressed()
+        assert not floating.titleBar.canDrag(GRIP), \
+            "precondition: a held button blocks the drag"
 
-    _send(button, QEvent.MouseButtonRelease, centre, buttons=Qt.NoButton)
-    qapp.processEvents()
+        _send(button, QEvent.MouseButtonRelease, centre, buttons=Qt.NoButton)
+        qapp.processEvents()
 
-    assert not button.isPressed()
-    assert floater.titleBar.canDrag(GRIP)
+        assert not button.isPressed()
+        assert floating.titleBar.canDrag(GRIP)
+    finally:
+        floating.close()
 
 
 # ── minimize, and where the window goes ───────────────────────────────────

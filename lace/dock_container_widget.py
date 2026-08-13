@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QSplitter, QWidget
 
 from lace.util import (find_parent, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget, find_child, find_children,
+                   is_window_maximized, toggle_window_maximized,
                    dump_layout as _dump_layout)
 from lace.enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,
                     DockFlags, DockInsertParam)
@@ -756,7 +757,8 @@ class DockContainerWidget(QFrame, DockStyled):
         # Floating window with a single dock area uses OS maximize;
         # _maximized_dock_area is not set in that path.
         floating = self.floating_widget()
-        if floating and self.visible_dock_area_count() == 1 and floating.isMaximized():
+        if (floating and self.visible_dock_area_count() == 1
+                and is_window_maximized(floating)):
             return True
         return False
 
@@ -839,10 +841,10 @@ class DockContainerWidget(QFrame, DockStyled):
         # ── Floating: single dock area → OS maximize ─────────────
         floating = self.floating_widget()
         if floating and self.visible_dock_area_count() == 1:
-            if floating.isMaximized():
-                floating.showNormal()
-            else:
-                floating.showMaximized()
+            # Same toggle the frameless title bar uses: isMaximized() alone is
+            # not enough to decide, and showNormal() alone is not enough to
+            # undo. See lace.util / docs/FRAMELESS_WINDOW_STATE.md.
+            toggle_window_maximized(floating)
             # Update button state for the floating case
             area._update_title_bar_button_states()
             return
