@@ -22,7 +22,9 @@ from lace.util import start_drag_distance
 from lace.enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature, WidgetState
 from lace.eliding_label import ElidingLabel
 from lace.dock_paint import paint_tab
-from lace.dock_chrome import ChromeToolButton, resolve_title_bar_bottom_rule
+from lace.dock_chrome import (ChromeToolButton, blend_colors as _blend_colors,
+                              resolve_tab_outline_color,
+                              resolve_title_bar_bottom_rule)
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
 from lace.dock_menu import (
@@ -38,16 +40,6 @@ if TYPE_CHECKING:
     from lace import DockWidget, DockAreaWidget, FloatingDockContainer
 
 logger = logging.getLogger(__name__)
-
-
-def _blend_colors(c1: QColor, c2: QColor, factor: float = 0.75) -> QColor:
-    """Mix c1 towards c2; factor 0 keeps c1, factor 1 returns c2."""
-    return QColor(
-        int(c1.red() * (1 - factor) + c2.red() * factor),
-        int(c1.green() * (1 - factor) + c2.green() * factor),
-        int(c1.blue() * (1 - factor) + c2.blue() * factor),
-        int(c1.alpha() * (1 - factor) + c2.alpha() * factor),
-    )
 
 
 class DockWidgetTab(QFrame, DockStyled):
@@ -614,21 +606,11 @@ class DockWidgetTab(QFrame, DockStyled):
             self._style_mgr, is_area_focused)
 
         # The tab outline is the alternative to that rule: it runs along the
-        # left/top/right edges and leaves the bottom open.  A transparent
-        # colour means "no outline in this state", which is how a theme
-        # outlines only the active tab.
-        outline = styles.get(
-            "border_active_color" if is_active else "border_normal_color")
-        if (styles.get("border_width") or 0.0) <= 0:
-            # No outline at any width — the colour is inert.  It has to resolve
-            # to None rather than a colour paint happens to ignore, because
-            # "this tab outlines itself" is now what decides the rule below.
-            outline = None
-        if outline is not None and outline.alpha() == 0:
-            outline = None
-        if outline is not None and dimmed and is_active and bg_active:
-            outline = _blend_colors(outline, bg_active, 0.5)
-
+        # left/top/right edges and leaves the bottom open.  Resolved centrally
+        # so the area's frame, which continues this line, cannot pick a
+        # different colour for the same state.
+        outline = resolve_tab_outline_color(
+            self._style_mgr, active=is_active, focused=is_area_focused)
         if outline is not None:
             # This tab closes its own three sides and leaves the bottom open,
             # like the active one.  Continuing the rule across it would strike a

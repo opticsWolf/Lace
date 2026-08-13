@@ -49,6 +49,60 @@ class DragDetector(QObject):
         return False  # never consume — observers only
 
 
+def blend_colors(c1: QColor, c2: QColor, factor: float = 0.75) -> QColor:
+    """Mix c1 towards c2; factor 0 keeps c1, factor 1 returns c2."""
+    return QColor(
+        int(c1.red() * (1 - factor) + c2.red() * factor),
+        int(c1.green() * (1 - factor) + c2.green() * factor),
+        int(c1.blue() * (1 - factor) + c2.blue() * factor),
+        int(c1.alpha() * (1 - factor) + c2.alpha() * factor),
+    )
+
+
+def resolve_tab_outline_color(style_mgr, active: bool = True,
+                              focused: bool = False) -> Optional[QColor]:
+    """The outline a tab in this state paints, or None for no outline.
+
+    A transparent colour means "no outline in this state", which is how a theme
+    outlines only the active tab. ``TAB.tab_dimming`` fades the *active* tab's
+    outline halfway into its background while the area is unfocused — the
+    inactive tabs are already the muted state, so they do not dim further.
+    """
+    from lace.dock_theme import DockStyleCategory
+
+    tab = style_mgr.get_all(DockStyleCategory.TAB)
+    if (tab.get("border_width") or 0.0) <= 0:
+        return None
+
+    color = tab.get("border_active_color" if active else "border_normal_color")
+    if color is None or color.alpha() == 0:
+        return None
+
+    bg_active = tab.get("bg_active")
+    if active and not focused and tab.get("tab_dimming", False) and bg_active is not None:
+        color = blend_colors(color, bg_active, 0.5)
+    return color
+
+
+def resolve_below_title_frame_color(style_mgr,
+                                    focused: bool = False) -> Optional[QColor]:
+    """The frame colour a ``CORE.border_below_title`` area must use, else None.
+
+    In that mode the frame's top edge *is* the tab strip: the active tab's
+    outline turns the corner and becomes the frame's sides. The two therefore
+    have to be one colour in every state — including the dimmed one, where a
+    frame still on ``border_color`` would stay flat while the tab it runs up to
+    faded. Returns None when the token is off or no tab outlines itself, which
+    leaves each caller's own precedence untouched.
+    """
+    from lace.dock_theme import DockStyleCategory
+
+    core = style_mgr.get_all(DockStyleCategory.CORE)
+    if not core.get("border_below_title", False):
+        return None
+    return resolve_tab_outline_color(style_mgr, active=True, focused=focused)
+
+
 def resolve_title_bar_border_color(style_mgr, focused: bool = False):
     """The title bar's border colour for the given focus state.
 
@@ -56,8 +110,16 @@ def resolve_title_bar_border_color(style_mgr, focused: bool = False):
     ``focus_border`` while focused, ``border`` otherwise — so the title bar and
     the area it sits in light up together. ``TITLE_BAR`` wins over ``CORE`` for
     both, letting a theme colour the strip independently of the card.
+
+    Except under ``border_below_title``, where the rule this colours is the
+    frame's fourth side and has to match the other three — see
+    :func:`resolve_below_title_frame_color`.
     """
     from lace.dock_theme import DockStyleCategory
+
+    below_title = resolve_below_title_frame_color(style_mgr, focused)
+    if below_title is not None:
+        return below_title
 
     styles = style_mgr.get_all(DockStyleCategory.TITLE_BAR)
     core = style_mgr.get_all(DockStyleCategory.CORE)

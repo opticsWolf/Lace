@@ -21,7 +21,7 @@ from lace.util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget)
 from lace.enums import TitleBarButton, DockWidgetFeature
 from lace.dock_area_layout import DockAreaLayout
-from lace.dock_chrome import ChromeFrame
+from lace.dock_chrome import ChromeFrame, resolve_below_title_frame_color
 from lace.dock_paint import ChromeTokens
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
@@ -479,12 +479,18 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         # Painted chrome: rounded panel_bg fill + optional outline, with the
         # focus outline as a colour swap.  This is the artifact-free
         # replacement for the border/radius stylesheet that had to be disabled.
+        # Both colours are resolved here rather than per repaint: the tokens
+        # carry the focused and unfocused colour, and paint picks between them.
+        border = (resolve_below_title_frame_color(self._style_mgr, False)
+                  or core.get("border_color"))
+        focus_border = (resolve_below_title_frame_color(self._style_mgr, True)
+                        or core.get("focus_border_color"))
         self.set_chrome(ChromeTokens(
             bg=panel_bg,
-            border=core.get("border_color"),
+            border=border,
             border_width=core.get("border_width", 0.0),
             radius=core.get("corner_radius", 0),
-            focus_border=core.get("focus_border_color"),
+            focus_border=focus_border,
             border_below_title=core.get("border_below_title", False),
         ))
 

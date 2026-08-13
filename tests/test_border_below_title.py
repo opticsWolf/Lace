@@ -16,6 +16,7 @@ from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtWidgets import QLabel, QMainWindow
 
+from lace.dock_chrome import resolve_below_title_frame_color
 from lace.dock_custom_theme import THEME_SPECS
 from lace.dock_manager import DockManager
 from lace.dock_paint import (ChromeTokens, bottom_open_path,
@@ -276,6 +277,104 @@ def test_bottom_open_path_omits_the_top_segment():
         assert path.elementAt(0).x == pytest.approx(rect.left())
         assert last.x == pytest.approx(rect.right())
         assert path.elementCount() < top_rounded_path(rect, radius).elementCount() + 2
+
+
+# ── Colour: the frame and the tab strip are one line ──────────────────────
+@pytest.fixture
+def pair(qapp):
+    """Two areas, so one of them can be the unfocused one."""
+    win = QMainWindow()
+    win.resize(800, 600)
+    dock_manager = DockManager(win)
+    first = DockWidget("Alpha")
+    first.set_widget(QLabel("x"))
+    top = dock_manager.add_dock_widget(DockWidgetArea.center, first)
+    second = DockWidget("Beta")
+    second.set_widget(QLabel("y"))
+    dock_manager.add_dock_widget(DockWidgetArea.center, second, top)
+    third = DockWidget("Gamma")
+    third.set_widget(QLabel("z"))
+    bottom = dock_manager.add_dock_widget(DockWidgetArea.bottom, third)
+    win.show()
+    qapp.processEvents()
+
+    yield dock_manager, top, bottom
+
+    win.close()
+    get_dock_style_manager().apply_theme("default")
+
+
+def _side_color(dock_area, qapp, x=None):
+    """The colour actually on the frame's left side, clear of the corners.
+
+    ``x`` defaults to the side inset, which is where a border_below_title
+    stroke is fully opaque; a closed outline sits half a pixel further out, so
+    that case passes its own column rather than sampling an antialiased edge.
+    """
+    image = _render(dock_area, qapp)
+    if x is None:
+        x = int(dock_area.chrome_border_inset())
+    return image.pixelColor(int(x), dock_area.height() // 2)
+
+
+def _active_tab(dock_area):
+    for widget in dock_area.dock_widgets():
+        tab = widget.tab_widget()
+        if tab.is_active_tab():
+            return tab
+    raise AssertionError("no active tab")
+
+
+@pytest.mark.parametrize("focused", [True, False])
+def test_frame_matches_the_active_tabs_outline(pair, qapp, focused):
+    """Sides, rule and tab outline are one colour in both states.
+
+    The tab's outline turns the corner and becomes the frame; if the frame kept
+    CORE.border_color it would stay flat while the tab it runs up to dimmed.
+    """
+    dock_manager, top, bottom = pair
+    get_dock_style_manager().apply_theme("violet_haze")
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(top if focused else bottom)
+    qapp.processEvents()
+
+    outline = _active_tab(top)._outline_color
+    assert outline is not None
+    assert _side_color(top, qapp).getRgb() == outline.getRgb(), \
+        "the frame's sides do not match the active tab's outline"
+    assert top._title_bar._border_color.getRgb() == outline.getRgb(), \
+        "the rule closing the frame does not match either"
+
+
+def test_the_unfocused_frame_dims_with_the_tab(pair, qapp):
+    """The discriminating half: it must not simply be CORE.border_color."""
+    dock_manager, top, bottom = pair
+    manager = get_dock_style_manager()
+    manager.apply_theme("violet_haze")
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(bottom)
+    qapp.processEvents()
+
+    core = manager.get_all(DockStyleCategory.CORE)
+    assert _side_color(top, qapp).getRgb() != core["border_color"].getRgb()
+
+
+def test_without_the_token_the_frame_keeps_border_color(pair, qapp):
+    """An outlined tab alone does not repaint the card — the two are only
+    the same line when the frame stops below the title bar."""
+    dock_manager, top, bottom = pair
+    manager = get_dock_style_manager()
+    manager.apply_theme_dict(build_theme(_spec(
+        tab_border_width=2.0,
+        tab_border_active_color=[255, 100, 180, 255],
+        indicator_position="none")))
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(bottom)
+    qapp.processEvents()
+
+    assert resolve_below_title_frame_color(manager, False) is None
+    core = manager.get_all(DockStyleCategory.CORE)
+    assert _side_color(top, qapp, x=1).getRgb() == core["border_color"].getRgb()
 
 
 # ── The preset ────────────────────────────────────────────────────────────
