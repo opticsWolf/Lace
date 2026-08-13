@@ -181,7 +181,7 @@ class LayoutStateBuilder:
         }
         
         for container in self._manager.dock_containers():
-            is_main = (container is self._manager or container is getattr(self._manager, '_root', None))
+            is_main = container is self._manager.root_container()
             # Generate a transient linking ID solely for this JSON document
             cid = "main" if is_main else str(uuid.uuid4())
             self._transient_id_map[container] = cid
@@ -271,7 +271,7 @@ class LayoutEngine:
             c_data = c_info.get("data", {})
 
             if c_info.get("is_main"):
-                restore_container_state(getattr(self._manager, '_root', None) or self._manager,
+                restore_container_state(self._manager.root_container(),
                                         c_data, testing=False, assigned=assigned)
             else:
                 fw = floating_pool.pop() if floating_pool else self._manager.floating_container_class()(dock_manager=self._manager)
@@ -349,7 +349,7 @@ class LayoutEngine:
         The testing path allocates no widgets and touches no container state, so
         the root container can stand in for the floating ones here.
         """
-        probe = getattr(self._manager, '_root', None) or self._manager
+        probe = self._manager.root_container()
 
         for index, c_info in enumerate(state_dict["containers"]):
             c_data = c_info.get("data", {})

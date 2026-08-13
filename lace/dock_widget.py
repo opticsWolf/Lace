@@ -233,7 +233,11 @@ class DockWidget(QFrame, DockStyled):
 
     def flag_as_unassigned(self):
         self._closed = True
-        parent_widget = getattr(self._dock_manager, '_root', None) or self._dock_manager
+        # A widget that never reached a manager has nowhere to be parked;
+        # setParent(None) is the right answer there, not the manager itself
+        # (DockManager is a QObject, so it was never a usable parent).
+        parent_widget = (self._dock_manager.root_container()
+                         if self._dock_manager is not None else None)
         logger.debug('flag_as_unassigned %s -> setParent %s', self, parent_widget)
         self.setParent(parent_widget)
         self.setVisible(False)

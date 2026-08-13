@@ -8,7 +8,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 from PySide6.QtCore import (Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QRect,
                             QPoint, QPointF, QEvent)
@@ -24,6 +24,7 @@ from lace.dock_chrome import resolve_sidebar_title_bar_rule
 from lace.sidebar_title_bar import SideBarTitleBar
 
 if TYPE_CHECKING:
+    from lace.dock_manager import DockManager
     from lace.dock_widget import DockWidget
 
 _ANIMATION_DURATION_MS = 50
@@ -55,10 +56,24 @@ class SideBarContainer(QFrame, DockStyled):
         self._current_widgets: List['DockWidget'] = []
         self._area = DockWidgetArea.left
         self._is_resizing = False
+        # Painted chrome — every one of these is read by paintEvent, which can
+        # run before the first refresh_style().  Declared here so the paint code
+        # reads them directly instead of guessing a default per access site.
         self._bg: QColor | None = None   # painted in paintEvent (no hex QSS)
+        self._corner_radius: float = 0.0
+        self._border_width: float = 0.0
+        self._border_color: QColor | None = None
+        self._focus_border_color: QColor | None = None
+        self._sidebar_focused = False
+
+        # Set from outside: SidebarManager assigns the manager right after
+        # construction, and show_widget() records where focus came from.
+        self._dock_manager: Optional['DockManager'] = None
+        self._last_focused_widget: QWidget | None = None
+        self._last_focused_dock_widget: Optional['DockWidget'] = None
+
         self._focus_behavior = SideBarFocusBehavior.take_focus_and_restore
         self.setFocusPolicy(Qt.StrongFocus)
-        self._sidebar_focused = False
         from PySide6.QtWidgets import QApplication
         qapp = QApplication.instance()
         if qapp:
@@ -161,7 +176,7 @@ class SideBarContainer(QFrame, DockStyled):
                         last_dw = curr
                         break
                     curr = curr.parentWidget()
-            if last_dw is None and hasattr(self, '_dock_manager') and getattr(self, '_dock_manager', None):
+            if last_dw is None and self._dock_manager is not None:
                 active_area = getattr(self._dock_manager, '_active_dock_area', None)
                 if active_area and active_area.current_dock_widget():
                     last_dw = active_area.current_dock_widget()
@@ -228,14 +243,14 @@ class SideBarContainer(QFrame, DockStyled):
     def _on_app_focus_changed(self, old_widget, new_widget):
         try:
             if not self.isVisible() or new_widget is None:
-                if getattr(self, '_sidebar_focused', False):
+                if self._sidebar_focused:
                     self._sidebar_focused = False
                     self.update()
                     self._title_bar.refresh_focus_tint()
                 return
             
             is_ours = self.isAncestorOf(new_widget) or (new_widget is self)
-            if is_ours != getattr(self, '_sidebar_focused', False):
+            if is_ours != self._sidebar_focused:
                 self._sidebar_focused = is_ours
                 self.update()
                 self._title_bar.refresh_focus_tint()
@@ -395,7 +410,7 @@ class SideBarContainer(QFrame, DockStyled):
 
     def _restore_previous_focus(self):
         target_restored = False
-        if getattr(self, "_last_focused_widget", None):
+        if self._last_focused_widget is not None:
             try:
                 w = self._last_focused_widget
                 if w and w.isVisible() and not self.isAncestorOf(w):
@@ -406,7 +421,7 @@ class SideBarContainer(QFrame, DockStyled):
             except RuntimeError:
                 pass
 
-        if not target_restored and getattr(self, "_last_focused_dock_widget", None):
+        if not target_restored and self._last_focused_dock_widget is not None:
             try:
                 dw = self._last_focused_dock_widget
                 if dw and dw.isVisible() and not self.isAncestorOf(dw):
@@ -494,7 +509,7 @@ class SideBarContainer(QFrame, DockStyled):
 
     def _update_layout_margins(self):
         from math import ceil
-        bw = getattr(self, "_border_width", 0.0)
+        bw = self._border_width
         bw_int = ceil(bw + 0.5) if bw > 0 else 0
 
         title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
@@ -576,7 +591,10 @@ class SideBarContainer(QFrame, DockStyled):
 
     def _find_sibling_bar(self, area: DockWidgetArea):
         from lace.sidebar_tab_bar import SideTabBar
-        for child in self.parentWidget().children():
+        parent = self.parentWidget()
+        if parent is None:
+            return None
+        for child in parent.children():
             if isinstance(child, SideTabBar) and child.area == area:
                 return child
         return None
@@ -669,8 +687,8 @@ class SideBarContainer(QFrame, DockStyled):
         p.setRenderHint(QPainter.Antialiasing, True)
 
         r = QRectF(self.rect())
-        radius = getattr(self, "_corner_radius", 0.0)
-        bw = getattr(self, "_border_width", 0.0)
+        radius = self._corner_radius
+        bw = self._border_width
 
         if radius > 0 or bw > 0:
             if bw > 0:
@@ -686,9 +704,10 @@ class SideBarContainer(QFrame, DockStyled):
                 p.fillPath(path, self._bg)
 
             if bw > 0:
-                bcolor = getattr(self, "_focus_border_color", None) if getattr(self, "_sidebar_focused", False) else getattr(self, "_border_color", None)
+                bcolor = (self._focus_border_color if self._sidebar_focused
+                          else self._border_color)
                 if bcolor is None:
-                    bcolor = getattr(self, "_border_color", None)
+                    bcolor = self._border_color
                 if isinstance(bcolor, QColor) and bcolor.alpha() > 0:
                     pen = QPen(bcolor, bw)
                     p.setPen(pen)

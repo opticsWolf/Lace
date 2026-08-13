@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 def find_closest_dock_area(global_center: QPoint,
                            dock_manager: 'DockManager') -> 'DockWidgetArea':
     """Return the outer DockWidgetArea whose edge is nearest to global_center."""
-    target_widget = getattr(dock_manager, '_root', None) or dock_manager
+    target_widget = dock_manager.root_container()
     mgr_top_left = target_widget.mapToGlobal(QPoint(0, 0))
     mgr_rect = QRect(mgr_top_left, target_widget.size())
 

@@ -274,7 +274,7 @@ class DockManager(QObject):
                 and not self._floating_window_icon.isNull()):
             return self._floating_window_icon
         app_icon = QApplication.instance().windowIcon() if QApplication.instance() else QIcon()
-        if (app_icon.isNull() or app_icon.pixmap(16, 16).isNull()) and getattr(self, '_root', None):
+        if (app_icon.isNull() or app_icon.pixmap(16, 16).isNull()) and self._root is not None:
             root_icon = self._root.windowIcon()
             if not root_icon.isNull():
                 app_icon = root_icon
@@ -506,7 +506,7 @@ class DockManager(QObject):
             self._containers.append(dock_container)
 
     def remove_dock_container(self, dock_container: DockContainerWidget):
-        if dock_container is not getattr(self, '_root', None) and dock_container in self._containers:
+        if dock_container is not self._root and dock_container in self._containers:
             trace("manager.remove_container", container=dock_container.objectName() or dock_container.__class__.__name__)
             self._containers.remove(dock_container)
 

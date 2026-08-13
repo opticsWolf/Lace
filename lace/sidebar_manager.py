@@ -303,7 +303,7 @@ class SidebarManager(QObject):
         self._keep_open: bool = False
         
         self._sidebars: Dict[DockWidgetArea, SideTabBar] = {}
-        self._overlay = SideBarContainer(getattr(dock_manager, '_root', None) or dock_manager)
+        self._overlay = SideBarContainer(dock_manager.root_container())
         self._overlay._dock_manager = dock_manager
         
         # Connect overlay signals
@@ -355,7 +355,7 @@ class SidebarManager(QObject):
         if area in self._sidebars:
             return self._sidebars[area]
         
-        bar = SideTabBar(area, getattr(self._dock_manager, '_root', None) or self._dock_manager)
+        bar = SideTabBar(area, self._dock_manager.root_container())
         bar._dock_manager = self._dock_manager
         self._dock_manager._add_sidebar_to_layout(bar, area)
         
@@ -514,7 +514,7 @@ class SidebarManager(QObject):
             # Use the overlay's on-screen centre to find the nearest edge.
             try:
                 target_area = find_closest_dock_area(
-                    overlay_center, getattr(self._dock_manager, '_root', None) or self._dock_manager)
+                    overlay_center, self._dock_manager)
             except Exception:
                 target_area = sidebar.area
         else:
@@ -665,7 +665,7 @@ class SidebarManager(QObject):
             return
 
         dock_area = dock_widget.dock_area_widget()
-        main_widget = getattr(self._dock_manager, '_root', None) or self._dock_manager
+        main_widget = self._dock_manager.root_container()
 
         if dock_area is not None and main_widget is not None:
             try:
@@ -707,7 +707,7 @@ class SidebarManager(QObject):
                 bar = self._pinned[dock_widget]
                 if any(not b.isHidden() for b in bar._buttons):
                     bar.setVisible(True)
-                root = getattr(self._dock_manager, '_root', None)
+                root = self._dock_manager.root_container()
                 if root and root.layout():
                     root.layout().activate()
                 self._show_for_button(btn)

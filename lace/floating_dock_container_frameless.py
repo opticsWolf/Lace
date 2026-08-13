@@ -75,7 +75,7 @@ class FloatingDockContainer(FramelessLaceWindow, DockStyled):
         if dock_manager is None:
             raise ValueError('Must pass in either dock_area, dock_widget, or dock_manager')
 
-        super().__init__(getattr(dock_manager, '_root', None) or dock_manager)
+        super().__init__(dock_manager.root_container())
         
         self._dragging_state = DragState.inactive
         self._drag_start_mouse_position = QPoint()
