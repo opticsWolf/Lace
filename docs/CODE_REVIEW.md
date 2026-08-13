@@ -1659,7 +1659,7 @@ across themes, which is a separate change.
 | | Task | Files |
 |---|---|---|
 | ☐ | Extract `FloatingContainerBehaviour`; rename the frameless class (§5.1) | new + both floating containers |
-| ☐ | Fix `_last_added_area_cache`; guard the `None` splitter (§5.2) | `dock_container_widget.py` |
+| ☑ | Fix `_last_added_area_cache`; guard the `None` splitter (§5.2) | `dock_container_widget.py` |
 | ☐ | Implement `DockOverlayCross.reset()`; delete dead branches (§5.3) | `dock_overlay.py` |
 | ☐ | Fix stale enum docstrings (§5.3) | `enums.py` |
 | ☐ | Delete the `__init__.py` lazy loader; add `__all__` (§5.4) | `__init__.py` |

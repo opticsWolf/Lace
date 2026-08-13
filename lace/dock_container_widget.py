@@ -514,9 +514,15 @@ class DockContainerWidget(QFrame, DockStyled):
         area.setParent(None)
         hide_empty_parent_splitters(splitter)
 
+        # Drop the cached reference to the area we just removed, or
+        # last_added_dock_area_widget() hands back a deleted C++ object.
         for _area, _widget in self._last_added_area_cache.items():
-            if _widget is splitter:
+            if _widget is area:
                 self._last_added_area_cache[_area] = None
+
+        if splitter is None:
+            # The area was not inside a DockSplitter — nothing left to collapse.
+            return emit_and_exit()
 
         if splitter.count() > 1:
             return emit_and_exit()
