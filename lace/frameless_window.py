@@ -24,11 +24,12 @@ from __future__ import annotations
 import sys
 from typing import Optional, Union
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QMenu, QMenuBar, QVBoxLayout, QWidget
 from qframelesswindow import FramelessMainWindow, FramelessWindow
-from qframelesswindow.titlebar import StandardTitleBar
+from qframelesswindow.titlebar import StandardTitleBar, TitleBarButton
+from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
 
 from lace.util import (is_window_maximized, restore_window,
                        toggle_window_maximized)
@@ -164,6 +165,32 @@ class LaceStandardTitleBar(StandardTitleBar):
         except (RuntimeError, TypeError):
             pass
         self.maxBtn.clicked.connect(self.toggle_max_state)
+        # See eventFilter: the buttons do not clear their own pressed state.
+        for button in self.findChildren(TitleBarButton):
+            button.installEventFilter(self)
+
+    # -- button state ----------------------------------------------------
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Release the pressed state of a title-bar button on mouse release.
+
+        ``TitleBarButton`` sets ``PRESSED`` in ``mousePressEvent`` and clears
+        it only from ``enterEvent`` / ``leaveEvent``, so the state outlives
+        the click unless something happens to move the button away from the
+        cursor.  While any button reads as pressed, ``canDrag()`` is False for
+        the *whole* bar — ``_isDragRegion(pos) and not _hasButtonPressed()`` —
+        and the floating container's drag routing declines every press, so the
+        window cannot be dragged at all.
+
+        A maximize normally resizes the window out from under the pointer and
+        clears it by accident, which made this intermittent rather than
+        permanent.  Clearing it here does not depend on that side effect.
+        """
+        if (event.type() == QEvent.MouseButtonRelease
+                and isinstance(watched, TitleBarButton)):
+            watched.setState(TitleBarButtonState.HOVER if watched.underMouse()
+                             else TitleBarButtonState.NORMAL)
+        return super().eventFilter(watched, event)
 
     # -- maximize --------------------------------------------------------
 

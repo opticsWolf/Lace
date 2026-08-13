@@ -37,6 +37,9 @@ from lace.enums import DockFlags, DragState, TitleBarMode
 from lace.frameless_window import LaceStandardTitleBar
 from lace.util import is_window_maximized, start_drag_distance
 
+from qframelesswindow.titlebar import TitleBarButton
+from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
+
 frameless = pytest.importorskip(
     "lace.floating_dock_container_frameless",
     reason="qframelesswindow is optional")
@@ -353,22 +356,21 @@ def test_a_maximize_restore_cycle_leaves_the_drag_machinery_clean(floater, qapp)
     assert floater.titleBar.canDrag(GRIP)
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "qframelesswindow's TitleBarButton sets PRESSED on mousePressEvent and "
-    "only ever clears it from enterEvent/leaveEvent, so the state outlives "
-    "the click unless something moves the button out from under the cursor"))
 def test_a_completed_button_click_leaves_the_title_bar_draggable(
         desk, native_toggle, qapp, monkeypatch):
     """canDrag() is ``_isDragRegion(pos) and not _hasButtonPressed()``.
 
-    A button stuck in PRESSED makes the whole bar undraggable, and
-    _handle_titlebar_drag then declines every press.
+    qframelesswindow's TitleBarButton sets PRESSED in mousePressEvent and
+    clears it only from enterEvent/leaveEvent, so a button stuck in PRESSED
+    made the whole bar undraggable and _handle_titlebar_drag declined every
+    press.
 
     The handler is stubbed out so the window does not resize. A maximize
     normally moves the right-aligned button away from the cursor, which
-    delivers the leaveEvent that clears the state — but that is a side
-    effect of the handler, not the button doing its own bookkeeping, and it
-    is the difference between "always" and the "often" in the bug report.
+    delivers the leaveEvent that cleared the state by accident — but that is
+    a side effect of the handler, not the button doing its own bookkeeping,
+    and it is the difference between "always" and the "often" in the bug
+    report.
     """
     win, dock_manager = desk
     monkeypatch.setattr(LaceStandardTitleBar, "toggle_max_state",
@@ -391,6 +393,33 @@ def test_a_completed_button_click_leaves_the_title_bar_draggable(
         assert floating.titleBar.canDrag(GRIP)
     finally:
         floating.close()
+
+
+def test_every_title_bar_button_clears_its_own_state(floater, qapp):
+    """Not just the maximize button — any of them blocks the whole bar.
+
+    _hasButtonPressed() iterates every TitleBarButton child with no
+    visibility check, so the minimize button blocks the drag even in the
+    default configuration where it is hidden.
+
+    The state is set directly rather than by clicking, so no button's actual
+    action fires: QAbstractButton only emits clicked() when it isDown().
+    """
+    title_bar = floater.titleBar
+    buttons = title_bar.findChildren(TitleBarButton)
+    assert len(buttons) >= 3, f"expected min/max/close, found {len(buttons)}"
+
+    for button in buttons:
+        name = type(button).__name__
+        button.setState(TitleBarButtonState.PRESSED)
+        assert not title_bar.canDrag(GRIP), f"precondition failed for {name}"
+
+        _send(button, QEvent.MouseButtonRelease, button.rect().center(),
+              buttons=Qt.NoButton)
+        qapp.processEvents()
+
+        assert not button.isPressed(), f"{name} stayed pressed"
+        assert title_bar.canDrag(GRIP), f"{name} still blocks the drag"
 
 
 # ── minimize, and where the window goes ───────────────────────────────────

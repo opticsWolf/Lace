@@ -13,6 +13,10 @@ container (`FloatingDockContainer`) is used as the control.
 
 ## 0. Reported symptoms
 
+All four are fixed as of 0.5.54; this document is kept as the record of
+what was wrong and why, because the mechanisms are not obvious and the
+Win32 behaviour will outlive the code.
+
 1. A minimized float does not appear in the taskbar. *(fixed 0.5.51)*
 2. A float maximized by double-clicking the title bar cannot be "ripped"
    out of maximize by dragging. *(fixed 0.5.53)*
@@ -326,7 +330,7 @@ which runs the OS move loop) and Win+Up both produce a real
 it directly — a posted `SC_MAXIMIZE`, then restore through each of the
 three entry points.
 
-### 3.5 A second, independent contributor: the stranded button state
+### 3.5 A second, independent contributor: the stranded button state — FIXED in 0.5.54
 
 `qframelesswindow.TitleBarButton` sets `PRESSED` in `mousePressEvent` and
 **never clears it in `mouseReleaseEvent`** — the only paths back are
@@ -348,13 +352,22 @@ delivers the `leaveEvent` — which is why the symptom is intermittent rather
 than permanent. It is an upstream defect, but Lace is the one that depends
 on `canDrag()` for its drag routing.
 
+Note `_hasButtonPressed()` iterates every `TitleBarButton` child with no
+visibility check, so the minimize button blocks the bar even in the default
+configuration where §3.1 hides it.
+
+**The fix (0.5.54).** `LaceStandardTitleBar` installs itself as an event
+filter on its buttons and clears the state on `MouseButtonRelease` —
+`HOVER` if the pointer is still over the button, `NORMAL` otherwise. The
+button's own action is unaffected: the filter runs before delivery, and
+`QAbstractButton` emits `clicked()` from `isDown()`, not from this state.
+
 ---
 
 ## 4. Where a fix goes
 
-Items 3 and 4 landed in 0.5.51 (§3.1); item 1 in 0.5.52 (§3.3/§3.4); item 2
-in 0.5.53 (§3.2). Only item 5 is still open, and it is no longer reachable
-through the maximize button.
+All five landed: items 3 and 4 in 0.5.51 (§3.1), item 1 in 0.5.52
+(§3.3/§3.4), item 2 in 0.5.53 (§3.2), item 5 in 0.5.54 (§3.5).
 
 1. ~~**Pick one mechanism and route every entry point through it.**~~ Done
    in `LaceStandardTitleBar.__init__` — `TitleBarBase.__toggleMaxState` is
@@ -366,21 +379,20 @@ through the maximize button.
    taskbar question.~~ Done — `DockFlags.floating_taskbar_button`, §3.1.
 4. ~~**Deduplicate the window-flag literal** repeated at `__init__` and
    `update_window_flags_from_config`.~~ Done — `_window_flags()`.
-5. **Clear the button state on release.** Lace cannot patch
-   `TitleBarButton`, but it can stop trusting `canDrag()` as the only
-   gate — or reset the button state from `LaceStandardTitleBar` on
-   `MouseButtonRelease`.
+5. ~~**Clear the button state on release.**~~ Done — an event filter on the
+   buttons in `LaceStandardTitleBar`, §3.5.
 
 ## 5. What the new tests pin
 
-`tests/test_frameless_window_state.py` — 28 tests, offscreen, runs in CI.
-Twenty-seven pass, including the full 3×3 maximize/restore matrix, the
-taskbar flag in both states, and the rip-out keeping the grab in place. One
-is `xfail(strict=True)` for the one open defect; when a fix lands it
-XPASSes, which fails the suite, which forces the marker out. Neither native
-entry point is allowed to reach a real HWND — `toggleMaxState` and
-`startSystemMove` are trapped by fixtures, which is also what makes the
-mechanism visible from a headless test.
+`tests/test_frameless_window_state.py` — 29 tests, offscreen, runs in CI,
+**all passing**. They cover the full 3×3 maximize/restore matrix, the
+taskbar flag in both states, the rip-out keeping the grab in place, and
+every title-bar button clearing its own pressed state. Each started as an
+`xfail(strict=True)` reproduction and lost the marker when its fix landed;
+strict is what forced that, since a fixed defect XPASSes and fails the
+suite. Neither native entry point is allowed to reach a real HWND —
+`toggleMaxState` and `startSystemMove` are trapped by fixtures, which is
+also what makes the mechanism visible from a headless test.
 
 `dev_smoke/smoke_frameless_winstate.py` — needs a real display and Win32;
 listed in `run_all.py`'s `NEEDS_DISPLAY`, so it does not run in the normal
