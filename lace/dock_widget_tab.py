@@ -792,10 +792,27 @@ class DockWidgetTab(QFrame, DockStyled):
         # a plain line needs no clipping and lands on exactly the same pixels as
         # the strip's own rule — which is what lets one cover the other.
         if self._bottom_rule_width > 0 and self._bottom_rule_color is not None:
-            p.setPen(QPen(self._bottom_rule_color, self._bottom_rule_width))
+            pen = QPen(self._bottom_rule_color, self._bottom_rule_width)
+            # Flat, not Qt's default square cap: a square cap runs half a pen
+            # width past each end, which would put the line back over the very
+            # edges the inset below keeps it clear of.
+            pen.setCapStyle(Qt.FlatCap)
+            p.setPen(pen)
             r = QRectF(self.rect())
             y = r.bottom() - self._bottom_rule_width / 2.0
-            p.drawLine(QPointF(r.left(), y), QPointF(r.right(), y))
+            left, right = r.left(), r.right()
+            if (self._is_active_tab and self._outline_color is not None
+                    and self._outline_width > 0):
+                # Stop short of the tab's own left and right edges.  The gap
+                # line is painted in the tab's background, so running it the
+                # full width would rub out the last rows of the outline —
+                # exactly where it hands the line over to the panel's frame
+                # below, leaving a one-pixel break at the join.  An inactive
+                # tab wants the opposite: its line is the rule, which strikes
+                # right through to the tab's edges.
+                left += self._outline_width
+                right -= self._outline_width
+            p.drawLine(QPointF(left, y), QPointF(right, y))
 
     def enterEvent(self, event):
         self._hovered = True

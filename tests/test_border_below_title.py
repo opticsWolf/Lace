@@ -177,10 +177,15 @@ def test_side_meets_the_leftmost_tabs_outline(area, qapp):
     The panel's left stroke and the tab's are both centred half a pen width in
     from the same edge; if either used a different inset the column would break
     at the join, which is exactly what this asserts cannot happen.
+
+    The rule is part of the setup, not decoration: the active tab paints its
+    gap in that same edge's rows, and anything that lets it reach the tab's own
+    left edge takes a bite out of the column right where the two meet.
     """
     dock_manager, dock_area = area
     get_dock_style_manager().apply_theme_dict(
         build_theme(_spec(border_below_title=True,
+                          title_border_bottom=2.0,
                           tab_border_width=2.0,
                           tab_border_color=[189, 147, 249, 255],
                           tab_border_active_color=[189, 147, 249, 255],
@@ -194,6 +199,13 @@ def test_side_meets_the_leftmost_tabs_outline(area, qapp):
     for y in range(8, top + 8):
         assert image.pixelColor(x, y) != bg, \
             f"gap at y={y} — the tab outline and the panel edge are not aligned"
+
+    # Every column the stroke covers, not just its outer one: a bite taken out
+    # of the inner column shows as a notch in the line at the join.
+    for column in range(x, x + 2):
+        for y in range(top - 6, top + 6):
+            assert image.pixelColor(column, y) != bg, \
+                f"notch at ({column}, {y}) where the tab hands over to the panel"
 
 
 def test_no_inset_keeps_the_outline_at_the_widget_edge(area, qapp):
