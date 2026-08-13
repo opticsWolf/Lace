@@ -53,7 +53,7 @@ def test_set_floating_window_icon_updates_existing_windows(qapp):
 
 def test_frameless_floating_window_uses_dedicated_icon(qapp):
     from lace.floating_dock_container_frameless import (
-        FloatingDockContainer as FramelessFloatingDockContainer,
+        FramelessFloatingDockContainer,
     )
 
     win = QMainWindow()

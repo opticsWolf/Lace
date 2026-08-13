@@ -21,7 +21,7 @@ app = QApplication(sys.argv)
 
 from demos.demo_app_custom_titlebar import DemoMainWindow
 from lace.floating_dock_container_frameless import (
-    FloatingDockContainer as FramelessFloatingDockContainer)
+    FramelessFloatingDockContainer)
 
 import win32gui, win32con
 

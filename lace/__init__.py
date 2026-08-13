@@ -14,7 +14,7 @@ Public API is imported explicitly at the top level for discoverability
 and IDE/mypy compatibility.
 """
 
-__version__ = "0.5.49"
+__version__ = "0.5.50"
 
 # ---------------------------------------------------------------------------
 # Core Classes
@@ -25,6 +25,7 @@ from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.dock_widget_tab import DockWidgetTab
 from lace.dock_splitter import DockSplitter, DockSplitterHandle
+from lace.floating_behaviour import FloatingContainerBehaviour
 from lace.floating_dock_container import FloatingDockContainer
 from lace.dock_icon_provider import DockIconProvider, get_icon_provider
 from lace.dock_theme import (
@@ -92,6 +93,8 @@ from lace.enums import (
 # ---------------------------------------------------------------------------
 from lace.util import (
     emit_top_level_event_for_widget,
+    is_floating_dock_container,
+    find_floating_dock_container,
     start_drag_distance,
     create_transparent_pixmap,
     hide_empty_parent_splitters,
@@ -122,6 +125,7 @@ __all__ = [
     "DockSplitter",
     "DockSplitterHandle",
     "FloatingDockContainer",
+    "FloatingContainerBehaviour",
     "DockIconProvider",
     "get_icon_provider",
     "DockAreaTabBar",
@@ -187,6 +191,8 @@ __all__ = [
     "TitleBarMode",
     # Utilities
     "emit_top_level_event_for_widget",
+    "is_floating_dock_container",
+    "find_floating_dock_container",
     "start_drag_distance",
     "create_transparent_pixmap",
     "hide_empty_parent_splitters",

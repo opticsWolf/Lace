@@ -98,31 +98,30 @@ def find_parent(parent_type: Type[W], widget: QWidget) -> Optional[W]:
     return None
 
 
-def _floating_container_types() -> tuple:
-    """Return the tuple of all :class:`FloatingDockContainer` implementations.
+def _floating_container_type() -> type:
+    """The one thing both floating-container implementations have in common.
 
-    Includes the native-title-bar container and, when qframelesswindow is
-    available, the frameless (custom title bar) variant.
+    Testing against the shared behaviour mixin rather than the two concrete
+    classes: it costs no import of qframelesswindow, and it cannot go stale
+    the way a hand-listed tuple of implementations does.
     """
-    from lace.floating_dock_container import FloatingDockContainer
-    types = [FloatingDockContainer]
-    try:
-        from lace.floating_dock_container_frameless import (
-            FloatingDockContainer as FramelessFloatingDockContainer)
-        types.append(FramelessFloatingDockContainer)
-    except ImportError:
-        pass
-    return tuple(types)
+    from lace.floating_behaviour import FloatingContainerBehaviour
+    return FloatingContainerBehaviour
 
 
 def is_floating_dock_container(widget: Any) -> bool:
-    """True if *widget* is either floating-container implementation."""
-    return isinstance(widget, _floating_container_types())
+    """True if *widget* is a floating dock container of either kind.
+
+    The supported check — ``isinstance(x, lace.FloatingDockContainer)`` is
+    wrong in custom-titlebar mode, where the float is a
+    :class:`~lace.floating_dock_container_frameless.FramelessFloatingDockContainer`.
+    """
+    return isinstance(widget, _floating_container_type())
 
 
 def find_floating_dock_container(widget: QWidget) -> Optional[QWidget]:
     """Search up the widget tree for any floating-container implementation."""
-    return find_parent(_floating_container_types(), widget)
+    return find_parent(_floating_container_type(), widget)
 
 
 def find_child(parent: QObject, type_: Type[T], name: str = '',

@@ -290,7 +290,7 @@ class DockManager(QObject):
         if self._title_bar_mode == TitleBarMode.custom:
             try:
                 from lace.floating_dock_container_frameless import (
-                    FloatingDockContainer as FramelessFloatingDockContainer)
+                    FramelessFloatingDockContainer)
                 return FramelessFloatingDockContainer
             except ImportError:
                 logger.warning(

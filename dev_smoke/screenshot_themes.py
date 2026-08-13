@@ -22,7 +22,7 @@ app = QApplication(sys.argv)
 
 from demos.demo_app_custom_titlebar import DemoMainWindow
 from lace.floating_dock_container_frameless import (
-    FloatingDockContainer as FramelessFloatingDockContainer)
+    FramelessFloatingDockContainer)
 from lace.dock_style_manager import apply_dock_theme
 from lace.enums import DockWidgetArea, DockWidgetFeature
 

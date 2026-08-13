@@ -184,19 +184,56 @@ A single tabbed region within a `DockContainerWidget`.
 
 ---
 
-### 2.7 `floating_dock_container.py` — `FloatingDockContainer`
+### 2.7 Floating containers — `floating_behaviour.py`, `floating_dock_container.py`
 
-Top-level window for detached dock content.
+Top-level windows for detached dock content. There are two, differing only in
+window chrome: `FloatingDockContainer` on a native OS frame, and
+`FramelessFloatingDockContainer` (§2.11) with a custom title bar. Everything
+downstream of the chrome is shared, in `FloatingContainerBehaviour`.
+
+Until 0.5.50 both classes were called `FloatingDockContainer` and carried ~900
+duplicated lines, so every drag/drop/resize/lifecycle fix had to land twice —
+and when one didn't, the two window modes diverged silently.
+
+#### `FloatingContainerBehaviour` (`floating_behaviour.py`)
+
+A plain mixin, listed **before** the Qt base in both subclasses: it overrides
+`closeEvent`, `resizeEvent`, `hideEvent` and `deleteLater`, which QWidget also
+defines, so listed after the Qt base Qt's versions would win. It defines no
+`__init__`, so `super().__init__(parent)` in a subclass still reaches Qt.
 
 | Category | Members |
 |---|---|
-| **Drag lifecycle** | `start_dragging(pos, size, handler)`, `init_floating_geometry(pos, size)`, `move_floating()`, `_end_programmatic_drag()`, `_finalize_drag()`, `_activate_window()`, `_is_movable()`, `_update_drop_overlays(pos)` |
-| **Config** | `update_window_flags_from_config()`, `_test_config_flag(flag)` |
-| **State** | `restore_state(state, testing)`, `update_window_title()`, `dock_container() → DockContainerWidget`, `has_top_level_dock_widget()`, `top_level_dock_widget()`, `dock_widgets()`, `is_closable()` |
+| **Drag lifecycle** | `start_dragging(pos, size, handler)`, `init_floating_geometry(pos, size)`, `move_floating()`, `_end_programmatic_drag()`, `_finalize_drag()`, `_activate_window()`, `_is_movable()`, `_update_drop_overlays(pos)`, `_set_state(state)`, `_clear_synthetic_release_flag()` |
+| **Chromeless resize** | `_handle_resize_event(obj, event)`, `_hit_test_edges(pos)`, `_cursor_for_edge(edge)`, `_apply_resize(pos)`, `_child_has_grab_mouse()`, `_is_our_widget(obj)`, `_update_chromeless_mask()` |
+| **State** | `restore_state(state, testing)`, `update_window_title()`, `dock_container() → DockContainerWidget`, `has_top_level_dock_widget()`, `top_level_dock_widget()`, `dock_widgets()`, `is_closable()` — all four accessors return a neutral value once `_destroyed()` has cleared the container |
 | **Title** | `on_dock_areas_added_or_removed()`, `on_dock_area_current_changed(index)`, `_set_window_title(text)` |
-| **Icon** | Window icon resolved at construction via `DockManager.resolve_floating_window_icon()` — dedicated `set_floating_window_icon()` icon, else application / root-window icon (shared by the frameless variant) |
-| **Qt events** | `changeEvent()`, `moveEvent()`, `event(e)`, `closeEvent()`, `hideEvent()`, `eventFilter(watched, event)`, `resizeEvent()`, `paintEvent()`, `mousePressEvent()`, `mouseMoveEvent()`, `mouseReleaseEvent()` |
+| **Qt events** | `closeEvent()`, `hideEvent()`, `resizeEvent()`, `deleteLater()` |
 | **Styling** | `refresh_style()` |
+| **Subclass hook** | `_on_dock_areas_changed()` — no-op by default; the frameless container re-evaluates its custom close button here |
+
+Subclasses supply the chrome-dependent half: `__init__`, `event()`,
+`eventFilter()`, `moveEvent()`, `changeEvent()`, `start_floating()`,
+`update_window_flags_from_config()`, `_do_restore_geometry()`,
+`_end_swallowed_release()` and the permanent-filter install/remove pair.
+
+#### `FloatingDockContainer` (`floating_dock_container.py`)
+
+The native-frame variant. Adds `_apply_dock_palette_to_window()` and
+`_apply_dwm_dark_frame(is_dark)`: `setWindowFlags()` recreates the native
+handle without the DWM dark-mode attribute, so the title bar would come back
+light on a dark theme.
+
+| Category | Members |
+|---|---|
+| **Icon** | Window icon resolved at construction via `DockManager.resolve_floating_window_icon()` — dedicated `set_floating_window_icon()` icon, else application / root-window icon (shared by the frameless variant) |
+
+#### Identifying a float
+
+`isinstance(x, lace.FloatingDockContainer)` is **wrong** — it is False for
+every float in custom-titlebar mode. Use `lace.is_floating_dock_container(x)`
+or `lace.find_floating_dock_container(widget)`, which test against the mixin
+and cost no import of the optional `qframelesswindow`.
 
 ---
 
@@ -248,11 +285,11 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 |---|---|
 | **`FramelessLaceMainWindow`** (`frameless_window.py`) | Frameless `QMainWindow` subclass; integrates the custom title bar into the `QMainWindow` layout (`setMenuWidget`) so the central widget sits below it, with an optional stacked menu bar (`menuBar()`). Accepts a `title_bar=` descriptor (`None`, a `QWidget` instance, a subclass, or a callable factory) so applications can swap in custom title-bar chrome; `TitleBarDescriptor` / `_resolve_title_bar()` implement the resolution. |
 | **`FramelessLaceWindow`** (`frameless_window.py`) | Frameless top-level `QWidget` base for floating dock containers. Accepts the same `title_bar=` descriptor as the main window. |
-| **`DockManager`** (`dock_manager.py`) | Exposes `main_title_bar` / `floating_title_bar` descriptors plus `create_main_title_bar(parent)` / `create_floating_title_bar(parent)` factories, so the main window and every floating container can use different custom title-bar classes. `floating_title_bar` is consumed by `FloatingDockContainer` (frameless) when no explicit title bar is passed. |
+| **`DockManager`** (`dock_manager.py`) | Exposes `main_title_bar` / `floating_title_bar` descriptors plus `create_main_title_bar(parent)` / `create_floating_title_bar(parent)` factories, so the main window and every floating container can use different custom title-bar classes. `floating_title_bar` is consumed by `FramelessFloatingDockContainer` when no explicit title bar is passed. |
 | **`LaceStandardTitleBar`** (`frameless_window.py`) | `StandardTitleBar` whose double-click-to-maximize is **synchronous**. qframelesswindow's default handler posts an async `WM_SYSCOMMAND SC_MAXIMIZE/SC_RESTORE`, which Windows ignores while a mouse button is still held down — and a real double-click dispatches `MouseButtonDblClick` while the second click's button is still pressed — so the maximize silently failed (the "stale" double-click). Using `showMaximized()`/`showNormal()` directly takes effect regardless of the button state. Right-clicking the window icon opens the standard system menu (native `TrackPopupMenu` on Windows, `QMenu` fallback elsewhere); creating a Lace frameless window opts the process into system dark mode (`SetPreferredAppMode(AllowDark)`) so native menus follow the OS light/dark theme. Installed automatically on every frameless floating container; the frameless demo main window uses it too. |
 | **`FramelessTitleBarStyler`** (`frameless_titlebar.py`) | Theme bridge for the custom title bar: subscribes to `DockStyleManager` and applies dock-theme colours (background, title text, min/max/close button colours) to the title bar and optional menu bar(s). Supports multiple menu bars via `add_menu_bar()` / `remove_menu_bar()` — e.g. a menu bar embedded inside a custom title-bar layout plus a separate stacked `menuBar()`. |
-| **`FloatingDockContainer`** (`floating_dock_container_frameless.py`) | Frameless floating container. Routes title-bar drags through `_handle_titlebar_drag()` so the drop overlay / re-dock machinery works with the custom title bar: on Windows the press is let through to the title bar (the native move loop starts only once the drag threshold is exceeded), `MouseButtonDblClick` cancels any pending drag, and the dock-drag state machine is kept free of stale grabs/filters. Uses `DockManager.floating_title_bar` to resolve its title bar when no explicit one is passed, so floating windows can have different chrome than the main window. |
-| **`FloatingDockContainer`** (`floating_dock_container.py`) | Native (OS title-bar) floating container; the drag-state machinery is shared with the frameless variant, including the swallowed-release discrimination. |
+| **`FramelessFloatingDockContainer`** (`floating_dock_container_frameless.py`) | Frameless floating container. Routes title-bar drags through `_handle_titlebar_drag()` so the drop overlay / re-dock machinery works with the custom title bar: on Windows the press is let through to the title bar (the native move loop starts only once the drag threshold is exceeded), `MouseButtonDblClick` cancels any pending drag, and the dock-drag state machine is kept free of stale grabs/filters. Uses `DockManager.floating_title_bar` to resolve its title bar when no explicit one is passed, so floating windows can have different chrome than the main window. |
+| **`FloatingDockContainer`** (`floating_dock_container.py`) | Native (OS title-bar) floating container. Both variants share `FloatingContainerBehaviour` (§2.7), so the drag-state machinery — including the swallowed-release discrimination — has one implementation. The module keeps `FloatingDockContainer` as a deprecated alias for the frameless class, which bore that name until 0.5.50. |
 
 ---
 
