@@ -81,17 +81,14 @@ class DockOverlay(QFrame, DockStyled):
         return self._allowed_areas
 
     def drop_area_under_cursor(self) -> DockWidgetArea:
-        result = self._cross.cursor_location() if self._cross else DockWidgetArea.invalid
-        if result != DockWidgetArea.invalid:
-            return result
+        """The area the cursor is over, or invalid.
 
-        # Simplified fallback logic - actual implementation would be more detailed
-        dock_area_widget = self._target_widget
-        if hasattr(dock_area_widget, '__class__') and 'DockAreaWidget' in str(type(dock_area_widget)):
-            pos = dock_area_widget.mapFromGlobal(QCursor.pos())
-            # In a real implementation, this would calculate position-based area detection
-
-        return DockWidgetArea.invalid
+        The cross owns the answer: its indicator geometry is what the user
+        aims at, and it already refuses areas outside allowed_areas().
+        """
+        if not self._cross:
+            return DockWidgetArea.invalid
+        return self._cross.cursor_location()
 
     def show_overlay(self, target: QWidget) -> DockWidgetArea:
         if self._target_widget is target:
@@ -380,12 +377,17 @@ class DockOverlayCross(QWidget, DockStyled):
         self._last_device_pixel_ratio = device_pixel_ratio
 
     def reset(self):
-        """Reset visibility of drop indicators based on allowed areas."""
+        """Show only the drop indicators the overlay currently allows.
+
+        Without this, set_allowed_areas() is invisible: cursor_location()
+        refuses a disallowed area, but its indicator stays on screen and
+        simply does nothing when the drag reaches it.
+        """
         allowed_areas = self._dock_overlay.allowed_areas()
-        
-        # This would normally be implemented to show/hide widgets
-        # but we're maintaining the simplified structure for now
-        pass
+
+        for area, widget in self._drop_indicator_widgets.items():
+            if widget:
+                widget.setVisible(area in allowed_areas)
 
     def update_position(self):
         """Update position and size of the overlay cross."""
