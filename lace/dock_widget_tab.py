@@ -24,7 +24,8 @@ from lace.eliding_label import ElidingLabel
 from lace.dock_paint import paint_tab
 from lace.dock_chrome import (ChromeToolButton, blend_colors as _blend_colors,
                               resolve_tab_outline_color,
-                              resolve_title_bar_bottom_rule)
+                              resolve_title_bar_bottom_rule,
+                              tab_has_bottom_indicator)
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
 from lace.dock_menu import (
@@ -611,11 +612,21 @@ class DockWidgetTab(QFrame, DockStyled):
         # different colour for the same state.
         outline = resolve_tab_outline_color(
             self._style_mgr, active=is_active, focused=is_area_focused)
-        if outline is not None:
-            # This tab closes its own three sides and leaves the bottom open,
-            # like the active one.  Continuing the rule across it would strike a
-            # differently coloured line through the box the outline just drew.
-            rule_width, rule_color = 0.0, None
+        if is_active and rule_width > 0:
+            # The active tab is the one that breaks the rule — that gap is what
+            # makes it look joined to the panel below.  It paints the break in
+            # its own background rather than leaving its fill to cover the
+            # strip's rule: the two are drawn by different widgets, and at a
+            # fractional pen width or a scaled display they round onto slightly
+            # different pixels, leaving a sliver of the rule showing along the
+            # tab's bottom edge.  An indicator on that edge already owns those
+            # pixels, so it is left to paint them.
+            if indicator is not None and tab_has_bottom_indicator(self._style_mgr):
+                rule_width, rule_color = 0.0, None
+            else:
+                rule_color = bg_active
+                if rule_color is None:
+                    rule_width = 0.0
 
         return indicator, text_color, rule_width, rule_color, outline
 
@@ -774,13 +785,13 @@ class DockWidgetTab(QFrame, DockStyled):
         )
 
         # Continue the title bar's bottom rule across this tab, so the line
-        # reads as unbroken behind the tab strip.  Only inactive tabs take it:
-        # the gap under the active tab is what makes it look joined to the
-        # panel below.  Tabs are flush with the title bar's bottom edge and are
-        # square-cornered there (top_rounded_path), so a plain line needs no
-        # clipping and lands on exactly the same pixels as the strip's own rule.
-        if (not self._is_active_tab and self._bottom_rule_width > 0
-                and self._bottom_rule_color is not None):
+        # reads as unbroken behind the tab strip.  The active tab draws the same
+        # line in its own background instead, which is how its gap in the rule
+        # gets made — see _resolve_focus_colors.  Tabs are flush with the title
+        # bar's bottom edge and are square-cornered there (top_rounded_path), so
+        # a plain line needs no clipping and lands on exactly the same pixels as
+        # the strip's own rule — which is what lets one cover the other.
+        if self._bottom_rule_width > 0 and self._bottom_rule_color is not None:
             p.setPen(QPen(self._bottom_rule_color, self._bottom_rule_width))
             r = QRectF(self.rect())
             y = r.bottom() - self._bottom_rule_width / 2.0

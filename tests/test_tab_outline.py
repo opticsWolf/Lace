@@ -348,12 +348,39 @@ def test_rule_and_outline_meet_without_a_step(desk, qapp):
         "the active tab's outline and the rule disagree on colour"
 
 
-def test_an_outlined_tab_leaves_its_own_bottom_open(desk, qapp):
-    """Whether it is the active one or not.
+@pytest.mark.parametrize("theme", ["violet_haze", "neon_dusk"])
+def test_an_inactive_tab_does_not_break_the_rule(desk, qapp, theme):
+    """The rule strikes through every inactive tab, outlined or not.
 
-    An outlined tab is a three-sided box; running the rule across its bottom
-    would strike a differently coloured line through the box the outline just
-    drew — the tab would read as underlined rather than open.
+    The line under the strip is the frame's top edge; a tab that stops it
+    leaves a gap in the frame wherever it happens to sit. Only the active tab
+    breaks it, and that gap is what makes it look joined to the panel below.
+    """
+    dock_manager, area, _ = desk
+    manager = get_dock_style_manager()
+    manager.apply_theme(theme)
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(area)
+    qapp.processEvents()
+
+    active, inactive = _tabs(area)
+    rule = area._title_bar._border_color
+    assert inactive._outline_color is not None, f"{theme} stopped outlining tabs"
+    assert _render(inactive, qapp).pixelColor(
+        inactive.width() // 2, inactive.height() - 1) == rule, \
+        "the inactive tab broke the rule"
+    assert _render(active, qapp).pixelColor(
+        active.width() // 2, active.height() - 1) != rule
+
+
+def test_the_active_tab_paints_its_gap_rather_than_leaving_it(desk, qapp):
+    """The break in the rule is drawn in the tab's own background.
+
+    Leaving the tab's fill to cover the strip's rule looks the same until the
+    two round differently — a fractional pen width, a scaled display — and a
+    sliver of the rule shows along the tab's bottom edge. At 1:1 the fill does
+    cover it, so the assertion that bites is the resolved colour; the pixel
+    check below only pins the result down.
     """
     dock_manager, area, _ = desk
     manager = get_dock_style_manager()
@@ -362,18 +389,36 @@ def test_an_outlined_tab_leaves_its_own_bottom_open(desk, qapp):
     dock_manager.set_active_dock_area(area)
     qapp.processEvents()
 
-    active, inactive = _tabs(area)
-    rule = area._title_bar._border_color
-    for tab, name in ((active, "active"), (inactive, "inactive")):
-        assert tab._outline_color is not None, f"the {name} tab is unoutlined"
-        image = _render(tab, qapp)
-        assert image.pixelColor(tab.width() // 2, tab.height() - 1) != rule, \
-            f"the rule crosses the {name} tab's bottom"
+    active, _inactive = _tabs(area)
+    assert active._bottom_rule_width > 0, "nothing is drawn over the rule"
+    assert active._bottom_rule_color.getRgb() == active._bg_active.getRgb(), \
+        "the active tab's bottom line is not its own background"
+    image = _render(active, qapp)
+    for x in range(active.width() // 3, active.width() - active.width() // 3):
+        assert image.pixelColor(x, active.height() - 1).getRgb() == \
+            active._bg_active.getRgb(), f"not the tab's own colour at x={x}"
+
+
+def test_a_bottom_indicator_keeps_the_active_tabs_edge(desk, qapp):
+    """Painting the gap must not paint over an indicator that owns that edge."""
+    dock_manager, area, _ = desk
+    manager = get_dock_style_manager()
+    manager.apply_theme_dict(build_theme(_spec(
+        title_border_bottom=2.0, indicator_position="bottom", indicator_width=3)))
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(area)
+    qapp.processEvents()
+
+    active, _inactive = _tabs(area)
+    assert active._bottom_rule_width == 0.0, \
+        "the gap line would cover the indicator"
+    image = _render(active, qapp)
+    assert image.pixelColor(active.width() // 2, active.height() - 1).getRgb() == \
+        active._indicator.getRgb(), "the indicator lost its edge"
 
 
 def test_an_unoutlined_tab_still_continues_the_rule(desk, qapp):
-    """The rule-only look is unchanged: with nothing of its own to draw, an
-    inactive tab carries the line across so the strip reads unbroken."""
+    """The rule-only look is unchanged."""
     dock_manager, area, _ = desk
     manager = get_dock_style_manager()
     manager.apply_theme_dict(build_theme(_spec(

@@ -114,22 +114,28 @@ def test_cheap_path_still_produces_the_dimmed_colours(desk, qapp):
     dock_manager.set_active_dock_area(area)
     qapp.processEvents()
     active_tab = area.dock_widget(area.current_index()).tab_widget()
+    # The rule is read off an inactive tab: the active one's bottom line is its
+    # own background (or nothing, under an indicator), not the rule's colour.
+    idle_tab = next(area.dock_widget(i).tab_widget()
+                    for i in range(area.dock_widgets_count())
+                    if not area.dock_widget(i).tab_widget()._is_active_tab)
     focused_indicator = active_tab._indicator
     focused_text = active_tab._applied_text_color
-    focused_rule = active_tab._bottom_rule_color
+    focused_rule = idle_tab._bottom_rule_color
 
     dock_manager.set_active_dock_area(other)
     qapp.processEvents()
     assert active_tab._indicator != focused_indicator, "indicator did not dim"
     assert active_tab._applied_text_color != focused_text, "label did not dim"
-    assert active_tab._bottom_rule_color != focused_rule, "rule kept the focus colour"
+    assert idle_tab._bottom_rule_color != focused_rule, "rule kept the focus colour"
 
     # ...and a full restyle from the same state must agree with the cheap one.
     dimmed = (active_tab._indicator, active_tab._applied_text_color,
-              active_tab._bottom_rule_color)
+              idle_tab._bottom_rule_color)
     active_tab.refresh_style()
+    idle_tab.refresh_style()
     assert (active_tab._indicator, active_tab._applied_text_color,
-            active_tab._bottom_rule_color) == dimmed
+            idle_tab._bottom_rule_color) == dimmed
 
 
 def test_repeated_restyle_reapplies_nothing(desk, qapp):

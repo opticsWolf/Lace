@@ -96,6 +96,11 @@ def test_tab_rule_matches_the_strip_exactly(desk, qapp):
 
     title_bar = area._title_bar
     for name, tab in _tabs(area).items():
+        if tab._is_active_tab:
+            # It draws the gap, not the rule: with this spec's default bottom
+            # indicator owning that edge, it draws nothing there at all.
+            assert tab._bottom_rule_width == 0.0, name
+            continue
         assert tab._bottom_rule_width == title_bar._border_bottom, name
         assert tab._bottom_rule_color == title_bar._border_color, name
 
@@ -111,6 +116,11 @@ def test_no_rule_configured_means_no_rule_drawn(desk, qapp):
 
 def test_rule_colour_follows_focus(desk, qapp):
     dock_manager, area, other = desk
+    # Both areas need an inactive tab: the active one's bottom line is its own
+    # background, so it is not where the rule's colour can be read off.
+    extra = DockWidget("Delta")
+    extra.set_widget(QLabel("Delta"))
+    dock_manager.add_dock_widget(DockWidgetArea.center, extra, other)
     get_dock_style_manager().apply_theme_dict(build_theme(
         _spec(title_border_bottom=1.5, title_border_focus_color=FOCUS)))
 
@@ -123,9 +133,11 @@ def test_rule_colour_follows_focus(desk, qapp):
 
     # ...and the tabs track their own area, not the global active one.
     for tab in _tabs(area).values():
-        assert tab._bottom_rule_color.getRgb() == tuple(FOCUS)
+        if not tab._is_active_tab:
+            assert tab._bottom_rule_color.getRgb() == tuple(FOCUS)
     for tab in _tabs(other).values():
-        assert tab._bottom_rule_color.getRgb() == tuple(NEUTRAL)
+        if not tab._is_active_tab:
+            assert tab._bottom_rule_color.getRgb() == tuple(NEUTRAL)
 
     dock_manager.set_active_dock_area(other)
     qapp.processEvents()
