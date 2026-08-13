@@ -80,13 +80,12 @@ class DockFlags(enum.IntFlag):
     none_ = 0
     
     opaque_splitter_resize = enum.auto()
-    """Splitters instantly resize content instead of showing a rubber band.
-    Currently not in proper use - requires implementation
-    """
-    
+    """Splitters instantly resize content instead of showing a rubber band."""
+
     opaque_undocking = enum.auto()
     """Widgets instantly follow the cursor when torn off.
-    Currently not in proper use - requires implementation
+
+    Cleared, a tear-off shows a drag preview until the button is released.
     """
        
     always_show_tabs = enum.auto()
@@ -129,10 +128,7 @@ class DockFlags(enum.IntFlag):
     """Tabs can be pinned into sidebar."""
     
     custom_tab_icons = enum.auto()
-    """
-    Use custom icons provided via user config instead of defaults in the tab.
-    Currently not in use - requires implementation
-    """
+    """Tabs use the icon set on the dock widget instead of the provider default."""
     
     hide_disabled_title_bar_icons = enum.auto()
     """Hides disabled icons in the title bar."""

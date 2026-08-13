@@ -1661,7 +1661,7 @@ across themes, which is a separate change.
 | ☐ | Extract `FloatingContainerBehaviour`; rename the frameless class (§5.1) | new + both floating containers |
 | ☑ | Fix `_last_added_area_cache`; guard the `None` splitter (§5.2) | `dock_container_widget.py` |
 | ☑ | Implement `DockOverlayCross.reset()`; delete dead branches (§5.3) | `dock_overlay.py` |
-| ☐ | Fix stale enum docstrings (§5.3) | `enums.py` |
+| ☑ | Fix stale enum docstrings (§5.3) | `enums.py` |
 | ☐ | Delete the `__init__.py` lazy loader; add `__all__` (§5.4) | `__init__.py` |
 | ☐ | Initialise painted-chrome attrs in `__init__`; drop `getattr` defaults (§5.5) | several |
 | ☐ | Replace `getattr(mgr, '_root', ...)` with `root_container()` (§5.5) | 13 sites |

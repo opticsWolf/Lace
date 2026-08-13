@@ -468,7 +468,7 @@ class DockManager(QObject):
             floating_widget.update_window_flags_from_config()
         for container in self.dock_containers():
             for dock_area in container.opened_dock_areas():
-                dock_area.update_title_bar_visibility()
+                dock_area.ensure_title_bar_visible()
                 if dock_area._title_bar:
                     dock_area._title_bar.update_button_states()
                     tab_bar = dock_area._title_bar.tab_bar()

@@ -6,6 +6,10 @@ Verifies the bit-mask invariants that the docking math relies on
 insertion helpers used by the layout code.
 """
 
+import ast
+import pathlib
+
+import pytest
 from PySide6.QtCore import Qt
 
 from lace.enums import (
@@ -24,6 +28,31 @@ from lace.enums import (
 )
 from lace.dock_theme import DockStyleCategory
 from lace.sidebar_tab import TabBadgePosition
+
+
+@pytest.fixture(scope="module")
+def flag_docstrings():
+    """``{member_name: doc}`` for DockFlags, read out of the source.
+
+    Enum members do not keep the string literal that follows them, so the
+    only way to assert anything about those doc comments is to parse them.
+    """
+    path = pathlib.Path(__file__).resolve().parent.parent / "lace" / "enums.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    cls = next(n for n in ast.walk(tree)
+               if isinstance(n, ast.ClassDef) and n.name == "DockFlags")
+
+    docs, pending = {}, None
+    for node in cls.body:
+        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
+            pending = node.targets[0].id
+            docs[pending] = ""
+        elif (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str) and pending):
+            docs[pending] = node.value.value
+            pending = None
+    assert "opaque_undocking" in docs, "the parse found no flags at all"
+    return docs
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +119,34 @@ def test_default_config_matches_architecture_doc():
         | DockFlags.sidebar_area_has_maximize_button
     )
     assert DockFlags.default_config == expected
+
+
+def test_no_flag_claims_to_be_unimplemented(flag_docstrings):
+    """§5.3 — three flags carried that disclaimer while being read in anger.
+
+    A doc comment is the only thing a caller has to go on. Rather than pin the
+    three, forbid the phrase: the next flag to be finished must have its
+    docstring updated with it.
+    """
+    stale = [name for name, doc in flag_docstrings.items()
+             if "requires implementation" in doc.lower()
+             or "not in use" in doc.lower()]
+    assert not stale, f"docstring says unimplemented: {stale}"
+
+
+def test_every_flag_is_actually_consulted(flag_docstrings):
+    """A flag nothing reads is a setting that silently does nothing."""
+    import pathlib
+
+    source = "\n".join(
+        p.read_text(encoding="utf-8")
+        for p in pathlib.Path(__file__).resolve().parent.parent.glob("lace/*.py")
+        if p.name != "enums.py")
+
+    for name in flag_docstrings:
+        if name in ("none_", "default_config"):
+            continue
+        assert f"DockFlags.{name}" in source, f"{name} is never read"
 
 
 # ---------------------------------------------------------------------------

@@ -163,7 +163,7 @@ A single tabbed region within a `DockContainerWidget`.
 | **Signals** | `tab_bar_clicked(int)`, `current_changing(int)`, `current_changed(int)`, `view_toggled(bool)` |
 | **Tabs** | `dock_widgets()`, `dock_widgets_count()`, `open_dock_widgets_count()`, `opened_dock_widgets()`, `dock_widget(i)`, `current_index()`, `current_dock_widget()`, `set_current_index(i)`, `set_current_dock_widget(widget)`, `internal_set_current_dock_widget(widget)`, `index(widget)`, `index_of_first_open_dock_widget()`, `next_open_dock_widget(widget)`, `reorder_dock_widget(from, to)` |
 | **Insertion** | `insert_dock_widget(index, widget, activate)`, `add_dock_widget(widget)`, `remove_dock_widget(widget)`, `toggle_dock_widget_view(widget, open_)` |
-| **View** | `toggle_view(open_)`, `hide_area_with_no_visible_content()`, `update_title_bar_visibility()` |
+| **View** | `toggle_view(open_)`, `hide_area_with_no_visible_content()`, `ensure_title_bar_visible()` |
 | **Title bar** | `title_bar_geometry()`, `content_area_geometry()`, `title_bar_button(which) → QAbstractButton`, `update_title_bar_button_states()`, `_update_title_bar_button_states()`, `mark_title_bar_menu_outdated()` |
 | **Features** | `closable`, `movable`, `floatable`, `pinnable`, `features() → DockWidgetFeature`, `locked_name` (property to assign a named lock) |
 | **Maximize** | `is_maximized()`, `toggle_maximize()` |

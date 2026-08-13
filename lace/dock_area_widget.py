@@ -11,6 +11,7 @@
 
 
 import logging
+import warnings
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QRect, Signal
@@ -244,7 +245,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
             self.hide_area_with_no_visible_content()
 
         self._update_title_bar_button_states()
-        self.update_title_bar_visibility()
+        self.ensure_title_bar_visible()
 
         # An area already detached from its container has no container to
         # consult — which happens while a widget is being moved between
@@ -260,7 +261,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         self.dock_widgets_changed.emit()
 
     def toggle_dock_widget_view(self, dock_widget: 'DockWidget', open_: bool):
-        self.update_title_bar_visibility()
+        self.ensure_title_bar_visible()
         self._update_title_bar_button_states()
 
     def next_open_dock_widget(self, dock_widget: 'DockWidget') -> Optional['DockWidget']:
@@ -291,11 +292,11 @@ class DockAreaWidget(ChromeFrame, DockStyled):
 
         container = self.dock_container()
         # A detached area (mid-move between containers) has nothing left to
-        # hide; update_title_bar_visibility() below already guards the same way.
+        # hide; ensure_title_bar_visible() below already guards the same way.
         if container is None or not container.is_floating():
             return
 
-        self.update_title_bar_visibility()
+        self.ensure_title_bar_visible()
         top_level_widget = container.top_level_dock_widget()
         floating_widget = container.floating_widget()
         if top_level_widget is not None:
@@ -304,13 +305,28 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         elif not container.opened_dock_areas():
             floating_widget.hide()
 
-    def update_title_bar_visibility(self):
+    def ensure_title_bar_visible(self):
+        """Show the title bar, if this area still has a container.
+
+        Named for what it does. Lace's title bar carries the tab strip, so
+        there is no state in which an attached area hides it — upstream ADS
+        can, because there the tabs live in a separate widget. The old name
+        (update_title_bar_visibility) promised a decision this never made.
+        """
         container = self.dock_container()
         if not container:
             return
 
         if self._title_bar:
             self._title_bar.setVisible(True)
+
+    def update_title_bar_visibility(self):
+        """Deprecated alias for :meth:`ensure_title_bar_visible`."""
+        warnings.warn(
+            "update_title_bar_visibility() is deprecated; it never hid "
+            "anything. Use ensure_title_bar_visible().",
+            DeprecationWarning, stacklevel=2)
+        self.ensure_title_bar_visible()
 
     def internal_set_current_dock_widget(self, dock_widget: 'DockWidget'):
         index = self.index(dock_widget)

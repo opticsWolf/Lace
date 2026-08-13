@@ -256,7 +256,7 @@ class DropController:
 
         target_area.set_current_index(new_current_index)
         floating_widget.deleteLater()
-        target_area.update_title_bar_visibility()
+        target_area.ensure_title_bar_visible()
 
 
 class DockContainerWidget(QFrame, DockStyled):
@@ -353,7 +353,7 @@ class DockContainerWidget(QFrame, DockStyled):
         new_dock_area = DockAreaWidget(self._dock_manager, self)
         new_dock_area.add_dock_widget(dockwidget)
         self._add_dock_area(new_dock_area, area)
-        new_dock_area.update_title_bar_visibility()
+        new_dock_area.ensure_title_bar_visible()
         self._last_added_area_cache[area] = new_dock_area
         return new_dock_area
 
@@ -406,7 +406,7 @@ class DockContainerWidget(QFrame, DockStyled):
             self._root_splitter = new_splitter
 
         self._append_dock_areas(new_dock_area)
-        new_dock_area.update_title_bar_visibility()
+        new_dock_area.ensure_title_bar_visible()
         
         #--- FIX START ---
         #Ensure the root splitter is visible now that it has content
@@ -456,9 +456,9 @@ class DockContainerWidget(QFrame, DockStyled):
                 dock_area._update_title_bar_button_states()
 
         if count_before == 1:
-            self._dock_areas[0].update_title_bar_visibility()
+            self._dock_areas[0].ensure_title_bar_visible()
         if new_area_count == 1:
-            self._dock_areas[-1].update_title_bar_visibility()
+            self._dock_areas[-1].ensure_title_bar_visible()
 
         self._emit_dock_areas_added()
 

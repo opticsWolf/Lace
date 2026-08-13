@@ -36,7 +36,7 @@ def emit_top_level_event_for_widget(widget: Optional['DockWidget'], floating: bo
     if widget is None:
         return
 
-    widget.dock_area_widget().update_title_bar_visibility()
+    widget.dock_area_widget().ensure_title_bar_visible()
     widget.emit_top_level_changed(floating)
 
 
