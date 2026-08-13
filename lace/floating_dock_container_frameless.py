@@ -25,7 +25,7 @@ from lace.dock_theme import DockStyleCategory
 from lace.floating_behaviour import FloatingContainerBehaviour, _EDGE_NONE
 from lace.frameless_window import FramelessLaceWindow, _resolve_title_bar
 from lace.frameless_titlebar import FramelessTitleBarStyler
-from lace.util import start_drag_distance
+from lace.util import is_window_maximized, restore_window, start_drag_distance
 
 if TYPE_CHECKING:
     from lace import DockAreaWidget, DockWidget, DockManager
@@ -662,6 +662,9 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                 return False
             try:
                 from qframelesswindow.utils import startSystemMove
+                # Here the press starts the move, so the rip-out has to
+                # happen here rather than at the drag threshold.
+                self._restore_under_cursor(event.globalPosition().toPoint())
                 startSystemMove(self, event.globalPosition().toPoint())
                 self._os_move_active = True
             except Exception:
@@ -691,6 +694,11 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                         self._titlebar_drag_start = None
                         self._drag_start_mouse_position = start
                         self._set_state(DragState.floating_widget)
+                        # A maximized window has to come loose before anyone
+                        # tries to move it — the OS will not move it, and the
+                        # gesture is meant to un-maximize.
+                        self._restore_under_cursor(
+                            event.globalPosition().toPoint())
                         try:
                             from qframelesswindow.utils import startSystemMove
                             startSystemMove(self, event.globalPosition().toPoint())
@@ -736,6 +744,44 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
             return False
 
         return False
+
+    def _restore_under_cursor(self, global_pos: QPoint) -> None:
+        """Un-maximize with the grab kept where it is, before an OS move.
+
+        Windows gives native frames this for free: dragging a maximized
+        window by its caption restores it under the pointer. That lives in
+        the ``WM_NCLBUTTONDOWN`` / ``HTCAPTION`` path, which a client-area
+        title bar never receives — and qframelesswindow's move is
+        ``WM_SYSCOMMAND SC_MOVE``, which Windows refuses outright for a
+        zoomed window. So nothing was restoring it, and nothing was moving
+        it either.
+
+        The window is placed so the cursor keeps the same fraction across
+        the title bar; grab a maximized float near its right edge and it
+        comes loose near its right edge, rather than jumping so its corner
+        lands under the pointer.
+        """
+        if not is_window_maximized(self):
+            return
+        local = self.mapFromGlobal(global_pos)
+        fraction = min(1.0, max(0.0, local.x() / max(1, self.width())))
+
+        # The restored size has to come from normalGeometry(), read now:
+        # showNormal() does not apply the geometry before it returns (on
+        # either platform), so reading size() afterwards still measures the
+        # maximized window — and a plain move() then loses to Qt's own
+        # deferred restore. Set the whole rect instead.
+        target = QRect(self.normalGeometry())
+        if target.isEmpty():
+            target = QRect(self.pos(), self.size())
+
+        restore_window(self)
+
+        target.moveTo(global_pos.x() - int(fraction * target.width()),
+                      global_pos.y() - local.y())
+        self.setGeometry(target)
+        # The manual (no OS move loop) fallback measures from this.
+        self._drag_start_mouse_position = self.mapFromGlobal(global_pos)
 
     def _remove_frameless_drag_filter(self):
         """Remove the transient app filter installed for frameless drags."""

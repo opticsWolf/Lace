@@ -273,23 +273,56 @@ def test_the_double_click_and_the_button_share_one_toggle(
 
 
 # ── dragging out of maximize ──────────────────────────────────────────────
-@pytest.mark.xfail(strict=True, reason=(
-    "nothing in the chain restores the window before starting the move; "
-    "qframelesswindow has the same gap and Lace consumes the MouseMove "
-    "before the title bar could do anything about it"))
 def test_dragging_a_maximized_float_restores_it_first(floater, os_move, qapp):
-    """Grab a maximized window by the title bar and it should come loose.
+    """Grab a maximized window by the title bar and it comes loose.
 
     Windows implements this for native frames in the WM_NCLBUTTONDOWN
     HTCAPTION path, which a client-area title bar never receives. Asking
-    the OS to SC_MOVE a maximized window instead is refused outright.
+    the OS to SC_MOVE a maximized window instead is refused outright, so
+    before the fix the drag neither restored nor moved anything.
     """
     floater.showMaximized()
     qapp.processEvents()
 
     _drag(floater.titleBar, qapp)
 
-    assert not floater.isMaximized(), "the float was dragged while still maximized"
+    assert not is_window_maximized(floater), \
+        "the float was dragged while still maximized"
+    assert len(os_move) == 1, "the move never started"
+
+
+def test_the_rip_out_keeps_the_grab_where_it_was(floater, os_move, qapp):
+    """Restore under the pointer, not away from it.
+
+    Grabbing a maximized float three quarters of the way across its title
+    bar should leave the pointer three quarters of the way across the
+    restored one — otherwise the window jumps out from under the cursor and
+    the drag continues from somewhere the user did not click.
+    """
+    floater.showMaximized()
+    qapp.processEvents()
+    grab = QPoint(int(floater.width() * 0.75), 16)
+    # The rip-out anchors on the position the drag threshold was crossed at,
+    # which is the move, not the press.
+    released_at = grab + QPoint(start_drag_distance() + 20, 4)
+    fraction_before = released_at.x() / floater.width()
+    # Pin the screen position now: the window moves out from under it.
+    on_screen = floater.titleBar.mapToGlobal(released_at)
+
+    _send(floater.titleBar, QEvent.MouseButtonPress, grab)
+    qapp.processEvents()
+    _send(floater.titleBar, QEvent.MouseMove, released_at)
+    qapp.processEvents()
+
+    assert not is_window_maximized(floater)
+    # Where that screen position now sits inside the restored window.
+    local = floater.mapFromGlobal(on_screen)
+    fraction_after = local.x() / floater.width()
+    assert abs(fraction_after - fraction_before) < 0.05, (
+        f"grab moved from {fraction_before:.2f} to {fraction_after:.2f} "
+        "across the title bar")
+    assert 0 <= local.y() < floater.titleBar.height(), \
+        "the pointer is no longer on the title bar"
 
 
 def test_dragging_a_normal_float_starts_the_os_move_loop(floater, os_move, qapp):

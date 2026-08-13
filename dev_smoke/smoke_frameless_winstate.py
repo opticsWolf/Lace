@@ -244,10 +244,15 @@ def main(dock_manager):
 
             moves.clear()
             title_bar = flt.titleBar
+            # Grab three quarters of the way across, where a jump would show.
+            grab = QPoint(int(flt.width() * 0.75), 16)
+            released_at = grab + QPoint(start_drag_distance() + 20, 4)
+            fraction_before = released_at.x() / flt.width()
+            on_screen = title_bar.mapToGlobal(released_at)
+
             for event_type, pos, buttons in (
-                    (QEvent.MouseButtonPress, GRIP, Qt.LeftButton),
-                    (QEvent.MouseMove,
-                     GRIP + QPoint(start_drag_distance() + 20, 4), Qt.LeftButton)):
+                    (QEvent.MouseButtonPress, grab, Qt.LeftButton),
+                    (QEvent.MouseMove, released_at, Qt.LeftButton)):
                 QApplication.sendEvent(title_bar, QMouseEvent(
                     event_type, pos, title_bar.mapToGlobal(pos),
                     Qt.LeftButton, buttons, Qt.NoModifier))
@@ -257,6 +262,14 @@ def main(dock_manager):
                   not flt.isMaximized() and show_cmd(flt) == "SW_NORMAL",
                   f"isMaximized={flt.isMaximized()} win32={show_cmd(flt)} "
                   f"startSystemMove calls={len(moves)}")
+
+            local = flt.mapFromGlobal(on_screen)
+            fraction_after = local.x() / max(1, flt.width())
+            check(f"rip-out after {name}: grab kept its place",
+                  abs(fraction_after - fraction_before) < 0.05
+                  and 0 <= local.y() < title_bar.height(),
+                  f"{fraction_before:.2f} -> {fraction_after:.2f} across the "
+                  f"bar, y={local.y()}")
 
             QApplication.sendEvent(title_bar, QMouseEvent(
                 QEvent.MouseButtonRelease, GRIP, title_bar.mapToGlobal(GRIP),

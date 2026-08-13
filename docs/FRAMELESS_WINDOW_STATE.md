@@ -13,14 +13,16 @@ container (`FloatingDockContainer`) is used as the control.
 
 ## 0. Reported symptoms
 
-1. A minimized float does not appear in the taskbar.
+1. A minimized float does not appear in the taskbar. *(fixed 0.5.51)*
 2. A float maximized by double-clicking the title bar cannot be "ripped"
-   out of maximize by dragging.
+   out of maximize by dragging. *(fixed 0.5.53)*
 3. A float maximized with the title bar's **maximize button** cannot be
-   restored by double-clicking the title bar.
+   restored by double-clicking the title bar. *(fixed 0.5.52)*
 4. After a maximize/restore cycle the float often can no longer be moved.
+   *(fixed 0.5.52)*
 
-Symptom 1 stands alone. Symptoms 2–4 are three faces of a single defect.
+Symptom 1 stands alone. Symptoms 3 and 4 are two faces of a single defect,
+and symptom 2 is a missing gesture that the same defect made unfixable.
 
 ---
 
@@ -190,7 +192,7 @@ survives the minimize, so the float is clickable again. Toggling the flag on
 a live float adds and removes the button through
 `update_window_flags_from_config()`.
 
-### 3.2 A maximized float cannot be dragged out of maximize
+### 3.2 A maximized float cannot be dragged out of maximize — FIXED in 0.5.53
 
 Nothing in the chain restores the window before moving it.
 
@@ -220,6 +222,20 @@ Measured offscreen with `startSystemMove` stubbed: press + move past the
 threshold on a maximized float leaves `isMaximized() == True` and calls
 `startSystemMove` once — the window stays maximized and the OS is asked to
 move a maximized window.
+
+**The fix (0.5.53).** `_restore_under_cursor()` runs at the drag threshold
+(and, on platforms where the press starts the move, at the press). It
+restores the window and places it so the pointer keeps the same fraction
+across the title bar — grab a maximized float near its right edge and it
+comes loose near its right edge, instead of jumping so a corner lands under
+the pointer.
+
+One ordering trap, measured on both platforms: `showNormal()` does **not**
+apply the geometry before it returns, so reading `size()` afterwards still
+measures the maximized window, and a plain `move()` then loses to Qt's own
+deferred restore. The restored size is therefore taken from
+`normalGeometry()` *before* restoring, and the whole rect is applied with
+one `setGeometry()` afterwards.
 
 ### 3.3 Double-click does not restore after the maximize button — FIXED in 0.5.52
 
@@ -336,18 +352,16 @@ on `canDrag()` for its drag routing.
 
 ## 4. Where a fix goes
 
-Items 3 and 4 landed in 0.5.51 (§3.1); item 1 in 0.5.52 (§3.3/§3.4).
-Items 2 and 5 are still open.
+Items 3 and 4 landed in 0.5.51 (§3.1); item 1 in 0.5.52 (§3.3/§3.4); item 2
+in 0.5.53 (§3.2). Only item 5 is still open, and it is no longer reachable
+through the maximize button.
 
 1. ~~**Pick one mechanism and route every entry point through it.**~~ Done
    in `LaceStandardTitleBar.__init__` — `TitleBarBase.__toggleMaxState` is
    name-mangled and cannot be overridden, so `maxBtn.clicked` is
    disconnected and reconnected. It covers the main window and every float
    at once, since both use that class.
-2. **Restore before dragging.** In `_handle_titlebar_drag`, on the
-   threshold crossing, if the window is maximized: `showNormal()`, then
-   re-anchor the window under the cursor (keep the horizontal fraction of
-   the click within the title bar) before `startSystemMove`.
+2. ~~**Restore before dragging.**~~ Done — `_restore_under_cursor()`, §3.2.
 3. ~~**Make declared and offered window buttons agree**, and decide the
    taskbar question.~~ Done — `DockFlags.floating_taskbar_button`, §3.1.
 4. ~~**Deduplicate the window-flag literal** repeated at `__init__` and
@@ -359,13 +373,14 @@ Items 2 and 5 are still open.
 
 ## 5. What the new tests pin
 
-`tests/test_frameless_window_state.py` — 27 tests, offscreen, runs in CI.
-Twenty-five pass, including the full 3×3 maximize/restore matrix and the
-taskbar flag in both states. Two are `xfail(strict=True)`, one per open
-defect; when a fix lands they XPASS, which fails the suite, which forces
-the marker out. Neither native entry point is allowed to reach a real HWND
-— `toggleMaxState` and `startSystemMove` are trapped by fixtures, which is
-also what makes the mechanism visible from a headless test.
+`tests/test_frameless_window_state.py` — 28 tests, offscreen, runs in CI.
+Twenty-seven pass, including the full 3×3 maximize/restore matrix, the
+taskbar flag in both states, and the rip-out keeping the grab in place. One
+is `xfail(strict=True)` for the one open defect; when a fix lands it
+XPASSes, which fails the suite, which forces the marker out. Neither native
+entry point is allowed to reach a real HWND — `toggleMaxState` and
+`startSystemMove` are trapped by fixtures, which is also what makes the
+mechanism visible from a headless test.
 
 `dev_smoke/smoke_frameless_winstate.py` — needs a real display and Win32;
 listed in `run_all.py`'s `NEEDS_DISPLAY`, so it does not run in the normal
@@ -373,5 +388,5 @@ smoke pass. It reads `GetWindowPlacement` and the Win32 ex-styles
 alongside Qt's view, exercises both states of the taskbar flag, walks the
 full 3×3 maximize matrix, recovers from an OS-side `SC_MAXIMIZE` through
 each entry point, and checks the geometry round-trip, the still-movable
-invariant and the rip-out gesture. 45 of 47 checks pass after 0.5.52; the
-remaining **2 failures** are both rip-out cases (§3.2, open).
+invariant and the rip-out gesture, including that the grab keeps its place
+across the restored title bar. **All 49 checks pass as of 0.5.53.**
