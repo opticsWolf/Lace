@@ -415,19 +415,33 @@ class DockAreaTitleBar(QFrame, DockStyled):
     def update_pin_button_visibility(self):
         self._dock_area._update_title_bar_button_states()
 
+    def _resolve_border(self) -> tuple:
+        """``(bottom rule width, border colour)`` for the current focus state.
+
+        Both halves follow focus, which is why they are resolved together: a
+        theme can drop the rule entirely when the area loses focus (see
+        ``TAB.border_unfocused_color``), and that arrives as a width of zero,
+        not merely a different colour.  Resolving them apart is how a title bar
+        ends up stuck without its rule — the width would be whatever the focus
+        state happened to be when the theme was applied.
+        """
+        focused = bool(self._dock_area and self._dock_area.is_chrome_focused())
+        bottom_width, _ = resolve_title_bar_bottom_rule(self._style_mgr, focused)
+        return (bottom_width if bottom_width > 0 else self._border_width,
+                resolve_title_bar_border_color(self._style_mgr, focused))
+
     def refresh_focus_tint(self) -> None:
         """Cheap path: re-resolve only the focus-dependent border and repaint.
 
-        The border colour is the sole part of this widget's styling that follows
-        the dock area's focus state, and focus changes on every click — so the
+        The border is the sole part of this widget's styling that follows the
+        dock area's focus state, and focus changes on every click — so the
         button stylesheets and icon re-tinting in :meth:`refresh_style` must not
         run here.
         """
-        focused = bool(self._dock_area and self._dock_area.is_chrome_focused())
-        color = resolve_title_bar_border_color(self._style_mgr, focused)
-        if color == self._border_color:
+        border = self._resolve_border()
+        if border == (self._border_bottom, self._border_color):
             return
-        self._border_color = color
+        self._border_bottom, self._border_color = border
         self.update()
 
     def refresh_style(self):
@@ -469,11 +483,9 @@ class DockAreaTitleBar(QFrame, DockStyled):
         # The bottom rule and its colour are resolved centrally: DockWidgetTab
         # continues the same rule across inactive tabs and must not compute a
         # different width, colour, or existence test.  Zero width keeps meaning
-        # "no dedicated bottom rule, use the general border width".
-        focused = bool(self._dock_area and self._dock_area.is_chrome_focused())
-        bottom_width, _ = resolve_title_bar_bottom_rule(self._style_mgr, focused)
-        self._border_bottom = bottom_width if bottom_width > 0 else self._border_width
-        self._border_color = resolve_title_bar_border_color(self._style_mgr, focused)
+        # "no dedicated bottom rule, use the general border width".  Same call
+        # as the cheap focus path, so the two cannot answer differently.
+        self._border_bottom, self._border_color = self._resolve_border()
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
         self.update()

@@ -200,6 +200,32 @@ def test_focus_moves_the_frame_with_it(pair, qapp):
     assert _lines(bottom, qapp)["side"][0].getRgb() == accent, "it did not arrive"
 
 
+def test_the_rule_arrives_when_focus_does(pair, qapp):
+    """The rule's *width* follows focus too, not only its colour.
+
+    An area that was unfocused when the theme was applied resolves no rule at
+    all — zero width, not a different colour. A cheap focus path that re-tinted
+    only the colour would leave that width cached, and the area would light up
+    its frame with nothing closing the top of it. Every other cheap path
+    already re-resolves both; this is the one that did not.
+    """
+    dock_manager, top, bottom = pair
+    manager = get_dock_style_manager()
+    dock_manager.set_active_dock_area(top)
+    manager.apply_theme_dict(build_theme(
+        _spec(tab_border_unfocused_color=[0, 0, 0, 0])))
+    qapp.processEvents()
+    assert bottom._title_bar._border_bottom == 0.0, \
+        "the setup did not reproduce: this area was meant to be unfocused"
+
+    dock_manager.set_active_dock_area(bottom)
+    qapp.processEvents()
+    assert bottom._title_bar._border_bottom == 2.0, "the rule stayed at zero width"
+    on_line, off_line = _lines(bottom, qapp)["rule"]
+    assert on_line.getRgb() == (125, 124, 252, 255), "and nothing was drawn"
+    assert on_line.getRgb() != off_line.getRgb()
+
+
 def test_a_theme_without_tab_outlines_is_untouched(pair, qapp):
     """The below-title override only speaks for themes that outline tabs."""
     dock_manager, top, bottom = pair
