@@ -519,7 +519,15 @@ in whether an inactive tab is ringed at all:
 
 `cyberpunk_edge` is the one that rings both states, mirroring what it already does with its
 card outline and its bottom rule. `midnight_haze` follows its own rule instead — one place
-for the eye to land — so its sidebar rings the active tab and draws nothing else.
+for the eye to land — so its sidebar rings the active tab and draws no *line* anywhere else;
+it is also the one preset that fills its inactive tabs, tinting them with the accent
+(`sidebar_tab_bg_normal`) so the column reads as one family while the ring alone says which
+tab is selected.
+
+That tint has a ceiling, and a lower one than it looks. Hover is derived from the base and
+carries no accent, so it sits at a fixed luminance however deep the tint goes: in
+`midnight_haze` an idle tab crosses it just past alpha 40, and beyond that an idle tab
+out-glows a hovered one. 30 keeps a clear margin.
 
 All three pin `sidebar_indicator_width` to the ring's width. The strip shares the ring's
 content-facing edge and is painted *under* it, so at equal widths the ring covers it and the

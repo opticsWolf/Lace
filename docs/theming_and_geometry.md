@@ -118,6 +118,12 @@ Pass the accent at full alpha and every inactive tab becomes a slab of the highl
 at a low alpha it reads as a tint, and the active tab still stands out through its own
 `tab_bg_active` and indicator. Hover keeps priority over both.
 
+Hover is what caps the alpha, and lower than you would guess. It is derived from the base and
+carries no accent, so it sits at a fixed luminance however deep the tint goes — push the tint
+past it and an *idle* tab out-glows a hovered one, which reads as a glitch. `midnight_haze`
+ships the only tinted sidebar in the presets and uses alpha 30 against a crossover just past
+40.
+
 ---
 
 ## 2. Titlebar Flushness & Borders (`title_margin` & `title_border_bottom`)

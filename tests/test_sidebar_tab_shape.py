@@ -59,9 +59,10 @@ def _tab(area=DockWidgetArea.left, checked=True):
     return button
 
 
-def _render(button):
-    image = QImage(button.size(), QImage.Format_ARGB32)
-    image.fill(0)
+def _render(button, image=None):
+    if image is None:
+        image = QImage(button.size(), QImage.Format_ARGB32)
+        image.fill(0)
     # Without DrawChildren-only flags, render() paints the palette background
     # over the whole rect first, and every corner comes back opaque whatever
     # shape the tab actually drew.
@@ -264,10 +265,16 @@ def test_the_outline_follows_the_rounded_corners(qapp):
 
 
 # ── The inactive tab's own background ─────────────────────────────────────
-def _fill(button, x=None):
-    """The colour in the middle of the tab, clear of any edge treatment."""
-    return _render(button).pixelColor(
-        WIDTH // 2 if x is None else x, HEIGHT // 2).getRgb()
+def _fill(button, background=None):
+    """The colour in the middle of the tab, clear of any edge treatment.
+
+    Pass ``background`` to composite over it — a translucent fill reads as its
+    own alpha against nothing, which is not what it looks like on the bar.
+    """
+    image = QImage(button.size(), QImage.Format_ARGB32)
+    image.fill(0 if background is None else background)
+    image = _render(button) if background is None else _render(button, image)
+    return image.pixelColor(WIDTH // 2, HEIGHT // 2).getRgb()
 
 
 def test_an_inactive_tab_paints_nothing_by_default(qapp):
@@ -450,6 +457,46 @@ def test_the_strip_matches_the_ring_it_sits_on(qapp, name):
     assert _render(button).pixelColor(x, HEIGHT // 2).getRgb() == \
         sidebar["tab_bg_active"].getRgb(), \
         f"{name}: the line on the shared edge is thicker than the ring"
+
+
+def test_midnight_haze_fills_its_inactive_tabs_with_the_accent(qapp):
+    """The only preset that sets tab_bg_normal: every tab is tinted, and the
+    ring alone says which is selected."""
+    manager = get_dock_style_manager()
+    manager.apply_theme("midnight_haze")
+    sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
+    fill = sidebar["tab_bg_normal"]
+    assert fill.alpha() > 0, "midnight_haze went back to a bare inactive tab"
+    assert fill.getRgb()[:3] == sidebar["indicator_color"].getRgb()[:3], \
+        "the inactive fill is not the highlight colour"
+
+    bar = sidebar["bg_color"]
+    idle = _fill(_tab(checked=False), bar)
+    assert idle != bar.getRgb(), "nothing was painted over the bar"
+    assert idle[2] > idle[0] + 15, f"the tint does not read as the accent: {idle}"
+
+    hovered = _tab(checked=False)
+    hovered._is_hovered = True
+    hover = _fill(hovered, bar)
+    assert hover != idle, "hover is indistinguishable from an idle tab"
+    # Hover is derived from the base and carries no accent, so it can only stay
+    # convincing while it is the *lighter* of the two — which is what caps the
+    # alpha. Past that an idle tab out-glows a hovered one.
+    assert sum(hover[:3]) > sum(idle[:3]), \
+        f"a hovered tab is darker than an idle one: {hover} vs {idle}"
+
+
+def test_no_other_preset_fills_its_inactive_tabs(qapp):
+    from lace.dock_custom_theme import DOCK_THEMES
+
+    manager = get_dock_style_manager()
+    for name in DOCK_THEMES:
+        if name == "midnight_haze":
+            continue
+        manager.apply_theme(name)
+        assert not manager.get_all(
+            DockStyleCategory.SIDEBAR)["tab_bg_normal"].alpha(), \
+            f"{name} fills its inactive sidebar tabs"
 
 
 @pytest.mark.parametrize("name", ACTIVE_ONLY)

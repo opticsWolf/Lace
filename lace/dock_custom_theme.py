@@ -557,6 +557,16 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         sidebar_tab_flat_edge = "none",
         sidebar_tab_border_width = 2.0,
         sidebar_tab_border_color = [0, 0, 0, 0],                # Inactive: bare
+        # ...bare of a *line*, but not of colour: an inactive tab is filled
+        # with the accent so the whole column reads as one family, and the ring
+        # alone says which is selected.  The hover state caps the alpha, and
+        # lower than it looks: hover is derived from the base and carries no
+        # accent, so it sits at a fixed (44, 48, 65) however deep the tint gets.
+        # Measured against it — idle (36, 38, 61) at 30, (40, 41, 70) at 40,
+        # (42, 43, 73) at 45 — the two cross over just past 40, and beyond that
+        # an idle tab out-glows a hovered one.  30 keeps a clear margin and
+        # still reads violet against the bar's (24, 26, 35).
+        sidebar_tab_bg_normal = [125, 124, 252, 30],
         sidebar_tab_border_active_color = [125, 124, 252, 255],
         # Matched to the ring, which covers it — the strip is not this preset's
         # marker any more than the dock tabs' is (indicator_position = "none"
