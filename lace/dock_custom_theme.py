@@ -451,6 +451,27 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         tab_border_active_color = [255, 92, 170, 255],   # Active: neon pink
         indicator_position = "none",
         tab_dimming = True,
+
+        # The sidebar runs the dock tabs' notch the other way round.  A dock tab
+        # is rounded on top and open along the bottom, where the strip's rule
+        # closes it; a sidebar tab here is flat against the window edge and
+        # rounded on the two content-facing corners, with the outline open along
+        # that flat outward side.  So the roundness and the line are on the
+        # inside, and the outside is where the highlight sits — the one place
+        # this theme does use a strip, since the sidebar has no rule of its own
+        # to close the open edge (indicator_position = "none" above is about the
+        # dock tabs, whose outline the rule already closes).
+        #
+        # Same 2px as everything else, on both, so the strip finishes the
+        # outline at the outline's own weight instead of stepping it.
+        sidebar_tab_flat_edge = "outward",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [98, 114, 164, 160],     # Inactive: as above
+        # ...and active: the seeded default is the accent, which is already the
+        # dock tabs' active outline, so the selected tab is neon pink the whole
+        # way round — ring on the inside, strip closing it on the outside.
+        sidebar_indicator_width = 2.0,
+        sidebar_indicator_position = "left",               # The window-facing edge
     ),
 
     # -------------------------------------------------------------------------

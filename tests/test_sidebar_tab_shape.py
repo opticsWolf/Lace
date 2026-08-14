@@ -481,10 +481,14 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
 # ── The shipped presets ───────────────────────────────────────────────────
 #: The presets that ring their sidebar tabs. Every other one sets tab_radius
 #: but leaves the sidebar alone, so its tabs stay rectangles.
-RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze")
-#: Of those, the ones that leave an *idle* tab bare — cyberpunk_edge is the only
-#: one that rings both states. violet_haze belongs here too: its extra ring is a
-#: hover state, and an idle tab is as bare as the other two's.
+RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze",
+          "neon_dusk")
+#: Of those, the ones shaped as a closed pill. neon_dusk is the odd one out: it
+#: keeps a flat edge, so its outline is open along it.
+PILL = RINGED[:4]
+#: The ones that leave an *idle* tab bare — cyberpunk_edge and neon_dusk ring
+#: both states. violet_haze belongs here: its extra ring is a hover state, and
+#: an idle tab is as bare as the other two's.
 ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze", "violet_haze")
 
 
@@ -502,8 +506,8 @@ def test_only_the_ringed_presets_opt_into_the_new_shape(qapp):
         assert not sidebar["tab_border_width"], f"{name} outlines its sidebar tabs"
 
 
-@pytest.mark.parametrize("name", RINGED)
-def test_the_ringed_presets_share_one_shape(qapp, name):
+@pytest.mark.parametrize("name", PILL)
+def test_the_pill_presets_share_one_shape(qapp, name):
     """Rounded on all four corners, so the ring closes the whole way round."""
     get_dock_style_manager().apply_theme(name)
     sidebar = get_dock_style_manager().get_all(DockStyleCategory.SIDEBAR)
@@ -514,7 +518,7 @@ def test_the_ringed_presets_share_one_shape(qapp, name):
     assert _inked_edges(_tab()) == {"left", "top", "right", "bottom"}
 
 
-@pytest.mark.parametrize("name", RINGED)
+@pytest.mark.parametrize("name", PILL)
 def test_the_strip_matches_the_ring_it_sits_on(qapp, name):
     """Unequal widths step the edge the two share — the reason cyberpunk_edge
     already pins indicator_width to title_border_bottom.
@@ -606,6 +610,37 @@ def test_violet_haze_rings_a_hovered_tab(qapp):
     hovered._is_hovered = True
     assert _inked_edges(hovered) == {"left", "top", "right", "bottom"}
     assert not _inked_edges(_tab(checked=False)), "an idle tab is ringed too"
+
+
+@pytest.mark.parametrize("area, inside, outside", [
+    (DockWidgetArea.left, "right", "left"),
+    (DockWidgetArea.right, "left", "right"),
+])
+def test_neon_dusk_puts_the_ring_inside_and_the_strip_outside(qapp, area, inside, outside):
+    """Its dock tabs' notch, run the other way round.
+
+    Rounded and outlined on the content-facing side, flat and open against the
+    window edge — and the highlight strip on that open edge, so the strip is
+    what closes the outline instead of a rule under a tab bar. Both mirror with
+    the sidebar the tab is in.
+    """
+    manager = get_dock_style_manager()
+    manager.apply_theme("neon_dusk")
+    sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
+    assert sidebar["tab_flat_edge"] == "outward"
+    assert sidebar["indicator_position"] == "left", "the strip moved back inside"
+    assert sidebar["indicator_width"] == sidebar["tab_border_width"] == 2.0
+
+    assert _rounded_corners(_tab(area)) == {f"top_{inside}", f"bottom_{inside}"}
+    assert _inked_edges(_tab(area)) == {"top", "bottom", inside}, \
+        "the outline does not leave the window-facing edge open"
+
+    # The strip fills that open edge, in the same accent the active ring uses.
+    image = _render(_tab(area, checked=True))
+    x = 0 if outside == "left" else WIDTH - 1
+    assert image.pixelColor(x, HEIGHT // 2).getRgb() == \
+        sidebar["indicator_color"].getRgb() == \
+        sidebar["tab_border_active_color"].getRgb()
 
 
 def test_no_other_preset_rings_on_hover(qapp):

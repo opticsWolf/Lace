@@ -126,6 +126,23 @@ The active colour is left out there on purpose: it is seeded with the accent for
 so the width alone is what switches it on. A checked tab keeps that ring under the cursor —
 checked wins over hovered, the same precedence the fill uses.
 
+The strip does not have to sit *under* the ring. Put it on the edge the outline leaves open
+and it closes the shape instead, which is what `neon_dusk` does — the only preset that keeps
+a flat edge on its sidebar tabs:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_flat_edge = "outward",      # rounded on the content-facing side only
+    sidebar_tab_border_width = 2.0,         # ...open along the window-facing one
+    sidebar_indicator_position = "left",    # ...where the strip closes it
+    sidebar_indicator_width = 2.0,
+)
+```
+
+Match the widths here too, for the other reason: the strip is finishing the outline rather
+than hiding under it, so a different width steps the line where the two meet.
+
 ### Inactive sidebar tabs with a background
 
 A sidebar tab has the same three-state fill a dock widget tab does — normal, hover, active —

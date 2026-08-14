@@ -521,6 +521,14 @@ in which states are ringed at all:
 | `midnight_haze` | bare | — | accent, 2.0 |
 | `violet_haze` | bare | accent at alpha 130 | accent, 2.0 |
 
+`neon_dusk` outlines its sidebar tabs too, but on the other shape: it is the one preset that
+keeps a flat edge there. `sidebar_tab_flat_edge = "outward"` rounds only the two
+content-facing corners and leaves the outline open against the window edge, and
+`sidebar_indicator_position = "left"` puts the highlight strip on exactly that open edge — so
+the ring and the roundness are on the inside and the strip closes the shape from the outside,
+the mirror image of what its dock tabs do with the rule under the tab strip. Both mirror with
+the sidebar the tab is in.
+
 `violet_haze` is the only one whose ring is a *hover* cue: the tab is bare when idle, ringed
 in a half-alpha accent under the cursor, and ringed solid when selected — so the hover ring
 reads as the active one previewed. `sidebar_tab_border_hover_color` is what buys that, and it
