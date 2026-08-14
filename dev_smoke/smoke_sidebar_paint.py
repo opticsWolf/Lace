@@ -275,6 +275,91 @@ def check_vertical_tab():
 check_vertical_tab()
 print("VERTICAL TAB OK")
 
+
+def check_vertical_tab_shape():
+    """The tab's flat edge mirrors with the bar, and the outline either closes
+    across that edge or leaves it open.
+
+    Rendered on the real platform rather than offscreen: this is antialiased
+    corner and stroke geometry, and the two backends round it differently.
+    Corners are read by alpha — nothing else paints the button, so a square one
+    comes back covered and a rounded one untouched.
+    """
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QImage, QRegion
+    from PySide6.QtWidgets import QWidget
+    from lace.dock_theme import ThemeSpec, build_theme
+    from lace.sidebar_tab import VerticalTabButton
+
+    W, H = 30, 120
+
+    def theme(**kw):
+        sm.apply_theme_dict(build_theme(ThemeSpec(
+            base=[20, 20, 30, 255], accent=[255, 100, 180, 255],
+            text=[240, 240, 250, 255], tab_radius=6,
+            # The strip defaults to the accent on the content-facing edge —
+            # the same colour and pixels the active tab's outline would use.
+            sidebar_indicator_width=0, **kw)))
+
+    def mk(area=DockWidgetArea.left, checked=True):
+        b = VerticalTabButton("Panel"); b.set_area(area)
+        b.resize(W, H); b.setChecked(checked); b._is_hovered = False
+        b.refresh_style()
+        return b
+
+    def render(b):
+        img = QImage(b.size(), QImage.Format_ARGB32); img.fill(0)
+        # DrawChildren only: the default flags paint the palette background
+        # over the whole rect first and every corner comes back opaque.
+        b.render(img, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
+        return img
+
+    def rounded(b):
+        img = render(b)
+        w, h = b.width() - 1, b.height() - 1
+        return {n for n, (x, y) in (("tl", (0, 0)), ("tr", (w, 0)),
+                                    ("br", (w, h)), ("bl", (0, h)))
+                if img.pixelColor(x, y).alpha() == 0}
+
+    def inked(b):
+        on = render(b)
+        saved, b._border_width = b._border_width, 0.0
+        try:
+            off = render(b)
+        finally:
+            b._border_width = saved
+        xs, ys = range(W // 3, W - W // 3), range(H // 3, H - H // 3)
+        edges = {"left": [(0, y) for y in ys], "right": [(W - 1, y) for y in ys],
+                 "top": [(x, 0) for x in xs], "bottom": [(x, H - 1) for x in xs]}
+        return {n for n, pts in edges.items()
+                if any(on.pixelColor(x, y) != off.pixelColor(x, y) for x, y in pts)}
+
+    theme()
+    assert not rounded(mk()), "the default sidebar tab is no longer a rectangle"
+
+    theme(sidebar_tab_flat_edge="outward")
+    assert rounded(mk(DockWidgetArea.left)) == {"tr", "br"}, "left bar, outward"
+    assert rounded(mk(DockWidgetArea.right)) == {"tl", "bl"}, "right bar, outward"
+
+    theme(sidebar_tab_flat_edge="inward")
+    assert rounded(mk(DockWidgetArea.left)) == {"tl", "bl"}, "left bar, inward"
+
+    theme(sidebar_tab_flat_edge="none")
+    assert rounded(mk()) == {"tl", "tr", "br", "bl"}, "all four corners rounded"
+
+    theme(sidebar_tab_flat_edge="outward", sidebar_tab_border_width=2.0)
+    assert inked(mk()) == {"top", "right", "bottom"}, "the flat edge is not open"
+
+    theme(sidebar_tab_flat_edge="outward", sidebar_tab_border_width=2.0,
+          sidebar_tab_border_closed=True)
+    assert inked(mk()) == {"left", "top", "right", "bottom"}, "outline not closed"
+
+    apply_dock_theme("default")
+
+
+check_vertical_tab_shape()
+print("VERTICAL TAB SHAPE OK")
+
 print("--- SideTabBar decorations (counter + drop indicator) ---")
 for theme in ("default", "light", "monokai"):
     d = sample_decorations(theme)

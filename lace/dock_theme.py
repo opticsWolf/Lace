@@ -242,9 +242,32 @@ class DockSidebarStyleSchema:
     tab_bg_active: Optional[List[int]] = None
 
     # Tab Buttons - Geometry
-    tab_corner_radius: int = 4
+    #: Radius of the corners ``tab_flat_edge`` leaves rounded.  ``None`` follows
+    #: the dock widget tabs' own ``TAB.corner_radius``, so the two kinds of tab
+    #: are rounded alike unless a theme says otherwise.
+    tab_corner_radius: Optional[int] = None
+    #: Which edge of the tab stays square: ``"outward"`` (the window edge the
+    #: sidebar runs along — left in a left sidebar, right in a right one),
+    #: ``"inward"`` (the edge facing the docked content), or ``"none"`` for a
+    #: tab rounded on all four corners.  ``"all"``, the default, keeps every
+    #: corner square and ignores ``tab_corner_radius`` — the plain rectangle
+    #: sidebar tabs have always been.
+    tab_flat_edge: str = "all"
     tab_padding: int = 8
     tab_margin: int = 2
+
+    # Tab Buttons - Outline, mirroring the dock widget tabs' border_* block.
+    # A transparent colour on either side skips that state, so a theme can
+    # outline only the active tab.
+    tab_border_normal_color: Optional[List[int]] = None
+    tab_border_active_color: Optional[List[int]] = None
+    #: Master switch for the outline above: 0.0 draws none at all.
+    tab_border_width: float = 0.0
+    #: Whether the outline closes across the flat edge.  Left open (the
+    #: default) the tab reads as joined to the sidebar strip, the way a dock
+    #: tab's open bottom joins it to the panel below.  Ignored when there is no
+    #: flat edge to leave open — all four corners rounded is always closed.
+    tab_border_closed: bool = False
 
     # Tab Buttons - Typography
     tab_text_normal: Optional[List[int]] = None
@@ -387,6 +410,35 @@ class ThemeSpec:
     indicator_width: Optional[float] = None
     indicator_position: Optional[Union[str, List[str], Tuple[str, ...]]] = None
 
+    # --- Sidebar tabs -------------------------------------------------------
+    # The vertical auto-hide tabs, whose shape and outline mirror the dock
+    # widget tabs above. Left unset they stay the plain rectangles they have
+    # always been, so a theme opts in one field at a time.
+    #: Which edge of a sidebar tab stays square: ``"outward"`` (the window edge
+    #: the sidebar runs along), ``"inward"`` (facing the docked content),
+    #: ``"none"`` to round all four corners, or ``"all"`` (the default) to
+    #: round none. Anything but ``"all"`` engages ``sidebar_tab_radius``.
+    sidebar_tab_flat_edge: Optional[str] = None
+    #: Corner radius for those rounded corners. Omitted, the sidebar tabs take
+    #: the dock widget tabs' ``tab_radius``, so the two agree by default.
+    sidebar_tab_radius: Optional[int] = None
+    #: Sidebar tab outline width; 0 (the default) draws none. The outline skips
+    #: the flat edge unless ``sidebar_tab_border_closed`` is set.
+    sidebar_tab_border_width: Optional[float] = None
+    #: Outline colour for inactive sidebar tabs. A fully transparent colour
+    #: (``[0, 0, 0, 0]``) outlines only the active one.
+    sidebar_tab_border_color: Optional[Union[QColor, List[int]]] = None
+    #: Outline colour for the active sidebar tab. Defaults to the accent.
+    sidebar_tab_border_active_color: Optional[Union[QColor, List[int]]] = None
+    #: Close the outline across the flat edge instead of leaving it open.
+    #: Ignored with all four corners rounded, which is always closed.
+    sidebar_tab_border_closed: Optional[bool] = None
+    #: Width and edge of the sidebar tab's highlight strip — the counterpart of
+    #: ``indicator_width`` / ``indicator_position`` for the dock widget tabs.
+    #: ``"left"`` is the window-facing edge, ``"right"`` the content-facing one.
+    sidebar_indicator_width: Optional[int] = None
+    sidebar_indicator_position: Optional[str] = None
+
     # Tooltip colors — when omitted, derived from the panel/text seed colors.
     tooltip_bg: Optional[Union[QColor, List[int]]] = None
     tooltip_text: Optional[Union[QColor, List[int]]] = None
@@ -434,6 +486,14 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         tab_dimming=spec.tab_dimming,
         indicator_width=spec.indicator_width,
         indicator_position=spec.indicator_position,
+        sidebar_tab_flat_edge=spec.sidebar_tab_flat_edge,
+        sidebar_tab_radius=spec.sidebar_tab_radius,
+        sidebar_tab_border_width=spec.sidebar_tab_border_width,
+        sidebar_tab_border_color=_as_rgba(spec.sidebar_tab_border_color) if spec.sidebar_tab_border_color is not None else None,
+        sidebar_tab_border_active_color=_as_rgba(spec.sidebar_tab_border_active_color) if spec.sidebar_tab_border_active_color is not None else None,
+        sidebar_tab_border_closed=spec.sidebar_tab_border_closed,
+        sidebar_indicator_width=spec.sidebar_indicator_width,
+        sidebar_indicator_position=spec.sidebar_indicator_position,
         tooltip_bg=_as_rgba(spec.tooltip_bg) if spec.tooltip_bg is not None else None,
         tooltip_text=_as_rgba(spec.tooltip_text) if spec.tooltip_text is not None else None,
     )
@@ -476,6 +536,14 @@ def _build_theme(
     tab_dimming: bool = False,
     indicator_width: Optional[int] = None,
     indicator_position: Optional[Union[str, List[str], Tuple[str, ...]]] = None,
+    sidebar_tab_flat_edge: Optional[str] = None,
+    sidebar_tab_radius: Optional[int] = None,
+    sidebar_tab_border_width: Optional[float] = None,
+    sidebar_tab_border_color: Optional[list] = None,
+    sidebar_tab_border_active_color: Optional[list] = None,
+    sidebar_tab_border_closed: Optional[bool] = None,
+    sidebar_indicator_width: Optional[int] = None,
+    sidebar_indicator_position: Optional[str] = None,
     tooltip_bg: Optional[list] = None,
     tooltip_text: Optional[list] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
@@ -567,7 +635,7 @@ def _build_theme(
     theme = {
         DockStyleCategory.CORE: _build_core(base, accent, text, _text_disabled, _focus_border, _neutral_border, _success, _warning, _error, _info, _tooltip_bg, _tooltip_text),
         DockStyleCategory.PANEL: _build_panel(text, _panel, _input_bg, _alternate_base, _button_bg, _color_light, _color_mid, _color_dark, _color_shadow),
-        DockStyleCategory.SIDEBAR: _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent),
+        DockStyleCategory.SIDEBAR: _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent, _neutral_border),
         DockStyleCategory.SIDEPANEL: _build_sidepanel(text, _panel, _text_muted, _btn_disabled, _btn_hover_panel, _shadow, _focus_border, _neutral_border),
         DockStyleCategory.TAB: _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_active, _btn_disabled, _btn_hover_panel, _neutral_border),
         DockStyleCategory.TITLE_BAR: _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border, _focus_border),
@@ -624,6 +692,27 @@ def _build_theme(
     if indicator_position is not None:
         theme[DockStyleCategory.TAB]["indicator_position"] = indicator_position
 
+    # Sidebar tabs. The radius is deliberately *not* defaulted here: left
+    # unset the token stays None, which the tab resolves against
+    # TAB.corner_radius at paint time, so the two kinds of tab keep the same
+    # roundness even when a theme changes only tab_radius.
+    if sidebar_tab_flat_edge is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_flat_edge"] = sidebar_tab_flat_edge
+    if sidebar_tab_radius is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_corner_radius"] = sidebar_tab_radius
+    if sidebar_tab_border_width is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_border_width"] = sidebar_tab_border_width
+    if sidebar_tab_border_color is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_border_normal_color"] = sidebar_tab_border_color
+    if sidebar_tab_border_active_color is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_border_active_color"] = sidebar_tab_border_active_color
+    if sidebar_tab_border_closed is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_border_closed"] = sidebar_tab_border_closed
+    if sidebar_indicator_width is not None:
+        theme[DockStyleCategory.SIDEBAR]["indicator_width"] = sidebar_indicator_width
+    if sidebar_indicator_position is not None:
+        theme[DockStyleCategory.SIDEBAR]["indicator_position"] = sidebar_indicator_position
+
     return theme
 
 
@@ -658,13 +747,18 @@ def _build_panel(text, _panel, _input_bg, _alternate_base, _button_bg, _color_li
     }
 
 
-def _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent):
+def _build_sidebar(base, accent, _panel, _hover, _hover_end, _text_muted, _text_active, _text_disabled, _transparent, _neutral_border):
     return {
         "bg_color":           base,
         "tab_bg_normal":      _transparent,
         "tab_bg_hover_start": _hover,
         "tab_bg_hover_end":   _hover_end,
         "tab_bg_active":      _panel,
+        # Outline colours are seeded but inert: tab_border_width defaults to 0,
+        # so a theme opts in by setting sidebar_tab_border_width — exactly as
+        # the dock widget tabs' own outline works.
+        "tab_border_normal_color": _neutral_border,
+        "tab_border_active_color": accent,
         "tab_text_normal":    _text_muted,
         "tab_text_active":    _text_active,
         "tab_text_disabled":  _text_disabled,

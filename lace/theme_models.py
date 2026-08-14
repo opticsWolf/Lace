@@ -151,6 +151,19 @@ class ThemeJson(BaseModel):
     indicator_width: Optional[float] = None   # matches ThemeSpec.indicator_width
     indicator_position: Optional[Union[str, List[str]]] = None
 
+    # --- Sidebar tabs ---------------------------------------------------------
+    # Shape and outline of the vertical auto-hide tabs. "all" (the default)
+    # keeps them square; "outward" / "inward" / "none" pick which edge stays
+    # flat, and the radius follows tab_radius unless pinned here.
+    sidebar_tab_flat_edge: Optional[str] = None
+    sidebar_tab_radius: Optional[int] = None
+    sidebar_tab_border_width: Optional[float] = None
+    sidebar_tab_border_color: Optional[Color] = None
+    sidebar_tab_border_active_color: Optional[Color] = None
+    sidebar_tab_border_closed: Optional[bool] = None
+    sidebar_indicator_width: Optional[int] = None
+    sidebar_indicator_position: Optional[str] = None
+
     # ---------------------------------------------------------------------------
     @classmethod
     def load(cls, path: Union[str, Path]) -> "ThemeJson":
@@ -216,6 +229,18 @@ class ThemeJson(BaseModel):
             tab_dimming=self.tab_dimming,
             indicator_width=self.indicator_width,
             indicator_position=self.indicator_position,
+            sidebar_tab_flat_edge=self.sidebar_tab_flat_edge,
+            sidebar_tab_radius=self.sidebar_tab_radius,
+            sidebar_tab_border_width=self.sidebar_tab_border_width,
+            sidebar_tab_border_color=rgba(self.sidebar_tab_border_color)
+            if self.sidebar_tab_border_color is not None
+            else None,
+            sidebar_tab_border_active_color=rgba(self.sidebar_tab_border_active_color)
+            if self.sidebar_tab_border_active_color is not None
+            else None,
+            sidebar_tab_border_closed=self.sidebar_tab_border_closed,
+            sidebar_indicator_width=self.sidebar_indicator_width,
+            sidebar_indicator_position=self.sidebar_indicator_position,
         )
 
     def build_theme_dict(self) -> Dict[DockStyleCategory, Dict[str, Any]]:

@@ -265,11 +265,13 @@ Visual drop-target overlays during drag-and-drop.
 | Function | Description |
 |---|---|
 | `chrome_content_margin(border_width, radius) → int` | Inset to keep children clear of border + corner arcs |
-| `top_rounded_path(rect, radius) → QPainterPath` | Path with only top corners rounded |
-| `bottom_rounded_path(rect, radius) → QPainterPath` | Path with only bottom corners rounded |
+| `tab_path(rect, radius, flat_edge, closed) → QPainterPath` | General tab shape: the two corners on `flat_edge` stay square, the rest follow `radius`; `flat_edge=None` rounds all four, `closed=False` omits the segment along the flat edge |
+| `top_rounded_path(rect, radius) → QPainterPath` | Path with only top corners rounded (`tab_path` with a flat bottom) |
+| `top_open_path(rect, radius) → QPainterPath` | The same, minus its bottom segment (`closed=False`) |
+| `bottom_rounded_path(rect, radius) → QPainterPath` | Path with only bottom corners rounded (`tab_path` with a flat top) |
 | `ChromeTokens(bg, border, border_width, radius, focus_border)` | Frozen dataclass; `content_margin()` method |
 | `paint_panel(p, rect, c, focused)` | Core panel painter: fill + outline + focus swap, driven by a `ChromeTokens` bundle (`paint_panel_bg` / `paint_panel_border` split) |
-| `paint_tab(p, rect, *, bg, bg_gradient, radius, indicator, indicator_width, indicator_edge)` | Tab painter (keyword-only) with optional indicator strip; `indicator_edge` is a `Qt.Edge` |
+| `paint_tab(p, rect, *, bg, bg_gradient, radius, indicator, indicator_width, indicator_edge, border, border_width, flat_edge, border_closed)` | Tab painter (keyword-only) with optional indicator strip and outline; `indicator_edge` / `flat_edge` are `Qt.Edge` values. The outline skips the flat edge unless `border_closed` |
 | `create_high_dpi_drop_indicator_pixmap(size, area, mode, colors, dpr) → QPixmap` | Drop-zone icon painter |
 
 ---
@@ -364,6 +366,14 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | `tab_dimming` | `bool` | Enable dimming for active tabs in unfocused/inactive dock areas |
 | `indicator_width` | `int` | Thickness (in pixels) of the tab selection highlight stripe |
 | `indicator_position` | `str` / `List[str]` / `Tuple[str, ...]` | Active tab highlight stripe edge(s) (`"none"`, `"top"`, `"bottom"`, `"left"`, `"right"`, or combination/list) |
+| `sidebar_tab_flat_edge` | `str` | Which edge of a sidebar tab stays square: `"outward"` (the window edge its bar runs along), `"inward"` (facing the docked content), `"none"` (all four corners rounded), or `"all"` (the default — a plain rectangle) |
+| `sidebar_tab_radius` | `int` | Radius for those rounded corners; omitted, sidebar tabs take `tab_radius` |
+| `sidebar_tab_border_width` | `float` | Sidebar tab outline width; 0 (default) draws none |
+| `sidebar_tab_border_color` | `QColor` / `List[int]` | Outline colour for inactive sidebar tabs; transparent outlines only the active one |
+| `sidebar_tab_border_active_color` | `QColor` / `List[int]` | Outline colour for the active sidebar tab (defaults to the accent) |
+| `sidebar_tab_border_closed` | `bool` | Close the outline across the flat edge instead of leaving it open |
+| `sidebar_indicator_width` | `int` | Thickness of the sidebar tab's highlight stripe |
+| `sidebar_indicator_position` | `str` | Which edge it hugs: `"left"` (window-facing) or `"right"` (content-facing), mirrored per sidebar |
 
 ### 3.3 Titlebar Flushness & Borders
 
@@ -480,6 +490,21 @@ presets above demonstrate the range.
 |---|---|---|---|
 | Rule | `title_border_bottom` | under the whole strip, horizontally | inactive; the active tab breaks it |
 | Outline | `tab_border_width` | around each tab: left, top, right — never the bottom | whichever of `tab_border_color` / `tab_border_active_color` / `tab_border_unfocused_color` applies, when opaque |
+
+#### Sidebar tabs
+
+The vertical auto-hide tabs take the same treatment through their own `sidebar_*` tokens,
+with one difference: the edge a sidebar tab is *joined along* is not the bottom but the side
+facing its bar's window edge. `sidebar_tab_flat_edge` names it — `"outward"` (window-facing,
+so left in a left sidebar and right in a right one), `"inward"` (facing the docked content),
+`"none"` for a tab rounded on all four corners, or `"all"`, the default, which keeps every
+corner square. The radius follows `tab_radius` unless `sidebar_tab_radius` pins it, so the
+two kinds of tab are rounded alike.
+
+`sidebar_tab_border_width` outlines the tab, and by default leaves the flat edge open the way
+a dock tab's open bottom joins it to the panel below; `sidebar_tab_border_closed` runs the
+line the whole way round instead. With all four corners rounded there is no edge left to
+open, so the outline is always closed there.
 
 Together they close the inactive tabs on all four sides while the active tab keeps its open
 bottom, which is what makes it read as a notch cut out of the strip. Give them the **same
@@ -665,7 +690,8 @@ Rotated tab button for the sidebar.
 |---|---|
 | **Signals** | `drag_started`, `context_menu_requested`, `close_requested` |
 | **Badge** | `set_badge(value, color?, position?)`, `clear_badge()`, `badge_position` (prop), `set_badge_position(position)` |
-| **Paint** | `paintEvent(event)` — rotated icon+text, indicator edge mirroring, badge drawing |
+| **Paint** | `paintEvent(event)` — rotated icon+text, shape/indicator edge mirroring, outline, badge drawing |
+| **Shape** | `_tab_shape() → (radius, flat_edge, border_closed)` — resolves `SIDEBAR.tab_flat_edge` against the tab's own sidebar; `_border_color(checked) → QColor?` (transparent = no outline in that state) |
 | **Size** | `sizeHint()`, `minimumSizeHint()` |
 | **Area** | `set_area(area)`, `_indicator_edge() → Qt.Edge` |
 | **Mouse** | `enterEvent()`, `leaveEvent()`, `mousePressEvent()` (middle-click closes) |

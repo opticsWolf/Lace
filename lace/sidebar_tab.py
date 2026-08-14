@@ -30,10 +30,29 @@ class TabBadgePosition(Enum):
     bottom_right = auto()
 
 
+#: The edge of a sidebar tab that faces the window edge its bar runs along.
+#: The tab's flat side is this one or its opposite — see ``tab_flat_edge``.
+_OUTWARD_EDGE = {
+    DockWidgetArea.left:   Qt.Edge.LeftEdge,
+    DockWidgetArea.right:  Qt.Edge.RightEdge,
+    DockWidgetArea.top:    Qt.Edge.TopEdge,
+    DockWidgetArea.bottom: Qt.Edge.BottomEdge,
+}
+_OPPOSITE_EDGE = {
+    Qt.Edge.LeftEdge:   Qt.Edge.RightEdge,
+    Qt.Edge.RightEdge:  Qt.Edge.LeftEdge,
+    Qt.Edge.TopEdge:    Qt.Edge.BottomEdge,
+    Qt.Edge.BottomEdge: Qt.Edge.TopEdge,
+}
+
+
 class VerticalTabButton(QToolButton, DockStyled):
     """Advanced tab button with badges, context menu, and enhanced visuals."""
-    STYLE_CATEGORIES = (DockStyleCategory.SIDEBAR,)
-    
+    # TAB is read for the corner radius the sidebar tabs share with the dock
+    # widget tabs; without it declared they would keep the old radius when a
+    # theme changes only TAB.corner_radius.
+    STYLE_CATEGORIES = (DockStyleCategory.SIDEBAR, DockStyleCategory.TAB)
+
     drag_started = Signal(object)
     context_menu_requested = Signal(object, QPoint)
     close_requested = Signal(object)
@@ -59,8 +78,13 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._text_normal = QColor(204, 204, 204)
         self._indicator_width = 3
         self._indicator_position = "left"  # "left" or "right"
-        self._tab_corner_radius = 4
-        
+        self._tab_corner_radius = 0.0
+        self._tab_flat_edge = "all"
+        self._border_normal = None
+        self._border_active = None
+        self._border_width = 0.0
+        self._border_closed = False
+
         self.setCheckable(True)
         self.setAutoRaise(True)
         self.setToolTip(text)
@@ -149,17 +173,25 @@ class VerticalTabButton(QToolButton, DockStyled):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
 
-        # 1+2. Background/hover + selection indicator via the shared paint_tab
-        # (square: radius 0; the vertical sidebar indicator hugs a Left/Right edge).
+        # 1+2. Background/hover + selection indicator + outline via the shared
+        # paint_tab (the vertical sidebar indicator hugs a Left/Right edge).
+        # One call for all three states: an idle tab has no fill but may still
+        # carry an outline, so the call cannot be skipped on that branch.
         rect = QRectF(self.rect())
-        if self.isChecked():
-            paint_tab(p, rect, bg=self._bg_active,
-                      indicator=self._highlight_color,
-                      indicator_width=self._indicator_width,
-                      indicator_edge=self._indicator_edge())
-        elif self._is_hovered:
-            paint_tab(p, rect, bg_gradient=(self._bg_hover_start, self._bg_hover_end))
-        # else: idle — transparent, nothing painted
+        radius, flat_edge, border_closed = self._tab_shape()
+        checked = self.isChecked()
+        paint_tab(
+            p, rect,
+            bg=self._bg_active if checked else None,
+            bg_gradient=((self._bg_hover_start, self._bg_hover_end)
+                         if self._is_hovered and not checked else None),
+            radius=radius, flat_edge=flat_edge,
+            indicator=self._highlight_color if checked else None,
+            indicator_width=self._indicator_width,
+            indicator_edge=self._indicator_edge(),
+            border=self._border_color(checked), border_width=self._border_width,
+            border_closed=border_closed,
+        )
 
         # 3. Centered Content (Icon + Text)
         p.save()
@@ -207,13 +239,43 @@ class VerticalTabButton(QToolButton, DockStyled):
     def _indicator_edge(self) -> Qt.Edge:
         """Which edge the active-tab indicator hugs, mirrored per sidebar side.
 
-        ``indicator_position`` "right" = outer edge, "left" = inner edge; on the
-        right-hand sidebar both flip.  (Preserves the pre-paint_tab mapping.)
+        ``indicator_position`` "left" = the window-facing edge, "right" = the
+        one facing the docked content; on the right-hand sidebar the literal
+        left/right of both flips.  (Preserves the pre-paint_tab mapping.)
         """
         is_right = self._area == DockWidgetArea.right
         if self._indicator_position == "right":
             return Qt.Edge.LeftEdge if is_right else Qt.Edge.RightEdge
         return Qt.Edge.RightEdge if is_right else Qt.Edge.LeftEdge
+
+    def _tab_shape(self) -> tuple:
+        """``(radius, flat_edge, border_closed)`` for the current ``tab_flat_edge``.
+
+        Resolved per paint rather than cached in :meth:`refresh_style`: the
+        flat side follows :attr:`_area`, which ``set_area`` can move after the
+        style has been read.
+        """
+        outward = _OUTWARD_EDGE.get(self._area, Qt.Edge.LeftEdge)
+        if self._tab_flat_edge == "none":
+            # No flat edge, so nothing for the outline to leave open.
+            return self._tab_corner_radius, None, True
+        if self._tab_flat_edge == "inward":
+            return self._tab_corner_radius, _OPPOSITE_EDGE[outward], self._border_closed
+        if self._tab_flat_edge == "outward":
+            return self._tab_corner_radius, outward, self._border_closed
+        # "all" (and anything unrecognised): every corner square, and no one
+        # edge singled out — so the outline, if any, runs the whole way round.
+        return 0.0, outward, True
+
+    def _border_color(self, checked: bool) -> Optional[QColor]:
+        """The outline this state paints, or ``None`` for no outline.
+
+        A transparent colour means "no outline in this state", which is how a
+        theme outlines only the active tab — the same contract the dock widget
+        tabs' ``border_normal_color`` / ``border_active_color`` pair has.
+        """
+        color = self._border_active if checked else self._border_normal
+        return color if color is not None and color.alpha() > 0 else None
 
     def _draw_badge(self, p: QPainter, rect: QRect):
         """Draw notification badge."""
@@ -267,7 +329,17 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._highlight_color = s.get("indicator_color") or self._highlight_color
         self._indicator_width = s.get("indicator_width", 3)
         self._indicator_position = s.get("indicator_position", "left")
-        self._tab_corner_radius = s.get("tab_corner_radius", 4)
+        self._tab_flat_edge = s.get("tab_flat_edge") or "all"
+        # An unset radius follows the dock widget tabs, so the two kinds of tab
+        # are rounded alike unless the theme pins the sidebar's own value.
+        radius = s.get("tab_corner_radius")
+        if radius is None:
+            radius = self._style_mgr.get(DockStyleCategory.TAB, "corner_radius", 0)
+        self._tab_corner_radius = float(radius or 0)
+        self._border_normal = s.get("tab_border_normal_color")
+        self._border_active = s.get("tab_border_active_color")
+        self._border_width = float(s.get("tab_border_width") or 0.0)
+        self._border_closed = bool(s.get("tab_border_closed", False))
         self._badge_color = s.get("badge_bg") or self._badge_color
         self._badge_text_color = s.get("badge_text") or self._badge_text_color
         badge_pos = s.get("badge_position")

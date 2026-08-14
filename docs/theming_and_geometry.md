@@ -47,7 +47,39 @@ class ThemeSpec:
     tab_dimming: bool = False
     indicator_width: Optional[int] = None
     indicator_position: Optional[Union[str, List[str], Tuple[str, ...]]] = None
+
+    # Sidebar Tab Tokens — shape and outline of the vertical auto-hide tabs.
+    # "all" (the default flat edge) keeps them the plain rectangles they have
+    # always been; "outward" / "inward" / "none" pick which side stays flat,
+    # and the radius follows tab_radius unless pinned here.
+    sidebar_tab_flat_edge: Optional[str] = None
+    sidebar_tab_radius: Optional[int] = None
+    sidebar_tab_border_width: Optional[float] = None
+    sidebar_tab_border_color: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_border_active_color: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_border_closed: Optional[bool] = None
+    sidebar_indicator_width: Optional[int] = None
+    sidebar_indicator_position: Optional[str] = None
 ```
+
+### Sidebar tab shape
+
+A sidebar tab is a vertical strip in a bar that runs along one window edge, so the side it is
+*joined along* is not the bottom the way a dock widget tab's is — it is the window-facing
+(`"outward"`) or content-facing (`"inward"`) side, and which one that is mirrors with the bar.
+
+```python
+ThemeSpec(
+    ...,
+    tab_radius = 6,                      # sidebar tabs inherit this roundness
+    sidebar_tab_flat_edge = "outward",   # flat against the window edge
+    sidebar_tab_border_width = 1.0,      # outlined, open along that flat edge
+    sidebar_tab_border_closed = True,    # ...or closed all the way round
+)
+```
+
+With `sidebar_tab_flat_edge = "none"` all four corners are rounded, the tab reads as a
+detached pill, and the outline is always closed — there is no flat edge left to open.
 
 ---
 
@@ -206,6 +238,8 @@ built-in presets.
     "border_width": 1.5,
     "title_height": 32,
     "tab_radius": 8,
+    "sidebar_tab_flat_edge": "outward",
+    "sidebar_tab_border_width": 1.0,
     "content_margin": [8, 2],
     "tab_dimming": true
 }

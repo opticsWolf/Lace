@@ -315,6 +315,12 @@ apply_dock_theme(my_theme)  # or apply directly
 | `tab_dimming` | Enable dimming for active tabs in unfocused dock areas |
 | `indicator_width` | Thickness (in pixels) of the tab selection highlight stripe |
 | `indicator_position` | Active tab highlight stripe edge(s) (`"none"`, `"top"`, `"bottom"`, `"left"`, `"right"`, or combination e.g. `"top, bottom"`) |
+| `sidebar_tab_flat_edge` | Which edge of a sidebar tab stays square: `"outward"`, `"inward"`, `"none"` (round all four), or `"all"` (default, plain rectangle) |
+| `sidebar_tab_radius` | Radius for a sidebar tab's rounded corners (defaults to `tab_radius`) |
+| `sidebar_tab_border_width` | Sidebar tab outline width; 0 (default) draws none |
+| `sidebar_tab_border_color` / `sidebar_tab_border_active_color` | Outline colour per state; transparent turns that state off |
+| `sidebar_tab_border_closed` | Close the outline across the flat edge instead of leaving it open |
+| `sidebar_indicator_width` / `sidebar_indicator_position` | Sidebar highlight stripe thickness and edge (`"left"` = window-facing, `"right"` = content-facing) |
 
 ---
 

@@ -19,6 +19,102 @@ from lace.enums import DockWidgetArea, OverlayMode
 
 _INV_SQRT2 = 1.0 / sqrt(2.0)
 
+#: The four corners in clockwise order, and the two each edge owns — also
+#: clockwise, so ``_EDGE_CORNERS[e][1]`` is where a path that skips ``e``
+#: starts and ``[0]`` is where it ends.
+_CLOCKWISE = ("top_left", "top_right", "bottom_right", "bottom_left")
+_EDGE_CORNERS = {
+    Qt.Edge.TopEdge:    ("top_left", "top_right"),
+    Qt.Edge.RightEdge:  ("top_right", "bottom_right"),
+    Qt.Edge.BottomEdge: ("bottom_right", "bottom_left"),
+    Qt.Edge.LeftEdge:   ("bottom_left", "top_left"),
+}
+_OPPOSITE_EDGE = {
+    Qt.Edge.TopEdge:    Qt.Edge.BottomEdge,
+    Qt.Edge.BottomEdge: Qt.Edge.TopEdge,
+    Qt.Edge.LeftEdge:   Qt.Edge.RightEdge,
+    Qt.Edge.RightEdge:  Qt.Edge.LeftEdge,
+}
+
+
+def _corner_arc(rect: QRectF, radius: float,
+                corner: str) -> Tuple[QRectF, float, QPointF, QPointF]:
+    """``(arc_rect, start_angle, entry, square_point)`` for one corner of ``rect``.
+
+    The sweep is always -90 degrees, so the corners chain into a clockwise
+    traversal.  ``entry`` is where the arc meets the incoming edge;
+    ``square_point`` is where the corner sits when it is not rounded at all.
+    """
+    left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
+    r, d = radius, 2.0 * radius
+    if corner == "top_left":
+        return (QRectF(left, top, d, d), 180.0,
+                QPointF(left, top + r), QPointF(left, top))
+    if corner == "top_right":
+        return (QRectF(right - d, top, d, d), 90.0,
+                QPointF(right - r, top), QPointF(right, top))
+    if corner == "bottom_right":
+        return (QRectF(right - d, bottom - d, d, d), 0.0,
+                QPointF(right, bottom - r), QPointF(right, bottom))
+    return (QRectF(left, bottom - d, d, d), 270.0,
+            QPointF(left + r, bottom), QPointF(left, bottom))
+
+
+def tab_path(rect: QRectF, radius: float,
+             flat_edge: Optional[Qt.Edge] = Qt.Edge.BottomEdge,
+             closed: bool = True) -> QPainterPath:
+    """Path for a tab whose corners on ``flat_edge`` stay square.
+
+    The general form behind every tab outline in Lace.  ``flat_edge`` is the
+    side the tab is joined along — the bottom for a dock area's tabs, the
+    window-facing or content-facing side for a sidebar's — and its two corners
+    keep their right angle while the other two follow ``radius``.  Pass
+    ``None`` to round all four, which leaves no edge to open and so is always
+    closed.
+
+    With ``closed=False`` the segment *along* ``flat_edge`` is left out, so a
+    stroke of the result outlines the other three sides only and the tab reads
+    as joined to whatever sits on that side.  Filled, an open path closes
+    implicitly and is identical to the closed one, so only ever stroke it.
+    """
+    path = QPainterPath()
+    r = max(0.0, radius)
+    flat = _EDGE_CORNERS[flat_edge] if flat_edge is not None else ()
+    closed = closed or not flat
+
+    if r <= 0 and closed:
+        path.addRect(rect)
+        return path
+
+    def rounded(corner: str) -> bool:
+        return r > 0 and corner not in flat
+
+    if closed:
+        order = _CLOCKWISE
+        arc, angle, entry, point = _corner_arc(rect, r, order[0])
+        # Start where the first corner meets its incoming edge, so the run back
+        # to it — the one edge no corner draws — is what closeSubpath() adds.
+        path.moveTo(entry if rounded(order[0]) else point)
+    else:
+        # The flat edge is skipped: start at its far corner and finish on its
+        # near one, covering the other three sides.
+        end_corner, start_corner = _EDGE_CORNERS[flat_edge]
+        start = _CLOCKWISE.index(start_corner)
+        order = tuple(_CLOCKWISE[(start + step) % 4] for step in (1, 2, 3))
+        path.moveTo(_corner_arc(rect, r, start_corner)[3])
+
+    for corner in order:
+        # arcTo() draws the straight run from the current point to the arc's
+        # start itself, so the edges between corners need no lineTo of their own.
+        arc, angle, entry, point = _corner_arc(rect, r, corner)
+        if rounded(corner):
+            path.arcTo(arc, angle, -90.0)
+        else:
+            path.lineTo(point)
+    if closed:
+        path.closeSubpath()
+    return path
+
 
 def chrome_content_margin(border_width: float, radius: float) -> int:
     """Inset that keeps a square child clear of the border and corner arcs.
@@ -37,21 +133,7 @@ def top_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
     Used for surfaces that sit flush against a lower edge (title bars, tabs):
     the top corners follow the enclosing card, the bottom stays square.
     """
-    path = QPainterPath()
-    r = max(0.0, radius)
-    if r <= 0:
-        path.addRect(rect)
-        return path
-    left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
-    d = 2.0 * r
-    path.moveTo(left, bottom)
-    path.lineTo(left, top + r)
-    path.arcTo(left, top, d, d, 180.0, -90.0)          # top-left
-    path.lineTo(right - r, top)
-    path.arcTo(right - d, top, d, d, 90.0, -90.0)       # top-right
-    path.lineTo(right, bottom)
-    path.closeSubpath()
-    return path
+    return tab_path(rect, radius, Qt.Edge.BottomEdge, closed=True)
 
 
 def bottom_open_path(rect: QRectF, radius: float) -> QPainterPath:
@@ -88,23 +170,7 @@ def top_open_path(rect: QRectF, radius: float) -> QPainterPath:
     below, the way a browser tab does; filled it would be identical to the
     closed path, so only stroke it.
     """
-    path = QPainterPath()
-    r = max(0.0, radius)
-    left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
-    if r <= 0:
-        path.moveTo(left, bottom)
-        path.lineTo(left, top)
-        path.lineTo(right, top)
-        path.lineTo(right, bottom)
-        return path
-    d = 2.0 * r
-    path.moveTo(left, bottom)
-    path.lineTo(left, top + r)
-    path.arcTo(left, top, d, d, 180.0, -90.0)          # top-left
-    path.lineTo(right - r, top)
-    path.arcTo(right - d, top, d, d, 90.0, -90.0)       # top-right
-    path.lineTo(right, bottom)
-    return path
+    return tab_path(rect, radius, Qt.Edge.BottomEdge, closed=False)
 
 
 def bottom_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
@@ -113,21 +179,7 @@ def bottom_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
     Used for surfaces that sit at the bottom of a rounded card (DockWidget):
     the bottom corners follow the enclosing card, the top stays square.
     """
-    path = QPainterPath()
-    r = max(0.0, radius)
-    if r <= 0:
-        path.addRect(rect)
-        return path
-    left, top, right, bottom = rect.left(), rect.top(), rect.right(), rect.bottom()
-    d = 2.0 * r
-    path.moveTo(left, top)
-    path.lineTo(right, top)
-    path.lineTo(right, bottom - r)
-    path.arcTo(right - d, bottom - d, d, d, 0.0, -90.0)       # bottom-right
-    path.lineTo(left + r, bottom)
-    path.arcTo(left, bottom - d, d, d, 270.0, -90.0)         # bottom-left
-    path.closeSubpath()
-    return path
+    return tab_path(rect, radius, Qt.Edge.TopEdge, closed=True)
 
 
 
@@ -239,26 +291,50 @@ def _edge_strip(rect: QRectF, edge: Qt.Edge, width: float) -> QRectF:
     return QRectF(rect.left(), rect.bottom() - w, rect.width(), w)   # BottomEdge
 
 
+def _outline_rect(rect: QRectF, inset: float, flat_edge: Optional[Qt.Edge],
+                  closed: bool) -> QRectF:
+    """``rect`` pulled in by ``inset`` on every side the outline is stroked on.
+
+    The flat edge of an open outline carries no stroke, so nothing has to be
+    kept clear of it and the three sides run right down to it.
+    """
+    sides = {Qt.Edge.LeftEdge: inset, Qt.Edge.TopEdge: inset,
+             Qt.Edge.RightEdge: inset, Qt.Edge.BottomEdge: inset}
+    if not closed and flat_edge is not None:
+        sides[flat_edge] = 0.0
+    return rect.adjusted(sides[Qt.Edge.LeftEdge], sides[Qt.Edge.TopEdge],
+                         -sides[Qt.Edge.RightEdge], -sides[Qt.Edge.BottomEdge])
+
+
 def paint_tab(p: QPainter, rect: QRectF, *, bg: Optional[QColor] = None,
               bg_gradient: Optional[Tuple[QColor, QColor]] = None,
               radius: float = 0.0,
               indicator: Optional[QColor] = None, indicator_width: int = 0,
               indicator_edge: Qt.Edge = Qt.Edge.BottomEdge,
-              border: Optional[QColor] = None, border_width: float = 0.0) -> None:
-    """Paint a tab: top-rounded background (solid ``bg`` or a horizontal
+              border: Optional[QColor] = None, border_width: float = 0.0,
+              flat_edge: Optional[Qt.Edge] = Qt.Edge.BottomEdge,
+              border_closed: bool = False) -> None:
+    """Paint a tab: rounded background (solid ``bg`` or a horizontal
     ``bg_gradient``) + an optional active-edge indicator strip.
+
+    ``flat_edge`` is the side the tab is joined along, whose two corners stay
+    square while the other two follow ``radius`` — the bottom for a dock area's
+    tabs, the window- or content-facing side for a sidebar's.  ``None`` rounds
+    all four.
 
     The strip is clipped to the tab path so it follows the rounded corners.
     ``indicator_edge`` selects which of the four edges it hugs — Top/Bottom for
     horizontal dock tabs, Left/Right for the vertical sidebar tabs.
 
-    ``border`` / ``border_width`` add an outline along the left, top and right
-    edges — never the bottom, which stays open so the tab reads as joined to
-    the panel below.  It is inset by half the pen width so the stroke lands
-    inside the tab rather than being clipped in half at its edge.
+    ``border`` / ``border_width`` add an outline.  By default it skips the flat
+    edge, which stays open so the tab reads as joined to whatever sits on that
+    side; ``border_closed`` runs it the whole way round instead.  With all four
+    corners rounded there is no edge left to open, so the outline is always
+    closed.  It is inset by half the pen width so the stroke lands inside the
+    tab rather than being clipped in half at its edge.
     """
     p.setRenderHint(QPainter.Antialiasing, True)
-    path = top_rounded_path(rect, radius)
+    path = tab_path(rect, radius, flat_edge)
 
     if bg_gradient is not None:
         g = QLinearGradient(rect.topLeft(), rect.topRight())
@@ -301,8 +377,9 @@ def paint_tab(p: QPainter, rect: QRectF, *, bg: Optional[QColor] = None,
 
     if border is not None and border_width > 0 and border.alpha() > 0:
         inset = border_width / 2.0
-        outline = top_open_path(
-            rect.adjusted(inset, inset, -inset, 0.0), max(0.0, radius - inset))
+        closed = border_closed or flat_edge is None
+        outline = tab_path(_outline_rect(rect, inset, flat_edge, closed),
+                           max(0.0, radius - inset), flat_edge, closed=closed)
         pen = QPen(border, border_width)
         pen.setJoinStyle(Qt.RoundJoin)
         p.setPen(pen)
