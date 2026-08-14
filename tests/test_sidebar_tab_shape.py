@@ -638,6 +638,13 @@ def test_neon_dusk_draws_a_u_on_hover(qapp, area, inside, outside):
 
     hovered = _tab(area, checked=False)
     hovered._is_hovered = True
+    # The U on its own: no hover fill either. A derived one is a lifted slab
+    # over the whole tab shape, and its straight window-facing side is a harder
+    # line than the U — the tab would read as a rectangle with three sides
+    # drawn.
+    bar = sidebar["bg_color"]
+    assert _fill(hovered, bar) == bar.getRgb(), "the hovered tab is filled"
+
     for tab in (hovered, _tab(area, checked=True)):
         assert _inked_edges(tab) == {"top", "bottom", inside}, \
             "the outline does not leave the window-facing edge open"

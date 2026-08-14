@@ -540,6 +540,13 @@ is pointed at. The muted indigo its inactive dock tabs wear moves to
 `sidebar_tab_border_hover_color`, so a hovered tab shows that U alone, and selecting it fills
 the U in with the neon pink and closes it.
 
+"Alone" is why it also zeroes `sidebar_tab_bg_hover_start` / `_end`. The derived hover fill is
+a lifted slab covering the whole tab *shape*, flat edge included, and its straight
+window-facing side is a harder line than the U it sits behind — so with a fill the tab reads
+as a rectangle with three sides drawn rather than as a U. This is the general point of the
+hover pair being themeable: an open outline only reads as open if nothing fills the shape it
+belongs to.
+
 `cyberpunk_edge` is the one that rings both states, mirroring what it already does with its
 card outline and its bottom rule. `midnight_haze` follows its own rule instead — one place
 for the eye to land — so its sidebar rings the active tab and draws no *line* anywhere else;

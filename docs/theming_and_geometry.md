@@ -137,7 +137,9 @@ ThemeSpec(
     sidebar_tab_flat_edge = "outward",      # rounded on the content-facing side only
     sidebar_tab_border_width = 2.0,         # ...open along the window-facing one
     sidebar_tab_border_color = [0, 0, 0, 0],                # idle: bare
-    sidebar_tab_border_hover_color = [98, 114, 164, 160],   # hover: the U alone
+    sidebar_tab_border_hover_color = [98, 114, 164, 160],   # hover: the U alone...
+    sidebar_tab_bg_hover_start = [0, 0, 0, 0],              # ...and nothing behind it
+    sidebar_tab_bg_hover_end = [0, 0, 0, 0],
     sidebar_indicator_position = "left",    # the strip sits on the open edge...
     sidebar_indicator_width = 2.0,          # ...and closes the active tab's U
 )
@@ -145,6 +147,11 @@ ThemeSpec(
 
 Match the widths here for the other reason: the strip is finishing the outline rather than
 hiding under it, so a different width steps the line where the two meet.
+
+The transparent hover fill is not decoration. The derived one is a lifted slab over the whole
+tab *shape* — flat edge included — and its straight window-facing side is a harder line than
+the U in front of it, so the tab reads as a rectangle with three sides drawn. An open outline
+only reads as open if nothing fills the shape it belongs to.
 
 ### Inactive sidebar tabs with a background
 

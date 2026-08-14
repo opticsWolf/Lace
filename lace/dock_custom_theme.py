@@ -475,6 +475,13 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         sidebar_tab_border_width = 2.0,
         sidebar_tab_border_color = [0, 0, 0, 0],            # Idle: bare
         sidebar_tab_border_hover_color = [98, 114, 164, 160],   # The dock tabs' indigo
+        # The U on its own, which means no hover fill either.  The derived one
+        # is a lifted slab covering the whole tab shape, flat edge included, and
+        # its straight window-facing side is a harder line than the U it is
+        # supposed to sit behind — so the tab reads as a rectangle with three
+        # sides drawn rather than as a U.  Transparent, only the U is there.
+        sidebar_tab_bg_hover_start = [0, 0, 0, 0],
+        sidebar_tab_bg_hover_end = [0, 0, 0, 0],
         sidebar_indicator_width = 2.0,
         sidebar_indicator_position = "left",               # The window-facing edge
     ),

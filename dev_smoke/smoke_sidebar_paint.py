@@ -401,6 +401,13 @@ def check_vertical_tab_shape():
     hovered = mk(checked=False)
     hovered._is_hovered = True
     assert inked(hovered) == u, "a hovered tab is not outlined"
+    # ...and nothing else: a derived hover fill would put a straight edge back
+    # on the flat side, so the U would read as a three-sided rectangle.
+    img = QImage(W, H, QImage.Format_ARGB32)
+    img.fill(s["bg_color"])
+    hovered.render(img, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
+    px = img.pixelColor(W // 2, H // 2).getRgb()
+    assert px == s["bg_color"].getRgb(), f"the hovered tab is filled: {px}"
     px = render(mk(checked=True)).pixelColor(0, H // 2).getRgb()
     assert px == s["indicator_color"].getRgb(), \
         f"the strip does not close the open edge: {px}"
