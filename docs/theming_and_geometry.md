@@ -58,7 +58,7 @@ class ThemeSpec:
     sidebar_tab_border_color: Optional[Union[QColor, List[int]]] = None
     sidebar_tab_border_active_color: Optional[Union[QColor, List[int]]] = None
     sidebar_tab_border_closed: Optional[bool] = None
-    sidebar_indicator_width: Optional[int] = None
+    sidebar_indicator_width: Optional[float] = None
     sidebar_indicator_position: Optional[str] = None
 ```
 
@@ -79,7 +79,26 @@ ThemeSpec(
 ```
 
 With `sidebar_tab_flat_edge = "none"` all four corners are rounded, the tab reads as a
-detached pill, and the outline is always closed — there is no flat edge left to open.
+detached pill, and the outline is always closed — there is no flat edge left to open. That is
+what `cyberpunk_neon` and `cyberpunk_edge` ship; the only difference between them is that
+neon leaves the inactive tabs bare (`sidebar_tab_border_color = [0, 0, 0, 0]`) while edge
+rings them in its muted violet:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_flat_edge = "none",                          # a closed ring
+    sidebar_tab_border_width = 1.5,
+    sidebar_tab_border_color = [0, 0, 0, 0],                 # inactive: no ring
+    sidebar_tab_border_active_color = [255, 154, 0, 255],
+    sidebar_indicator_width = 1.5,                           # == the ring's width
+)
+```
+
+Keep the stripe's width equal to the ring's. The stripe sits on the ring's content-facing
+edge and is painted *under* it, so at equal widths the ring covers it and the tab is one
+clean line all the way round; a wider stripe (the default is 3) shows the difference as a
+band of the accent inside the ring.
 
 ---
 

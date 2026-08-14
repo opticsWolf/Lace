@@ -264,6 +264,22 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_width = 2.0,
         indicator_position = "bottom",
         tab_dimming        = True,
+
+        # Sidebar tabs: rounded on all four corners, so the outline closes all
+        # the way round — a detached pill rather than something joined to the
+        # strip. Only the active tab is ringed; the inactive ones are bare.
+        # (cyberpunk_edge draws the same shape but rings every tab — the two
+        # presets are the pair that shows both halves of that choice.)
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],         # inactive: no ring
+        sidebar_tab_border_active_color = [0, 240, 255, 255],   # focus cyan
+        # The strip shares the ring's content-facing edge and is painted first,
+        # so at an equal width the ring covers it exactly and the active tab is
+        # one clean line all the way round. That is why it is pinned here: the
+        # 3px default is wider than the 2px ring, and the px it stuck out was
+        # inside the tab — a pink sliver against the cyan.
+        sidebar_indicator_width = 2.0,
     ),
 
     # -------------------------------------------------------------------------
@@ -322,6 +338,20 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_width = 1.5,
         indicator_position = "bottom",
         tab_dimming        = True,
+
+        # Sidebar tabs: cyberpunk_neon's shape, but every tab is ringed, not
+        # only the active one — the same violet/amber active-inactive treatment
+        # this preset gives its card outline and its bottom rule.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 1.5,
+        sidebar_tab_border_color = [110, 72, 148, 190],         # muted violet
+        sidebar_tab_border_active_color = [255, 154, 0, 255],   # amber
+        # 1.5 throughout, as everywhere else in this preset: the strip shares
+        # the ring's content-facing edge and is painted under it, so an unequal
+        # width steps that edge — left at the 3px default it doubled the amber
+        # there. Nothing is lost by hiding it: amber against violet is already
+        # what tells the two states apart.
+        sidebar_indicator_width = 1.5,
     ),
 
     # -------------------------------------------------------------------------

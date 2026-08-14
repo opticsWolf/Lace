@@ -322,12 +322,20 @@ def check_vertical_tab_shape():
                 if img.pixelColor(x, y).alpha() == 0}
 
     def inked(b):
-        on = render(b)
-        saved, b._border_width = b._border_width, 0.0
+        # The strip is off for both renders: it sits on one of the outline's
+        # own edges, and where the two share a colour (cyberpunk_edge rings and
+        # stripes its active tab in the same amber) it would go on painting
+        # that edge with the outline gone.
+        saved_strip, b._indicator_width = b._indicator_width, 0.0
         try:
-            off = render(b)
+            on = render(b)
+            saved, b._border_width = b._border_width, 0.0
+            try:
+                off = render(b)
+            finally:
+                b._border_width = saved
         finally:
-            b._border_width = saved
+            b._indicator_width = saved_strip
         xs, ys = range(W // 3, W - W // 3), range(H // 3, H - H // 3)
         edges = {"left": [(0, y) for y in ys], "right": [(W - 1, y) for y in ys],
                  "top": [(x, 0) for x in xs], "bottom": [(x, H - 1) for x in xs]}
@@ -353,6 +361,23 @@ def check_vertical_tab_shape():
     theme(sidebar_tab_flat_edge="outward", sidebar_tab_border_width=2.0,
           sidebar_tab_border_closed=True)
     assert inked(mk()) == {"left", "top", "right", "bottom"}, "outline not closed"
+
+    # The two shipped presets that ring their sidebar tabs. Same shape, and the
+    # strip matches the ring's width in both; they differ only in whether an
+    # inactive tab is ringed at all.
+    all_four = {"left", "top", "right", "bottom"}
+    for name in ("cyberpunk_neon", "cyberpunk_edge"):
+        apply_dock_theme(name)
+        s = sm.get_all(DockStyleCategory.SIDEBAR)
+        assert s["tab_flat_edge"] == "none", f"{name}: sidebar tab shape lost"
+        assert s["indicator_width"] == s["tab_border_width"] > 0, \
+            f"{name}: strip {s['indicator_width']} != ring {s['tab_border_width']}"
+        active, idle = mk(checked=True), mk(checked=False)
+        assert rounded(active) == {"tl", "tr", "br", "bl"}, f"{name}: not a pill"
+        assert inked(active) == all_four, f"{name}: the active ring is broken"
+        rings_idle = name == "cyberpunk_edge"
+        assert (inked(idle) == all_four) is rings_idle, \
+            f"{name}: inactive tab ringed={not rings_idle}, expected {rings_idle}"
 
     apply_dock_theme("default")
 

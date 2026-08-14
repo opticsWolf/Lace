@@ -282,7 +282,9 @@ class DockSidebarStyleSchema:
 
     # Highlights & Badges
     indicator_color: Optional[List[int]] = None
-    indicator_width: int = 3
+    # Float like the dock tabs' own indicator_width, so a theme can match the
+    # strip to a fractional outline width — a mismatch steps the edge they share.
+    indicator_width: float = 3.0
     indicator_position: str = "right"  # "left" or "right"
 
     badge_bg: Optional[List[int]] = None
@@ -436,7 +438,9 @@ class ThemeSpec:
     #: Width and edge of the sidebar tab's highlight strip — the counterpart of
     #: ``indicator_width`` / ``indicator_position`` for the dock widget tabs.
     #: ``"left"`` is the window-facing edge, ``"right"`` the content-facing one.
-    sidebar_indicator_width: Optional[int] = None
+    #: Give it the same width as the outline: the strip sits *on* one of the
+    #: outline's edges, so a mismatch steps that edge thicker.
+    sidebar_indicator_width: Optional[float] = None
     sidebar_indicator_position: Optional[str] = None
 
     # Tooltip colors — when omitted, derived from the panel/text seed colors.
@@ -542,7 +546,7 @@ def _build_theme(
     sidebar_tab_border_color: Optional[list] = None,
     sidebar_tab_border_active_color: Optional[list] = None,
     sidebar_tab_border_closed: Optional[bool] = None,
-    sidebar_indicator_width: Optional[int] = None,
+    sidebar_indicator_width: Optional[float] = None,
     sidebar_indicator_position: Optional[str] = None,
     tooltip_bg: Optional[list] = None,
     tooltip_text: Optional[list] = None,

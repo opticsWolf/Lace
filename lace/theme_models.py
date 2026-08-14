@@ -161,7 +161,7 @@ class ThemeJson(BaseModel):
     sidebar_tab_border_color: Optional[Color] = None
     sidebar_tab_border_active_color: Optional[Color] = None
     sidebar_tab_border_closed: Optional[bool] = None
-    sidebar_indicator_width: Optional[int] = None
+    sidebar_indicator_width: Optional[float] = None
     sidebar_indicator_position: Optional[str] = None
 
     # ---------------------------------------------------------------------------

@@ -320,7 +320,7 @@ apply_dock_theme(my_theme)  # or apply directly
 | `sidebar_tab_border_width` | Sidebar tab outline width; 0 (default) draws none |
 | `sidebar_tab_border_color` / `sidebar_tab_border_active_color` | Outline colour per state; transparent turns that state off |
 | `sidebar_tab_border_closed` | Close the outline across the flat edge instead of leaving it open |
-| `sidebar_indicator_width` / `sidebar_indicator_position` | Sidebar highlight stripe thickness and edge (`"left"` = window-facing, `"right"` = content-facing) |
+| `sidebar_indicator_width` / `sidebar_indicator_position` | Sidebar highlight stripe thickness and edge (`"left"` = window-facing, `"right"` = content-facing). Match the width to `sidebar_tab_border_width` — the stripe sits under the outline on the same edge, and a wider one steps it |
 
 ---
 

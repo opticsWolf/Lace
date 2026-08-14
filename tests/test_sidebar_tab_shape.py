@@ -34,11 +34,11 @@ def _spec(**overrides):
         accent=[255, 100, 180, 255],
         text=[240, 240, 250, 255],
         tab_radius=RADIUS,
-        # Off by default here, and load-bearing: the highlight strip defaults
-        # to the accent on the content-facing edge — the same colour and the
-        # same pixels as the active tab's outline — so it would answer for the
-        # outline on that edge in every reading below. The tests that are about
-        # the strip switch it back on.
+        # Off by default here: the strip defaults to the accent on the
+        # content-facing edge, the same pixels the active tab's outline uses,
+        # and it would answer for the outline in any direct pixel read. The
+        # tests that are about the strip switch it back on; _inked_edges
+        # switches it off itself, so it holds for the presets too.
         sidebar_indicator_width=0,
     )
     base.update(overrides)
@@ -88,14 +88,24 @@ def _inked_edges(button):
     the middle third of each edge is sampled — the corners are shared by two
     edges, and the side strokes of an open outline legitimately run all the way
     into the flat one.
+
+    The highlight strip is switched off for both renders. It sits *on* one of
+    the outline's edges, and in a theme where the two share a colour —
+    cyberpunk_edge rings and stripes its active tab in the same amber — it goes
+    on painting that edge with the outline gone, so the difference reads as an
+    edge the outline never drew.
     """
-    on = _render(button)
-    saved = button._border_width
-    button._border_width = 0.0
+    saved_strip, button._indicator_width = button._indicator_width, 0.0
     try:
-        off = _render(button)
+        on = _render(button)
+        saved = button._border_width
+        button._border_width = 0.0
+        try:
+            off = _render(button)
+        finally:
+            button._border_width = saved
     finally:
-        button._border_width = saved
+        button._indicator_width = saved_strip
 
     w, h = button.width(), button.height()
     xs = range(w // 3, w - w // 3)
@@ -327,13 +337,83 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
     assert sidebar["indicator_width"] == 5
 
 
-def test_the_shipped_themes_keep_their_square_tabs(qapp):
-    """Every preset sets tab_radius; none of them opts into the new shape."""
+# ── The shipped presets ───────────────────────────────────────────────────
+#: The two that demonstrate the ringed sidebar tab. Every other preset sets
+#: tab_radius but leaves the sidebar alone, so its tabs stay rectangles.
+RINGED = ("cyberpunk_neon", "cyberpunk_edge")
+
+
+def test_only_the_cyberpunk_pair_opts_into_the_new_shape(qapp):
+    """Every other preset sets tab_radius and still gets square sidebar tabs."""
     from lace.dock_custom_theme import DOCK_THEMES
 
     manager = get_dock_style_manager()
     for name in DOCK_THEMES:
+        if name in RINGED:
+            continue
         manager.apply_theme(name)
         sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
         assert sidebar["tab_flat_edge"] == "all", f"{name} changed the tab shape"
         assert not sidebar["tab_border_width"], f"{name} outlines its sidebar tabs"
+
+
+@pytest.mark.parametrize("name", RINGED)
+def test_the_ringed_presets_share_one_shape(qapp, name):
+    """Rounded on all four corners, so the ring closes the whole way round."""
+    get_dock_style_manager().apply_theme(name)
+    sidebar = get_dock_style_manager().get_all(DockStyleCategory.SIDEBAR)
+    assert sidebar["tab_flat_edge"] == "none"
+    assert sidebar["tab_border_width"] > 0
+    assert _rounded_corners(_tab()) == {"top_left", "top_right",
+                                        "bottom_right", "bottom_left"}
+    assert _inked_edges(_tab()) == {"left", "top", "right", "bottom"}
+
+
+@pytest.mark.parametrize("name", RINGED)
+def test_the_strip_matches_the_ring_it_sits_on(qapp, name):
+    """Unequal widths step the edge the two share — the reason cyberpunk_edge
+    already pins indicator_width to title_border_bottom.
+
+    The strip is painted first and the ring covers it, so at equal widths the
+    active tab is one clean line all the way round; left at the 3px default the
+    strip stuck out inside the ring (a pink sliver in neon, doubled amber in
+    edge). Measured on the content-facing edge, which is the one they share.
+    """
+    from math import ceil
+
+    manager = get_dock_style_manager()
+    manager.apply_theme(name)
+    sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
+    assert sidebar["indicator_width"] == sidebar["tab_border_width"] > 0
+
+    button = _tab(DockWidgetArea.left, checked=True)
+    assert button._indicator_edge() == Qt.Edge.RightEdge, "not the shared edge"
+    # One pixel further in than the ring can reach (its width, plus the row it
+    # antialiases into). Nothing but the tab's own fill belongs there; a
+    # too-wide strip is what would put ink on it.
+    x = WIDTH - ceil(sidebar["tab_border_width"]) - 1
+    assert _render(button).pixelColor(x, HEIGHT // 2).getRgb() == \
+        sidebar["tab_bg_active"].getRgb(), \
+        f"{name}: the line on the shared edge is thicker than the ring"
+
+
+def test_cyberpunk_neon_rings_only_the_active_tab(qapp):
+    get_dock_style_manager().apply_theme("cyberpunk_neon")
+    active, inactive = _tab(checked=True), _tab(checked=False)
+    assert inactive._border_color(False) is None, "the inactive tab is ringed"
+    assert active._border_color(True) is not None
+    assert not _inked_edges(inactive)
+    assert _inked_edges(active) == {"left", "top", "right", "bottom"}
+
+
+def test_cyberpunk_edge_rings_every_tab_in_two_colours(qapp):
+    """Its sidebar mirrors its card outline: violet unfocused, amber active."""
+    get_dock_style_manager().apply_theme("cyberpunk_edge")
+    active, inactive = _tab(checked=True), _tab(checked=False)
+    assert inactive._border_color(False) is not None, "the inactive tab lost its ring"
+    assert active._border_color(True) != inactive._border_color(False)
+    for tab in (active, inactive):
+        assert _inked_edges(tab) == {"left", "top", "right", "bottom"}
+    mid = HEIGHT // 2
+    assert _render(active).pixelColor(0, mid) != _render(inactive).pixelColor(0, mid), \
+        "the two rings render identically"

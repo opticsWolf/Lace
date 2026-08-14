@@ -372,7 +372,7 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | `sidebar_tab_border_color` | `QColor` / `List[int]` | Outline colour for inactive sidebar tabs; transparent outlines only the active one |
 | `sidebar_tab_border_active_color` | `QColor` / `List[int]` | Outline colour for the active sidebar tab (defaults to the accent) |
 | `sidebar_tab_border_closed` | `bool` | Close the outline across the flat edge instead of leaving it open |
-| `sidebar_indicator_width` | `int` | Thickness of the sidebar tab's highlight stripe |
+| `sidebar_indicator_width` | `float` | Thickness of the sidebar tab's highlight stripe. Give it the outline's width: the strip sits *on* one of the outline's edges and is painted under it, so a wider one sticks out inside the tab and steps that edge |
 | `sidebar_indicator_position` | `str` | Which edge it hugs: `"left"` (window-facing) or `"right"` (content-facing), mirrored per sidebar |
 
 ### 3.3 Titlebar Flushness & Borders
@@ -472,8 +472,8 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `dracula` | High-contrast dark with purple |
 | `solarized_dark` | Teal/cyan dark palette |
 | `solarized_light` | Warm cream light palette |
-| `cyberpunk_neon` | Vibrant, ultra-contrasty |
-| `cyberpunk_edge` | Amber/violet "night city"; focus-reactive rule under the tab bar (reference preset for `title_border_bottom`) |
+| `cyberpunk_neon` | Vibrant, ultra-contrasty; sidebar tabs ringed on all four corners, active only (reference preset for `sidebar_tab_flat_edge`) |
+| `cyberpunk_edge` | Amber/violet "night city"; focus-reactive rule under the tab bar (reference preset for `title_border_bottom`); same sidebar ring as `cyberpunk_neon` but on **every** tab — violet inactive, amber active |
 | `slate_amber` | Light industrial grey + burnt amber (`neutral` × `cyberpunk_edge`); the bottom rule on a light palette |
 | `neon_dusk` | Indigo + neon pink (`dracula` × `cyberpunk_neon`); every tab outlined, no card outline (reference preset for `tab_border_width`) |
 | `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; both tab states outlined; area outline limited to three sides (reference preset for `border_below_title`) |
@@ -505,6 +505,18 @@ two kinds of tab are rounded alike.
 a dock tab's open bottom joins it to the panel below; `sidebar_tab_border_closed` runs the
 line the whole way round instead. With all four corners rounded there is no edge left to
 open, so the outline is always closed there.
+
+`cyberpunk_neon` and `cyberpunk_edge` are the reference pair: identical geometry —
+`sidebar_tab_flat_edge = "none"`, so each tab is a closed rounded ring — differing only in
+whether an inactive tab is ringed at all. Neon rings the active tab in its focus cyan and
+leaves the rest bare (`sidebar_tab_border_color` transparent); edge rings every tab, muted
+violet inactive and amber active, mirroring what it already does with its card outline and
+its bottom rule.
+
+Both pin `sidebar_indicator_width` to the ring's width. The strip shares the ring's
+content-facing edge and is painted *under* it, so at equal widths the ring covers it and the
+tab is one clean line; left at the 3px default it stuck out inside the ring — a pink sliver
+against neon's cyan, and doubled amber in edge.
 
 Together they close the inactive tabs on all four sides while the active tab keeps its open
 bottom, which is what makes it read as a notch cut out of the strip. Give them the **same
