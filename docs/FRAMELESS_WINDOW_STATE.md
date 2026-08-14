@@ -13,9 +13,9 @@ container (`FloatingDockContainer`) is used as the control.
 
 ## 0. Reported symptoms
 
-All four are fixed as of 0.5.54; this document is kept as the record of
-what was wrong and why, because the mechanisms are not obvious and the
-Win32 behaviour will outlive the code.
+All are fixed as of 0.5.55; this document is kept as the record of what was
+wrong and why, because the mechanisms are not obvious and the Win32
+behaviour will outlive the code.
 
 1. A minimized float does not appear in the taskbar. *(fixed 0.5.51)*
 2. A float maximized by double-clicking the title bar cannot be "ripped"
@@ -24,6 +24,8 @@ Win32 behaviour will outlive the code.
    restored by double-clicking the title bar. *(fixed 0.5.52)*
 4. After a maximize/restore cycle the float often can no longer be moved.
    *(fixed 0.5.52)*
+5. After an Aero snap, the float does not come back to its pre-snap size and
+   cannot be moved at all. *(fixed 0.5.55 — §3.6)*
 
 Symptom 1 stands alone. Symptoms 3 and 4 are two faces of a single defect,
 and symptom 2 is a missing gesture that the same defect made unfixable.
@@ -362,6 +364,60 @@ filter on its buttons and clears the state on `MouseButtonRelease` —
 button's own action is unaffected: the filter runs before delivery, and
 `QAbstractButton` emits `clicked()` from `isDown()`, not from this state.
 
+### 3.6 After an Aero snap: no restore, and no moving at all — FIXED in 0.5.55
+
+Reported after the maximize work landed, and it is two independent defects
+reached by one gesture. Measured with synthetic mouse input driving a real
+drag to the left screen edge (the input has to come from a worker thread —
+`startSystemMove` blocks the GUI thread in a modal Win32 loop, so a probe
+that synthesises from that same thread deadlocks itself).
+
+**A snap is not a maximize.** Windows arranges a snapped window without
+touching its placement:
+
+```
+before snap   rect (0-based, physical) = (1750, 313, 2400, 813)
+              showCmd=NORMAL  rcNormal=(1750, 313, 2400, 813)
+after snap    rect = (0, 0, 1920, 1540)          <- half the screen
+              showCmd=NORMAL  rcNormal=(1750, 313, 2400, 813)   <- unchanged
+Qt            geometry=(0, 0, 1536, 1232)  normalGeometry=(0, 0, 1536, 1232)
+```
+
+So `isMaximized()` is False and `showCmd` is `SW_NORMAL` — nothing thought
+there was anything to restore. But `SC_MOVE` is refused for a snapped window
+exactly as it is for a zoomed one (measured: `SendMessage` returns in 0.1 ms
+without entering the move loop), so the float could not be moved either.
+Note the pre-snap rect survives **only** in `rcNormalPosition` — Qt's
+`normalGeometry()` has been overwritten with the snapped rect.
+
+`pre_snap_geometry()` in `lace.util` detects the state by the placement
+disagreeing with reality — an unsnapped window's frame matches its own
+`rcNormalPosition`, a snapped one does not — and returns the pre-snap rect in
+logical pixels. `_restore_under_cursor()` now asks that question too, and
+un-snapping is then just a geometry change.
+
+**And a leaked flag made it permanent.** Instrumenting the second drag
+showed the real cause of "cannot be moved":
+
+```
+[tb] MouseButtonPress  state=DragState.inactive os_move=True  start=None
+[tb] MouseMove         state=DragState.mouse_pressed os_move=True
+[tb] MouseMove         state=DragState.mouse_pressed os_move=True
+```
+
+`_os_move_active` was still `True` from the previous drag. The modal move
+loop swallows the release that `_handle_titlebar_drag` would have cleared it
+on, and the path that actually ended the drag — `eventFilter`'s release
+branch — reset `_frameless_drag_filter` but not this. Since the drag state
+was already `inactive`, the next press skipped `_cancel_stale_drag()` and the
+flag survived; every subsequent `MouseMove` then failed
+`not self._os_move_active`, fell through to the sub-threshold branch and was
+consumed. `startSystemMove` was never called again — for the rest of the
+window's life, whether or not a snap was involved.
+
+Fixed at both ends: `eventFilter`'s release branch clears it, and the press
+branch asserts it rather than trusting the previous drag to have done so.
+
 ---
 
 ## 4. Where a fix goes
@@ -384,15 +440,21 @@ All five landed: items 3 and 4 in 0.5.51 (§3.1), item 1 in 0.5.52
 
 ## 5. What the new tests pin
 
-`tests/test_frameless_window_state.py` — 29 tests, offscreen, runs in CI,
+`tests/test_frameless_window_state.py` — 32 tests, offscreen, runs in CI,
 **all passing**. They cover the full 3×3 maximize/restore matrix, the
-taskbar flag in both states, the rip-out keeping the grab in place, and
-every title-bar button clearing its own pressed state. Each started as an
-`xfail(strict=True)` reproduction and lost the marker when its fix landed;
-strict is what forced that, since a fixed defect XPASSes and fails the
-suite. Neither native entry point is allowed to reach a real HWND —
-`toggleMaxState` and `startSystemMove` are trapped by fixtures, which is
-also what makes the mechanism visible from a headless test.
+taskbar flag in both states, the rip-out keeping the grab in place, every
+title-bar button clearing its own pressed state, and the `_os_move_active`
+leak from both ends. Each started as an `xfail(strict=True)` reproduction
+and lost the marker when its fix landed; strict is what forced that, since
+a fixed defect XPASSes and fails the suite. Neither native entry point is
+allowed to reach a real HWND — `toggleMaxState` and `startSystemMove` are
+trapped by fixtures, which is also what makes the mechanism visible from a
+headless test.
+
+One caution the leak test earns a comment for: while the transient app
+filter is installed, `eventFilter` runs twice per press and the second pass
+cancels the stale drag by accident. A test that does not remove the filter
+first passes against the unfixed code.
 
 `dev_smoke/smoke_frameless_winstate.py` — needs a real display and Win32;
 listed in `run_all.py`'s `NEEDS_DISPLAY`, so it does not run in the normal
@@ -401,4 +463,11 @@ alongside Qt's view, exercises both states of the taskbar flag, walks the
 full 3×3 maximize matrix, recovers from an OS-side `SC_MAXIMIZE` through
 each entry point, and checks the geometry round-trip, the still-movable
 invariant and the rip-out gesture, including that the grab keeps its place
-across the restored title bar. **All 49 checks pass as of 0.5.53.**
+across the restored title bar. **All checks pass as of 0.5.55.**
+
+Its Aero-snap section reports SKIP rather than FAIL when the float cannot be
+brought to the foreground: Win+Left goes to whatever *is* foreground, and
+snapping one of the user's own windows to prove a point is not acceptable.
+Windows blocks `SetForegroundWindow` from a background process, so an
+unattended run usually skips it. That path was verified interactively
+instead — the transcript is in §3.6.

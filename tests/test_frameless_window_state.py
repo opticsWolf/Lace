@@ -35,7 +35,8 @@ from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockFlags, DragState, TitleBarMode
 from lace.frameless_window import LaceStandardTitleBar
-from lace.util import is_window_maximized, start_drag_distance
+from lace.util import (is_window_maximized, pre_snap_geometry,
+                       start_drag_distance)
 
 from qframelesswindow.titlebar import TitleBarButton
 from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
@@ -335,6 +336,67 @@ def test_dragging_a_normal_float_starts_the_os_move_loop(floater, os_move, qapp)
     assert floater._dragging_state is DragState.floating_widget
     assert floater._os_move_active is True
     assert len(os_move) == 1, f"startSystemMove called {len(os_move)} times"
+
+
+def test_a_swallowed_release_does_not_strand_the_os_move_flag(
+        floater, os_move, qapp):
+    """The float must stay draggable after a drag the OS move loop ended.
+
+    startSystemMove enters a modal Win32 loop that swallows the release the
+    title bar would have seen, so _handle_titlebar_drag's release branch —
+    which clears _os_move_active — never runs. The drag ends through another
+    path that resets the drag state only, and a leaked True then makes every
+    later MouseMove skip the drag-start branch and get consumed. The float
+    could never be dragged again.
+
+    That is what an Aero snap does to a float: snapping is how the OS move
+    loop usually ends.
+    """
+    _drag(floater.titleBar, qapp)
+    assert floater._os_move_active is True
+    assert len(os_move) == 1
+
+    # What the modal loop leaves behind: the drag state reset from elsewhere
+    # and the transient app filter gone, without the title bar ever seeing
+    # its own release. Removing the filter matters — while it is installed
+    # eventFilter runs twice per press, and the second pass cancels the
+    # stale drag by accident, which would hide the leak this pins.
+    floater._set_state(DragState.inactive)
+    floater._remove_frameless_drag_filter()
+
+    _drag(floater.titleBar, qapp)
+
+    assert len(os_move) == 2, "the float could not be dragged a second time"
+    assert floater._dragging_state is DragState.floating_widget
+
+
+def test_the_app_filter_release_path_clears_the_os_move_flag(
+        floater, os_move, qapp):
+    """The other end of the same drag: it owes the same cleanup.
+
+    eventFilter() finalises a drag whose release landed somewhere other than
+    the title bar. It reset _frameless_drag_filter but not _os_move_active.
+    """
+    _drag(floater.titleBar, qapp)
+    assert floater._os_move_active is True
+
+    release = QMouseEvent(QEvent.MouseButtonRelease, QPoint(5, 5),
+                          floater.mapToGlobal(QPoint(5, 5)),
+                          Qt.LeftButton, Qt.NoButton, Qt.NoModifier)
+    floater.eventFilter(floater.dock_container(), release)
+    qapp.processEvents()
+
+    assert floater._os_move_active is False
+    assert floater._frameless_drag_filter is False
+
+
+def test_pre_snap_geometry_says_nothing_when_the_os_cannot_be_asked(floater):
+    """Offscreen there is no real HWND; the snap check must not raise.
+
+    The behaviour it guards is Windows-only and covered by
+    dev_smoke/smoke_frameless_winstate.py.
+    """
+    assert pre_snap_geometry(floater) is None
 
 
 def test_a_maximize_restore_cycle_leaves_the_drag_machinery_clean(floater, qapp):

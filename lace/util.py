@@ -13,7 +13,7 @@ import logging
 import sys
 from typing import TYPE_CHECKING, Any, Optional, Type, TypeVar, List
 
-from PySide6.QtCore import Qt, QObject
+from PySide6.QtCore import Qt, QObject, QRect
 from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtWidgets import QApplication, QWidget, QStyle, QAbstractButton, QSplitter
 
@@ -197,6 +197,50 @@ def toggle_window_maximized(widget: QWidget) -> None:
         restore_window(window)
     else:
         window.showMaximized()
+
+
+# Windows arranges an Aero-snapped window (drag to an edge, Win+Left/Right)
+# without touching its placement: showCmd stays SW_NORMAL, so the window is
+# not maximized by any measure — but SC_MOVE is refused for it exactly as it
+# is for a zoomed one, so a snapped float cannot be moved at all. The only
+# surviving record of where it came from is rcNormalPosition; Qt's
+# normalGeometry() has been overwritten with the snapped rect.
+_SNAP_TOLERANCE = 4  # physical px, against rounding in the placement rect
+
+
+def pre_snap_geometry(widget: QWidget) -> Optional[QRect]:
+    """The rect a snapped window would return to, or ``None`` if not snapped.
+
+    Detected by the placement disagreeing with reality: an unsnapped window's
+    frame matches its own rcNormalPosition, and a snapped one does not.
+    Ordinary moves and resizes keep the two in step, so this does not fire
+    for them.
+    """
+    window = widget.window()
+    if sys.platform != "win32" or window.windowHandle() is None:
+        return None
+    if window.isMinimized() or is_window_maximized(window):
+        return None
+    try:
+        import win32gui
+
+        handle = int(window.winId())
+        placement = win32gui.GetWindowPlacement(handle)
+        if not placement or placement[1] != 1:  # SW_NORMAL
+            return None
+        normal = placement[4]
+        frame = win32gui.GetWindowRect(handle)
+    except Exception:
+        logger.debug("Snap detection unavailable", exc_info=True)
+        return None
+
+    if all(abs(a - b) <= _SNAP_TOLERANCE for a, b in zip(frame, normal)):
+        return None
+
+    ratio = window.devicePixelRatioF() or 1.0
+    return QRect(round(normal[0] / ratio), round(normal[1] / ratio),
+                 round((normal[2] - normal[0]) / ratio),
+                 round((normal[3] - normal[1]) / ratio))
 
 
 def find_child(parent: QObject, type_: Type[T], name: str = '',

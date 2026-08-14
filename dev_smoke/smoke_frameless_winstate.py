@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.pop("QT_QPA_PLATFORM", None)
 logging.disable(logging.CRITICAL)
 
+import win32api
 import win32con
 import win32gui
 from PySide6.QtCore import QEvent, QPoint, Qt, QTimer
@@ -43,13 +44,15 @@ app = QApplication(sys.argv)
 
 from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
-from lace.enums import DockFlags, DockWidgetArea, TitleBarMode
-from lace.util import start_drag_distance
+from lace.enums import DockFlags, DockWidgetArea, DragState, TitleBarMode
+from lace.util import pre_snap_geometry, start_drag_distance
 
 WS_EX_APPWINDOW = 0x00040000
 WS_EX_TOOLWINDOW = 0x00000080
 SHOWCMD = {1: "SW_NORMAL", 2: "SW_MINIMIZED", 3: "SW_MAXIMIZED"}
 GRIP = QPoint(60, 16)
+VK_LWIN, VK_LEFT, VK_ESCAPE = 0x5B, 0x25, 0x1B
+KEYEVENTF_KEYUP = 0x0002
 
 failures = []
 
@@ -61,6 +64,11 @@ def check(name, ok, detail=""):
     if not ok:
         failures.append(name)
     return ok
+
+
+def skip(name, why):
+    """Not a failure: the check could not be set up on this machine."""
+    print(f"  SKIP  {name}  | {why}", flush=True)
 
 
 def show_cmd(widget):
@@ -222,6 +230,117 @@ def main(dock_manager):
               show_cmd(flt) == "SW_NORMAL", f"win32={show_cmd(flt)}")
         flt.close()
         QTest.qWait(200)
+
+    # ── 3b. Aero snap ─────────────────────────────────────────────────────
+    #
+    # A snap is not a maximize -- showCmd stays SW_NORMAL -- but Windows
+    # refuses SC_MOVE for it just the same, so a snapped float cannot be
+    # moved at all. The pre-snap rect survives only in rcNormalPosition;
+    # Qt's normalGeometry() is overwritten with the snapped one.
+    print("\n[3b] a float the OS snapped to an edge un-snaps when dragged")
+    import qframelesswindow.utils as qf_utils
+
+    original_move = qf_utils.startSystemMove
+    moves = []
+    qf_utils.startSystemMove = lambda window, pos: moves.append((window, pos))
+    try:
+        flt = new_float(dock_manager)
+        start = flt.geometry()
+        hwnd = int(flt.winId())
+        flt.activateWindow()
+        flt.raise_()
+        QTest.qWait(300)
+        try:
+            win32gui.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
+        QTest.qWait(400)
+
+        # Win+Left is the keyboard spelling of dragging to the left edge, but
+        # it goes to whatever is in the foreground -- never send it unless we
+        # are certain that is us, or we would snap one of the user's windows.
+        foreground = win32gui.GetForegroundWindow() == hwnd
+        snapped = start
+        if foreground:
+            for down in (True, False):
+                keys = (VK_LWIN, VK_LEFT) if down else (VK_LEFT, VK_LWIN)
+                for key in keys:
+                    win32api.keybd_event(key, 0,
+                                         0 if down else KEYEVENTF_KEYUP, 0)
+            QTest.qWait(900)
+            win32api.keybd_event(VK_ESCAPE, 0, 0, 0)   # dismiss snap assist
+            win32api.keybd_event(VK_ESCAPE, 0, KEYEVENTF_KEYUP, 0)
+            QTest.qWait(600)
+            snapped = flt.geometry()
+
+        if not foreground:
+            skip("Aero snap round-trip",
+                 "the float could not be brought to the foreground, and "
+                 "Win+Left would have snapped someone else's window")
+            flt.close()
+            QTest.qWait(200)
+        elif snapped == start or show_cmd(flt) != "SW_NORMAL":
+            skip("Aero snap round-trip",
+                 f"Win+Left did not snap it (snap may be disabled): "
+                 f"{snapped.getRect()} win32={show_cmd(flt)}")
+            flt.close()
+            QTest.qWait(200)
+        else:
+            recovered = pre_snap_geometry(flt)
+            check("the pre-snap size is recoverable",
+                  recovered is not None and recovered.size() == start.size(),
+                  f"rcNormalPosition gives {recovered.getRect() if recovered else None}, "
+                  f"Qt normalGeometry gives {flt.normalGeometry().getRect()}")
+
+            moves.clear()
+            title_bar = flt.titleBar
+            grab = QPoint(200, 16)
+            for event_type, pos, buttons in (
+                    (QEvent.MouseButtonPress, grab, Qt.LeftButton),
+                    (QEvent.MouseMove,
+                     grab + QPoint(start_drag_distance() + 20, 4),
+                     Qt.LeftButton)):
+                QApplication.sendEvent(title_bar, QMouseEvent(
+                    event_type, pos, title_bar.mapToGlobal(pos),
+                    Qt.LeftButton, buttons, Qt.NoModifier))
+                QTest.qWait(150)
+
+            check("dragging un-snaps it to its pre-snap size",
+                  flt.size() == start.size(),
+                  f"{flt.geometry().getRect()} vs start {start.getRect()}")
+            check("and the move actually starts", len(moves) == 1,
+                  f"startSystemMove calls={len(moves)}")
+            flt.close()
+            QTest.qWait(200)
+
+        # The leak that made this fatal: the modal move loop swallows the
+        # release that clears _os_move_active, and a stale True makes every
+        # later MouseMove get consumed instead of starting a drag.
+        flt = new_float(dock_manager)
+        title_bar = flt.titleBar
+        grab = QPoint(200, 16)
+
+        def drag_once():
+            for event_type, pos, buttons in (
+                    (QEvent.MouseButtonPress, grab, Qt.LeftButton),
+                    (QEvent.MouseMove,
+                     grab + QPoint(start_drag_distance() + 20, 4),
+                     Qt.LeftButton)):
+                QApplication.sendEvent(title_bar, QMouseEvent(
+                    event_type, pos, title_bar.mapToGlobal(pos),
+                    Qt.LeftButton, buttons, Qt.NoModifier))
+                QTest.qWait(120)
+
+        moves.clear()
+        drag_once()
+        flt._set_state(DragState.inactive)     # what the modal loop leaves
+        drag_once()
+        check("a float stays draggable after the loop ate its release",
+              len(moves) == 2, f"startSystemMove calls={len(moves)}")
+        flt.close()
+        QTest.qWait(200)
+    finally:
+        qf_utils.startSystemMove = original_move
 
     # ── 4. rip out of maximize ────────────────────────────────────────────
     print("\n[4] dragging a maximized float restores it first")

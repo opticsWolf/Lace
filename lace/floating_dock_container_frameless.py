@@ -25,7 +25,8 @@ from lace.dock_theme import DockStyleCategory
 from lace.floating_behaviour import FloatingContainerBehaviour, _EDGE_NONE
 from lace.frameless_window import FramelessLaceWindow, _resolve_title_bar
 from lace.frameless_titlebar import FramelessTitleBarStyler
-from lace.util import is_window_maximized, restore_window, start_drag_distance
+from lace.util import (is_window_maximized, pre_snap_geometry, restore_window,
+                       start_drag_distance)
 
 if TYPE_CHECKING:
     from lace import DockAreaWidget, DockWidget, DockManager
@@ -539,6 +540,10 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                     if app is not None:
                         app.removeEventFilter(self)
                 self._frameless_drag_filter = False
+                # This is the path an OS-move drag ends on when the modal
+                # loop swallowed the title bar's own release, so it owes the
+                # same cleanup _handle_titlebar_drag's release branch does.
+                self._os_move_active = False
 
                 QTimer.singleShot(0, self._end_programmatic_drag)
                 return False
@@ -637,6 +642,15 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
             # stale drop-overlay state cannot linger.
             if self._dragging_state != DragState.inactive:
                 self._cancel_stale_drag()
+            # A new press means no OS move loop of ours is still running.
+            # Asserting that here rather than trusting the previous drag to
+            # have cleared it: the loop swallows the release that would have,
+            # and the app-filter path that ends the drag instead reset only
+            # the drag state. A leaked True made every later move skip the
+            # drag-start branch below and get consumed, so the float could
+            # never be dragged again — including after an Aero snap, which is
+            # how the loop usually ends.
+            self._os_move_active = False
             self._titlebar_drag_start = event.position().toPoint()
             self._drag_start_mouse_position = event.position().toPoint()
             self._set_state(DragState.mouse_pressed)
@@ -746,36 +760,43 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
         return False
 
     def _restore_under_cursor(self, global_pos: QPoint) -> None:
-        """Un-maximize with the grab kept where it is, before an OS move.
+        """Un-maximize or un-snap, grab kept where it is, before an OS move.
 
-        Windows gives native frames this for free: dragging a maximized
-        window by its caption restores it under the pointer. That lives in
-        the ``WM_NCLBUTTONDOWN`` / ``HTCAPTION`` path, which a client-area
-        title bar never receives — and qframelesswindow's move is
-        ``WM_SYSCOMMAND SC_MOVE``, which Windows refuses outright for a
-        zoomed window. So nothing was restoring it, and nothing was moving
-        it either.
+        Windows gives native frames this for free: dragging a maximized or
+        Aero-snapped window by its caption pulls it loose under the pointer.
+        That lives in the ``WM_NCLBUTTONDOWN`` / ``HTCAPTION`` path, which a
+        client-area title bar never receives — and qframelesswindow's move is
+        ``WM_SYSCOMMAND SC_MOVE``, which Windows refuses outright for either
+        state. So nothing restored the window, and nothing moved it either.
+
+        A snap is not a maximize — ``showCmd`` stays ``SW_NORMAL`` — so it
+        needs its own question, and its own source for the pre-snap size:
+        Qt's ``normalGeometry()`` has been overwritten with the snapped rect
+        by then, while Windows still has the original in
+        ``rcNormalPosition``. Un-snapping is then just a geometry change.
 
         The window is placed so the cursor keeps the same fraction across
         the title bar; grab a maximized float near its right edge and it
         comes loose near its right edge, rather than jumping so its corner
         lands under the pointer.
         """
-        if not is_window_maximized(self):
-            return
         local = self.mapFromGlobal(global_pos)
         fraction = min(1.0, max(0.0, local.x() / max(1, self.width())))
 
-        # The restored size has to come from normalGeometry(), read now:
-        # showNormal() does not apply the geometry before it returns (on
-        # either platform), so reading size() afterwards still measures the
-        # maximized window — and a plain move() then loses to Qt's own
-        # deferred restore. Set the whole rect instead.
-        target = QRect(self.normalGeometry())
-        if target.isEmpty():
-            target = QRect(self.pos(), self.size())
-
-        restore_window(self)
+        if is_window_maximized(self):
+            # The restored size has to come from normalGeometry(), read now:
+            # showNormal() does not apply the geometry before it returns (on
+            # either platform), so reading size() afterwards still measures
+            # the maximized window — and a plain move() then loses to Qt's
+            # own deferred restore. Set the whole rect instead.
+            target = QRect(self.normalGeometry())
+            if target.isEmpty():
+                target = QRect(self.pos(), self.size())
+            restore_window(self)
+        else:
+            target = pre_snap_geometry(self)
+            if target is None:
+                return
 
         target.moveTo(global_pos.x() - int(fraction * target.width()),
                       global_pos.y() - local.y())
