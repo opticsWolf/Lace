@@ -367,9 +367,9 @@ def check_vertical_tab_shape():
     # inactive tab is ringed at all — cyberpunk_edge alone rings both states,
     # and violet_haze alone rings the hover.
     all_four = {"left", "top", "right", "bottom"}
-    for name in ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze"):
-        # (neon_dusk rings its sidebar tabs too, but on the other shape — flat
-        # outward, strip closing the open edge; checked below on its own.)
+    for name in ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze"):
+        # (violet_haze and neon_dusk outline their sidebar tabs too, but on the
+        # other shape — flat outward, strip closing the open edge; below.)
         apply_dock_theme(name)
         s = sm.get_all(DockStyleCategory.SIDEBAR)
         assert s["tab_flat_edge"] == "none", f"{name}: sidebar tab shape lost"
@@ -383,21 +383,30 @@ def check_vertical_tab_shape():
             f"{name}: inactive tab ringed={not rings_idle}, expected {rings_idle}"
         hovered = mk(checked=False)
         hovered._is_hovered = True
-        rings_hover = rings_idle or name == "violet_haze"
-        assert (inked(hovered) == all_four) is rings_hover, \
-            f"{name}: hovered tab ringed={not rings_hover}, expected {rings_hover}"
+        assert (inked(hovered) == all_four) is rings_idle, \
+            f"{name}: the hover ring does not match the idle one"
 
-    # neon_dusk: rounded and ringed on the content-facing side, open against the
-    # window edge, and the strip on that open edge closing it.
-    apply_dock_theme("neon_dusk")
-    s = sm.get_all(DockStyleCategory.SIDEBAR)
-    assert s["tab_flat_edge"] == "outward" and s["indicator_position"] == "left"
-    assert s["indicator_width"] == s["tab_border_width"] == 2.0
-    assert rounded(mk()) == {"tr", "br"}, "the window-facing corners are not flat"
-    assert inked(mk()) == {"top", "right", "bottom"}, "the outward edge is not open"
-    px = render(mk(checked=True)).pixelColor(0, H // 2).getRgb()
-    assert px == s["indicator_color"].getRgb(), \
-        f"the strip does not close the open edge: {px}"
+    # neon_dusk and violet_haze: rounded and outlined on the content-facing
+    # side, open against the window edge, and the strip on that open edge
+    # closing it.  They differ in which state is outlined at all — neon_dusk
+    # every tab, violet_haze only a hovered or active one.
+    for name in ("neon_dusk", "violet_haze"):
+        apply_dock_theme(name)
+        s = sm.get_all(DockStyleCategory.SIDEBAR)
+        assert s["tab_flat_edge"] == "outward" and s["indicator_position"] == "left"
+        assert s["indicator_width"] == s["tab_border_width"] == 2.0
+        u = {"top", "right", "bottom"}
+        assert rounded(mk()) == {"tr", "br"}, f"{name}: window-facing corners not flat"
+        assert inked(mk(checked=True)) == u, f"{name}: the outward edge is not open"
+        hovered = mk(checked=False)
+        hovered._is_hovered = True
+        assert inked(hovered) == u, f"{name}: a hovered tab is not outlined"
+        idles = name == "neon_dusk"
+        assert (inked(mk(checked=False)) == u) is idles, \
+            f"{name}: idle tab outlined={not idles}, expected {idles}"
+        px = render(mk(checked=True)).pixelColor(0, H // 2).getRgb()
+        assert px == s["indicator_color"].getRgb(), \
+            f"{name}: the strip does not close the open edge: {px}"
 
     apply_dock_theme("default")
 

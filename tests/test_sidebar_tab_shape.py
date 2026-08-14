@@ -483,13 +483,11 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
 #: but leaves the sidebar alone, so its tabs stay rectangles.
 RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze",
           "neon_dusk")
-#: Of those, the ones shaped as a closed pill. neon_dusk is the odd one out: it
-#: keeps a flat edge, so its outline is open along it.
-PILL = RINGED[:4]
-#: The ones that leave an *idle* tab bare — cyberpunk_edge and neon_dusk ring
-#: both states. violet_haze belongs here: its extra ring is a hover state, and
-#: an idle tab is as bare as the other two's.
-ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze", "violet_haze")
+#: Of those, the ones shaped as a closed pill. violet_haze and neon_dusk keep a
+#: flat edge instead, so their outline is open along it — see their own tests.
+PILL = RINGED[:3]
+#: The pills that leave an inactive tab bare — cyberpunk_edge rings both states.
+ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze")
 
 
 def test_only_the_ringed_presets_opt_into_the_new_shape(qapp):
@@ -596,20 +594,41 @@ def test_these_presets_ring_only_the_active_tab(qapp, name):
     assert _inked_edges(active) == {"left", "top", "right", "bottom"}
 
 
-def test_violet_haze_rings_a_hovered_tab(qapp):
-    """The only preset whose ring is a hover cue: bare, then a preview of the
-    active ring under the cursor, then the solid accent when selected."""
+@pytest.mark.parametrize("area, inside, outside", [
+    (DockWidgetArea.left, "right", "left"),
+    (DockWidgetArea.right, "left", "right"),
+])
+def test_violet_haze_draws_a_u_on_hover(qapp, area, inside, outside):
+    """The only preset whose outline is a hover cue, and it is not a ring.
+
+    Bare when idle; a U under the cursor — down the content-facing side, across
+    the ends, open against the window edge; and closed when selected, by the
+    highlight strip sitting on exactly that open edge. So hover previews the
+    active outline and selection is what completes it.
+    """
     manager = get_dock_style_manager()
     manager.apply_theme("violet_haze")
     sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
-    hover, active = sidebar["tab_border_hover_color"], sidebar["tab_border_active_color"]
-    assert hover.getRgb()[:3] == active.getRgb()[:3], "the hover ring is off-accent"
-    assert 0 < hover.alpha() < active.alpha(), "the hover ring is not the fainter one"
+    assert sidebar["tab_flat_edge"] == "outward"
+    assert sidebar["indicator_position"] == "left", "the strip is not on the open edge"
+    assert sidebar["indicator_width"] == sidebar["tab_border_width"] == 2.0
 
-    hovered = _tab(checked=False)
+    hover, active = sidebar["tab_border_hover_color"], sidebar["tab_border_active_color"]
+    assert hover.getRgb()[:3] == active.getRgb()[:3], "the hover outline is off-accent"
+    assert 0 < hover.alpha() < active.alpha(), "the hover outline is not the fainter one"
+
+    assert not _inked_edges(_tab(area, checked=False)), "an idle tab is outlined"
+    hovered = _tab(area, checked=False)
     hovered._is_hovered = True
-    assert _inked_edges(hovered) == {"left", "top", "right", "bottom"}
-    assert not _inked_edges(_tab(checked=False)), "an idle tab is ringed too"
+    assert _inked_edges(hovered) == {"top", inside, "bottom"}, \
+        "the hovered outline is a closed ring, not a U"
+    assert _rounded_corners(hovered) == {f"top_{inside}", f"bottom_{inside}"}
+
+    # The active tab's strip fills the U's open edge, in the outline's colour.
+    x = 0 if outside == "left" else WIDTH - 1
+    assert _render(_tab(area, checked=True)).pixelColor(x, HEIGHT // 2).getRgb() == \
+        active.getRgb() == sidebar["indicator_color"].getRgb(), \
+        "the active tab does not close its U"
 
 
 @pytest.mark.parametrize("area, inside, outside", [

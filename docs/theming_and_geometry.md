@@ -108,40 +108,32 @@ band of the accent inside the ring.
 The outline has a third colour, `sidebar_tab_border_hover_color`, and it is the one that is
 *not* seeded: left unset, hover is not a state of its own and a hovered tab keeps the
 inactive outline — the behaviour of every theme written before the token existed. Set it with
-the inactive colour transparent and the ring becomes the hover cue, which is what
-`violet_haze` ships:
+the inactive colour transparent and the outline becomes the hover cue.
 
-```python
-ThemeSpec(
-    ...,
-    sidebar_tab_flat_edge = "none",
-    sidebar_tab_border_width = 2.0,
-    sidebar_tab_border_color = [0, 0, 0, 0],             # idle: bare
-    sidebar_tab_border_hover_color = [189, 147, 249, 130],   # the active ring, previewed
-    sidebar_indicator_width = 2.0,
-)
-```
-
-The active colour is left out there on purpose: it is seeded with the accent for every theme,
-so the width alone is what switches it on. A checked tab keeps that ring under the cursor —
-checked wins over hovered, the same precedence the fill uses.
-
-The strip does not have to sit *under* the ring. Put it on the edge the outline leaves open
-and it closes the shape instead, which is what `neon_dusk` does — the only preset that keeps
-a flat edge on its sidebar tabs:
+The strip also does not have to sit *under* the outline. Put it on the edge the outline
+leaves open and it closes the shape instead. `violet_haze` and `neon_dusk` — the two presets
+that keep a flat edge on their sidebar tabs — do both at once:
 
 ```python
 ThemeSpec(
     ...,
     sidebar_tab_flat_edge = "outward",      # rounded on the content-facing side only
-    sidebar_tab_border_width = 2.0,         # ...open along the window-facing one
-    sidebar_indicator_position = "left",    # ...where the strip closes it
-    sidebar_indicator_width = 2.0,
+    sidebar_tab_border_width = 2.0,         # ...open along the window-facing one,
+                                            #    so the outline draws a U, not a ring
+    sidebar_tab_border_color = [0, 0, 0, 0],                 # idle: bare
+    sidebar_tab_border_hover_color = [189, 147, 249, 130],   # the active U, previewed
+    sidebar_indicator_position = "left",    # the strip sits on the open edge...
+    sidebar_indicator_width = 2.0,          # ...and closes the active tab's U
 )
 ```
 
-Match the widths here too, for the other reason: the strip is finishing the outline rather
-than hiding under it, so a different width steps the line where the two meet.
+So the tab is bare, then a faint U under the cursor, then a closed outline when selected. The
+active colour is left out on purpose: it is seeded with the accent for every theme, so the
+width alone is what switches it on. A checked tab keeps that colour under the cursor —
+checked wins over hovered, the same precedence the fill uses.
+
+Match the widths here for the other reason: the strip is finishing the outline rather than
+hiding under it, so a different width steps the line where the two meet.
 
 ### Inactive sidebar tabs with a background
 

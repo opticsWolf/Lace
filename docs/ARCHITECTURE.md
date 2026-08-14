@@ -510,30 +510,31 @@ a dock tab's open bottom joins it to the panel below; `sidebar_tab_border_closed
 line the whole way round instead. With all four corners rounded there is no edge left to
 open, so the outline is always closed there.
 
-Four presets ship this treatment, all on the same geometry —
-`sidebar_tab_flat_edge = "none"`, so each tab is a closed rounded ring — and differing only
-in which states are ringed at all:
+Three presets ship this treatment on one geometry — `sidebar_tab_flat_edge = "none"`, so each
+tab is a closed rounded ring — differing only in which states are ringed at all:
 
-| Preset | Inactive | Hovered | Active |
-|---|---|---|---|
-| `cyberpunk_neon` | bare (`sidebar_tab_border_color` transparent) | — | focus cyan, 2.0 |
-| `cyberpunk_edge` | muted violet | — | amber, 1.5 |
-| `midnight_haze` | bare | — | accent, 2.0 |
-| `violet_haze` | bare | accent at alpha 130 | accent, 2.0 |
+| Preset | Inactive | Active |
+|---|---|---|
+| `cyberpunk_neon` | bare (`sidebar_tab_border_color` transparent) | focus cyan, 2.0 |
+| `cyberpunk_edge` | muted violet | amber, 1.5 |
+| `midnight_haze` | bare | accent, 2.0 |
 
-`neon_dusk` outlines its sidebar tabs too, but on the other shape: it is the one preset that
-keeps a flat edge there. `sidebar_tab_flat_edge = "outward"` rounds only the two
-content-facing corners and leaves the outline open against the window edge, and
-`sidebar_indicator_position = "left"` puts the highlight strip on exactly that open edge — so
-the ring and the roundness are on the inside and the strip closes the shape from the outside,
-the mirror image of what its dock tabs do with the rule under the tab strip. Both mirror with
-the sidebar the tab is in.
+Two more outline their sidebar tabs on the *other* shape: `neon_dusk` and `violet_haze` are
+the ones that keep a flat edge there. `sidebar_tab_flat_edge = "outward"` rounds only the two
+content-facing corners and leaves the outline open against the window edge, so what it draws
+is a U rather than a ring; `sidebar_indicator_position = "left"` then puts the highlight
+strip on exactly that open edge, at the outline's own width, so the *active* tab is what
+closes. The roundness and the line are on the inside and the strip finishes the shape from
+the outside — the mirror image of what these themes' dock tabs do with the rule under the tab
+strip. Both mirror with the sidebar the tab is in.
 
-`violet_haze` is the only one whose ring is a *hover* cue: the tab is bare when idle, ringed
-in a half-alpha accent under the cursor, and ringed solid when selected — so the hover ring
-reads as the active one previewed. `sidebar_tab_border_hover_color` is what buys that, and it
-is deliberately not seeded: unset, hover keeps the inactive outline, which is what the three
-presets above (and every theme predating the token) expect.
+They differ in which states are drawn at all: `neon_dusk` outlines every tab (muted indigo,
+neon pink when active), while `violet_haze` outlines none until you point at one — bare when
+idle, a half-alpha accent U under the cursor, and a solid closed outline when selected, so
+hover previews the active outline and selection completes it.
+`sidebar_tab_border_hover_color` is what buys that, and it is deliberately not seeded: unset,
+hover keeps the inactive outline, which is what the three presets above (and every theme
+predating the token) expect.
 
 `cyberpunk_edge` is the one that rings both states, mirroring what it already does with its
 card outline and its bottom rule. `midnight_haze` follows its own rule instead — one place
