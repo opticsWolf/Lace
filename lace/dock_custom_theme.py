@@ -549,6 +549,20 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
                                                     # rule, and so no frame
         indicator_position = "none",
         tab_dimming = True,
+
+        # Sidebar tabs carry the same rule: the active one is ringed and
+        # nothing else is drawn at all.  Rounded on all four corners, so the
+        # ring closes the whole way round — the sidebar has no notch to cut,
+        # nothing for an open edge to join it to.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],                # Inactive: bare
+        sidebar_tab_border_active_color = [125, 124, 252, 255],
+        # Matched to the ring, which covers it — the strip is not this preset's
+        # marker any more than the dock tabs' is (indicator_position = "none"
+        # above).  Left at the 3px default it would show as a band inside the
+        # ring, which is the one way it could still make itself seen.
+        sidebar_indicator_width = 2.0,
     ),
 }
 

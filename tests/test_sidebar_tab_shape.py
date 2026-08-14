@@ -338,12 +338,15 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
 
 
 # ── The shipped presets ───────────────────────────────────────────────────
-#: The two that demonstrate the ringed sidebar tab. Every other preset sets
-#: tab_radius but leaves the sidebar alone, so its tabs stay rectangles.
-RINGED = ("cyberpunk_neon", "cyberpunk_edge")
+#: The presets that ring their sidebar tabs. Every other one sets tab_radius
+#: but leaves the sidebar alone, so its tabs stay rectangles.
+RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze")
+#: Of those, the ones that leave an inactive tab bare — cyberpunk_edge is the
+#: only one that rings both states.
+ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze")
 
 
-def test_only_the_cyberpunk_pair_opts_into_the_new_shape(qapp):
+def test_only_the_ringed_presets_opt_into_the_new_shape(qapp):
     """Every other preset sets tab_radius and still gets square sidebar tabs."""
     from lace.dock_custom_theme import DOCK_THEMES
 
@@ -397,8 +400,9 @@ def test_the_strip_matches_the_ring_it_sits_on(qapp, name):
         f"{name}: the line on the shared edge is thicker than the ring"
 
 
-def test_cyberpunk_neon_rings_only_the_active_tab(qapp):
-    get_dock_style_manager().apply_theme("cyberpunk_neon")
+@pytest.mark.parametrize("name", ACTIVE_ONLY)
+def test_these_presets_ring_only_the_active_tab(qapp, name):
+    get_dock_style_manager().apply_theme(name)
     active, inactive = _tab(checked=True), _tab(checked=False)
     assert inactive._border_color(False) is None, "the inactive tab is ringed"
     assert active._border_color(True) is not None

@@ -362,11 +362,11 @@ def check_vertical_tab_shape():
           sidebar_tab_border_closed=True)
     assert inked(mk()) == {"left", "top", "right", "bottom"}, "outline not closed"
 
-    # The two shipped presets that ring their sidebar tabs. Same shape, and the
-    # strip matches the ring's width in both; they differ only in whether an
-    # inactive tab is ringed at all.
+    # The shipped presets that ring their sidebar tabs. Same shape, and the
+    # strip matches the ring's width in each; they differ only in whether an
+    # inactive tab is ringed at all — cyberpunk_edge alone rings both states.
     all_four = {"left", "top", "right", "bottom"}
-    for name in ("cyberpunk_neon", "cyberpunk_edge"):
+    for name in ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze"):
         apply_dock_theme(name)
         s = sm.get_all(DockStyleCategory.SIDEBAR)
         assert s["tab_flat_edge"] == "none", f"{name}: sidebar tab shape lost"

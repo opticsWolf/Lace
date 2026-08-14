@@ -477,7 +477,7 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `slate_amber` | Light industrial grey + burnt amber (`neutral` × `cyberpunk_edge`); the bottom rule on a light palette |
 | `neon_dusk` | Indigo + neon pink (`dracula` × `cyberpunk_neon`); every tab outlined, no card outline (reference preset for `tab_border_width`) |
 | `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; both tab states outlined; area outline limited to three sides (reference preset for `border_below_title`) |
-| `midnight_haze` | `violet_haze` × `midnight`: violet_haze's geometry over a near-black base. Only the focused area's active tab is outlined — everything else is drawn without a line (reference preset for `tab_border_unfocused_color`) |
+| `midnight_haze` | `violet_haze` × `midnight`: violet_haze's geometry over a near-black base. Only the focused area's active tab is outlined — everything else is drawn without a line (reference preset for `tab_border_unfocused_color`); its sidebar follows the same rule, ringing the active tab only |
 
 All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
 
@@ -506,14 +506,21 @@ a dock tab's open bottom joins it to the panel below; `sidebar_tab_border_closed
 line the whole way round instead. With all four corners rounded there is no edge left to
 open, so the outline is always closed there.
 
-`cyberpunk_neon` and `cyberpunk_edge` are the reference pair: identical geometry —
-`sidebar_tab_flat_edge = "none"`, so each tab is a closed rounded ring — differing only in
-whether an inactive tab is ringed at all. Neon rings the active tab in its focus cyan and
-leaves the rest bare (`sidebar_tab_border_color` transparent); edge rings every tab, muted
-violet inactive and amber active, mirroring what it already does with its card outline and
-its bottom rule.
+Three presets ship this treatment, all on the same geometry —
+`sidebar_tab_flat_edge = "none"`, so each tab is a closed rounded ring — and differing only
+in whether an inactive tab is ringed at all:
 
-Both pin `sidebar_indicator_width` to the ring's width. The strip shares the ring's
+| Preset | Inactive | Active |
+|---|---|---|
+| `cyberpunk_neon` | bare (`sidebar_tab_border_color` transparent) | focus cyan, 2.0 |
+| `cyberpunk_edge` | muted violet | amber, 1.5 |
+| `midnight_haze` | bare | accent, 2.0 |
+
+`cyberpunk_edge` is the one that rings both states, mirroring what it already does with its
+card outline and its bottom rule. `midnight_haze` follows its own rule instead — one place
+for the eye to land — so its sidebar rings the active tab and draws nothing else.
+
+All three pin `sidebar_indicator_width` to the ring's width. The strip shares the ring's
 content-facing edge and is painted *under* it, so at equal widths the ring covers it and the
 tab is one clean line; left at the 3px default it stuck out inside the ring — a pink sliver
 against neon's cyan, and doubled amber in edge.
