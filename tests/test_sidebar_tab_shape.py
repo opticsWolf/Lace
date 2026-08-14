@@ -315,6 +315,46 @@ def test_hover_still_wins_over_the_inactive_background(qapp):
     assert _fill(hovered) != (125, 124, 252, 255)
 
 
+def test_the_whole_fill_triple_is_themeable(qapp):
+    """Normal, hover and active — the hover pair as a horizontal gradient."""
+    _theme(sidebar_tab_bg_normal=[10, 20, 30, 255],
+           sidebar_tab_bg_hover_start=[200, 40, 40, 255],
+           sidebar_tab_bg_hover_end=[40, 40, 200, 255],
+           sidebar_tab_bg_active=[90, 200, 90, 255])
+    assert _fill(_tab(checked=False)) == (10, 20, 30, 255)
+    assert _fill(_tab(checked=True)) == (90, 200, 90, 255)
+
+    hovered = _tab(checked=False)
+    hovered._is_hovered = True
+    image, mid = _render(hovered), HEIGHT // 2
+    assert image.pixelColor(1, mid).getRgb()[0] > 150, "the gradient's start is missing"
+    assert image.pixelColor(WIDTH - 2, mid).getRgb()[2] > 150, "...and its end"
+
+
+def test_an_accent_hover_lifts_the_tints_ceiling(qapp):
+    """Why the hover pair matters, not just that it is settable.
+
+    A derived hover carries no accent and sits at a fixed lightness, so a tint
+    pushed past it makes an idle tab out-glow a hovered one. Giving hover the
+    accent as well raises the ceiling with it — the same alpha that inverts the
+    two below is comfortably clear of them above.
+    """
+    accent, deep = [125, 124, 252], 90
+
+    def luminance(hovered, **overrides):
+        _theme(sidebar_tab_bg_normal=accent + [deep], **overrides)
+        bar = get_dock_style_manager().get(DockStyleCategory.SIDEBAR, "bg_color")
+        button = _tab(checked=False)
+        button._is_hovered = hovered
+        return sum(_fill(button, bar)[:3])
+
+    assert luminance(True) < luminance(False), \
+        "a derived hover was already brighter, so there is no ceiling to lift"
+    assert luminance(True, sidebar_tab_bg_hover_start=accent + [160],
+                     sidebar_tab_bg_hover_end=accent + [160]) > luminance(False), \
+        "an accent hover still loses to the tint underneath it"
+
+
 def test_the_background_follows_the_tabs_shape(qapp):
     """It is the tab's fill, so a rounded corner stays uncovered."""
     _theme(sidebar_tab_flat_edge="none", sidebar_tab_bg_normal=[125, 124, 252, 255])

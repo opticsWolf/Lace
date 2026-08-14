@@ -424,12 +424,21 @@ class ThemeSpec:
     #: Corner radius for those rounded corners. Omitted, the sidebar tabs take
     #: the dock widget tabs' ``tab_radius``, so the two agree by default.
     sidebar_tab_radius: Optional[int] = None
-    #: Fill behind an *inactive* sidebar tab. Transparent in every shipped
-    #: theme, which is why an idle tab shows only its label; set it and every
-    #: tab carries a background of its own, not just the active and hovered
-    #: ones. Pass the accent at a low alpha for a tint of the highlight colour
-    #: rather than a slab of it.
+    #: The sidebar tab's three-state fill: inactive, hovered (a horizontal
+    #: gradient between the two ``hover`` colours), and active. Each falls back
+    #: to the derived value when unset — transparent for ``normal``, a step off
+    #: the base for the hover pair, the panel colour for ``active``.
+    #:
+    #: Set ``normal`` to the accent at a low alpha and every tab is tinted with
+    #: the highlight colour rather than only the selected one. How deep that
+    #: tint can go is decided by the hover pair: derived, it carries no accent
+    #: and sits at a fixed lightness, so a tint pushed past it makes an idle tab
+    #: out-glow a hovered one. Give hover the accent too and the ceiling rises
+    #: with it.
     sidebar_tab_bg_normal: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_bg_hover_start: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_bg_hover_end: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_bg_active: Optional[Union[QColor, List[int]]] = None
     #: Sidebar tab outline width; 0 (the default) draws none. The outline skips
     #: the flat edge unless ``sidebar_tab_border_closed`` is set.
     sidebar_tab_border_width: Optional[float] = None
@@ -499,6 +508,9 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         sidebar_tab_flat_edge=spec.sidebar_tab_flat_edge,
         sidebar_tab_radius=spec.sidebar_tab_radius,
         sidebar_tab_bg_normal=_as_rgba(spec.sidebar_tab_bg_normal) if spec.sidebar_tab_bg_normal is not None else None,
+        sidebar_tab_bg_hover_start=_as_rgba(spec.sidebar_tab_bg_hover_start) if spec.sidebar_tab_bg_hover_start is not None else None,
+        sidebar_tab_bg_hover_end=_as_rgba(spec.sidebar_tab_bg_hover_end) if spec.sidebar_tab_bg_hover_end is not None else None,
+        sidebar_tab_bg_active=_as_rgba(spec.sidebar_tab_bg_active) if spec.sidebar_tab_bg_active is not None else None,
         sidebar_tab_border_width=spec.sidebar_tab_border_width,
         sidebar_tab_border_color=_as_rgba(spec.sidebar_tab_border_color) if spec.sidebar_tab_border_color is not None else None,
         sidebar_tab_border_active_color=_as_rgba(spec.sidebar_tab_border_active_color) if spec.sidebar_tab_border_active_color is not None else None,
@@ -550,6 +562,9 @@ def _build_theme(
     sidebar_tab_flat_edge: Optional[str] = None,
     sidebar_tab_radius: Optional[int] = None,
     sidebar_tab_bg_normal: Optional[list] = None,
+    sidebar_tab_bg_hover_start: Optional[list] = None,
+    sidebar_tab_bg_hover_end: Optional[list] = None,
+    sidebar_tab_bg_active: Optional[list] = None,
     sidebar_tab_border_width: Optional[float] = None,
     sidebar_tab_border_color: Optional[list] = None,
     sidebar_tab_border_active_color: Optional[list] = None,
@@ -714,6 +729,12 @@ def _build_theme(
         theme[DockStyleCategory.SIDEBAR]["tab_corner_radius"] = sidebar_tab_radius
     if sidebar_tab_bg_normal is not None:
         theme[DockStyleCategory.SIDEBAR]["tab_bg_normal"] = sidebar_tab_bg_normal
+    if sidebar_tab_bg_hover_start is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_bg_hover_start"] = sidebar_tab_bg_hover_start
+    if sidebar_tab_bg_hover_end is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_bg_hover_end"] = sidebar_tab_bg_hover_end
+    if sidebar_tab_bg_active is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_bg_active"] = sidebar_tab_bg_active
     if sidebar_tab_border_width is not None:
         theme[DockStyleCategory.SIDEBAR]["tab_border_width"] = sidebar_tab_border_width
     if sidebar_tab_border_color is not None:

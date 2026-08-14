@@ -369,6 +369,8 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | `sidebar_tab_flat_edge` | `str` | Which edge of a sidebar tab stays square: `"outward"` (the window edge its bar runs along), `"inward"` (facing the docked content), `"none"` (all four corners rounded), or `"all"` (the default — a plain rectangle) |
 | `sidebar_tab_radius` | `int` | Radius for those rounded corners; omitted, sidebar tabs take `tab_radius` |
 | `sidebar_tab_bg_normal` | `QColor` / `List[int]` | Fill behind an **inactive** sidebar tab. Transparent in every shipped theme, which is why an idle tab shows only its label; set it and every tab carries a background, not just the active and hovered ones. The accent at a low alpha gives a tint of the highlight colour rather than a slab of it |
+| `sidebar_tab_bg_hover_start` / `_end` | `QColor` / `List[int]` | The hovered tab's horizontal gradient. Derived from the base when unset, which carries no accent — see the note under *Sidebar tabs* on why that caps `sidebar_tab_bg_normal` |
+| `sidebar_tab_bg_active` | `QColor` / `List[int]` | The selected tab's fill (the panel colour when unset) |
 | `sidebar_tab_border_width` | `float` | Sidebar tab outline width; 0 (default) draws none |
 | `sidebar_tab_border_color` | `QColor` / `List[int]` | Outline colour for inactive sidebar tabs; transparent outlines only the active one |
 | `sidebar_tab_border_active_color` | `QColor` / `List[int]` | Outline colour for the active sidebar tab (defaults to the accent) |
@@ -524,10 +526,16 @@ it is also the one preset that fills its inactive tabs, tinting them with the ac
 (`sidebar_tab_bg_normal`) so the column reads as one family while the ring alone says which
 tab is selected.
 
-That tint has a ceiling, and a lower one than it looks. Hover is derived from the base and
-carries no accent, so it sits at a fixed luminance however deep the tint goes: in
+That tint has a ceiling, and a lower one than it looks. A *derived* hover comes off the base
+and carries no accent, so it sits at a fixed luminance however deep the tint goes: in
 `midnight_haze` an idle tab crosses it just past alpha 40, and beyond that an idle tab
 out-glows a hovered one. 30 keeps a clear margin.
+
+The ceiling is the derived hover's, not the feature's. The sidebar tab's fill is a
+three-state set — `sidebar_tab_bg_normal`, the `sidebar_tab_bg_hover_start` / `_end`
+gradient, and `sidebar_tab_bg_active` — and all three are themeable. Give hover the accent
+too and it rises with the tint, so a deeper `bg_normal` stays legible; leave it derived and
+alpha ~40 is the practical limit.
 
 All three pin `sidebar_indicator_width` to the ring's width. The strip shares the ring's
 content-facing edge and is painted *under* it, so at equal widths the ring covers it and the

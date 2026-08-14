@@ -54,7 +54,10 @@ class ThemeSpec:
     # and the radius follows tab_radius unless pinned here.
     sidebar_tab_flat_edge: Optional[str] = None
     sidebar_tab_radius: Optional[int] = None
-    sidebar_tab_bg_normal: Optional[Union[QColor, List[int]]] = None  # inactive fill
+    sidebar_tab_bg_normal: Optional[Union[QColor, List[int]]] = None       # inactive fill
+    sidebar_tab_bg_hover_start: Optional[Union[QColor, List[int]]] = None  # hover gradient
+    sidebar_tab_bg_hover_end: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_bg_active: Optional[Union[QColor, List[int]]] = None       # selected fill
     sidebar_tab_border_width: Optional[float] = None
     sidebar_tab_border_color: Optional[Union[QColor, List[int]]] = None
     sidebar_tab_border_active_color: Optional[Union[QColor, List[int]]] = None
@@ -118,11 +121,27 @@ Pass the accent at full alpha and every inactive tab becomes a slab of the highl
 at a low alpha it reads as a tint, and the active tab still stands out through its own
 `tab_bg_active` and indicator. Hover keeps priority over both.
 
-Hover is what caps the alpha, and lower than you would guess. It is derived from the base and
-carries no accent, so it sits at a fixed luminance however deep the tint goes — push the tint
-past it and an *idle* tab out-glows a hovered one, which reads as a glitch. `midnight_haze`
-ships the only tinted sidebar in the presets and uses alpha 30 against a crossover just past
-40.
+Hover is what caps the alpha, and lower than you would guess. Left derived it comes off the
+base and carries no accent, so it sits at a fixed luminance however deep the tint goes — push
+the tint past it and an *idle* tab out-glows a hovered one, which reads as a glitch.
+`midnight_haze` ships the only tinted sidebar in the presets and uses alpha 30 against a
+crossover just past 40.
+
+That limit is the derived hover's, not the tint's. The fill is a three-state set and all of
+it is themeable, so give hover the accent as well and the ceiling rises with it:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_bg_normal      = [125, 124, 252, 90],    # a much deeper tint
+    sidebar_tab_bg_hover_start = [125, 124, 252, 160],   # ...that hover still beats
+    sidebar_tab_bg_hover_end   = [125, 124, 252, 130],
+    sidebar_tab_bg_active      = [58, 60, 96, 255],      # optional; panel colour when unset
+)
+```
+
+The hover pair is a horizontal gradient (start on the left edge, end on the right); pass the
+same colour twice for a flat fill.
 
 ---
 

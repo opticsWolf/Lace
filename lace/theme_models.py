@@ -157,8 +157,12 @@ class ThemeJson(BaseModel):
     # flat, and the radius follows tab_radius unless pinned here.
     sidebar_tab_flat_edge: Optional[str] = None
     sidebar_tab_radius: Optional[int] = None
-    # Fill behind an inactive tab; transparent in every shipped theme.
+    # The tab's three-state fill. Each falls back to its derived value when
+    # unset; the hover pair is a horizontal gradient.
     sidebar_tab_bg_normal: Optional[Color] = None
+    sidebar_tab_bg_hover_start: Optional[Color] = None
+    sidebar_tab_bg_hover_end: Optional[Color] = None
+    sidebar_tab_bg_active: Optional[Color] = None
     sidebar_tab_border_width: Optional[float] = None
     sidebar_tab_border_color: Optional[Color] = None
     sidebar_tab_border_active_color: Optional[Color] = None
@@ -235,6 +239,15 @@ class ThemeJson(BaseModel):
             sidebar_tab_radius=self.sidebar_tab_radius,
             sidebar_tab_bg_normal=rgba(self.sidebar_tab_bg_normal)
             if self.sidebar_tab_bg_normal is not None
+            else None,
+            sidebar_tab_bg_hover_start=rgba(self.sidebar_tab_bg_hover_start)
+            if self.sidebar_tab_bg_hover_start is not None
+            else None,
+            sidebar_tab_bg_hover_end=rgba(self.sidebar_tab_bg_hover_end)
+            if self.sidebar_tab_bg_hover_end is not None
+            else None,
+            sidebar_tab_bg_active=rgba(self.sidebar_tab_bg_active)
+            if self.sidebar_tab_bg_active is not None
             else None,
             sidebar_tab_border_width=self.sidebar_tab_border_width,
             sidebar_tab_border_color=rgba(self.sidebar_tab_border_color)
