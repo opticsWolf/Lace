@@ -464,12 +464,17 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         #
         # Same 2px as everything else, on both, so the strip finishes the
         # outline at the outline's own weight instead of stepping it.
+        #
+        # Where the dock tabs outline every tab, the sidebar draws nothing until
+        # you point at one: idle is bare, and the muted indigo the inactive dock
+        # tabs wear moves to the hover instead, so what a hovered tab shows is
+        # that U on its own.  Selecting it fills the U in — neon pink, the
+        # seeded accent, already the dock tabs' active outline — and closes it
+        # with the strip.
         sidebar_tab_flat_edge = "outward",
         sidebar_tab_border_width = 2.0,
-        sidebar_tab_border_color = [98, 114, 164, 160],     # Inactive: as above
-        # ...and active: the seeded default is the accent, which is already the
-        # dock tabs' active outline, so the selected tab is neon pink the whole
-        # way round — ring on the inside, strip closing it on the outside.
+        sidebar_tab_border_color = [0, 0, 0, 0],            # Idle: bare
+        sidebar_tab_border_hover_color = [98, 114, 164, 160],   # The dock tabs' indigo
         sidebar_indicator_width = 2.0,
         sidebar_indicator_position = "left",               # The window-facing edge
     ),
@@ -525,24 +530,18 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_position = "none",
         tab_dimming = True,
 
-        # The sidebar tabs reach the same 2px outline a step later than the dock
-        # tabs — bare when idle, drawn in the accent at half alpha under the
-        # cursor, solid when selected (that last colour is the seeded default,
-        # the accent, which the width above is what switches on).
-        #
-        # Flat against the window edge, so the outline is open there: what a
-        # hovered tab shows is a U, not a ring, and it is the *active* tab that
-        # closes — its highlight strip sits on exactly that open edge and
-        # finishes the line at the outline's own weight.  Hence the strip moved
-        # outward, and hence the widths match: the strip is completing the
-        # outline here rather than hiding under it, so a mismatch steps the
-        # corner where the two meet.
-        sidebar_tab_flat_edge = "outward",
+        # The sidebar tabs round all four corners and carry the same 2px ring,
+        # but reach it a step later than the dock tabs: bare when idle, ringed
+        # in the accent at half alpha under the cursor, and ringed solid when
+        # selected (that last colour is the seeded default — the accent — which
+        # the width above is what switches on).  So the hover ring reads as the
+        # active one previewed, and the strip stays matched to it: at the 3px
+        # default it would out-thickness the ring it sits on.
+        sidebar_tab_flat_edge = "none",
         sidebar_tab_border_width = 2.0,
         sidebar_tab_border_color = [0, 0, 0, 0],             # Idle: bare
         sidebar_tab_border_hover_color = [189, 147, 249, 130],
         sidebar_indicator_width = 2.0,
-        sidebar_indicator_position = "left",                 # The window-facing edge
     ),
 
     # -------------------------------------------------------------------------
