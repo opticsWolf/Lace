@@ -368,6 +368,7 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | `indicator_position` | `str` / `List[str]` / `Tuple[str, ...]` | Active tab highlight stripe edge(s) (`"none"`, `"top"`, `"bottom"`, `"left"`, `"right"`, or combination/list) |
 | `sidebar_tab_flat_edge` | `str` | Which edge of a sidebar tab stays square: `"outward"` (the window edge its bar runs along), `"inward"` (facing the docked content), `"none"` (all four corners rounded), or `"all"` (the default — a plain rectangle) |
 | `sidebar_tab_radius` | `int` | Radius for those rounded corners; omitted, sidebar tabs take `tab_radius` |
+| `sidebar_tab_bg_normal` | `QColor` / `List[int]` | Fill behind an **inactive** sidebar tab. Transparent in every shipped theme, which is why an idle tab shows only its label; set it and every tab carries a background, not just the active and hovered ones. The accent at a low alpha gives a tint of the highlight colour rather than a slab of it |
 | `sidebar_tab_border_width` | `float` | Sidebar tab outline width; 0 (default) draws none |
 | `sidebar_tab_border_color` | `QColor` / `List[int]` | Outline colour for inactive sidebar tabs; transparent outlines only the active one |
 | `sidebar_tab_border_active_color` | `QColor` / `List[int]` | Outline colour for the active sidebar tab (defaults to the accent) |

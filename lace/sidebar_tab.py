@@ -72,6 +72,7 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._badge_text_color = QColor(Qt.white)
         self._highlight_color = QColor(0, 122, 204)
         self._bg_active = QColor(45, 45, 45)
+        self._bg_normal = None      # transparent unless a theme fills it
         self._bg_hover_start = QColor(60, 60, 60)
         self._bg_hover_end = QColor(45, 45, 45)
         self._text_active = QColor(Qt.white)
@@ -175,16 +176,26 @@ class VerticalTabButton(QToolButton, DockStyled):
 
         # 1+2. Background/hover + selection indicator + outline via the shared
         # paint_tab (the vertical sidebar indicator hugs a Left/Right edge).
-        # One call for all three states: an idle tab has no fill but may still
-        # carry an outline, so the call cannot be skipped on that branch.
+        # One call for all three states: an idle tab's fill is transparent in
+        # every shipped theme but it may still carry an outline, so the call
+        # cannot be skipped on that branch.
         rect = QRectF(self.rect())
         radius, flat_edge, border_closed = self._tab_shape()
         checked = self.isChecked()
+        # Normal / hover / active, the same triple the dock widget tabs use.
+        # paint_tab skips a fully transparent fill, which is what tab_bg_normal
+        # is until a theme sets it.
+        gradient = None
+        if checked:
+            fill = self._bg_active
+        elif self._is_hovered:
+            fill, gradient = None, (self._bg_hover_start, self._bg_hover_end)
+        else:
+            fill = self._bg_normal
         paint_tab(
             p, rect,
-            bg=self._bg_active if checked else None,
-            bg_gradient=((self._bg_hover_start, self._bg_hover_end)
-                         if self._is_hovered and not checked else None),
+            bg=fill,
+            bg_gradient=gradient,
             radius=radius, flat_edge=flat_edge,
             indicator=self._highlight_color if checked else None,
             indicator_width=self._indicator_width,
@@ -322,6 +333,10 @@ class VerticalTabButton(QToolButton, DockStyled):
         s = self._style_mgr.get_all(DockStyleCategory.SIDEBAR)
 
         self._bg_active = s.get("tab_bg_active") or self._bg_active
+        # No `or` fallback like the lines around it: there is nothing to fall
+        # back to. Transparent is the intended value and what every shipped
+        # theme seeds this with, and paint_tab skips a zero-alpha fill.
+        self._bg_normal = s.get("tab_bg_normal")
         self._bg_hover_start = s.get("tab_bg_hover_start") or self._bg_hover_start
         self._bg_hover_end = s.get("tab_bg_hover_end") or self._bg_hover_end
         self._text_active = s.get("tab_text_active") or self._text_active

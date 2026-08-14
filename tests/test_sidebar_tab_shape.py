@@ -263,6 +263,58 @@ def test_the_outline_follows_the_rounded_corners(qapp):
         "top_left", "top_right", "bottom_right", "bottom_left"}
 
 
+# ── The inactive tab's own background ─────────────────────────────────────
+def _fill(button, x=None):
+    """The colour in the middle of the tab, clear of any edge treatment."""
+    return _render(button).pixelColor(
+        WIDTH // 2 if x is None else x, HEIGHT // 2).getRgb()
+
+
+def test_an_inactive_tab_paints_nothing_by_default(qapp):
+    """tab_bg_normal is transparent in every shipped theme."""
+    _theme()
+    assert get_dock_style_manager().get(
+        DockStyleCategory.SIDEBAR, "tab_bg_normal").alpha() == 0
+    assert _fill(_tab(checked=False)) == (0, 0, 0, 0)
+
+
+def test_an_inactive_tab_can_carry_a_background(qapp):
+    _theme(sidebar_tab_bg_normal=[125, 124, 252, 255])
+    assert _fill(_tab(checked=False)) == (125, 124, 252, 255)
+    assert _fill(_tab(checked=True)) != (125, 124, 252, 255), \
+        "the active tab lost its own background"
+
+
+def test_the_inactive_background_can_be_the_highlight_colour(qapp):
+    """The point of the token: every tab tinted with the accent, not just the
+    active one. A low alpha reads as a tint rather than a slab."""
+    accent = [255, 100, 180, 255]
+    _theme(sidebar_tab_bg_normal=accent)
+    idle = _tab(checked=False)
+    assert _fill(idle) == tuple(accent) == \
+        get_dock_style_manager().get(
+            DockStyleCategory.SIDEBAR, "indicator_color").getRgb()
+
+    _theme(sidebar_tab_bg_normal=[255, 100, 180, 40])
+    tinted = _fill(_tab(checked=False))
+    assert tinted[3] == 40, "the alpha was dropped, so it is a slab not a tint"
+
+
+def test_hover_still_wins_over_the_inactive_background(qapp):
+    """Normal / hover / active, the same triple the dock widget tabs use."""
+    _theme(sidebar_tab_bg_normal=[125, 124, 252, 255])
+    hovered = _tab(checked=False)
+    hovered._is_hovered = True
+    assert _fill(hovered) != (125, 124, 252, 255)
+
+
+def test_the_background_follows_the_tabs_shape(qapp):
+    """It is the tab's fill, so a rounded corner stays uncovered."""
+    _theme(sidebar_tab_flat_edge="none", sidebar_tab_bg_normal=[125, 124, 252, 255])
+    assert _rounded_corners(_tab(checked=False)) == {
+        "top_left", "top_right", "bottom_right", "bottom_left"}
+
+
 # ── The highlight strip ───────────────────────────────────────────────────
 def test_the_indicator_width_is_themeable(qapp):
     """SIDEBAR.indicator_width had no route in from a ThemeSpec at all."""

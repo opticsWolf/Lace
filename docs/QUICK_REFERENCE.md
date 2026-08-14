@@ -317,6 +317,7 @@ apply_dock_theme(my_theme)  # or apply directly
 | `indicator_position` | Active tab highlight stripe edge(s) (`"none"`, `"top"`, `"bottom"`, `"left"`, `"right"`, or combination e.g. `"top, bottom"`) |
 | `sidebar_tab_flat_edge` | Which edge of a sidebar tab stays square: `"outward"`, `"inward"`, `"none"` (round all four), or `"all"` (default, plain rectangle) |
 | `sidebar_tab_radius` | Radius for a sidebar tab's rounded corners (defaults to `tab_radius`) |
+| `sidebar_tab_bg_normal` | Fill behind an **inactive** sidebar tab (transparent by default, so an idle tab shows only its label). The accent at a low alpha tints every tab with the highlight colour |
 | `sidebar_tab_border_width` | Sidebar tab outline width; 0 (default) draws none |
 | `sidebar_tab_border_color` / `sidebar_tab_border_active_color` | Outline colour per state; transparent turns that state off |
 | `sidebar_tab_border_closed` | Close the outline across the flat edge instead of leaving it open |

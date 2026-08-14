@@ -157,6 +157,8 @@ class ThemeJson(BaseModel):
     # flat, and the radius follows tab_radius unless pinned here.
     sidebar_tab_flat_edge: Optional[str] = None
     sidebar_tab_radius: Optional[int] = None
+    # Fill behind an inactive tab; transparent in every shipped theme.
+    sidebar_tab_bg_normal: Optional[Color] = None
     sidebar_tab_border_width: Optional[float] = None
     sidebar_tab_border_color: Optional[Color] = None
     sidebar_tab_border_active_color: Optional[Color] = None
@@ -231,6 +233,9 @@ class ThemeJson(BaseModel):
             indicator_position=self.indicator_position,
             sidebar_tab_flat_edge=self.sidebar_tab_flat_edge,
             sidebar_tab_radius=self.sidebar_tab_radius,
+            sidebar_tab_bg_normal=rgba(self.sidebar_tab_bg_normal)
+            if self.sidebar_tab_bg_normal is not None
+            else None,
             sidebar_tab_border_width=self.sidebar_tab_border_width,
             sidebar_tab_border_color=rgba(self.sidebar_tab_border_color)
             if self.sidebar_tab_border_color is not None

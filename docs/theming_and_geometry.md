@@ -54,6 +54,7 @@ class ThemeSpec:
     # and the radius follows tab_radius unless pinned here.
     sidebar_tab_flat_edge: Optional[str] = None
     sidebar_tab_radius: Optional[int] = None
+    sidebar_tab_bg_normal: Optional[Union[QColor, List[int]]] = None  # inactive fill
     sidebar_tab_border_width: Optional[float] = None
     sidebar_tab_border_color: Optional[Union[QColor, List[int]]] = None
     sidebar_tab_border_active_color: Optional[Union[QColor, List[int]]] = None
@@ -99,6 +100,23 @@ Keep the stripe's width equal to the ring's. The stripe sits on the ring's conte
 edge and is painted *under* it, so at equal widths the ring covers it and the tab is one
 clean line all the way round; a wider stripe (the default is 3) shows the difference as a
 band of the accent inside the ring.
+
+### Inactive sidebar tabs with a background
+
+A sidebar tab has the same three-state fill a dock widget tab does — normal, hover, active —
+but the normal one is transparent in every shipped theme, so an idle tab shows only its
+label. `sidebar_tab_bg_normal` fills it:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_bg_normal = [125, 124, 252, 40],   # the accent, as a tint
+)
+```
+
+Pass the accent at full alpha and every inactive tab becomes a slab of the highlight colour;
+at a low alpha it reads as a tint, and the active tab still stands out through its own
+`tab_bg_active` and indicator. Hover keeps priority over both.
 
 ---
 
