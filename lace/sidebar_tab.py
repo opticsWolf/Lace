@@ -83,6 +83,7 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._tab_flat_edge = "all"
         self._border_normal = None
         self._border_active = None
+        self._border_hover = None   # None follows _border_normal
         self._border_width = 0.0
         self._border_closed = False
 
@@ -200,7 +201,8 @@ class VerticalTabButton(QToolButton, DockStyled):
             indicator=self._highlight_color if checked else None,
             indicator_width=self._indicator_width,
             indicator_edge=self._indicator_edge(),
-            border=self._border_color(checked), border_width=self._border_width,
+            border=self._border_color(checked, self._is_hovered),
+            border_width=self._border_width,
             border_closed=border_closed,
         )
 
@@ -278,14 +280,24 @@ class VerticalTabButton(QToolButton, DockStyled):
         # edge singled out — so the outline, if any, runs the whole way round.
         return 0.0, outward, True
 
-    def _border_color(self, checked: bool) -> Optional[QColor]:
+    def _border_color(self, checked: bool, hovered: bool = False) -> Optional[QColor]:
         """The outline this state paints, or ``None`` for no outline.
 
         A transparent colour means "no outline in this state", which is how a
         theme outlines only the active tab — the same contract the dock widget
         tabs' ``border_normal_color`` / ``border_active_color`` pair has.
+
+        Checked wins over hovered, as in the fill above; and an *unset* hover
+        colour is not the same as a transparent one — unset the hover is not a
+        state of its own and keeps the inactive outline, which is what every
+        theme without the token expects.
         """
-        color = self._border_active if checked else self._border_normal
+        if checked:
+            color = self._border_active
+        elif hovered and self._border_hover is not None:
+            color = self._border_hover
+        else:
+            color = self._border_normal
         return color if color is not None and color.alpha() > 0 else None
 
     def _draw_badge(self, p: QPainter, rect: QRect):
@@ -353,6 +365,7 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._tab_corner_radius = float(radius or 0)
         self._border_normal = s.get("tab_border_normal_color")
         self._border_active = s.get("tab_border_active_color")
+        self._border_hover = s.get("tab_border_hover_color")
         self._border_width = float(s.get("tab_border_width") or 0.0)
         self._border_closed = bool(s.get("tab_border_closed", False))
         self._badge_color = s.get("badge_bg") or self._badge_color

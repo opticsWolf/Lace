@@ -503,6 +503,19 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         tab_border_active_color = [189, 147, 249, 255],
         indicator_position = "none",
         tab_dimming = True,
+
+        # The sidebar tabs round all four corners and carry the same 2px ring,
+        # but reach it a step later than the dock tabs: bare when idle, ringed
+        # in the accent at half alpha under the cursor, and ringed solid when
+        # selected (that last colour is the seeded default — the accent — which
+        # the width above is what switches on).  So the hover ring reads as the
+        # active one previewed, and the strip stays matched to it: at the 3px
+        # default it would out-thickness the ring it sits on.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],             # Idle: bare
+        sidebar_tab_border_hover_color = [189, 147, 249, 130],
+        sidebar_indicator_width = 2.0,
     ),
 
     # -------------------------------------------------------------------------

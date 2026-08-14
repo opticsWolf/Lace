@@ -166,6 +166,7 @@ class ThemeJson(BaseModel):
     sidebar_tab_border_width: Optional[float] = None
     sidebar_tab_border_color: Optional[Color] = None
     sidebar_tab_border_active_color: Optional[Color] = None
+    sidebar_tab_border_hover_color: Optional[Color] = None
     sidebar_tab_border_closed: Optional[bool] = None
     sidebar_indicator_width: Optional[float] = None
     sidebar_indicator_position: Optional[str] = None
@@ -255,6 +256,9 @@ class ThemeJson(BaseModel):
             else None,
             sidebar_tab_border_active_color=rgba(self.sidebar_tab_border_active_color)
             if self.sidebar_tab_border_active_color is not None
+            else None,
+            sidebar_tab_border_hover_color=rgba(self.sidebar_tab_border_hover_color)
+            if self.sidebar_tab_border_hover_color is not None
             else None,
             sidebar_tab_border_closed=self.sidebar_tab_border_closed,
             sidebar_indicator_width=self.sidebar_indicator_width,

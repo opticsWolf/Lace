@@ -374,6 +374,7 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | `sidebar_tab_border_width` | `float` | Sidebar tab outline width; 0 (default) draws none |
 | `sidebar_tab_border_color` | `QColor` / `List[int]` | Outline colour for inactive sidebar tabs; transparent outlines only the active one |
 | `sidebar_tab_border_active_color` | `QColor` / `List[int]` | Outline colour for the active sidebar tab (defaults to the accent) |
+| `sidebar_tab_border_hover_color` | `QColor` / `List[int]` | Outline colour for a hovered, inactive tab. *Unset* — unlike the pair above, which are seeded — means hover is not a state of its own and keeps the inactive outline; set it, with the inactive one transparent, and the outline becomes the hover cue |
 | `sidebar_tab_border_closed` | `bool` | Close the outline across the flat edge instead of leaving it open |
 | `sidebar_indicator_width` | `float` | Thickness of the sidebar tab's highlight stripe. Give it the outline's width: the strip sits *on* one of the outline's edges and is painted under it, so a wider one sticks out inside the tab and steps that edge |
 | `sidebar_indicator_position` | `str` | Which edge it hugs: `"left"` (window-facing) or `"right"` (content-facing), mirrored per sidebar |
@@ -509,15 +510,22 @@ a dock tab's open bottom joins it to the panel below; `sidebar_tab_border_closed
 line the whole way round instead. With all four corners rounded there is no edge left to
 open, so the outline is always closed there.
 
-Three presets ship this treatment, all on the same geometry —
+Four presets ship this treatment, all on the same geometry —
 `sidebar_tab_flat_edge = "none"`, so each tab is a closed rounded ring — and differing only
-in whether an inactive tab is ringed at all:
+in which states are ringed at all:
 
-| Preset | Inactive | Active |
-|---|---|---|
-| `cyberpunk_neon` | bare (`sidebar_tab_border_color` transparent) | focus cyan, 2.0 |
-| `cyberpunk_edge` | muted violet | amber, 1.5 |
-| `midnight_haze` | bare | accent, 2.0 |
+| Preset | Inactive | Hovered | Active |
+|---|---|---|---|
+| `cyberpunk_neon` | bare (`sidebar_tab_border_color` transparent) | — | focus cyan, 2.0 |
+| `cyberpunk_edge` | muted violet | — | amber, 1.5 |
+| `midnight_haze` | bare | — | accent, 2.0 |
+| `violet_haze` | bare | accent at alpha 130 | accent, 2.0 |
+
+`violet_haze` is the only one whose ring is a *hover* cue: the tab is bare when idle, ringed
+in a half-alpha accent under the cursor, and ringed solid when selected — so the hover ring
+reads as the active one previewed. `sidebar_tab_border_hover_color` is what buys that, and it
+is deliberately not seeded: unset, hover keeps the inactive outline, which is what the three
+presets above (and every theme predating the token) expect.
 
 `cyberpunk_edge` is the one that rings both states, mirroring what it already does with its
 card outline and its bottom rule. `midnight_haze` follows its own rule instead — one place

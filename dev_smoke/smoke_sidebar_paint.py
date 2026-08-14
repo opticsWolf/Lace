@@ -364,9 +364,10 @@ def check_vertical_tab_shape():
 
     # The shipped presets that ring their sidebar tabs. Same shape, and the
     # strip matches the ring's width in each; they differ only in whether an
-    # inactive tab is ringed at all — cyberpunk_edge alone rings both states.
+    # inactive tab is ringed at all — cyberpunk_edge alone rings both states,
+    # and violet_haze alone rings the hover.
     all_four = {"left", "top", "right", "bottom"}
-    for name in ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze"):
+    for name in ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze"):
         apply_dock_theme(name)
         s = sm.get_all(DockStyleCategory.SIDEBAR)
         assert s["tab_flat_edge"] == "none", f"{name}: sidebar tab shape lost"
@@ -378,6 +379,11 @@ def check_vertical_tab_shape():
         rings_idle = name == "cyberpunk_edge"
         assert (inked(idle) == all_four) is rings_idle, \
             f"{name}: inactive tab ringed={not rings_idle}, expected {rings_idle}"
+        hovered = mk(checked=False)
+        hovered._is_hovered = True
+        rings_hover = rings_idle or name == "violet_haze"
+        assert (inked(hovered) == all_four) is rings_hover, \
+            f"{name}: hovered tab ringed={not rings_hover}, expected {rings_hover}"
 
     apply_dock_theme("default")
 

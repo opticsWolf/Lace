@@ -257,6 +257,44 @@ def test_both_states_can_differ(qapp):
         "the two outlines render identically"
 
 
+def test_the_outline_can_be_the_hover_cue(qapp):
+    """With the inactive colour off, the ring appears under the cursor only."""
+    _theme(sidebar_tab_flat_edge="none", sidebar_tab_border_width=2.0,
+           sidebar_tab_border_color=[0, 0, 0, 0],
+           sidebar_tab_border_hover_color=[189, 147, 249, 255])
+    idle = _tab(checked=False)
+    hovered = _tab(checked=False)
+    hovered._is_hovered = True
+    assert not _inked_edges(idle), "an idle tab is ringed"
+    assert _inked_edges(hovered) == {"left", "top", "right", "bottom"}
+
+
+def test_an_unset_hover_outline_is_not_a_transparent_one(qapp):
+    """Unset, hover is not a state of its own — it keeps the inactive ring.
+
+    The distinction the token turns on: were "unset" read as "no outline", every
+    theme that rings its inactive tabs would lose that ring under the cursor.
+    """
+    _theme(sidebar_tab_border_width=2.0,
+           sidebar_tab_border_color=[100, 110, 160, 255])
+    assert get_dock_style_manager().get(
+        DockStyleCategory.SIDEBAR, "tab_border_hover_color") is None
+    button = _tab(checked=False)
+    assert button._border_color(False, True) == button._border_color(False, False)
+    button._is_hovered = True
+    assert _inked_edges(button) == {"left", "top", "right", "bottom"}
+
+
+def test_the_active_tab_keeps_its_own_outline_under_the_cursor(qapp):
+    """Checked wins over hovered, the same precedence the fill uses."""
+    _theme(sidebar_tab_border_width=2.0,
+           sidebar_tab_border_active_color=[255, 100, 180, 255],
+           sidebar_tab_border_hover_color=[80, 250, 123, 255])
+    button = _tab(checked=True)
+    button._is_hovered = True
+    assert button._border_color(True, True).getRgb() == (255, 100, 180, 255)
+
+
 def test_the_outline_follows_the_rounded_corners(qapp):
     """Stroked on the tab path, so a rounded corner stays uncovered."""
     _theme(sidebar_tab_flat_edge="none", sidebar_tab_border_width=2.0)
@@ -399,6 +437,7 @@ def test_the_spec_reaches_the_sidebar_tokens(qapp):
            sidebar_tab_border_width=1.5, sidebar_tab_border_closed=True,
            sidebar_tab_border_color=[10, 20, 30, 255],
            sidebar_tab_border_active_color=[40, 50, 60, 255],
+           sidebar_tab_border_hover_color=[70, 80, 90, 255],
            sidebar_indicator_width=6, sidebar_indicator_position="right")
     sidebar = get_dock_style_manager().get_all(DockStyleCategory.SIDEBAR)
     assert sidebar["tab_flat_edge"] == "inward"
@@ -407,6 +446,7 @@ def test_the_spec_reaches_the_sidebar_tokens(qapp):
     assert sidebar["tab_border_closed"] is True
     assert sidebar["tab_border_normal_color"].getRgb() == (10, 20, 30, 255)
     assert sidebar["tab_border_active_color"].getRgb() == (40, 50, 60, 255)
+    assert sidebar["tab_border_hover_color"].getRgb() == (70, 80, 90, 255)
     assert sidebar["indicator_width"] == 6
     assert sidebar["indicator_position"] == "right"
 
@@ -423,6 +463,7 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
         "sidebar_tab_radius": 8,
         "sidebar_tab_border_width": 2.0,
         "sidebar_tab_border_color": "#64708c",
+        "sidebar_tab_border_hover_color": "#bd93f9",
         "sidebar_tab_border_closed": True,
         "sidebar_indicator_width": 5,
     }), encoding="utf-8")
@@ -432,6 +473,7 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
     assert sidebar["tab_corner_radius"] == 8
     assert sidebar["tab_border_width"] == 2.0
     assert sidebar["tab_border_normal_color"] == [100, 112, 140, 255]
+    assert sidebar["tab_border_hover_color"] == [189, 147, 249, 255]
     assert sidebar["tab_border_closed"] is True
     assert sidebar["indicator_width"] == 5
 
@@ -439,10 +481,11 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
 # ── The shipped presets ───────────────────────────────────────────────────
 #: The presets that ring their sidebar tabs. Every other one sets tab_radius
 #: but leaves the sidebar alone, so its tabs stay rectangles.
-RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze")
-#: Of those, the ones that leave an inactive tab bare — cyberpunk_edge is the
-#: only one that rings both states.
-ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze")
+RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze")
+#: Of those, the ones that leave an *idle* tab bare — cyberpunk_edge is the only
+#: one that rings both states. violet_haze belongs here too: its extra ring is a
+#: hover state, and an idle tab is as bare as the other two's.
+ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze", "violet_haze")
 
 
 def test_only_the_ringed_presets_opt_into_the_new_shape(qapp):
@@ -547,6 +590,35 @@ def test_these_presets_ring_only_the_active_tab(qapp, name):
     assert active._border_color(True) is not None
     assert not _inked_edges(inactive)
     assert _inked_edges(active) == {"left", "top", "right", "bottom"}
+
+
+def test_violet_haze_rings_a_hovered_tab(qapp):
+    """The only preset whose ring is a hover cue: bare, then a preview of the
+    active ring under the cursor, then the solid accent when selected."""
+    manager = get_dock_style_manager()
+    manager.apply_theme("violet_haze")
+    sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
+    hover, active = sidebar["tab_border_hover_color"], sidebar["tab_border_active_color"]
+    assert hover.getRgb()[:3] == active.getRgb()[:3], "the hover ring is off-accent"
+    assert 0 < hover.alpha() < active.alpha(), "the hover ring is not the fainter one"
+
+    hovered = _tab(checked=False)
+    hovered._is_hovered = True
+    assert _inked_edges(hovered) == {"left", "top", "right", "bottom"}
+    assert not _inked_edges(_tab(checked=False)), "an idle tab is ringed too"
+
+
+def test_no_other_preset_rings_on_hover(qapp):
+    from lace.dock_custom_theme import DOCK_THEMES
+
+    manager = get_dock_style_manager()
+    for name in DOCK_THEMES:
+        if name == "violet_haze":
+            continue
+        manager.apply_theme(name)
+        assert manager.get_all(
+            DockStyleCategory.SIDEBAR)["tab_border_hover_color"] is None, \
+            f"{name} took on a hover ring"
 
 
 def test_cyberpunk_edge_rings_every_tab_in_two_colours(qapp):

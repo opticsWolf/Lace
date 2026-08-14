@@ -261,6 +261,12 @@ class DockSidebarStyleSchema:
     # outline only the active tab.
     tab_border_normal_color: Optional[List[int]] = None
     tab_border_active_color: Optional[List[int]] = None
+    #: Outline for a hovered, inactive tab.  Unset — not transparent — means the
+    #: hover is not a state of its own and keeps ``tab_border_normal_color``,
+    #: which is what every theme did before this existed.  The active tab is
+    #: never this: a checked tab keeps its own outline under the cursor, the
+    #: same precedence the fill triple uses.
+    tab_border_hover_color: Optional[List[int]] = None
     #: Master switch for the outline above: 0.0 draws none at all.
     tab_border_width: float = 0.0
     #: Whether the outline closes across the flat edge.  Left open (the
@@ -447,6 +453,12 @@ class ThemeSpec:
     sidebar_tab_border_color: Optional[Union[QColor, List[int]]] = None
     #: Outline colour for the active sidebar tab. Defaults to the accent.
     sidebar_tab_border_active_color: Optional[Union[QColor, List[int]]] = None
+    #: Outline colour for a hovered, inactive sidebar tab. Unlike the pair
+    #: above this one is *not* seeded: left out, a hovered tab keeps the
+    #: inactive outline. Set it — with the inactive colour transparent — and the
+    #: outline becomes the hover cue, appearing under the cursor and nowhere
+    #: else.
+    sidebar_tab_border_hover_color: Optional[Union[QColor, List[int]]] = None
     #: Close the outline across the flat edge instead of leaving it open.
     #: Ignored with all four corners rounded, which is always closed.
     sidebar_tab_border_closed: Optional[bool] = None
@@ -514,6 +526,7 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         sidebar_tab_border_width=spec.sidebar_tab_border_width,
         sidebar_tab_border_color=_as_rgba(spec.sidebar_tab_border_color) if spec.sidebar_tab_border_color is not None else None,
         sidebar_tab_border_active_color=_as_rgba(spec.sidebar_tab_border_active_color) if spec.sidebar_tab_border_active_color is not None else None,
+        sidebar_tab_border_hover_color=_as_rgba(spec.sidebar_tab_border_hover_color) if spec.sidebar_tab_border_hover_color is not None else None,
         sidebar_tab_border_closed=spec.sidebar_tab_border_closed,
         sidebar_indicator_width=spec.sidebar_indicator_width,
         sidebar_indicator_position=spec.sidebar_indicator_position,
@@ -568,6 +581,7 @@ def _build_theme(
     sidebar_tab_border_width: Optional[float] = None,
     sidebar_tab_border_color: Optional[list] = None,
     sidebar_tab_border_active_color: Optional[list] = None,
+    sidebar_tab_border_hover_color: Optional[list] = None,
     sidebar_tab_border_closed: Optional[bool] = None,
     sidebar_indicator_width: Optional[float] = None,
     sidebar_indicator_position: Optional[str] = None,
@@ -741,6 +755,8 @@ def _build_theme(
         theme[DockStyleCategory.SIDEBAR]["tab_border_normal_color"] = sidebar_tab_border_color
     if sidebar_tab_border_active_color is not None:
         theme[DockStyleCategory.SIDEBAR]["tab_border_active_color"] = sidebar_tab_border_active_color
+    if sidebar_tab_border_hover_color is not None:
+        theme[DockStyleCategory.SIDEBAR]["tab_border_hover_color"] = sidebar_tab_border_hover_color
     if sidebar_tab_border_closed is not None:
         theme[DockStyleCategory.SIDEBAR]["tab_border_closed"] = sidebar_tab_border_closed
     if sidebar_indicator_width is not None:
