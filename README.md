@@ -6,7 +6,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
-[![Publish to PyPI](https://github.com/opticsWolf/Lace/actions/workflows/publish.yml/badge.svg)](https://github.com/opticsWolf/Lace/actions/workflows/publish.yml)
+[![Tests & Publish](https://github.com/opticsWolf/Lace/actions/workflows/publish.yml/badge.svg)](https://github.com/opticsWolf/Lace/actions/workflows/publish.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Framework](https://img.shields.io/badge/framework-PySide6%20%2F%20Qt6-purple)](https://pypi.org/project/PySide6/)
 
