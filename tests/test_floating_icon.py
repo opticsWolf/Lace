@@ -6,6 +6,10 @@ live update of already-open windows, and the fallback when the icon is
 cleared (application / root-window icon resolution).
 """
 
+import os
+import sys
+
+import pytest
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import QMainWindow
 
@@ -51,6 +55,10 @@ def test_set_floating_window_icon_updates_existing_windows(qapp):
     fc2.close()
 
 
+@pytest.mark.skipif(
+    sys.platform == "darwin" and os.environ.get("QT_QPA_PLATFORM") == "offscreen",
+    reason="qframelesswindow's macOS backend dereferences a null NSWindow under "
+           "offscreen — a segfault, not an exception, so it cannot be guarded")
 def test_frameless_floating_window_uses_dedicated_icon(qapp):
     from lace.floating_dock_container_frameless import (
         FramelessFloatingDockContainer,

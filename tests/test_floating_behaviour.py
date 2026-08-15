@@ -15,7 +15,9 @@ two classes are distinguishable by name and by isinstance.
 """
 
 import ast
+import os
 import pathlib
+import sys
 import textwrap
 
 import pytest
@@ -36,6 +38,20 @@ frameless = pytest.importorskip(
 FramelessFloatingDockContainer = frameless.FramelessFloatingDockContainer
 
 BOTH = (FloatingDockContainer, FramelessFloatingDockContainer)
+
+#: qframelesswindow's macOS backend resolves the NSWindow behind the widget
+#: (``objc_object(c_void_p=self.winId().__int__()).window()``). Offscreen there
+#: is no native view, winId() is 0, and that dereference segfaults the
+#: interpreter — a hard crash, not an exception, so nothing on our side can
+#: guard it. Only the tests that actually build one are skipped; the source
+#: inspection below is platform-independent and still runs.
+FRAMELESS_SEGFAULTS = (sys.platform == "darwin"
+                       and os.environ.get("QT_QPA_PLATFORM") == "offscreen")
+
+
+def _skip_if_unbuildable(cls):
+    if cls is FramelessFloatingDockContainer and FRAMELESS_SEGFAULTS:
+        pytest.skip("frameless windows segfault on macOS under offscreen")
 
 
 @pytest.fixture
@@ -136,6 +152,7 @@ def test_both_survive_a_cleared_container(manager, cls, qapp):
     win, dock_manager = manager
     if cls is FramelessFloatingDockContainer:
         dock_manager.title_bar_mode = TitleBarMode.custom
+    _skip_if_unbuildable(cls)
     floating = cls(dock_manager=dock_manager)
     qapp.processEvents()
 
@@ -160,6 +177,7 @@ def test_the_frameless_container_resyncs_its_close_button(manager, qapp):
     """It draws its own close button, so it must re-evaluate on every change."""
     win, dock_manager = manager
     dock_manager.title_bar_mode = TitleBarMode.custom
+    _skip_if_unbuildable(FramelessFloatingDockContainer)
     floating = FramelessFloatingDockContainer(dock_manager=dock_manager)
     qapp.processEvents()
 
@@ -194,6 +212,7 @@ def test_is_floating_dock_container_recognises_both(manager, cls, qapp):
     win, dock_manager = manager
     if cls is FramelessFloatingDockContainer:
         dock_manager.title_bar_mode = TitleBarMode.custom
+    _skip_if_unbuildable(cls)
     floating = cls(dock_manager=dock_manager, dock_widget=_mk("Alpha"))
     qapp.processEvents()
     try:
@@ -221,3 +240,57 @@ def test_the_check_costs_no_optional_import():
                          text=True, cwd=str(LACE.parent))
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "False"
+
+
+# ── The half-built event filter — §5.7 ────────────────────────────────────
+#: Everything FramelessFloatingDockContainer.eventFilter reads before it can
+#: know the object is fully built.
+FILTER_STATE = ("_permanent_filter_installed", "_frameless_drag_filter",
+                "_os_move_active", "_titlebar_drag_start")
+
+
+@pytest.mark.parametrize("name", FILTER_STATE)
+def test_the_filter_state_is_ready_before_init_runs(name):
+    """qframelesswindow's Linux base installs the float as an *application*
+    event filter from inside its own __init__ — i.e. from our super().__init__(),
+    before __init__ assigns any of this.
+
+    Everything after that line pumps events, so eventFilter runs in that window
+    on a half-built object. An AttributeError there does not stay local: it
+    escapes through Qt's dispatch, aborts the constructor, and leaves an orphan
+    widget filtering the application for the rest of the process — every later
+    widget then dies with "QMainWindow returned NULL without setting an
+    exception". Class-level defaults are what make the filter safe that early.
+
+    Asserted on the class, not an instance: an instance has already run
+    __init__, which is exactly the state this is not about.
+    """
+    assert hasattr(FramelessFloatingDockContainer, name), \
+        f"{name} is only assigned in __init__, so the filter can read it too early"
+
+
+def test_the_filter_survives_a_half_built_object(manager, qapp):
+    """The invariant above, exercised rather than inspected.
+
+    A live float with its filter state stripped back off the instance is the
+    state the Linux base leaves it in mid-construction: the C++ half is built
+    and already installed as a filter, the Python attributes are not there yet.
+    ``__new__`` cannot stand in for it — without the C++ base, the filter's
+    super() call raises for an unrelated reason.
+
+    ``titleBar`` is deliberately left alone: the base assigns it just before it
+    installs the filter, so it is the one attribute eventFilter may assume.
+    """
+    from PySide6.QtCore import QEvent
+
+    win, dock_manager = manager
+    dock_manager.title_bar_mode = TitleBarMode.custom
+    _skip_if_unbuildable(FramelessFloatingDockContainer)
+    floating = FramelessFloatingDockContainer(dock_manager=dock_manager)
+    qapp.processEvents()
+    try:
+        for name in FILTER_STATE:
+            vars(floating).pop(name, None)
+        assert floating.eventFilter(None, QEvent(QEvent.Type.User)) is False
+    finally:
+        floating.close()
