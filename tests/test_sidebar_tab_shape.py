@@ -620,17 +620,17 @@ def test_neon_dusk_draws_a_u_on_hover(qapp, area, inside, outside):
     """Its dock tabs' notch, run the other way round, and a step later.
 
     Rounded and outlined on the content-facing side, flat and open against the
-    window edge — so what it draws is a U, not a ring — with the highlight strip
-    on that open edge, closing the U instead of a rule under a tab bar. Nothing
-    is drawn until the tab is pointed at: idle bare, a U under the cursor, and
-    the U filled in and closed when selected. All of it mirrors with the sidebar
-    the tab is in.
+    window edge — so what it draws is a U, not a ring, and the outward edge
+    carries nothing in any state. Nothing at all is drawn until the tab is
+    pointed at: idle bare, a U under the cursor, the U filled in when selected.
+    All of it mirrors with the sidebar the tab is in.
     """
     manager = get_dock_style_manager()
     manager.apply_theme("neon_dusk")
     sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
     assert sidebar["tab_flat_edge"] == "outward"
-    assert sidebar["indicator_position"] == "left", "the strip moved back inside"
+    assert sidebar["indicator_position"] == "right", \
+        "the strip is on the outward edge, which must stay clear"
     assert sidebar["indicator_width"] == sidebar["tab_border_width"] == 2.0
 
     assert _rounded_corners(_tab(area)) == {f"top_{inside}", f"bottom_{inside}"}
@@ -645,21 +645,27 @@ def test_neon_dusk_draws_a_u_on_hover(qapp, area, inside, outside):
     bar = sidebar["bg_color"]
     assert _fill(hovered, bar) == bar.getRgb(), "the hovered tab is filled"
 
-    for tab in (hovered, _tab(area, checked=True)):
+    active = _tab(area, checked=True)
+    for tab in (hovered, active):
         assert _inked_edges(tab) == {"top", "bottom", inside}, \
             "the outline does not leave the window-facing edge open"
     mid = HEIGHT // 2
     x_in = WIDTH - 1 if inside == "right" else 0
     assert _render(hovered).pixelColor(x_in, mid) != \
-        _render(_tab(area, checked=True)).pixelColor(x_in, mid), \
+        _render(active).pixelColor(x_in, mid), \
         "the hovered and active outlines render identically"
 
-    # The active tab's strip fills the U's open edge, in the outline's colour.
+    # Nothing reaches the outward edge in any state — not the outline, which is
+    # open there, and not the strip, which is on the far side. Clear of the
+    # corners, where the U's arms legitimately run into it.
     x_out = 0 if outside == "left" else WIDTH - 1
-    assert _render(_tab(area, checked=True)).pixelColor(x_out, mid).getRgb() == \
-        sidebar["indicator_color"].getRgb() == \
-        sidebar["tab_border_active_color"].getRgb(), \
-        "the active tab does not close its U"
+    accent = sidebar["indicator_color"].getRgb()
+    assert _render(active).pixelColor(x_out, mid).getRgb() == \
+        sidebar["tab_bg_active"].getRgb() != accent, \
+        "the active tab draws on its outward edge"
+    for tab in (_tab(area, checked=False), hovered):
+        assert _render(tab).pixelColor(x_out, mid).alpha() == 0, \
+            "an unselected tab draws on its outward edge"
 
 
 def test_no_other_preset_outlines_on_hover(qapp):

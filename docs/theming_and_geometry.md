@@ -126,10 +126,8 @@ The active colour is left out there on purpose: it is seeded with the accent for
 so the width alone is what switches it on. A checked tab keeps that ring under the cursor —
 checked wins over hovered, the same precedence the fill uses.
 
-The strip also does not have to sit *under* the outline. Put it on the edge the outline
-leaves open and it closes the shape instead, which is what `neon_dusk` does — the only preset
-that keeps a flat edge on its sidebar tabs, and so the only one whose outline is a U rather
-than a ring:
+An outline on a tab that keeps a flat edge is a U rather than a ring, and `neon_dusk` is the
+only preset whose sidebar tabs do that:
 
 ```python
 ThemeSpec(
@@ -140,18 +138,16 @@ ThemeSpec(
     sidebar_tab_border_hover_color = [98, 114, 164, 160],   # hover: the U alone...
     sidebar_tab_bg_hover_start = [0, 0, 0, 0],              # ...and nothing behind it
     sidebar_tab_bg_hover_end = [0, 0, 0, 0],
-    sidebar_indicator_position = "left",    # the strip sits on the open edge...
-    sidebar_indicator_width = 2.0,          # ...and closes the active tab's U
-)
+    sidebar_indicator_width = 2.0,          # the strip stays on the content-facing
+)                                           # edge, where the U already runs
 ```
-
-Match the widths here for the other reason: the strip is finishing the outline rather than
-hiding under it, so a different width steps the line where the two meet.
 
 The transparent hover fill is not decoration. The derived one is a lifted slab over the whole
 tab *shape* — flat edge included — and its straight window-facing side is a harder line than
 the U in front of it, so the tab reads as a rectangle with three sides drawn. An open outline
-only reads as open if nothing fills the shape it belongs to.
+only reads as open if nothing fills the shape it belongs to — and nothing may be put on the
+open edge either: leaving `sidebar_indicator_position` at its content-facing default is what
+keeps the U open, since a strip there would close it.
 
 ### Inactive sidebar tabs with a background
 

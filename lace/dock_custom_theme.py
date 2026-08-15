@@ -453,24 +453,21 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         tab_dimming = True,
 
         # The sidebar runs the dock tabs' notch the other way round.  A dock tab
-        # is rounded on top and open along the bottom, where the strip's rule
-        # closes it; a sidebar tab here is flat against the window edge and
-        # rounded on the two content-facing corners, with the outline open along
-        # that flat outward side.  So the roundness and the line are on the
-        # inside, and the outside is where the highlight sits — the one place
-        # this theme does use a strip, since the sidebar has no rule of its own
-        # to close the open edge (indicator_position = "none" above is about the
-        # dock tabs, whose outline the rule already closes).
+        # is rounded on top and open along the bottom; a sidebar tab here is
+        # flat against the window edge and rounded on the two content-facing
+        # corners, with the outline open along that flat outward side.  So what
+        # it draws is a U — and the outward edge carries nothing in any state.
+        # The highlight strip stays on the content-facing edge (the default),
+        # where the U already runs, rather than closing the U from the outside.
         #
-        # Same 2px as everything else, on both, so the strip finishes the
-        # outline at the outline's own weight instead of stepping it.
+        # Same 2px as everything else, on both, so the strip lands exactly on
+        # the outline's inward edge instead of stepping it.
         #
         # Where the dock tabs outline every tab, the sidebar draws nothing until
         # you point at one: idle is bare, and the muted indigo the inactive dock
         # tabs wear moves to the hover instead, so what a hovered tab shows is
         # that U on its own.  Selecting it fills the U in — neon pink, the
-        # seeded accent, already the dock tabs' active outline — and closes it
-        # with the strip.
+        # seeded accent, already the dock tabs' active outline.
         sidebar_tab_flat_edge = "outward",
         sidebar_tab_border_width = 2.0,
         sidebar_tab_border_color = [0, 0, 0, 0],            # Idle: bare
@@ -483,7 +480,6 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         sidebar_tab_bg_hover_start = [0, 0, 0, 0],
         sidebar_tab_bg_hover_end = [0, 0, 0, 0],
         sidebar_indicator_width = 2.0,
-        sidebar_indicator_position = "left",               # The window-facing edge
     ),
 
     # -------------------------------------------------------------------------

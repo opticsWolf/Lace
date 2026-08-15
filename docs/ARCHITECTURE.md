@@ -529,11 +529,11 @@ every theme predating the token) expect.
 `neon_dusk` outlines its sidebar tabs on the *other* shape: it is the one preset that keeps a
 flat edge there. `sidebar_tab_flat_edge = "outward"` rounds only the two content-facing
 corners and leaves the outline open against the window edge, so what it draws is a U rather
-than a ring; `sidebar_indicator_position = "left"` then puts the highlight strip on exactly
-that open edge, at the outline's own width, so the *active* tab is what closes. The roundness
-and the line are on the inside and the strip finishes the shape from the outside — the mirror
-image of what its dock tabs do with the rule under the tab strip. All of it mirrors with the
-sidebar the tab is in.
+than a ring — and the outward edge carries nothing in any state. The highlight strip stays on
+the content-facing edge, where the U already runs, at the outline's own width. The roundness
+and the line are on the inside; the window-facing side is where the tab opens onto its bar,
+the mirror image of what its dock tabs do with the rule under the tab strip. All of it
+mirrors with the sidebar the tab is in.
 
 It follows violet_haze's timing rather than its own dock tabs': nothing is drawn until a tab
 is pointed at. The muted indigo its inactive dock tabs wear moves to

@@ -388,11 +388,11 @@ def check_vertical_tab_shape():
             f"{name}: hovered tab ringed={not rings_hover}, expected {rings_hover}"
 
     # neon_dusk: rounded and outlined on the content-facing side, open against
-    # the window edge — a U, not a ring — with the strip on that open edge
-    # closing it, and nothing drawn at all until the tab is pointed at.
+    # the window edge — a U, not a ring — with nothing on that open edge in any
+    # state, and nothing drawn at all until the tab is pointed at.
     apply_dock_theme("neon_dusk")
     s = sm.get_all(DockStyleCategory.SIDEBAR)
-    assert s["tab_flat_edge"] == "outward" and s["indicator_position"] == "left"
+    assert s["tab_flat_edge"] == "outward" and s["indicator_position"] == "right"
     assert s["indicator_width"] == s["tab_border_width"] == 2.0
     u = {"top", "right", "bottom"}
     assert rounded(mk()) == {"tr", "br"}, "the window-facing corners are not flat"
@@ -406,11 +406,18 @@ def check_vertical_tab_shape():
     img = QImage(W, H, QImage.Format_ARGB32)
     img.fill(s["bg_color"])
     hovered.render(img, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
-    px = img.pixelColor(W // 2, H // 2).getRgb()
+    # Near the top end, not the centre: the label is centred along the tab and
+    # its glyphs cover the middle pixel outright with a real font (offscreen
+    # they happen to miss it, which is why the unit test can sample there).
+    px = img.pixelColor(W // 2, 8).getRgb()
     assert px == s["bg_color"].getRgb(), f"the hovered tab is filled: {px}"
+    # Nothing reaches the outward edge in any state, clear of the corners where
+    # the U's arms run into it.
     px = render(mk(checked=True)).pixelColor(0, H // 2).getRgb()
-    assert px == s["indicator_color"].getRgb(), \
-        f"the strip does not close the open edge: {px}"
+    assert px == s["tab_bg_active"].getRgb() != s["indicator_color"].getRgb(), \
+        f"the active tab draws on its outward edge: {px}"
+    assert render(hovered).pixelColor(0, H // 2).alpha() == 0, \
+        "a hovered tab draws on its outward edge"
 
     apply_dock_theme("default")
 
