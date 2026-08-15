@@ -390,21 +390,20 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_position = "bottom",
         tab_dimming = True,
 
-        # The sidebar tabs are rounded on all four corners and ringed under the
-        # cursor — and only there.  Both other colours are transparent, the
-        # active one deliberately: an active tab already says so with its fill
-        # and its amber strip, so the ring is left to mean "the one you are
-        # pointing at" rather than doubling a mark that is already made.  It
-        # takes the amber for the same reason the focus border does.
-        #
-        # A closed ring, so unlike neon_dusk's U the hover fill can stay: a
-        # fill behind a ring cannot add an edge the ring does not already have.
+        # Sidebar tabs: cyberpunk_edge's, in this theme's colours — a closed
+        # rounded ring at the same 1.5px this theme rules everything else with,
+        # and the strip pinned to it so the ring covers it exactly on the edge
+        # they share.  Two departures: an inactive tab is bare where edge rings
+        # every one of them in its muted violet, and the hover carries the ring
+        # at part alpha, so pointing at a tab previews the ring selecting it
+        # would fill in.
         sidebar_tab_flat_edge = "none",
-        sidebar_tab_border_width = 1.5,             # The theme's line weight
-        sidebar_tab_border_color = [0, 0, 0, 0],            # Idle: bare
-        sidebar_tab_border_active_color = [0, 0, 0, 0],     # Active: bare too
+        sidebar_tab_border_width = 1.5,
+        sidebar_tab_border_color = [0, 0, 0, 0],               # Inactive: bare
         sidebar_tab_border_hover_color = [186, 98, 0, 160],
-        sidebar_indicator_width = 1.5,              # Matched, as everywhere here
+        sidebar_tab_border_active_color = [186, 98, 0, 255],   # Amber, as the
+                                                               # focus border
+        sidebar_indicator_width = 1.5,
     ),
 
     # -------------------------------------------------------------------------

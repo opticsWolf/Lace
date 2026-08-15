@@ -124,10 +124,8 @@ ThemeSpec(
 
 The active colour is left out there on purpose: it is seeded with the accent for every theme,
 so the width alone is what switches it on. A checked tab keeps that ring under the cursor —
-checked wins over hovered, the same precedence the fill uses. Set the active colour
-transparent as well and the ring belongs to hover alone, which is what `slate_amber` does: an
-active tab there is already marked by its fill and its strip, so a ring on it would only
-double a mark already made.
+checked wins over hovered, the same precedence the fill uses. `slate_amber` ships the same
+three steps in its own amber, at the 1.5px it rules everything else with.
 
 An outline on a tab that keeps a flat edge is a U rather than a ring, and `neon_dusk` is the
 only preset whose sidebar tabs do that:

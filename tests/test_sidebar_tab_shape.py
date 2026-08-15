@@ -482,17 +482,16 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
 #: The presets that ring their sidebar tabs. Every other one sets tab_radius
 #: but leaves the sidebar alone, so its tabs stay rectangles.
 RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze",
-          "neon_dusk", "slate_amber")
-#: Of those, the closed pills that ring their *active* tab. neon_dusk keeps a
-#: flat edge, so its outline is open along it; slate_amber is a pill but rings
-#: nothing except a hovered tab — both have their own tests.
-PILL = RINGED[:4]
-#: The presets whose outline appears under the cursor and not before.
+          "slate_amber", "neon_dusk")
+#: Of those, the closed pills that ring their *active* tab. neon_dusk is the odd
+#: one out: it keeps a flat edge, so its outline is open along it — its own test.
+PILL = RINGED[:5]
+#: The presets that give the hover an outline of its own.
 ON_HOVER = ("violet_haze", "neon_dusk", "slate_amber")
 #: The pills that leave an *idle* tab bare — cyberpunk_edge rings both states.
 #: violet_haze belongs here: its extra ring is a hover state, and an idle tab is
-#: as bare as the other two's.
-ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze", "violet_haze")
+#: as bare as the other three's.
+ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze", "violet_haze", "slate_amber")
 
 
 def test_only_the_ringed_presets_opt_into_the_new_shape(qapp):
@@ -671,37 +670,35 @@ def test_neon_dusk_draws_a_u_on_hover(qapp, area, inside, outside):
             "an unselected tab draws on its outward edge"
 
 
-def test_slate_amber_rings_a_hovered_tab_and_nothing_else(qapp):
-    """The one preset whose ring is *only* a hover cue.
-
-    Both other colours are transparent, the active one on purpose: an active tab
-    already says so with its fill and its strip, so the ring is left to mean
-    "the one you are pointing at". Unlike neon_dusk's U the hover fill stays —
-    a fill behind a closed ring cannot add an edge the ring does not have.
-    """
+def test_slate_amber_matches_cyberpunk_edge_in_its_own_colours(qapp):
+    """Same shape and weights as edge's sidebar tabs; the colours differ, and so
+    do two states: inactive is bare here rather than ringed, and the hover
+    carries the ring at part alpha — the same three-step violet_haze uses."""
     manager = get_dock_style_manager()
-    manager.apply_theme("slate_amber")
-    sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
-    assert sidebar["tab_flat_edge"] == "none"
-    assert sidebar["indicator_width"] == sidebar["tab_border_width"] == 1.5
+    edges = {}
+    for name in ("cyberpunk_edge", "slate_amber"):
+        manager.apply_theme(name)
+        s = manager.get_all(DockStyleCategory.SIDEBAR)
+        edges[name] = (s["tab_flat_edge"], s["tab_border_width"],
+                       s["indicator_width"], s["indicator_position"])
+    assert edges["slate_amber"] == edges["cyberpunk_edge"] == ("none", 1.5, 1.5, "right")
 
-    idle, active = _tab(checked=False), _tab(checked=True)
+    sidebar = manager.get_all(DockStyleCategory.SIDEBAR)   # still slate_amber
+    active = sidebar["tab_border_active_color"]
+    hover = sidebar["tab_border_hover_color"]
+    assert active.getRgb() == (186, 98, 0, 255) == sidebar["indicator_color"].getRgb(), \
+        "the ring is not this theme's amber"
+    assert not sidebar["tab_border_normal_color"].alpha(), "an inactive tab is ringed"
+    assert hover.getRgb()[:3] == active.getRgb()[:3], "the hover ring is off-amber"
+    assert 0 < hover.alpha() < active.alpha(), "the hover ring is not the fainter one"
+
     hovered = _tab(checked=False)
     hovered._is_hovered = True
-    assert idle._border_color(False) is None, "an idle tab is ringed"
-    assert active._border_color(True) is None, "the active tab is ringed too"
-    assert hovered._border_color(False, True) is not None
-
-    assert not _inked_edges(idle)
-    assert not _inked_edges(active)
     assert _inked_edges(hovered) == {"left", "top", "right", "bottom"}
-    assert _rounded_corners(hovered) == {"top_left", "top_right",
-                                         "bottom_right", "bottom_left"}
-
-    # The active tab is still marked, just not by a line: its own fill.
-    bar = sidebar["bg_color"]
-    assert _fill(active, bar) != bar.getRgb() == _fill(idle, bar), \
-        "the active tab lost the fill that marks it"
+    mid = HEIGHT // 2
+    assert _render(hovered).pixelColor(0, mid) != \
+        _render(_tab(checked=True)).pixelColor(0, mid), \
+        "the hover and active rings render identically"
 
 
 def test_no_other_preset_outlines_on_hover(qapp):

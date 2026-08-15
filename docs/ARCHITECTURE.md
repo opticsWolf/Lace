@@ -519,7 +519,7 @@ tab is a closed rounded ring — differing only in which states are ringed at al
 | `cyberpunk_edge` | muted violet | — | amber, 1.5 |
 | `midnight_haze` | bare | — | accent, 2.0 |
 | `violet_haze` | bare | accent at alpha 130 | accent, 2.0 |
-| `slate_amber` | bare | amber at alpha 160 | bare |
+| `slate_amber` | bare | amber at alpha 160 | amber, 1.5 |
 
 `violet_haze` is the one whose ring is a *hover* cue: bare when idle, ringed in a half-alpha
 accent under the cursor, ringed solid when selected — so the hover ring reads as the active
@@ -527,10 +527,10 @@ one previewed. `sidebar_tab_border_hover_color` is what buys that, and it is del
 seeded: unset, hover keeps the inactive outline, which is what the three presets above it (and
 every theme predating the token) expect.
 
-`slate_amber` takes that one step further and rings *only* a hovered tab: it sets the active
-colour transparent as well, which the seeding otherwise fills with the accent. An active tab
-already says so with its fill and its amber strip, so the ring is left to mean "the one you
-are pointing at" rather than doubling a mark already made.
+`slate_amber` is `cyberpunk_edge`'s sidebar in its own colours: the same `"none"` shape, the
+same 1.5 for both the ring and the strip. It departs on two states — an inactive tab is bare
+where edge rings every one of them, and the hover carries the ring at part alpha, the
+three-step violet_haze uses.
 
 `neon_dusk` outlines its sidebar tabs on the *other* shape: it is the one preset that keeps a
 flat edge there. `sidebar_tab_flat_edge = "outward"` rounds only the two content-facing

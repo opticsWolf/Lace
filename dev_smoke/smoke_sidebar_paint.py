@@ -419,18 +419,21 @@ def check_vertical_tab_shape():
     assert render(hovered).pixelColor(0, H // 2).alpha() == 0, \
         "a hovered tab draws on its outward edge"
 
-    # slate_amber: a closed pill, ringed under the cursor and nowhere else --
-    # the active tab is marked by its fill, not by a line.
+    # slate_amber: cyberpunk_edge's shape and weights in this theme's colours,
+    # with the inactive tab left bare.
     apply_dock_theme("slate_amber")
     s = sm.get_all(DockStyleCategory.SIDEBAR)
     assert s["tab_flat_edge"] == "none"
     assert s["indicator_width"] == s["tab_border_width"] == 1.5
+    active = mk(checked=True)
+    assert inked(active) == all_four, "the active tab is not ringed"
+    assert rounded(active) == {"tl", "tr", "br", "bl"}, "not a pill"
+    assert not inked(mk(checked=False)), "an inactive tab is ringed"
     hovered = mk(checked=False)
     hovered._is_hovered = True
     assert inked(hovered) == all_four, "a hovered tab is not ringed"
-    assert rounded(hovered) == {"tl", "tr", "br", "bl"}, "not a pill"
-    assert not inked(mk(checked=False)), "an idle tab is ringed"
-    assert not inked(mk(checked=True)), "the active tab is ringed too"
+    assert render(hovered).pixelColor(0, H // 2) != render(active).pixelColor(0, H // 2), \
+        "the hover and active rings render identically"
 
     apply_dock_theme("default")
 
