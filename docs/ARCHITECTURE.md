@@ -515,7 +515,7 @@ tab is a closed rounded ring — differing only in which states are ringed at al
 
 | Preset | Inactive | Hovered | Active |
 |---|---|---|---|
-| `cyberpunk_neon` | bare (`sidebar_tab_border_color` transparent) | — | focus cyan, 2.0 |
+| `cyberpunk_neon` | bare (`sidebar_tab_border_color` transparent) | accent pink, full alpha | focus cyan, 1.5 |
 | `cyberpunk_edge` | muted violet | — | amber, 1.5 |
 | `midnight_haze` | bare | — | accent, 2.0 |
 | `violet_haze` | bare | accent at alpha 130 | accent, 2.0 |
@@ -526,6 +526,11 @@ accent under the cursor, ringed solid when selected — so the hover ring reads 
 one previewed. `sidebar_tab_border_hover_color` is what buys that, and it is deliberately not
 seeded: unset, hover keeps the inactive outline, which is what the three presets above it (and
 every theme predating the token) expect.
+
+`cyberpunk_neon` is the one whose hover ring is told apart by *hue* rather than alpha: the
+accent pink its dock widget tabs mark their own active tab with, against the focus cyan of
+the selected sidebar tab. That is why it alone keeps the hover at full alpha — there is no
+ring for it to be a faint version of.
 
 `slate_amber` is `cyberpunk_edge`'s sidebar in its own colours: the same `"none"` shape, the
 same 1.5 for both the ring and the strip. It departs on two states — an inactive tab is bare

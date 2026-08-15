@@ -487,7 +487,7 @@ RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze",
 #: one out: it keeps a flat edge, so its outline is open along it — its own test.
 PILL = RINGED[:5]
 #: The presets that give the hover an outline of its own.
-ON_HOVER = ("violet_haze", "neon_dusk", "slate_amber")
+ON_HOVER = ("violet_haze", "neon_dusk", "slate_amber", "cyberpunk_neon")
 #: The pills that leave an *idle* tab bare — cyberpunk_edge rings both states.
 #: violet_haze belongs here: its extra ring is a hover state, and an idle tab is
 #: as bare as the other three's.
@@ -691,6 +691,31 @@ def test_slate_amber_matches_cyberpunk_edge_in_its_own_colours(qapp):
     assert not sidebar["tab_border_normal_color"].alpha(), "an inactive tab is ringed"
     assert hover.getRgb()[:3] == active.getRgb()[:3], "the hover ring is off-amber"
     assert 0 < hover.alpha() < active.alpha(), "the hover ring is not the fainter one"
+
+    hovered = _tab(checked=False)
+    hovered._is_hovered = True
+    assert _inked_edges(hovered) == {"left", "top", "right", "bottom"}
+    mid = HEIGHT // 2
+    assert _render(hovered).pixelColor(0, mid) != \
+        _render(_tab(checked=True)).pixelColor(0, mid), \
+        "the hover and active rings render identically"
+
+
+def test_cyberpunk_neon_hovers_in_the_dock_tabs_highlight_pink(qapp):
+    """The one hover ring told apart by hue rather than alpha.
+
+    Pink under the cursor, cyan when selected — so unlike the other three it
+    stays at full alpha: there is no ring for it to be a faint version of.
+    """
+    manager = get_dock_style_manager()
+    manager.apply_theme("cyberpunk_neon")
+    sidebar = manager.get_all(DockStyleCategory.SIDEBAR)
+    hover, active = sidebar["tab_border_hover_color"], sidebar["tab_border_active_color"]
+    assert hover.getRgb() == (255, 0, 127, 255) == manager.get(
+        DockStyleCategory.TAB, "indicator_color").getRgb(), \
+        "the hover ring is not the dock tabs' highlight colour"
+    assert hover.alpha() == active.alpha() == 255
+    assert hover.getRgb()[:3] != active.getRgb()[:3], "both states ring in one colour"
 
     hovered = _tab(checked=False)
     hovered._is_hovered = True

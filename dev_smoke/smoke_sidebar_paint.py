@@ -383,7 +383,10 @@ def check_vertical_tab_shape():
             f"{name}: inactive tab ringed={not rings_idle}, expected {rings_idle}"
         hovered = mk(checked=False)
         hovered._is_hovered = True
-        rings_hover = rings_idle or name == "violet_haze"
+        # A hover colour of its own decides the hover; without one the hover
+        # falls back to the inactive ring, which is the token's whole contract.
+        hover_ring = s["tab_border_hover_color"]
+        rings_hover = rings_idle if hover_ring is None else hover_ring.alpha() > 0
         assert (inked(hovered) == all_four) is rings_hover, \
             f"{name}: hovered tab ringed={not rings_hover}, expected {rings_hover}"
 

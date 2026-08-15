@@ -271,15 +271,21 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         # (cyberpunk_edge draws the same shape but rings every tab — the two
         # presets are the pair that shows both halves of that choice.)
         sidebar_tab_flat_edge = "none",
-        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_width = 1.5,                  # as the card outline
         sidebar_tab_border_color = [0, 0, 0, 0],         # inactive: no ring
         sidebar_tab_border_active_color = [0, 240, 255, 255],   # focus cyan
+        # Hover takes the accent — the pink the dock widget tabs mark their own
+        # active tab with, and the colour of this sidebar's strip. It is the one
+        # hover ring that stays at full alpha: the others fade a ring the active
+        # state repeats, while here the two states are already a hue apart, and
+        # dimming the pink would only make it read as a weaker cyan.
+        sidebar_tab_border_hover_color = [255, 0, 127, 255],
         # The strip shares the ring's content-facing edge and is painted first,
         # so at an equal width the ring covers it exactly and the active tab is
         # one clean line all the way round. That is why it is pinned here: the
-        # 3px default is wider than the 2px ring, and the px it stuck out was
-        # inside the tab — a pink sliver against the cyan.
-        sidebar_indicator_width = 2.0,
+        # 3px default is wider than the ring, and the px it stuck out was inside
+        # the tab — a pink sliver against the cyan.
+        sidebar_indicator_width = 1.5,
     ),
 
     # -------------------------------------------------------------------------
