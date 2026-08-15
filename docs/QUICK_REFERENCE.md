@@ -315,6 +315,16 @@ apply_dock_theme(my_theme)  # or apply directly
 | `tab_dimming` | Enable dimming for active tabs in unfocused dock areas |
 | `indicator_width` | Thickness (in pixels) of the tab selection highlight stripe |
 | `indicator_position` | Active tab highlight stripe edge(s) (`"none"`, `"top"`, `"bottom"`, `"left"`, `"right"`, or combination e.g. `"top, bottom"`) |
+| `sidebar_tab_flat_edge` | Which edge of a sidebar tab stays square: `"outward"`, `"inward"`, `"none"` (round all four), or `"all"` (default, plain rectangle) |
+| `sidebar_tab_radius` | Radius for a sidebar tab's rounded corners (defaults to `tab_radius`) |
+| `sidebar_tab_bg_normal` | Fill behind an **inactive** sidebar tab (transparent by default, so an idle tab shows only its label). The accent at a low alpha tints every tab with the highlight colour |
+| `sidebar_tab_bg_hover_start` / `_end` | The hovered tab's horizontal gradient (derived from the base when unset). Give it the accent too if `sidebar_tab_bg_normal` is a deep tint, or hover ends up dimmer than idle |
+| `sidebar_tab_bg_active` | The selected tab's fill (panel colour when unset) |
+| `sidebar_tab_border_width` | Sidebar tab outline width; 0 (default) draws none |
+| `sidebar_tab_border_color` / `sidebar_tab_border_active_color` | Outline colour per state; transparent turns that state off |
+| `sidebar_tab_border_hover_color` | Outline for a hovered, inactive tab. Unset (not transparent) keeps the inactive outline; set it with the inactive one transparent and the ring becomes the hover cue |
+| `sidebar_tab_border_closed` | Close the outline across the flat edge instead of leaving it open |
+| `sidebar_indicator_width` / `sidebar_indicator_position` | Sidebar highlight stripe thickness and edge (`"left"` = window-facing, `"right"` = content-facing). Match the width to `sidebar_tab_border_width` — the stripe sits under the outline on the same edge, and a wider one steps it |
 
 ---
 
@@ -346,6 +356,7 @@ dock_manager.config_flags = DockFlags.default_config  # restore defaults
 | `opaque_splitter_resize` | Splitters resize instantly (no rubber band) |
 | `opaque_undocking` | Floating windows stay 100% opaque during drag (vs 60%) |
 | `chromeless_float` | Floating windows have no OS title bar/border |
+| `floating_taskbar_button` | Floats get their own taskbar button and a minimize button (opt-in) |
 | `always_show_tabs` | Tabs always visible, even with 1 widget |
 | `show_tab_close_button` | Individual close button on each tab |
 | `active_tab_has_close_button` | Only active tab shows close button |

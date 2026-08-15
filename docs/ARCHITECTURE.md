@@ -265,11 +265,13 @@ Visual drop-target overlays during drag-and-drop.
 | Function | Description |
 |---|---|
 | `chrome_content_margin(border_width, radius) → int` | Inset to keep children clear of border + corner arcs |
-| `top_rounded_path(rect, radius) → QPainterPath` | Path with only top corners rounded |
-| `bottom_rounded_path(rect, radius) → QPainterPath` | Path with only bottom corners rounded |
+| `tab_path(rect, radius, flat_edge, closed) → QPainterPath` | General tab shape: the two corners on `flat_edge` stay square, the rest follow `radius`; `flat_edge=None` rounds all four, `closed=False` omits the segment along the flat edge |
+| `top_rounded_path(rect, radius) → QPainterPath` | Path with only top corners rounded (`tab_path` with a flat bottom) |
+| `top_open_path(rect, radius) → QPainterPath` | The same, minus its bottom segment (`closed=False`) |
+| `bottom_rounded_path(rect, radius) → QPainterPath` | Path with only bottom corners rounded (`tab_path` with a flat top) |
 | `ChromeTokens(bg, border, border_width, radius, focus_border)` | Frozen dataclass; `content_margin()` method |
 | `paint_panel(p, rect, c, focused)` | Core panel painter: fill + outline + focus swap, driven by a `ChromeTokens` bundle (`paint_panel_bg` / `paint_panel_border` split) |
-| `paint_tab(p, rect, *, bg, bg_gradient, radius, indicator, indicator_width, indicator_edge)` | Tab painter (keyword-only) with optional indicator strip; `indicator_edge` is a `Qt.Edge` |
+| `paint_tab(p, rect, *, bg, bg_gradient, radius, indicator, indicator_width, indicator_edge, border, border_width, flat_edge, border_closed)` | Tab painter (keyword-only) with optional indicator strip and outline; `indicator_edge` / `flat_edge` are `Qt.Edge` values. The outline skips the flat edge unless `border_closed` |
 | `create_high_dpi_drop_indicator_pixmap(size, area, mode, colors, dpr) → QPixmap` | Drop-zone icon painter |
 
 ---
@@ -364,6 +366,18 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | `tab_dimming` | `bool` | Enable dimming for active tabs in unfocused/inactive dock areas |
 | `indicator_width` | `int` | Thickness (in pixels) of the tab selection highlight stripe |
 | `indicator_position` | `str` / `List[str]` / `Tuple[str, ...]` | Active tab highlight stripe edge(s) (`"none"`, `"top"`, `"bottom"`, `"left"`, `"right"`, or combination/list) |
+| `sidebar_tab_flat_edge` | `str` | Which edge of a sidebar tab stays square: `"outward"` (the window edge its bar runs along), `"inward"` (facing the docked content), `"none"` (all four corners rounded), or `"all"` (the default — a plain rectangle) |
+| `sidebar_tab_radius` | `int` | Radius for those rounded corners; omitted, sidebar tabs take `tab_radius` |
+| `sidebar_tab_bg_normal` | `QColor` / `List[int]` | Fill behind an **inactive** sidebar tab. Transparent in every shipped theme, which is why an idle tab shows only its label; set it and every tab carries a background, not just the active and hovered ones. The accent at a low alpha gives a tint of the highlight colour rather than a slab of it |
+| `sidebar_tab_bg_hover_start` / `_end` | `QColor` / `List[int]` | The hovered tab's horizontal gradient. Derived from the base when unset, which carries no accent — see the note under *Sidebar tabs* on why that caps `sidebar_tab_bg_normal` |
+| `sidebar_tab_bg_active` | `QColor` / `List[int]` | The selected tab's fill (the panel colour when unset) |
+| `sidebar_tab_border_width` | `float` | Sidebar tab outline width; 0 (default) draws none |
+| `sidebar_tab_border_color` | `QColor` / `List[int]` | Outline colour for inactive sidebar tabs; transparent outlines only the active one |
+| `sidebar_tab_border_active_color` | `QColor` / `List[int]` | Outline colour for the active sidebar tab (defaults to the accent) |
+| `sidebar_tab_border_hover_color` | `QColor` / `List[int]` | Outline colour for a hovered, inactive tab. *Unset* — unlike the pair above, which are seeded — means hover is not a state of its own and keeps the inactive outline; set it, with the inactive one transparent, and the outline becomes the hover cue |
+| `sidebar_tab_border_closed` | `bool` | Close the outline across the flat edge instead of leaving it open |
+| `sidebar_indicator_width` | `float` | Thickness of the sidebar tab's highlight stripe. Give it the outline's width: the strip sits *on* one of the outline's edges and is painted under it, so a wider one sticks out inside the tab and steps that edge |
+| `sidebar_indicator_position` | `str` | Which edge it hugs: `"left"` (window-facing) or `"right"` (content-facing), mirrored per sidebar |
 
 ### 3.3 Titlebar Flushness & Borders
 
@@ -462,12 +476,12 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `dracula` | High-contrast dark with purple |
 | `solarized_dark` | Teal/cyan dark palette |
 | `solarized_light` | Warm cream light palette |
-| `cyberpunk_neon` | Vibrant, ultra-contrasty |
-| `cyberpunk_edge` | Amber/violet "night city"; focus-reactive rule under the tab bar (reference preset for `title_border_bottom`) |
+| `cyberpunk_neon` | Vibrant, ultra-contrasty; sidebar tabs ringed on all four corners, active only (reference preset for `sidebar_tab_flat_edge`) |
+| `cyberpunk_edge` | Amber/violet "night city"; focus-reactive rule under the tab bar (reference preset for `title_border_bottom`); same sidebar ring as `cyberpunk_neon` but on **every** tab — violet inactive, amber active |
 | `slate_amber` | Light industrial grey + burnt amber (`neutral` × `cyberpunk_edge`); the bottom rule on a light palette |
 | `neon_dusk` | Indigo + neon pink (`dracula` × `cyberpunk_neon`); every tab outlined, no card outline (reference preset for `tab_border_width`) |
 | `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; both tab states outlined; area outline limited to three sides (reference preset for `border_below_title`) |
-| `midnight_haze` | `violet_haze` × `midnight`: violet_haze's geometry over a near-black base. Only the focused area's active tab is outlined — everything else is drawn without a line (reference preset for `tab_border_unfocused_color`) |
+| `midnight_haze` | `violet_haze` × `midnight`: violet_haze's geometry over a near-black base. Only the focused area's active tab is outlined — everything else is drawn without a line (reference preset for `tab_border_unfocused_color`); its sidebar follows the same rule, ringing the active tab only |
 
 All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
 
@@ -480,6 +494,92 @@ presets above demonstrate the range.
 |---|---|---|---|
 | Rule | `title_border_bottom` | under the whole strip, horizontally | inactive; the active tab breaks it |
 | Outline | `tab_border_width` | around each tab: left, top, right — never the bottom | whichever of `tab_border_color` / `tab_border_active_color` / `tab_border_unfocused_color` applies, when opaque |
+
+#### Sidebar tabs
+
+The vertical auto-hide tabs take the same treatment through their own `sidebar_*` tokens,
+with one difference: the edge a sidebar tab is *joined along* is not the bottom but the side
+facing its bar's window edge. `sidebar_tab_flat_edge` names it — `"outward"` (window-facing,
+so left in a left sidebar and right in a right one), `"inward"` (facing the docked content),
+`"none"` for a tab rounded on all four corners, or `"all"`, the default, which keeps every
+corner square. The radius follows `tab_radius` unless `sidebar_tab_radius` pins it, so the
+two kinds of tab are rounded alike.
+
+`sidebar_tab_border_width` outlines the tab, and by default leaves the flat edge open the way
+a dock tab's open bottom joins it to the panel below; `sidebar_tab_border_closed` runs the
+line the whole way round instead. With all four corners rounded there is no edge left to
+open, so the outline is always closed there.
+
+Five presets ship this treatment on one geometry — `sidebar_tab_flat_edge = "none"`, so each
+tab is a closed rounded ring — differing only in which states are ringed at all:
+
+| Preset | Inactive | Hovered | Active |
+|---|---|---|---|
+| `cyberpunk_neon` | bare (`sidebar_tab_border_color` transparent) | accent pink, full alpha | focus cyan, 1.5 |
+| `cyberpunk_edge` | muted violet | — | amber, 1.5 |
+| `midnight_haze` | bare | — | accent, 2.0 |
+| `violet_haze` | bare | accent at alpha 130 | accent, 2.0 |
+| `slate_amber` | bare | amber at alpha 160 | amber, 1.5 |
+
+`violet_haze` is the one whose ring is a *hover* cue: bare when idle, ringed in a half-alpha
+accent under the cursor, ringed solid when selected — so the hover ring reads as the active
+one previewed. `sidebar_tab_border_hover_color` is what buys that, and it is deliberately not
+seeded: unset, hover keeps the inactive outline, which is what the three presets above it (and
+every theme predating the token) expect.
+
+`cyberpunk_neon` is the one whose hover ring is told apart by *hue* rather than alpha: the
+accent pink its dock widget tabs mark their own active tab with, against the focus cyan of
+the selected sidebar tab. That is why it alone keeps the hover at full alpha — there is no
+ring for it to be a faint version of.
+
+`slate_amber` is `cyberpunk_edge`'s sidebar in its own colours: the same `"none"` shape, the
+same 1.5 for both the ring and the strip. It departs on two states — an inactive tab is bare
+where edge rings every one of them, and the hover carries the ring at part alpha, the
+three-step violet_haze uses.
+
+`neon_dusk` outlines its sidebar tabs on the *other* shape: it is the one preset that keeps a
+flat edge there. `sidebar_tab_flat_edge = "outward"` rounds only the two content-facing
+corners and leaves the outline open against the window edge, so what it draws is a U rather
+than a ring — and the outward edge carries nothing in any state. The highlight strip stays on
+the content-facing edge, where the U already runs, at the outline's own width. The roundness
+and the line are on the inside; the window-facing side is where the tab opens onto its bar,
+the mirror image of what its dock tabs do with the rule under the tab strip. All of it
+mirrors with the sidebar the tab is in.
+
+It follows violet_haze's timing rather than its own dock tabs': nothing is drawn until a tab
+is pointed at. The muted indigo its inactive dock tabs wear moves to
+`sidebar_tab_border_hover_color`, so a hovered tab shows that U alone, and selecting it fills
+the U in with the neon pink and closes it.
+
+"Alone" is why it also zeroes `sidebar_tab_bg_hover_start` / `_end`. The derived hover fill is
+a lifted slab covering the whole tab *shape*, flat edge included, and its straight
+window-facing side is a harder line than the U it sits behind — so with a fill the tab reads
+as a rectangle with three sides drawn rather than as a U. This is the general point of the
+hover pair being themeable: an open outline only reads as open if nothing fills the shape it
+belongs to.
+
+`cyberpunk_edge` is the one that rings both states, mirroring what it already does with its
+card outline and its bottom rule. `midnight_haze` follows its own rule instead — one place
+for the eye to land — so its sidebar rings the active tab and draws no *line* anywhere else;
+it is also the one preset that fills its inactive tabs, tinting them with the accent
+(`sidebar_tab_bg_normal`) so the column reads as one family while the ring alone says which
+tab is selected.
+
+That tint has a ceiling, and a lower one than it looks. A *derived* hover comes off the base
+and carries no accent, so it sits at a fixed luminance however deep the tint goes: in
+`midnight_haze` an idle tab crosses it just past alpha 40, and beyond that an idle tab
+out-glows a hovered one. 30 keeps a clear margin.
+
+The ceiling is the derived hover's, not the feature's. The sidebar tab's fill is a
+three-state set — `sidebar_tab_bg_normal`, the `sidebar_tab_bg_hover_start` / `_end`
+gradient, and `sidebar_tab_bg_active` — and all three are themeable. Give hover the accent
+too and it rises with the tint, so a deeper `bg_normal` stays legible; leave it derived and
+alpha ~40 is the practical limit.
+
+All three pin `sidebar_indicator_width` to the ring's width. The strip shares the ring's
+content-facing edge and is painted *under* it, so at equal widths the ring covers it and the
+tab is one clean line; left at the 3px default it stuck out inside the ring — a pink sliver
+against neon's cyan, and doubled amber in edge.
 
 Together they close the inactive tabs on all four sides while the active tab keeps its open
 bottom, which is what makes it read as a notch cut out of the strip. Give them the **same
@@ -665,7 +765,8 @@ Rotated tab button for the sidebar.
 |---|---|
 | **Signals** | `drag_started`, `context_menu_requested`, `close_requested` |
 | **Badge** | `set_badge(value, color?, position?)`, `clear_badge()`, `badge_position` (prop), `set_badge_position(position)` |
-| **Paint** | `paintEvent(event)` — rotated icon+text, indicator edge mirroring, badge drawing |
+| **Paint** | `paintEvent(event)` — rotated icon+text, shape/indicator edge mirroring, outline, badge drawing |
+| **Shape** | `_tab_shape() → (radius, flat_edge, border_closed)` — resolves `SIDEBAR.tab_flat_edge` against the tab's own sidebar; `_border_color(checked) → QColor?` (transparent = no outline in that state) |
 | **Size** | `sizeHint()`, `minimumSizeHint()` |
 | **Area** | `set_area(area)`, `_indicator_edge() → Qt.Edge` |
 | **Mouse** | `enterEvent()`, `leaveEvent()`, `mousePressEvent()` (middle-click closes) |
@@ -861,7 +962,7 @@ Theme-aware SVG icon provider. Preloads SVGs from a filesystem path or `importli
 |---|---|---|
 | **DockInsertParam** (NamedTuple) | `orientation`, `append` | Helper for splitter insertion direction; exposes `insert_offset` property |
 | **DockWidgetArea** (`IntFlag`) | Bitwise flags: `no_area`, `left`, `right`, `top`, `bottom`, `center`, `invalid`; masks: `outer_dock_areas` (15), `all_dock_areas` (31) | Physical layout zones within a `DockContainerWidget` or `SideBarContainer` where widgets can be dropped, split, or docked. Used by `DockContainerWidget` to determine splitter orientation (Horizontal for left/right, Vertical for top/bottom), by `SideBarManager` to map to sidebar overlays, and by `DockOverlay` / `DockPaint` to compute drop-zone hitboxes and paint translucent indicators |
-| **DockFlags** (`IntFlag`) | 16 global config bits: `opaque_splitter_resize`, `opaque_undocking`, `always_show_tabs`, `show_tab_close_button`, `active_tab_has_close_button`, `dock_area_has_close_button`, `dock_area_close_button_closes_tab`, `dock_area_has_undock_button`, `dock_area_has_pin_button`, `dock_area_has_maximize_button`, `dock_area_has_tabs_menu_button`, `middle_mouse_button_closes_tab`, `floatable_tabs`, `pinnable_tabs`, `custom_tab_icons`, `hide_disabled_title_bar_icons`, `chromeless_float`; plus `none_` (0) and `default_config` (combined mask) | Global system configuration controlling tab rendering, button visibility, drag-and-drop behavior, and floating window appearance. Stored on `DockManager.config_flags`. For example: `opaque_undocking` keeps floating windows at 100% opacity during drag (vs 0.6); `chromeless_float` creates frameless top-level windows; `custom_tab_icons` switches between user-configured and default tab icons; `floatable_tabs` / `pinnable_tabs` gate whether tabs can be dragged to float or pinned to sidebars |
+| **DockFlags** (`IntFlag`) | 19 global config bits: `opaque_splitter_resize`, `opaque_undocking`, `always_show_tabs`, `show_tab_close_button`, `active_tab_has_close_button`, `dock_area_has_close_button`, `dock_area_close_button_closes_tab`, `dock_area_has_undock_button`, `dock_area_has_pin_button`, `dock_area_has_maximize_button`, `sidebar_area_has_maximize_button`, `dock_area_has_tabs_menu_button`, `middle_mouse_button_closes_tab`, `floatable_tabs`, `pinnable_tabs`, `custom_tab_icons`, `hide_disabled_title_bar_icons`, `chromeless_float`, `floating_taskbar_button`; plus `none_` (0) and `default_config` (combined mask) | Global system configuration controlling tab rendering, button visibility, drag-and-drop behavior, and floating window appearance. Stored on `DockManager.config_flags`. For example: `opaque_undocking` keeps floating windows at 100% opacity during drag (vs 0.6); `chromeless_float` creates frameless top-level windows; `floating_taskbar_button` gives each float its own taskbar button (`WS_EX_APPWINDOW`) plus a minimize button — without it a float is an owned window, so minimizing would put it somewhere the user cannot click; `custom_tab_icons` switches between user-configured and default tab icons; `floatable_tabs` / `pinnable_tabs` gate whether tabs can be dragged to float or pinned to sidebars |
 | **TitleBarButton** (Enum) | `tabs_menu`, `undock`, `close`, `pin`, `maximize`, `minimize`, `restore` | Identifiers for standard interactive buttons on dock area title bars. Used by `DockAreaTitleBar.button(which)` to retrieve specific `QToolButton` instances, and by `DockContainerWidget` to dynamically update button visibility/state for floating windows |
 | **OverlayMode** (Enum) | `dock_area`, `container` | Controls how translucent drop indicator crosses (`DockOverlay`) are rendered: `dock_area` targets a specific `DockAreaWidget` (local card split), `container` targets outer margins of `DockContainerWidget` (global edge split). Instantiated in `DockManager.__init__()` as two separate overlays |
 | **DragState** (Enum) | `inactive`, `mouse_pressed`, `tab`, `floating_widget` | State machine tracking drag-and-drop context across `DockWidgetTab`, `DockAreaTitleBar`, and `FloatingDockContainer`. Transitions: `mouse_pressed` → (distance exceeded?) → `tab` (reorder within tab bar) or `floating_widget` (detach to new window) → `inactive` on release |

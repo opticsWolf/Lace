@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.5.0
+**Version:** 0.6.0
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -40,6 +40,8 @@
 - **Auto-hide panels** — VS Code-style slide-out sidebars that appear on hover
 - **Pinned widgets** — Pin dock widgets to sidebars with visual tab buttons
 - **Notification badges** — Numerical or symbolic badges on sidebar tabs
+- **Shaped tabs** — Sidebar tabs take the dock widget tabs' corner radius, flat on the window-facing or content-facing side (or rounded on all four), with an outline that closes all the way round or leaves the flat edge open
+- **Per-state outlines and fills** — Inactive, hovered and active each get their own outline colour and background, so a theme can outline only the selected tab, ring one under the cursor, or tint every tab with the highlight colour
 - **Configurable focus behavior** — Choose whether sidebars steal keyboard focus
 - **Drag to detach** — Tear pinned widgets out of sidebars back into the main layout
 
@@ -47,6 +49,7 @@
 
 - **19 built-in themes** — Dark, light, midnight, warm, nordic, monokai, neutral, tokyo_night, catppuccin, dracula, solarized_dark/light, cyberpunk_neon, cyberpunk_edge, slate_amber, neon_dusk, violet_haze, and midnight_haze
 - **Declarative `ThemeSpec`** — Define custom themes with color palettes and geometrical tokens (corner radius, border width, title height, tab radius, content margin, etc.)
+- **Sidebar tab tokens** — A matching `sidebar_tab_*` set for the auto-hide tabs: shape, radius, outline width and per-state colours, fills, and highlight-strip width and edge
 - **JSON theme files** — Ship themes as JSON (Pydantic-validated via `ThemeJson`/`load_theme_json`); colors as `[r,g,b,a]` lists or `"#rrggbb"` strings
 - **Reactive borders** — Active dock area shows a vibrant focus border; inactive areas show a subtle neutral border
 - **OS auto-sync** — Automatically switch between light/dark themes when the OS changes (`ThemeManager.sync_theme(force, path)`)
@@ -54,7 +57,7 @@
 
 ### ⚙️ Configuration
 
-- **16 global flags** — Control tab visibility, button visibility, drag behavior, floating window chrome, icon styling, and more
+- **19 global flags** — Control tab visibility, button visibility, drag behavior, floating window chrome, icon styling, and more
 - **Per-widget feature flags** — Granular control over what each dock widget can do: closable, movable, floatable, pinnable
 - **Insertion order** — Sort "Show View" menu items alphabetically or chronologically
 - **Toggle view actions** — Integrate dock widget show/hide into menu bars or toolbars as checkable toggles or one-way show buttons
@@ -129,7 +132,7 @@ python -m demos.demo_app
 The demo includes:
 - Multiple dock widgets with different feature flags (closable, movable, floatable, pinnable)
 - Sidebar setup with notification badges
-- Theme switching menu with 14 built-in themes
+- Theme switching menu with 19 built-in themes
 - Global flags menu for live configuration toggling
 
 For frameless/custom-title-bar examples, see:
@@ -239,7 +242,7 @@ lace/
 │   ├── dock_chrome.py             # Drag detector, chrome buttons, frames
 │   ├── dock_paint.py              # Painting primitives
 │   ├── dock_theme.py              # Theme schemas, ThemeSpec, color math
-│   ├── dock_custom_theme.py       # 14 built-in theme presets
+│   ├── dock_custom_theme.py       # 18 built-in theme presets
 │   ├── theme_models.py            # ThemeJson — Pydantic JSON theme loading
 │   ├── dock_style_manager.py      # Singleton style manager (subscriber model)
 │   ├── dock_theme_bridge.py       # QPalette push to Qt children

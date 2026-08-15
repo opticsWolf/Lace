@@ -25,7 +25,8 @@ from lace.dock_theme import DockStyleCategory
 from lace.floating_behaviour import FloatingContainerBehaviour, _EDGE_NONE
 from lace.frameless_window import FramelessLaceWindow, _resolve_title_bar
 from lace.frameless_titlebar import FramelessTitleBarStyler
-from lace.util import start_drag_distance
+from lace.util import (is_window_maximized, pre_snap_geometry, restore_window,
+                       start_drag_distance)
 
 if TYPE_CHECKING:
     from lace import DockAreaWidget, DockWidget, DockManager
@@ -109,9 +110,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
         # Floating containers are parented widgets, so promote this to a real
         # top-level frameless window first (the frameless base only ORs
         # Qt.FramelessWindowHint into the existing flags).
-        flags = (Qt.Window | Qt.FramelessWindowHint |
-                 Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
-        self.setWindowFlags(flags)
+        self.setWindowFlags(self._window_flags())
         # setWindowFlags() (re)creates the native window handle — re-apply the
         # DWM shadow / animation registered by the frameless base.
         updater = getattr(self, "updateFrameless", None)
@@ -120,6 +119,8 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                 updater()
             except Exception:
                 pass
+        # ...and the taskbar ex-style, which the new handle does not inherit.
+        self._apply_taskbar_presence()
 
         # Swap in a custom title bar if the DockManager (or constructor
         # argument) requests one; otherwise use the standard Lace title bar.
@@ -133,6 +134,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
         icon_setter = getattr(self.titleBar, "setIcon", None)
         if icon_setter is not None:
             icon_setter(self.windowIcon())
+        self._sync_minimize_button()
         if self._chromeless:
             # chromeless_float => bare floating surface: no title bar at all.
             self.titleBar.hide()
@@ -248,12 +250,38 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
     #  Window flags / frameless chrome
     # ─────────────────────────────────────────────────────────────────────
 
-    def update_window_flags_from_config(self):
-        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
-        # The frameless variant always keeps Qt.FramelessWindowHint (the base
-        # class sets it); the native OS title bar never returns.
+    def _window_flags(self) -> Qt.WindowType:
+        """The window flags this float wants, given the current config.
+
+        The frameless variant always keeps Qt.FramelessWindowHint (the base
+        class sets it); the native OS title bar never returns. The minimize
+        hint follows the taskbar flag — see :meth:`_sync_minimize_button`.
+        """
         flags = (Qt.Window | Qt.FramelessWindowHint |
                  Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+        if self._wants_taskbar_button():
+            flags |= Qt.WindowMinimizeButtonHint
+        return flags
+
+    def _sync_minimize_button(self) -> None:
+        """Show the title bar's minimize button only if the float can come back.
+
+        qframelesswindow builds a minimize button into every title bar and
+        wires it to showMinimized(), and its addWindowAnimation() ORs
+        WS_MINIMIZEBOX onto the handle, so minimizing works whether or not the
+        window has anywhere to minimize *to*. Without a taskbar button it has
+        nowhere — the float vanishes and is not in Alt-Tab either.
+
+        Hiding the button also widens the draggable region: qframelesswindow's
+        _isDragRegion() measures only the visible buttons.
+        """
+        min_button = getattr(self.titleBar, "minBtn", None)
+        if min_button is not None:
+            min_button.setVisible(self._wants_taskbar_button())
+
+    def update_window_flags_from_config(self):
+        self._chromeless = self._test_config_flag(DockFlags.chromeless_float)
+        flags = self._window_flags()
         if self.windowFlags() != flags:
             # Save client-area geometry so content size is preserved across
             # the flag change (setWindowFlags destroys/recreates the native
@@ -271,6 +299,9 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                     updater()
                 except Exception:
                     pass
+            # Set the taskbar ex-style while the window is still hidden, so the
+            # show() below is what the shell sees.
+            self._apply_taskbar_presence()
             if was_visible:
                 self.show()
             # Restore the saved client-area geometry and force a full repaint.
@@ -279,6 +310,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
         else:
             self.setAttribute(Qt.WA_TranslucentBackground, self._chromeless)
             self._pending_restore_geometry = None
+            self._apply_taskbar_presence()
 
         # The custom title bar follows the chromeless flag: chromeless floats
         # are bare surfaces without any title bar.
@@ -289,6 +321,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
             else:
                 tb.show()
                 tb.raise_()
+            self._sync_minimize_button()
 
         # Sync the rounded-corner mask with the chromeless state.
         if self._chromeless:
@@ -507,6 +540,10 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                     if app is not None:
                         app.removeEventFilter(self)
                 self._frameless_drag_filter = False
+                # This is the path an OS-move drag ends on when the modal
+                # loop swallowed the title bar's own release, so it owes the
+                # same cleanup _handle_titlebar_drag's release branch does.
+                self._os_move_active = False
 
                 QTimer.singleShot(0, self._end_programmatic_drag)
                 return False
@@ -605,6 +642,15 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
             # stale drop-overlay state cannot linger.
             if self._dragging_state != DragState.inactive:
                 self._cancel_stale_drag()
+            # A new press means no OS move loop of ours is still running.
+            # Asserting that here rather than trusting the previous drag to
+            # have cleared it: the loop swallows the release that would have,
+            # and the app-filter path that ends the drag instead reset only
+            # the drag state. A leaked True made every later move skip the
+            # drag-start branch below and get consumed, so the float could
+            # never be dragged again — including after an Aero snap, which is
+            # how the loop usually ends.
+            self._os_move_active = False
             self._titlebar_drag_start = event.position().toPoint()
             self._drag_start_mouse_position = event.position().toPoint()
             self._set_state(DragState.mouse_pressed)
@@ -630,6 +676,9 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                 return False
             try:
                 from qframelesswindow.utils import startSystemMove
+                # Here the press starts the move, so the rip-out has to
+                # happen here rather than at the drag threshold.
+                self._restore_under_cursor(event.globalPosition().toPoint())
                 startSystemMove(self, event.globalPosition().toPoint())
                 self._os_move_active = True
             except Exception:
@@ -659,6 +708,11 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
                         self._titlebar_drag_start = None
                         self._drag_start_mouse_position = start
                         self._set_state(DragState.floating_widget)
+                        # A maximized window has to come loose before anyone
+                        # tries to move it — the OS will not move it, and the
+                        # gesture is meant to un-maximize.
+                        self._restore_under_cursor(
+                            event.globalPosition().toPoint())
                         try:
                             from qframelesswindow.utils import startSystemMove
                             startSystemMove(self, event.globalPosition().toPoint())
@@ -704,6 +758,51 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
             return False
 
         return False
+
+    def _restore_under_cursor(self, global_pos: QPoint) -> None:
+        """Un-maximize or un-snap, grab kept where it is, before an OS move.
+
+        Windows gives native frames this for free: dragging a maximized or
+        Aero-snapped window by its caption pulls it loose under the pointer.
+        That lives in the ``WM_NCLBUTTONDOWN`` / ``HTCAPTION`` path, which a
+        client-area title bar never receives — and qframelesswindow's move is
+        ``WM_SYSCOMMAND SC_MOVE``, which Windows refuses outright for either
+        state. So nothing restored the window, and nothing moved it either.
+
+        A snap is not a maximize — ``showCmd`` stays ``SW_NORMAL`` — so it
+        needs its own question, and its own source for the pre-snap size:
+        Qt's ``normalGeometry()`` has been overwritten with the snapped rect
+        by then, while Windows still has the original in
+        ``rcNormalPosition``. Un-snapping is then just a geometry change.
+
+        The window is placed so the cursor keeps the same fraction across
+        the title bar; grab a maximized float near its right edge and it
+        comes loose near its right edge, rather than jumping so its corner
+        lands under the pointer.
+        """
+        local = self.mapFromGlobal(global_pos)
+        fraction = min(1.0, max(0.0, local.x() / max(1, self.width())))
+
+        if is_window_maximized(self):
+            # The restored size has to come from normalGeometry(), read now:
+            # showNormal() does not apply the geometry before it returns (on
+            # either platform), so reading size() afterwards still measures
+            # the maximized window — and a plain move() then loses to Qt's
+            # own deferred restore. Set the whole rect instead.
+            target = QRect(self.normalGeometry())
+            if target.isEmpty():
+                target = QRect(self.pos(), self.size())
+            restore_window(self)
+        else:
+            target = pre_snap_geometry(self)
+            if target is None:
+                return
+
+        target.moveTo(global_pos.x() - int(fraction * target.width()),
+                      global_pos.y() - local.y())
+        self.setGeometry(target)
+        # The manual (no OS move loop) fallback measures from this.
+        self._drag_start_mouse_position = self.mapFromGlobal(global_pos)
 
     def _remove_frameless_drag_filter(self):
         """Remove the transient app filter installed for frameless drags."""

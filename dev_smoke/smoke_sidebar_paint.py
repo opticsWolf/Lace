@@ -275,6 +275,175 @@ def check_vertical_tab():
 check_vertical_tab()
 print("VERTICAL TAB OK")
 
+
+def check_vertical_tab_shape():
+    """The tab's flat edge mirrors with the bar, and the outline either closes
+    across that edge or leaves it open.
+
+    Rendered on the real platform rather than offscreen: this is antialiased
+    corner and stroke geometry, and the two backends round it differently.
+    Corners are read by alpha — nothing else paints the button, so a square one
+    comes back covered and a rounded one untouched.
+    """
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QImage, QRegion
+    from PySide6.QtWidgets import QWidget
+    from lace.dock_theme import ThemeSpec, build_theme
+    from lace.sidebar_tab import VerticalTabButton
+
+    W, H = 30, 120
+
+    def theme(**kw):
+        sm.apply_theme_dict(build_theme(ThemeSpec(
+            base=[20, 20, 30, 255], accent=[255, 100, 180, 255],
+            text=[240, 240, 250, 255], tab_radius=6,
+            # The strip defaults to the accent on the content-facing edge —
+            # the same colour and pixels the active tab's outline would use.
+            sidebar_indicator_width=0, **kw)))
+
+    def mk(area=DockWidgetArea.left, checked=True):
+        b = VerticalTabButton("Panel"); b.set_area(area)
+        b.resize(W, H); b.setChecked(checked); b._is_hovered = False
+        b.refresh_style()
+        return b
+
+    def render(b):
+        img = QImage(b.size(), QImage.Format_ARGB32); img.fill(0)
+        # DrawChildren only: the default flags paint the palette background
+        # over the whole rect first and every corner comes back opaque.
+        b.render(img, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
+        return img
+
+    def rounded(b):
+        img = render(b)
+        w, h = b.width() - 1, b.height() - 1
+        return {n for n, (x, y) in (("tl", (0, 0)), ("tr", (w, 0)),
+                                    ("br", (w, h)), ("bl", (0, h)))
+                if img.pixelColor(x, y).alpha() == 0}
+
+    def inked(b):
+        # The strip is off for both renders: it sits on one of the outline's
+        # own edges, and where the two share a colour (cyberpunk_edge rings and
+        # stripes its active tab in the same amber) it would go on painting
+        # that edge with the outline gone.
+        saved_strip, b._indicator_width = b._indicator_width, 0.0
+        try:
+            on = render(b)
+            saved, b._border_width = b._border_width, 0.0
+            try:
+                off = render(b)
+            finally:
+                b._border_width = saved
+        finally:
+            b._indicator_width = saved_strip
+        xs, ys = range(W // 3, W - W // 3), range(H // 3, H - H // 3)
+        edges = {"left": [(0, y) for y in ys], "right": [(W - 1, y) for y in ys],
+                 "top": [(x, 0) for x in xs], "bottom": [(x, H - 1) for x in xs]}
+        return {n for n, pts in edges.items()
+                if any(on.pixelColor(x, y) != off.pixelColor(x, y) for x, y in pts)}
+
+    theme()
+    assert not rounded(mk()), "the default sidebar tab is no longer a rectangle"
+
+    theme(sidebar_tab_flat_edge="outward")
+    assert rounded(mk(DockWidgetArea.left)) == {"tr", "br"}, "left bar, outward"
+    assert rounded(mk(DockWidgetArea.right)) == {"tl", "bl"}, "right bar, outward"
+
+    theme(sidebar_tab_flat_edge="inward")
+    assert rounded(mk(DockWidgetArea.left)) == {"tl", "bl"}, "left bar, inward"
+
+    theme(sidebar_tab_flat_edge="none")
+    assert rounded(mk()) == {"tl", "tr", "br", "bl"}, "all four corners rounded"
+
+    theme(sidebar_tab_flat_edge="outward", sidebar_tab_border_width=2.0)
+    assert inked(mk()) == {"top", "right", "bottom"}, "the flat edge is not open"
+
+    theme(sidebar_tab_flat_edge="outward", sidebar_tab_border_width=2.0,
+          sidebar_tab_border_closed=True)
+    assert inked(mk()) == {"left", "top", "right", "bottom"}, "outline not closed"
+
+    # The shipped presets that ring their sidebar tabs. Same shape, and the
+    # strip matches the ring's width in each; they differ only in whether an
+    # inactive tab is ringed at all — cyberpunk_edge alone rings both states,
+    # and violet_haze alone rings the hover.
+    all_four = {"left", "top", "right", "bottom"}
+    for name in ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze"):
+        # (neon_dusk outlines its sidebar tabs too, but on the other shape —
+        # flat outward, strip closing the open edge; checked below on its own.)
+        apply_dock_theme(name)
+        s = sm.get_all(DockStyleCategory.SIDEBAR)
+        assert s["tab_flat_edge"] == "none", f"{name}: sidebar tab shape lost"
+        assert s["indicator_width"] == s["tab_border_width"] > 0, \
+            f"{name}: strip {s['indicator_width']} != ring {s['tab_border_width']}"
+        active, idle = mk(checked=True), mk(checked=False)
+        assert rounded(active) == {"tl", "tr", "br", "bl"}, f"{name}: not a pill"
+        assert inked(active) == all_four, f"{name}: the active ring is broken"
+        rings_idle = name == "cyberpunk_edge"
+        assert (inked(idle) == all_four) is rings_idle, \
+            f"{name}: inactive tab ringed={not rings_idle}, expected {rings_idle}"
+        hovered = mk(checked=False)
+        hovered._is_hovered = True
+        # A hover colour of its own decides the hover; without one the hover
+        # falls back to the inactive ring, which is the token's whole contract.
+        hover_ring = s["tab_border_hover_color"]
+        rings_hover = rings_idle if hover_ring is None else hover_ring.alpha() > 0
+        assert (inked(hovered) == all_four) is rings_hover, \
+            f"{name}: hovered tab ringed={not rings_hover}, expected {rings_hover}"
+
+    # neon_dusk: rounded and outlined on the content-facing side, open against
+    # the window edge — a U, not a ring — with nothing on that open edge in any
+    # state, and nothing drawn at all until the tab is pointed at.
+    apply_dock_theme("neon_dusk")
+    s = sm.get_all(DockStyleCategory.SIDEBAR)
+    assert s["tab_flat_edge"] == "outward" and s["indicator_position"] == "right"
+    assert s["indicator_width"] == s["tab_border_width"] == 2.0
+    u = {"top", "right", "bottom"}
+    assert rounded(mk()) == {"tr", "br"}, "the window-facing corners are not flat"
+    assert inked(mk(checked=True)) == u, "the outward edge is not open"
+    assert not inked(mk(checked=False)), "an idle tab is outlined"
+    hovered = mk(checked=False)
+    hovered._is_hovered = True
+    assert inked(hovered) == u, "a hovered tab is not outlined"
+    # ...and nothing else: a derived hover fill would put a straight edge back
+    # on the flat side, so the U would read as a three-sided rectangle.
+    img = QImage(W, H, QImage.Format_ARGB32)
+    img.fill(s["bg_color"])
+    hovered.render(img, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
+    # Near the top end, not the centre: the label is centred along the tab and
+    # its glyphs cover the middle pixel outright with a real font (offscreen
+    # they happen to miss it, which is why the unit test can sample there).
+    px = img.pixelColor(W // 2, 8).getRgb()
+    assert px == s["bg_color"].getRgb(), f"the hovered tab is filled: {px}"
+    # Nothing reaches the outward edge in any state, clear of the corners where
+    # the U's arms run into it.
+    px = render(mk(checked=True)).pixelColor(0, H // 2).getRgb()
+    assert px == s["tab_bg_active"].getRgb() != s["indicator_color"].getRgb(), \
+        f"the active tab draws on its outward edge: {px}"
+    assert render(hovered).pixelColor(0, H // 2).alpha() == 0, \
+        "a hovered tab draws on its outward edge"
+
+    # slate_amber: cyberpunk_edge's shape and weights in this theme's colours,
+    # with the inactive tab left bare.
+    apply_dock_theme("slate_amber")
+    s = sm.get_all(DockStyleCategory.SIDEBAR)
+    assert s["tab_flat_edge"] == "none"
+    assert s["indicator_width"] == s["tab_border_width"] == 1.5
+    active = mk(checked=True)
+    assert inked(active) == all_four, "the active tab is not ringed"
+    assert rounded(active) == {"tl", "tr", "br", "bl"}, "not a pill"
+    assert not inked(mk(checked=False)), "an inactive tab is ringed"
+    hovered = mk(checked=False)
+    hovered._is_hovered = True
+    assert inked(hovered) == all_four, "a hovered tab is not ringed"
+    assert render(hovered).pixelColor(0, H // 2) != render(active).pixelColor(0, H // 2), \
+        "the hover and active rings render identically"
+
+    apply_dock_theme("default")
+
+
+check_vertical_tab_shape()
+print("VERTICAL TAB SHAPE OK")
+
 print("--- SideTabBar decorations (counter + drop indicator) ---")
 for theme in ("default", "light", "monokai"):
     d = sample_decorations(theme)

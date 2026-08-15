@@ -43,6 +43,7 @@ still reaches the Qt base.
 
 
 import logging
+import sys
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QSize, Qt
@@ -70,6 +71,11 @@ _EDGE_RIGHT = 1 << 1
 _EDGE_TOP = 1 << 2
 _EDGE_BOTTOM = 1 << 3
 
+# Win32 window-style constants for the taskbar opt-in. Named here rather than
+# imported so the mixin stays free of a pywin32 dependency on every platform.
+_GWL_EXSTYLE = -20
+_WS_EX_APPWINDOW = 0x00040000
+
 
 class FloatingContainerBehaviour:
     """Window-chrome-independent behaviour of a floating dock container."""
@@ -85,6 +91,61 @@ class FloatingContainerBehaviour:
 
     def __repr__(self):
         return f'<FloatingDockContainer container={self._dock_container}>'
+
+    def _wants_taskbar_button(self) -> bool:
+        """Whether this float should carry its own taskbar button."""
+        return self._test_config_flag(DockFlags.floating_taskbar_button)
+
+    def _apply_taskbar_presence(self) -> None:
+        """Add or remove this float's taskbar button. Windows only.
+
+        Floats are parented to the root container so they stack above the main
+        window, and Qt hands a parented top-level its parent's HWND as the
+        Win32 *owner*. Windows keeps an owned window out of the taskbar and out
+        of Alt-Tab, so a minimized float would be unreachable — which is why
+        the minimize button only appears with this flag set.
+        ``WS_EX_APPWINDOW`` overrides the rule for one window without giving up
+        the parenting.
+
+        Call this after anything that recreates the native handle
+        (``setWindowFlags``): the new handle does not inherit the ex-style.
+        """
+        if sys.platform != "win32":
+            return
+        if not self._wants_taskbar_button() and self.windowHandle() is None:
+            # Nothing to clear, and no reason to force a native handle into
+            # existence early just to prove it.
+            return
+        try:
+            import ctypes
+
+            hwnd = int(self.winId())
+            if not hwnd:
+                return
+            user32 = ctypes.windll.user32
+            user32.GetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            user32.GetWindowLongW.restype = ctypes.c_long
+            user32.SetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int,
+                                              ctypes.c_long]
+            user32.SetWindowLongW.restype = ctypes.c_long
+
+            handle = ctypes.c_void_p(hwnd)
+            current = user32.GetWindowLongW(handle, _GWL_EXSTYLE)
+            if self._wants_taskbar_button():
+                wanted = current | _WS_EX_APPWINDOW
+            else:
+                wanted = current & ~_WS_EX_APPWINDOW
+            if wanted == current:
+                return
+            user32.SetWindowLongW(handle, _GWL_EXSTYLE, wanted)
+            # The shell reads the ex-style when the window is next shown, so an
+            # already-visible float needs a cycle for the button to appear or
+            # go away. Before the first show() there is nothing to cycle.
+            if self.isVisible():
+                self.hide()
+                self.show()
+        except Exception:
+            logger.debug("Taskbar presence update unavailable", exc_info=True)
 
     def _activate_window(self):
         """Bring this floating window to the front and give it focus."""

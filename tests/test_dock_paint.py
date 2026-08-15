@@ -8,17 +8,22 @@ onto an offscreen QImage (no real display required).
 
 from math import ceil
 
+import pytest
 from PySide6.QtCore import QRectF, QPointF, QSizeF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QBrush
 
 from lace.dock_paint import (
     chrome_content_margin,
+    tab_path,
     top_rounded_path,
     bottom_rounded_path,
     ChromeTokens,
     paint_panel,
     paint_tab,
 )
+
+EDGE_NAMES = {Qt.Edge.TopEdge: "top", Qt.Edge.BottomEdge: "bottom",
+              Qt.Edge.LeftEdge: "left", Qt.Edge.RightEdge: "right"}
 
 
 def test_chrome_content_margin_zero_when_plain():
@@ -50,6 +55,87 @@ def test_rounded_paths_keep_full_bounds():
     assert bottom.boundingRect() == rect
     # Negative radius is clamped to a plain rect, never crashes.
     assert top_rounded_path(rect, -5.0).boundingRect() == rect
+
+
+# ── tab_path: the general form behind every tab outline ───────────────────
+def _corner_points(rect):
+    return {
+        "top_left": QPointF(rect.left(), rect.top()),
+        "top_right": QPointF(rect.right(), rect.top()),
+        "bottom_right": QPointF(rect.right(), rect.bottom()),
+        "bottom_left": QPointF(rect.left(), rect.bottom()),
+    }
+
+
+@pytest.mark.parametrize("flat_edge, square", [
+    (Qt.Edge.BottomEdge, {"bottom_left", "bottom_right"}),
+    (Qt.Edge.TopEdge, {"top_left", "top_right"}),
+    (Qt.Edge.LeftEdge, {"top_left", "bottom_left"}),
+    (Qt.Edge.RightEdge, {"top_right", "bottom_right"}),
+    (None, set()),
+])
+def test_only_the_flat_edges_corners_stay_square(flat_edge, square):
+    """Every edge can be the flat one, and it owns exactly its own two corners."""
+    rect = QRectF(0, 0, 100, 60)
+    path = tab_path(rect, 10.0, flat_edge)
+    # A point 1px diagonally inside each corner is covered iff that corner is
+    # square: at radius 10 the arc is nowhere near it.
+    inward = {"top_left": (1, 1), "top_right": (-1, 1),
+              "bottom_right": (-1, -1), "bottom_left": (1, -1)}
+    covered = set()
+    for name, point in _corner_points(rect).items():
+        dx, dy = inward[name]
+        if path.contains(QPointF(point.x() + dx, point.y() + dy)):
+            covered.add(name)
+    assert covered == square
+    assert path.boundingRect() == rect, "the path no longer fills its rect"
+
+
+@pytest.mark.parametrize("flat_edge", list(EDGE_NAMES))
+def test_an_open_path_starts_and_ends_on_the_flat_edge(flat_edge):
+    """The skipped segment is the flat edge, so both ends sit on it."""
+    rect = QRectF(0, 0, 100, 60)
+    for radius in (0.0, 8.0):
+        path = tab_path(rect, radius, flat_edge, closed=False)
+        ends = [path.elementAt(0),
+                path.elementAt(path.elementCount() - 1)]
+        for end in ends:
+            if flat_edge == Qt.Edge.TopEdge:
+                assert end.y == pytest.approx(rect.top())
+            elif flat_edge == Qt.Edge.BottomEdge:
+                assert end.y == pytest.approx(rect.bottom())
+            elif flat_edge == Qt.Edge.LeftEdge:
+                assert end.x == pytest.approx(rect.left())
+            else:
+                assert end.x == pytest.approx(rect.right())
+        assert {(round(e.x), round(e.y)) for e in ends} == {
+            (round(p.x()), round(p.y()))
+            for name, p in _corner_points(rect).items()
+            if name in _flat_corner_names(flat_edge)
+        }, f"radius={radius}: the open path does not span the flat edge"
+
+
+def _flat_corner_names(flat_edge):
+    from lace.dock_paint import _EDGE_CORNERS
+    return set(_EDGE_CORNERS[flat_edge])
+
+
+def test_all_corners_rounded_cannot_be_left_open():
+    """With no flat edge there is no segment to skip, so closed is forced."""
+    rect = QRectF(0, 0, 100, 60)
+    assert tab_path(rect, 8.0, None, closed=False).elementCount() == \
+        tab_path(rect, 8.0, None, closed=True).elementCount()
+    assert tab_path(rect, 8.0, None, closed=False).contains(rect.center())
+
+
+def test_the_named_helpers_are_tab_path_special_cases():
+    """One implementation behind all three, so they cannot drift apart."""
+    rect = QRectF(5, 5, 90, 40)
+    for radius in (0.0, 7.0):
+        assert top_rounded_path(rect, radius) == \
+            tab_path(rect, radius, Qt.Edge.BottomEdge, closed=True)
+        assert bottom_rounded_path(rect, radius) == \
+            tab_path(rect, radius, Qt.Edge.TopEdge, closed=True)
 
 
 def test_chrome_tokens_content_margin_matches_free_function():

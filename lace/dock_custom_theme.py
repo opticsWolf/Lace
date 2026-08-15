@@ -264,6 +264,28 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_width = 2.0,
         indicator_position = "bottom",
         tab_dimming        = True,
+
+        # Sidebar tabs: rounded on all four corners, so the outline closes all
+        # the way round — a detached pill rather than something joined to the
+        # strip. Only the active tab is ringed; the inactive ones are bare.
+        # (cyberpunk_edge draws the same shape but rings every tab — the two
+        # presets are the pair that shows both halves of that choice.)
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 1.5,                  # as the card outline
+        sidebar_tab_border_color = [0, 0, 0, 0],         # inactive: no ring
+        sidebar_tab_border_active_color = [0, 240, 255, 255],   # focus cyan
+        # Hover takes the accent — the pink the dock widget tabs mark their own
+        # active tab with, and the colour of this sidebar's strip. It is the one
+        # hover ring that stays at full alpha: the others fade a ring the active
+        # state repeats, while here the two states are already a hue apart, and
+        # dimming the pink would only make it read as a weaker cyan.
+        sidebar_tab_border_hover_color = [255, 0, 127, 255],
+        # The strip shares the ring's content-facing edge and is painted first,
+        # so at an equal width the ring covers it exactly and the active tab is
+        # one clean line all the way round. That is why it is pinned here: the
+        # 3px default is wider than the ring, and the px it stuck out was inside
+        # the tab — a pink sliver against the cyan.
+        sidebar_indicator_width = 1.5,
     ),
 
     # -------------------------------------------------------------------------
@@ -322,6 +344,20 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_width = 1.5,
         indicator_position = "bottom",
         tab_dimming        = True,
+
+        # Sidebar tabs: cyberpunk_neon's shape, but every tab is ringed, not
+        # only the active one — the same violet/amber active-inactive treatment
+        # this preset gives its card outline and its bottom rule.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 1.5,
+        sidebar_tab_border_color = [110, 72, 148, 190],         # muted violet
+        sidebar_tab_border_active_color = [255, 154, 0, 255],   # amber
+        # 1.5 throughout, as everywhere else in this preset: the strip shares
+        # the ring's content-facing edge and is painted under it, so an unequal
+        # width steps that edge — left at the 3px default it doubled the amber
+        # there. Nothing is lost by hiding it: amber against violet is already
+        # what tells the two states apart.
+        sidebar_indicator_width = 1.5,
     ),
 
     # -------------------------------------------------------------------------
@@ -359,6 +395,21 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         indicator_width = 1.5,
         indicator_position = "bottom",
         tab_dimming = True,
+
+        # Sidebar tabs: cyberpunk_edge's, in this theme's colours — a closed
+        # rounded ring at the same 1.5px this theme rules everything else with,
+        # and the strip pinned to it so the ring covers it exactly on the edge
+        # they share.  Two departures: an inactive tab is bare where edge rings
+        # every one of them in its muted violet, and the hover carries the ring
+        # at part alpha, so pointing at a tab previews the ring selecting it
+        # would fill in.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 1.5,
+        sidebar_tab_border_color = [0, 0, 0, 0],               # Inactive: bare
+        sidebar_tab_border_hover_color = [186, 98, 0, 160],
+        sidebar_tab_border_active_color = [186, 98, 0, 255],   # Amber, as the
+                                                               # focus border
+        sidebar_indicator_width = 1.5,
     ),
 
     # -------------------------------------------------------------------------
@@ -421,6 +472,35 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         tab_border_active_color = [255, 92, 170, 255],   # Active: neon pink
         indicator_position = "none",
         tab_dimming = True,
+
+        # The sidebar runs the dock tabs' notch the other way round.  A dock tab
+        # is rounded on top and open along the bottom; a sidebar tab here is
+        # flat against the window edge and rounded on the two content-facing
+        # corners, with the outline open along that flat outward side.  So what
+        # it draws is a U — and the outward edge carries nothing in any state.
+        # The highlight strip stays on the content-facing edge (the default),
+        # where the U already runs, rather than closing the U from the outside.
+        #
+        # Same 2px as everything else, on both, so the strip lands exactly on
+        # the outline's inward edge instead of stepping it.
+        #
+        # Where the dock tabs outline every tab, the sidebar draws nothing until
+        # you point at one: idle is bare, and the muted indigo the inactive dock
+        # tabs wear moves to the hover instead, so what a hovered tab shows is
+        # that U on its own.  Selecting it fills the U in — neon pink, the
+        # seeded accent, already the dock tabs' active outline.
+        sidebar_tab_flat_edge = "outward",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],            # Idle: bare
+        sidebar_tab_border_hover_color = [98, 114, 164, 160],   # The dock tabs' indigo
+        # The U on its own, which means no hover fill either.  The derived one
+        # is a lifted slab covering the whole tab shape, flat edge included, and
+        # its straight window-facing side is a harder line than the U it is
+        # supposed to sit behind — so the tab reads as a rectangle with three
+        # sides drawn rather than as a U.  Transparent, only the U is there.
+        sidebar_tab_bg_hover_start = [0, 0, 0, 0],
+        sidebar_tab_bg_hover_end = [0, 0, 0, 0],
+        sidebar_indicator_width = 2.0,
     ),
 
     # -------------------------------------------------------------------------
@@ -473,6 +553,19 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         tab_border_active_color = [189, 147, 249, 255],
         indicator_position = "none",
         tab_dimming = True,
+
+        # The sidebar tabs round all four corners and carry the same 2px ring,
+        # but reach it a step later than the dock tabs: bare when idle, ringed
+        # in the accent at half alpha under the cursor, and ringed solid when
+        # selected (that last colour is the seeded default — the accent — which
+        # the width above is what switches on).  So the hover ring reads as the
+        # active one previewed, and the strip stays matched to it: at the 3px
+        # default it would out-thickness the ring it sits on.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],             # Idle: bare
+        sidebar_tab_border_hover_color = [189, 147, 249, 130],
+        sidebar_indicator_width = 2.0,
     ),
 
     # -------------------------------------------------------------------------
@@ -519,6 +612,30 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
                                                     # rule, and so no frame
         indicator_position = "none",
         tab_dimming = True,
+
+        # Sidebar tabs carry the same rule: the active one is ringed and
+        # nothing else is drawn at all.  Rounded on all four corners, so the
+        # ring closes the whole way round — the sidebar has no notch to cut,
+        # nothing for an open edge to join it to.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],                # Inactive: bare
+        # ...bare of a *line*, but not of colour: an inactive tab is filled
+        # with the accent so the whole column reads as one family, and the ring
+        # alone says which is selected.  The hover state caps the alpha, and
+        # lower than it looks: hover is derived from the base and carries no
+        # accent, so it sits at a fixed (44, 48, 65) however deep the tint gets.
+        # Measured against it — idle (36, 38, 61) at 30, (40, 41, 70) at 40,
+        # (42, 43, 73) at 45 — the two cross over just past 40, and beyond that
+        # an idle tab out-glows a hovered one.  30 keeps a clear margin and
+        # still reads violet against the bar's (24, 26, 35).
+        sidebar_tab_bg_normal = [125, 124, 252, 30],
+        sidebar_tab_border_active_color = [125, 124, 252, 255],
+        # Matched to the ring, which covers it — the strip is not this preset's
+        # marker any more than the dock tabs' is (indicator_position = "none"
+        # above).  Left at the 3px default it would show as a band inside the
+        # ring, which is the one way it could still make itself seen.
+        sidebar_indicator_width = 2.0,
     ),
 }
 

@@ -23,6 +23,7 @@ from PySide6.QtGui import QGuiApplication
 
 from lace.dock_container_state import save_container_state, restore_container_state
 from lace.floating_dock_container import FloatingDockContainer
+from lace.util import is_window_maximized
 
 if TYPE_CHECKING:
     from lace.dock_manager import DockManager
@@ -209,7 +210,10 @@ class LayoutStateBuilder:
                     "y": geo.y(),
                     "width": geo.width(),
                     "height": geo.height(),
-                    "is_maximized": container.floating_widget().isMaximized(),
+                    # Not isMaximized(): a float the OS maximized (Aero Snap,
+                    # Win+Up) reads False there and would be saved restored.
+                    "is_maximized": is_window_maximized(
+                        container.floating_widget()),
                 }
         return geometries
 

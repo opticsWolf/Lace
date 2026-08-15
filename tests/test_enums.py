@@ -102,7 +102,8 @@ def test_default_config_contains_core_flags():
     # Opt-in flags are NOT enabled by default
     for flag in (DockFlags.custom_tab_icons,
                  DockFlags.dock_area_close_button_closes_tab,
-                 DockFlags.chromeless_float):
+                 DockFlags.chromeless_float,
+                 DockFlags.floating_taskbar_button):
         assert flag not in DockFlags.default_config, flag.name
 
 

@@ -47,7 +47,147 @@ class ThemeSpec:
     tab_dimming: bool = False
     indicator_width: Optional[int] = None
     indicator_position: Optional[Union[str, List[str], Tuple[str, ...]]] = None
+
+    # Sidebar Tab Tokens — shape and outline of the vertical auto-hide tabs.
+    # "all" (the default flat edge) keeps them the plain rectangles they have
+    # always been; "outward" / "inward" / "none" pick which side stays flat,
+    # and the radius follows tab_radius unless pinned here.
+    sidebar_tab_flat_edge: Optional[str] = None
+    sidebar_tab_radius: Optional[int] = None
+    sidebar_tab_bg_normal: Optional[Union[QColor, List[int]]] = None       # inactive fill
+    sidebar_tab_bg_hover_start: Optional[Union[QColor, List[int]]] = None  # hover gradient
+    sidebar_tab_bg_hover_end: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_bg_active: Optional[Union[QColor, List[int]]] = None       # selected fill
+    sidebar_tab_border_width: Optional[float] = None
+    sidebar_tab_border_color: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_border_active_color: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_border_hover_color: Optional[Union[QColor, List[int]]] = None
+    sidebar_tab_border_closed: Optional[bool] = None
+    sidebar_indicator_width: Optional[float] = None
+    sidebar_indicator_position: Optional[str] = None
 ```
+
+### Sidebar tab shape
+
+A sidebar tab is a vertical strip in a bar that runs along one window edge, so the side it is
+*joined along* is not the bottom the way a dock widget tab's is — it is the window-facing
+(`"outward"`) or content-facing (`"inward"`) side, and which one that is mirrors with the bar.
+
+```python
+ThemeSpec(
+    ...,
+    tab_radius = 6,                      # sidebar tabs inherit this roundness
+    sidebar_tab_flat_edge = "outward",   # flat against the window edge
+    sidebar_tab_border_width = 1.0,      # outlined, open along that flat edge
+    sidebar_tab_border_closed = True,    # ...or closed all the way round
+)
+```
+
+With `sidebar_tab_flat_edge = "none"` all four corners are rounded, the tab reads as a
+detached pill, and the outline is always closed — there is no flat edge left to open. That is
+what `cyberpunk_neon` and `cyberpunk_edge` ship; the only difference between them is that
+neon leaves the inactive tabs bare (`sidebar_tab_border_color = [0, 0, 0, 0]`) while edge
+rings them in its muted violet:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_flat_edge = "none",                          # a closed ring
+    sidebar_tab_border_width = 1.5,
+    sidebar_tab_border_color = [0, 0, 0, 0],                 # inactive: no ring
+    sidebar_tab_border_active_color = [255, 154, 0, 255],
+    sidebar_indicator_width = 1.5,                           # == the ring's width
+)
+```
+
+Keep the stripe's width equal to the ring's. The stripe sits on the ring's content-facing
+edge and is painted *under* it, so at equal widths the ring covers it and the tab is one
+clean line all the way round; a wider stripe (the default is 3) shows the difference as a
+band of the accent inside the ring.
+
+The outline has a third colour, `sidebar_tab_border_hover_color`, and it is the one that is
+*not* seeded: left unset, hover is not a state of its own and a hovered tab keeps the
+inactive outline — the behaviour of every theme written before the token existed. Set it with
+the inactive colour transparent and the ring becomes the hover cue, which is what
+`violet_haze` ships:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_flat_edge = "none",
+    sidebar_tab_border_width = 2.0,
+    sidebar_tab_border_color = [0, 0, 0, 0],             # idle: bare
+    sidebar_tab_border_hover_color = [189, 147, 249, 130],   # the active ring, previewed
+    sidebar_indicator_width = 2.0,
+)
+```
+
+The active colour is left out there on purpose: it is seeded with the accent for every theme,
+so the width alone is what switches it on. A checked tab keeps that ring under the cursor —
+checked wins over hovered, the same precedence the fill uses. `slate_amber` ships the same
+three steps in its own amber, at the 1.5px it rules everything else with.
+
+An outline on a tab that keeps a flat edge is a U rather than a ring, and `neon_dusk` is the
+only preset whose sidebar tabs do that:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_flat_edge = "outward",      # rounded on the content-facing side only
+    sidebar_tab_border_width = 2.0,         # ...open along the window-facing one
+    sidebar_tab_border_color = [0, 0, 0, 0],                # idle: bare
+    sidebar_tab_border_hover_color = [98, 114, 164, 160],   # hover: the U alone...
+    sidebar_tab_bg_hover_start = [0, 0, 0, 0],              # ...and nothing behind it
+    sidebar_tab_bg_hover_end = [0, 0, 0, 0],
+    sidebar_indicator_width = 2.0,          # the strip stays on the content-facing
+)                                           # edge, where the U already runs
+```
+
+The transparent hover fill is not decoration. The derived one is a lifted slab over the whole
+tab *shape* — flat edge included — and its straight window-facing side is a harder line than
+the U in front of it, so the tab reads as a rectangle with three sides drawn. An open outline
+only reads as open if nothing fills the shape it belongs to — and nothing may be put on the
+open edge either: leaving `sidebar_indicator_position` at its content-facing default is what
+keeps the U open, since a strip there would close it.
+
+### Inactive sidebar tabs with a background
+
+A sidebar tab has the same three-state fill a dock widget tab does — normal, hover, active —
+but the normal one is transparent in every shipped theme, so an idle tab shows only its
+label. `sidebar_tab_bg_normal` fills it:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_bg_normal = [125, 124, 252, 40],   # the accent, as a tint
+)
+```
+
+Pass the accent at full alpha and every inactive tab becomes a slab of the highlight colour;
+at a low alpha it reads as a tint, and the active tab still stands out through its own
+`tab_bg_active` and indicator. Hover keeps priority over both.
+
+Hover is what caps the alpha, and lower than you would guess. Left derived it comes off the
+base and carries no accent, so it sits at a fixed luminance however deep the tint goes — push
+the tint past it and an *idle* tab out-glows a hovered one, which reads as a glitch.
+`midnight_haze` ships the only tinted sidebar in the presets and uses alpha 30 against a
+crossover just past 40.
+
+That limit is the derived hover's, not the tint's. The fill is a three-state set and all of
+it is themeable, so give hover the accent as well and the ceiling rises with it:
+
+```python
+ThemeSpec(
+    ...,
+    sidebar_tab_bg_normal      = [125, 124, 252, 90],    # a much deeper tint
+    sidebar_tab_bg_hover_start = [125, 124, 252, 160],   # ...that hover still beats
+    sidebar_tab_bg_hover_end   = [125, 124, 252, 130],
+    sidebar_tab_bg_active      = [58, 60, 96, 255],      # optional; panel colour when unset
+)
+```
+
+The hover pair is a horizontal gradient (start on the left edge, end on the right); pass the
+same colour twice for a flat fill.
 
 ---
 
@@ -206,6 +346,8 @@ built-in presets.
     "border_width": 1.5,
     "title_height": 32,
     "tab_radius": 8,
+    "sidebar_tab_flat_edge": "outward",
+    "sidebar_tab_border_width": 1.0,
     "content_margin": [8, 2],
     "tab_dimming": true
 }

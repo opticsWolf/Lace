@@ -24,11 +24,15 @@ from __future__ import annotations
 import sys
 from typing import Optional, Union
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QMenu, QMenuBar, QVBoxLayout, QWidget
 from qframelesswindow import FramelessMainWindow, FramelessWindow
-from qframelesswindow.titlebar import StandardTitleBar
+from qframelesswindow.titlebar import StandardTitleBar, TitleBarButton
+from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
+
+from lace.util import (is_window_maximized, restore_window,
+                       toggle_window_maximized)
 
 
 _DARK_MODE_OPTED_IN = False
@@ -122,20 +126,26 @@ def _resolve_title_bar(title_bar: TitleBarDescriptor, parent: QWidget) -> QWidge
 
 
 class LaceStandardTitleBar(StandardTitleBar):
-    """StandardTitleBar whose double-click-to-maximize is synchronous.
+    """StandardTitleBar with a single, synchronous maximize mechanism.
 
-    qframelesswindow's default handler posts an async ``WM_SYSCOMMAND``
-    ``SC_MAXIMIZE`` / ``SC_RESTORE`` (``toggleMaxState``).  On Windows that
-    command is ignored while a mouse button is still held down — and a real
-    double-click dispatches ``MouseButtonDblClick`` (and therefore the
-    maximize request) while the second click's button is still pressed — so
-    the maximize silently fails.  Depending on how quickly the button is
-    released versus when the queued system command is processed, the
-    double-click works or does nothing (the "stale" double-click).
+    qframelesswindow's ``toggleMaxState`` posts an async ``WM_SYSCOMMAND``
+    ``SC_MAXIMIZE`` / ``SC_RESTORE``.  On Windows that command is ignored
+    while a mouse button is still held down — and a real double-click
+    dispatches ``MouseButtonDblClick`` (and therefore the maximize request)
+    while the second click's button is still pressed — so the maximize
+    silently fails.  Depending on how quickly the button is released versus
+    when the queued system command is processed, the double-click works or
+    does nothing (the "stale" double-click).
 
-    Using :meth:`QWidget.showMaximized` / :meth:`QWidget.showNormal`
-    directly takes effect regardless of the button state, so the toggle is
-    deterministic.
+    Overriding only :meth:`mouseDoubleClickEvent` fixed that one gesture and
+    left ``maxBtn`` on the native path, which was worse than either: a
+    frameless window maximized natively has a Win32 placement of
+    ``SW_MAXIMIZED`` that ``showNormal()`` cannot undo, so a double-click
+    could no longer restore it and Windows refused to move it.  The button
+    is rewired here so every gesture on this bar goes through
+    :meth:`toggle_max_state`, and that in turn restores through whichever
+    mechanism maximized the window — the OS can still maximize it behind
+    our back with Aero Snap or Win+Up.  See docs/FRAMELESS_WINDOW_STATE.md.
 
     Right-clicking the window icon opens the standard system menu
     (Restore / Move / Size / Minimize / Maximize / Close).  On Windows the
@@ -148,6 +158,45 @@ class LaceStandardTitleBar(StandardTitleBar):
         super().__init__(parent)
         self.iconLabel.setContextMenuPolicy(Qt.CustomContextMenu)
         self.iconLabel.customContextMenuRequested.connect(self._show_system_menu)
+        # TitleBarBase.__init__ connected maxBtn to its own name-mangled
+        # __toggleMaxState, which cannot be overridden — disconnect it.
+        try:
+            self.maxBtn.clicked.disconnect()
+        except (RuntimeError, TypeError):
+            pass
+        self.maxBtn.clicked.connect(self.toggle_max_state)
+        # See eventFilter: the buttons do not clear their own pressed state.
+        for button in self.findChildren(TitleBarButton):
+            button.installEventFilter(self)
+
+    # -- button state ----------------------------------------------------
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Release the pressed state of a title-bar button on mouse release.
+
+        ``TitleBarButton`` sets ``PRESSED`` in ``mousePressEvent`` and clears
+        it only from ``enterEvent`` / ``leaveEvent``, so the state outlives
+        the click unless something happens to move the button away from the
+        cursor.  While any button reads as pressed, ``canDrag()`` is False for
+        the *whole* bar — ``_isDragRegion(pos) and not _hasButtonPressed()`` —
+        and the floating container's drag routing declines every press, so the
+        window cannot be dragged at all.
+
+        A maximize normally resizes the window out from under the pointer and
+        clears it by accident, which made this intermittent rather than
+        permanent.  Clearing it here does not depend on that side effect.
+        """
+        if (event.type() == QEvent.MouseButtonRelease
+                and isinstance(watched, TitleBarButton)):
+            watched.setState(TitleBarButtonState.HOVER if watched.underMouse()
+                             else TitleBarButtonState.NORMAL)
+        return super().eventFilter(watched, event)
+
+    # -- maximize --------------------------------------------------------
+
+    def toggle_max_state(self) -> None:
+        """Maximize or restore this window. The only maximize path on this bar."""
+        toggle_window_maximized(self.window())
 
     # -- system menu -----------------------------------------------------
 
@@ -202,12 +251,12 @@ class LaceStandardTitleBar(StandardTitleBar):
     def _show_qt_system_menu(self, global_pos: QPoint) -> None:
         """Fallback system menu for non-Windows platforms."""
         window = self.window()
-        maximized = window.isMaximized()
+        maximized = is_window_maximized(window)
         minimized = window.isMinimized()
 
         menu = QMenu(self)
         if maximized or minimized:
-            menu.addAction("Restore", window.showNormal)
+            menu.addAction("Restore", lambda: restore_window(window))
         menu.addAction("Move", self._start_system_move).setEnabled(not maximized)
         menu.addAction("Size", self._start_system_resize).setEnabled(not maximized)
         menu.addSeparator()
@@ -239,11 +288,7 @@ class LaceStandardTitleBar(StandardTitleBar):
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         if event.button() != Qt.LeftButton or not self._isDoubleClickEnabled:
             return
-        window = self.window()
-        if window.isMaximized():
-            window.showNormal()
-        else:
-            window.showMaximized()
+        self.toggle_max_state()
 
 
 # ── Frameless MainWindow ───────────────────────────────────────────────

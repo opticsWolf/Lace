@@ -10,9 +10,10 @@
 # Modifications Copyright (c) 2026 opticsWolf (Apache-2.0).
 
 import logging
+import sys
 from typing import TYPE_CHECKING, Any, Optional, Type, TypeVar, List
 
-from PySide6.QtCore import Qt, QObject
+from PySide6.QtCore import Qt, QObject, QRect
 from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtWidgets import QApplication, QWidget, QStyle, QAbstractButton, QSplitter
 
@@ -122,6 +123,124 @@ def is_floating_dock_container(widget: Any) -> bool:
 def find_floating_dock_container(widget: QWidget) -> Optional[QWidget]:
     """Search up the widget tree for any floating-container implementation."""
     return find_parent(_floating_container_type(), widget)
+
+
+# ── window maximize state ────────────────────────────────────────────────
+#
+# Qt and Win32 can hold different opinions about whether a *frameless* window
+# is maximized, and undoing one with the other does not work. Qt's
+# showMaximized() on a frameless window is a pure geometry change that leaves
+# the Win32 placement at SW_NORMAL; a native maximize (Aero Snap, Win+Up, a
+# WM_SYSCOMMAND SC_MAXIMIZE) sets SW_MAXIMIZED and Qt only observes it.
+#
+# showNormal() cannot undo the native one: the first call is a no-op and the
+# second clears Qt's flag while the window stays maximized, which is
+# unrecoverable from the Qt side and leaves the window unmovable as well,
+# because Windows refuses SC_MOVE for a zoomed window.
+#
+# So: ask the OS whether the window is maximized, and restore it the way it
+# was maximized. See docs/FRAMELESS_WINDOW_STATE.md.
+_SW_MAXIMIZE = 3
+_SW_RESTORE = 9
+
+
+def _natively_maximized(window: QWidget) -> Optional[bool]:
+    """The OS's own answer, or ``None`` when it cannot be asked."""
+    if sys.platform != "win32":
+        return None
+    if window.windowHandle() is None:
+        return None
+    try:
+        import win32gui
+
+        placement = win32gui.GetWindowPlacement(int(window.winId()))
+    except Exception:
+        logger.debug("Window placement unavailable", exc_info=True)
+        return None
+    if not placement:
+        return None
+    return placement[1] == _SW_MAXIMIZE
+
+
+def is_window_maximized(widget: QWidget) -> bool:
+    """Whether *widget*'s window is maximized, preferring the OS's answer.
+
+    The OS answer is the one that decides whether the window can still be
+    moved, and it stays right when Qt's has gone stale.
+    """
+    window = widget.window()
+    return bool(_natively_maximized(window)) or window.isMaximized()
+
+
+def restore_window(widget: QWidget) -> None:
+    """Un-maximize *widget*'s window through whichever mechanism maximized it."""
+    window = widget.window()
+    if _natively_maximized(window):
+        try:
+            import win32gui
+
+            # ShowWindow rather than a posted WM_SYSCOMMAND SC_RESTORE: it is
+            # synchronous, and Windows ignores SC_* while a mouse button is
+            # still held — which is exactly the state a double-click is in.
+            win32gui.ShowWindow(int(window.winId()), _SW_RESTORE)
+            return
+        except Exception:
+            logger.debug("Native restore unavailable; falling back to Qt",
+                         exc_info=True)
+    window.showNormal()
+
+
+def toggle_window_maximized(widget: QWidget) -> None:
+    """Maximize *widget*'s window, or restore it — synchronously either way."""
+    window = widget.window()
+    if is_window_maximized(window):
+        restore_window(window)
+    else:
+        window.showMaximized()
+
+
+# Windows arranges an Aero-snapped window (drag to an edge, Win+Left/Right)
+# without touching its placement: showCmd stays SW_NORMAL, so the window is
+# not maximized by any measure — but SC_MOVE is refused for it exactly as it
+# is for a zoomed one, so a snapped float cannot be moved at all. The only
+# surviving record of where it came from is rcNormalPosition; Qt's
+# normalGeometry() has been overwritten with the snapped rect.
+_SNAP_TOLERANCE = 4  # physical px, against rounding in the placement rect
+
+
+def pre_snap_geometry(widget: QWidget) -> Optional[QRect]:
+    """The rect a snapped window would return to, or ``None`` if not snapped.
+
+    Detected by the placement disagreeing with reality: an unsnapped window's
+    frame matches its own rcNormalPosition, and a snapped one does not.
+    Ordinary moves and resizes keep the two in step, so this does not fire
+    for them.
+    """
+    window = widget.window()
+    if sys.platform != "win32" or window.windowHandle() is None:
+        return None
+    if window.isMinimized() or is_window_maximized(window):
+        return None
+    try:
+        import win32gui
+
+        handle = int(window.winId())
+        placement = win32gui.GetWindowPlacement(handle)
+        if not placement or placement[1] != 1:  # SW_NORMAL
+            return None
+        normal = placement[4]
+        frame = win32gui.GetWindowRect(handle)
+    except Exception:
+        logger.debug("Snap detection unavailable", exc_info=True)
+        return None
+
+    if all(abs(a - b) <= _SNAP_TOLERANCE for a, b in zip(frame, normal)):
+        return None
+
+    ratio = window.devicePixelRatioF() or 1.0
+    return QRect(round(normal[0] / ratio), round(normal[1] / ratio),
+                 round((normal[2] - normal[0]) / ratio),
+                 round((normal[3] - normal[1]) / ratio))
 
 
 def find_child(parent: QObject, type_: Type[T], name: str = '',
