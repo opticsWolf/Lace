@@ -53,6 +53,30 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
     MRO because it overrides methods the Qt base also defines.
     """
     STYLE_CATEGORIES = (DockStyleCategory.CORE,)
+
+    # Every attribute eventFilter reads, defaulted at class level so the
+    # filter is safe on a half-built object.
+    #
+    # qframelesswindow's Linux base installs this window as an
+    # *application-wide* event filter from inside its own __init__
+    # (LinuxFramelessWindowBase._initFrameless), i.e. from our super().__init__()
+    # below -- long before __init__ assigns these. Everything after that line
+    # pumps events (setWindowFlags recreates the native handle, the container
+    # and title bar are built, the styler runs), so eventFilter *will* be
+    # called in that window. An AttributeError raised there does not stay
+    # local: it propagates out through Qt's event dispatch, aborts this
+    # constructor, and leaves an orphan C++ widget installed as an app filter
+    # for the rest of the process -- after which every widget creation in the
+    # program fails with "QMainWindow returned NULL without setting an
+    # exception". Only Linux installs that filter, which is why the fault
+    # never appeared on Windows.
+    _permanent_filter_installed = False
+    _frameless_drag_filter = False
+    _os_move_active = False
+    _titlebar_drag_start = None
+    _dragging_state = DragState.inactive
+    _ignore_synthetic_release = False
+
     def __init__(self, *, dock_area: 'DockAreaWidget' = None,
                  dock_widget: 'DockWidget' = None,
                  dock_manager: 'DockManager' = None,
@@ -470,6 +494,9 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         # --- Frameless title-bar drag (custom mode) ------------------------
+        # self.titleBar is safe this early: the frameless base assigns it just
+        # before it installs this object as an app-wide filter (see the
+        # class-level defaults above for what "this early" means here).
         if watched is self.titleBar:
             if self._handle_titlebar_drag(watched, event):
                 return True

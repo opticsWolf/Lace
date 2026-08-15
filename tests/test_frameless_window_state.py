@@ -26,6 +26,9 @@ native entry points (``toggleMaxState`` and ``startSystemMove``) are trapped
 by fixtures. Trapping them is also what makes the mechanism observable.
 """
 
+import os
+import sys
+
 import pytest
 from PySide6.QtCore import QEvent, QPoint, Qt
 from PySide6.QtGui import QMouseEvent
@@ -45,6 +48,17 @@ frameless = pytest.importorskip(
     "lace.floating_dock_container_frameless",
     reason="qframelesswindow is optional")
 FramelessFloatingDockContainer = frameless.FramelessFloatingDockContainer
+
+# qframelesswindow's macOS backend resolves the NSWindow behind the widget:
+#     view = objc.objc_object(c_void_p=self.winId().__int__())
+#     self.__nsWindow = view.window()
+# Under the offscreen platform there is no native view, winId() is 0, and that
+# dereference segfaults the interpreter -- a hard crash, not an exception, so
+# it cannot be guarded from our side. No frameless window can be built at all
+# in that combination, and this whole module is about frameless windows.
+if sys.platform == "darwin" and os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+    pytest.skip("frameless windows segfault on macOS under QT_QPA_PLATFORM=offscreen",
+                allow_module_level=True)
 
 #: A point on the draggable part of the title bar: left of the min/max/close
 #: buttons and inside the 32px bar.
