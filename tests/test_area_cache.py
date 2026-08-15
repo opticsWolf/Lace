@@ -9,6 +9,7 @@ cache kept handing out an area whose C++ half had already been deleted.
 """
 
 import pytest
+from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QLabel, QMainWindow, QWidget
 
 from lace.dock_manager import DockManager
@@ -62,7 +63,13 @@ def test_the_cached_area_is_never_a_dead_object(desk, qapp):
 
     dock_manager._root.remove_dock_area(bottom)
     qapp.processEvents()
-    shiboken6.delete(bottom)  # what deleteLater gets round to eventually
+
+    # Qt's own deferred deletion, not shiboken6.delete(). Both invalidate the
+    # wrapper, but the raw delete tears the C++ object out from under a manager
+    # that is still holding it, and the corruption surfaced as a segfault in
+    # whatever ran next rather than here.
+    bottom.deleteLater()
+    qapp.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
     cached = dock_manager.last_added_dock_area_widget(DockWidgetArea.bottom)
     assert cached is None or shiboken6.isValid(cached), \
