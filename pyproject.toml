@@ -1,6 +1,6 @@
 [project]
 name = "lace-dock"
-version = "0.6.1"
+version = "0.6.5"
 description = "Advanced PySide6 docking system"
 authors = [
     {name = "opticsWolf", email = "opticswolf@protonmail.com"}

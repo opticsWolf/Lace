@@ -26,6 +26,8 @@ from lace.sidebar_tab import VerticalTabButton
 
 RADIUS = 6
 WIDTH, HEIGHT = 30, 120
+#: Where _fill samples. See _fill for why this is not the tab's centre.
+FILL_PROBE = (WIDTH // 2, 8)
 
 
 def _spec(**overrides):
@@ -304,15 +306,22 @@ def test_the_outline_follows_the_rounded_corners(qapp):
 
 # ── The inactive tab's own background ─────────────────────────────────────
 def _fill(button, background=None):
-    """The colour in the middle of the tab, clear of any edge treatment.
+    """The colour inside the tab, clear of both edge treatment and label.
 
     Pass ``background`` to composite over it — a translucent fill reads as its
     own alpha against nothing, which is not what it looks like on the bar.
+
+    Not the centre. The label is rotated and centred, so wherever a real font
+    is installed its glyphs cover (WIDTH // 2, HEIGHT // 2) and the probe reads
+    antialiased text instead of the fill. Offscreen hides this on Windows and
+    Linux, which have no fonts to fall back on, but not on macOS, where
+    CoreText is always there. FILL_PROBE sits above the text run and below the
+    top border, on the horizontal centre line so no corner rounding reaches it.
     """
     image = QImage(button.size(), QImage.Format_ARGB32)
     image.fill(0 if background is None else background)
     image = _render(button) if background is None else _render(button, image)
-    return image.pixelColor(WIDTH // 2, HEIGHT // 2).getRgb()
+    return image.pixelColor(*FILL_PROBE).getRgb()
 
 
 def test_an_inactive_tab_paints_nothing_by_default(qapp):

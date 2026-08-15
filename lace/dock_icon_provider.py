@@ -82,24 +82,34 @@ class DockIconProvider:
         """Read every *.svg in the icon directory into the string cache.
 
         Works for both filesystem paths (development) and package resources
-        (importlib.resources, wheel-compatible). ``resources.as_file`` converts
-        a Traversable into a real filesystem path when needed, so we can always
-        use standard ``Path`` read operations.
+        (importlib.resources, wheel-compatible) via the Traversable API, which
+        ``pathlib.Path`` also satisfies.
+
+        Not ``resources.as_file``: before Python 3.12 it only accepts a *file*,
+        so on 3.10 and 3.11 it raised "MultiplexedPath ... is not a file" for
+        the icon *directory*, every icon fell back to the untinted default, and
+        the only symptom was a warning. ``iterdir`` / ``read_text`` are on
+        Traversable in every supported version.
         """
         if self._path is None:
             return
 
         try:
-            with resources.as_file(self._path) as file_path:
-                for file in sorted(file_path.glob("*.svg")):
-                    try:
-                        self._svg_cache[file.stem.lower()] = file.read_text(
-                            encoding="utf-8"
-                        )
-                    except OSError as exc:
-                        logger.warning(f"Could not read icon '{file.name}': {exc}")
+            entries = sorted(self._path.iterdir(), key=lambda entry: entry.name)
         except (OSError, ModuleNotFoundError, TypeError) as exc:
             logger.warning(f"Could not read icons from {self._path}: {exc}")
+            return
+
+        for entry in entries:
+            name = entry.name
+            if not name.lower().endswith(".svg"):
+                continue
+            try:
+                self._svg_cache[name[:-4].lower()] = entry.read_text(
+                    encoding="utf-8"
+                )
+            except OSError as exc:
+                logger.warning(f"Could not read icon '{name}': {exc}")
 
     @classmethod
     def _tint_svg(cls, svg: str, color: str) -> str:

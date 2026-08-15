@@ -10,7 +10,7 @@
 
 from typing import Tuple
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QObject, QTimer
 
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DockStyleCategory
@@ -44,7 +44,18 @@ class DockStyled:
         (e.g. a full theme apply) rebuild the widget only once."""
         if not getattr(self, "_refresh_queued", False):
             self._refresh_queued = True
-            QTimer.singleShot(0, self._do_refresh)
+            if isinstance(self, QObject):
+                # Bind the timer to this widget. Without a context object the
+                # pending shot outlives the C++ widget, and _do_refresh then
+                # runs against freed memory on whatever processes events next.
+                # The RuntimeError guard below does not save it: shiboken only
+                # invalidates the wrapper when it owns the deletion, and a
+                # widget deleted as a child of a destroyed parent is not that
+                # case — the call is a straight use-after-free. Qt drops a
+                # context-bound single shot when the context is destroyed.
+                QTimer.singleShot(0, self, self._do_refresh)
+            else:
+                QTimer.singleShot(0, self._do_refresh)
 
     def _do_refresh(self) -> None:
         self._refresh_queued = False

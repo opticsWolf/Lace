@@ -343,6 +343,20 @@ def test_the_rip_out_keeps_the_grab_where_it_was(floater, os_move, qapp):
         "the pointer is no longer on the title bar"
 
 
+# ── the Windows drag path ─────────────────────────────────────────────────
+# _handle_titlebar_drag splits on sys.platform: on Windows the press only arms
+# the drag and the first move past the threshold promotes to floating_widget
+# and starts the OS move loop; everywhere else the *press* starts the move, so
+# the state stays mouse_pressed by design and the move branch is never taken.
+# The three tests below assert the Windows half, so they only mean anything
+# there. They never ran off Windows until the matrix grew a Linux job.
+windows_drag_path = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="asserts the win32 branch of _handle_titlebar_drag; elsewhere the "
+           "press starts the OS move and the state stays mouse_pressed")
+
+
+@windows_drag_path
 def test_dragging_a_normal_float_starts_the_os_move_loop(floater, os_move, qapp):
     """The path a restore-first fix must not break."""
     _drag(floater.titleBar, qapp)
@@ -352,6 +366,7 @@ def test_dragging_a_normal_float_starts_the_os_move_loop(floater, os_move, qapp)
     assert len(os_move) == 1, f"startSystemMove called {len(os_move)} times"
 
 
+@windows_drag_path
 def test_a_swallowed_release_does_not_strand_the_os_move_flag(
         floater, os_move, qapp):
     """The float must stay draggable after a drag the OS move loop ended.
@@ -384,6 +399,7 @@ def test_a_swallowed_release_does_not_strand_the_os_move_flag(
     assert floater._dragging_state is DragState.floating_widget
 
 
+@windows_drag_path
 def test_the_app_filter_release_path_clears_the_os_move_flag(
         floater, os_move, qapp):
     """The other end of the same drag: it owes the same cleanup.

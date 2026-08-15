@@ -122,7 +122,12 @@ class DockThemeBridge(QObject):
         """
         if not self._refresh_scheduled:
             self._refresh_scheduled = True
-            QTimer.singleShot(0, self._execute_refresh)
+            # Bound to the target, not to self: the refresh writes a palette
+            # into _target, and an unowned shot survives it. A theme applied
+            # while a closed window is still alive queues one; the window is
+            # then destroyed and whatever processes events next runs the
+            # refresh against freed memory.
+            QTimer.singleShot(0, self._target, self._execute_refresh)
 
     def _execute_refresh(self) -> None:
         self._refresh_scheduled = False
