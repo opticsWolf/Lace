@@ -92,7 +92,12 @@ def allowed_areas_for(container, dock_area) -> DockWidgetArea:
     if container.visible_dock_area_count() == 1:
         # A lone area still accepts tabs.  The outer four stay suppressed
         # because the container overlay owns them in that case.
-        return DockWidgetArea.no_area
+        #
+        # This used to be no_area, which is 0 — so DockOverlayCross.reset()
+        # hid *every* indicator, centre included, and cursor_location() could
+        # only ever return invalid.  That is why a floating widget could not be
+        # dropped into the centre of a one-area container to get tabs.
+        return DockWidgetArea.center
     return DockWidgetArea.all_dock_areas
 
 

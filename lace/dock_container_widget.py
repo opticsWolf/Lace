@@ -289,18 +289,31 @@ class DropController:
         floating_container = floating_widget.dock_container()
         new_dock_widgets = floating_container.dock_widgets()
         top_level_dock_area = floating_container.top_level_dock_area()
+
+        # Append after the existing tabs, the way upstream ADS does.  Inserting
+        # at 0, 1, 2… put the dropped widgets *before* the tabs already there,
+        # so a drop silently renumbered the target area's tab strip.
+        first_new_index = target_area.dock_widgets_count()
+
+        # Carry the floating window's selection across, translated into the
+        # target's numbering — it was an index into the floating area.
         new_current_index = -1
-
         if top_level_dock_area is not None:
-            new_current_index = top_level_dock_area.current_index()
+            floating_index = top_level_dock_area.current_index()
+            if floating_index >= 0:
+                new_current_index = first_new_index + floating_index
 
-        for i, dock_widget in enumerate(new_dock_widgets):
-            target_area.insert_dock_widget(i, dock_widget, False)
+        for offset, dock_widget in enumerate(new_dock_widgets):
+            index = first_new_index + offset
+            target_area.insert_dock_widget(index, dock_widget, False)
 
             if new_current_index < 0 and not dock_widget.is_closed():
-                new_current_index = i
+                new_current_index = index
 
-        target_area.set_current_index(new_current_index)
+        # Every incoming widget was closed, so there is no tab to select and
+        # set_current_index(-1) would only log "Invalid index -1".
+        if new_current_index >= 0:
+            target_area.set_current_index(new_current_index)
         floating_widget.deleteLater()
         target_area.ensure_title_bar_visible()
 
