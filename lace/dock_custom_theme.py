@@ -637,6 +637,390 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         # ring, which is the one way it could still make itself seen.
         sidebar_indicator_width = 2.0,
     ),
+    # =========================================================================
+    # LIGHT AND NEUTRAL COUNTERPARTS
+    #
+    # Seven variants of the four "edge treatment" presets above.  Each keeps
+    # its parent's *geometry* exactly — the radii, the line widths, which edges
+    # are drawn and which are left open — and changes only the palette, so a
+    # pair reads as one design in two keys rather than as two designs.
+    #
+    # A light counterpart is not the dark one inverted.  Three things move
+    # independently: the accent darkens (a neon that glows on near-black is a
+    # pale smear on white), the panel/strip *order* stays put (the strip is
+    # still the darker of the two, because title_mode is "darker" in both), and
+    # hover_mode flips to "darker" — a near-white panel has nowhere lighter to
+    # go, which is the same reason the stock `light` preset uses it and
+    # `neutral`, whose panel sits lower, does not.
+    #
+    # A neutral counterpart drops the hue from the *decorative* colours only.
+    # success / warning / error / info keep theirs in every one of them: those
+    # four are semantic, and a greyed-out error colour is not a subtler error
+    # colour, it is a broken one.
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # CYBERPUNK EDGE LIGHT — the sodium-lamp preset at noon.
+    #
+    # Keeps the big geometry (10px cards, 8px tabs, the 32px header) that is
+    # what separates this preset from slate_amber — which is already the same
+    # warmth on light, but on neutral's much tighter 4px chassis.  The
+    # two-colour outline survives intact: muted violet while unfocused, amber
+    # when focused, both darkened until they read as lines on a near-white
+    # panel rather than glowing off a near-black one.
+    # -------------------------------------------------------------------------
+    "cyberpunk_edge_light": ThemeSpec(
+        base       = [231, 226, 235, 255],  # Pale plum-tinted grey
+        accent     = [186, 98, 0, 255],     # Burnt amber.  The parent's neon
+                                            # 255,154,0 is the one colour that
+                                            # cannot survive the move: at
+                                            # 1.6:1 on a white panel it is a
+                                            # smear, not a 1.5px line
+        text       = [40, 32, 44, 255],     # Warm near-black, plum-leaning
+        surface    = [250, 247, 251, 255],  # Near-white inner panel
+        title_bg   = [219, 212, 224, 255],  # Recessed strip — the parent's
+                                            # explicit title_bg exists to make
+                                            # the tab strip a distinct band,
+                                            # and that band has to be stepped
+                                            # by hand here too
+        border     = [140, 104, 170, 210],  # Muted violet, unfocused
+        focus_border_color = [186, 98, 0, 255],    # Amber, focused
+        is_light   = True,
+        title_mode = "darker",
+        hover_mode = "darker",
+        success_color = [26, 137, 70, 255],
+        warning_color = [176, 116, 0, 255],
+        error_color   = [196, 42, 42, 255],
+        info_color    = [108, 61, 178, 255],
+
+        # Geometry — cyberpunk_edge's, unchanged
+        corner_radius = 10,
+        border_width = 1.5,
+        title_height = 32,
+        title_padding_left = 0,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        title_margin = 0,
+        title_border_bottom = 1.5,
+        title_border_focus_color = [186, 98, 0, 255],
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        indicator_width = 1.5,
+        indicator_position = "bottom",
+        tab_dimming = True,
+
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 1.5,
+        sidebar_tab_border_color = [140, 104, 170, 210],        # muted violet
+        sidebar_tab_border_active_color = [186, 98, 0, 255],    # amber
+        sidebar_indicator_width = 1.5,
+    ),
+
+    # -------------------------------------------------------------------------
+    # VIOLET HAZE LIGHT — dracula's purple on paper.
+    #
+    # The effect is the rule running unbroken behind the inactive tabs and
+    # stopping at the active tab's open bottom, so the inactive outline has to
+    # stay plainly visible without competing with the accent.  On dark that is
+    # dracula's "comment" blue-grey sitting above the strip; on light it is the
+    # same relationship inverted — a lavender-grey a step *below* it.
+    # -------------------------------------------------------------------------
+    "violet_haze_light": ThemeSpec(
+        base       = [230, 228, 238, 255],  # Cool lavender-grey
+        accent     = [124, 77, 196, 255],   # Dracula purple, darkened to sit
+                                            # on the panel at ~5.3:1
+        text       = [40, 36, 52, 255],
+        surface    = [250, 249, 253, 255],  # Lifted panel, so the notch shows
+        title_bg   = [217, 214, 230, 255],  # Recessed strip
+        border     = [201, 197, 216, 255],
+        focus_border_color = [124, 77, 196, 255],
+        is_light   = True,
+        title_mode = "darker",
+        hover_mode = "darker",
+        success_color = [22, 128, 66, 255],
+        warning_color = [166, 110, 0, 255],
+        error_color   = [193, 40, 40, 255],
+        info_color    = [20, 116, 148, 255],
+
+        # Geometry — violet_haze's, unchanged
+        corner_radius = 10,
+        border_width = 2.0,
+        border_below_title = True,
+        title_height = 32,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        title_border_bottom = 2.0,
+        tab_border_width = 2.0,
+        tab_border_color = [163, 157, 190, 210],    # Inactive: the "comment"
+                                                    # role, inverted
+        tab_border_active_color = [124, 77, 196, 255],
+        indicator_position = "none",
+        tab_dimming = True,
+
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],             # Idle: bare
+        sidebar_tab_border_hover_color = [124, 77, 196, 130],
+        sidebar_indicator_width = 2.0,
+    ),
+
+    # -------------------------------------------------------------------------
+    # MIDNIGHT HAZE LIGHT — the focus-only frame, in daylight.
+    #
+    # The parent's whole idea is that exactly one area on screen carries any
+    # line at all.  That survives the move unchanged and gets *more* demanding,
+    # not less: on near-black a stray line announces itself, on near-white it
+    # hides.  So the two transparent colours below are load-bearing here in a
+    # way they are not anywhere else in this file.
+    # -------------------------------------------------------------------------
+    "midnight_haze_light": ThemeSpec(
+        base       = [227, 229, 237, 255],  # Cool light grey
+        accent     = [83, 82, 214, 255],    # The parent's indigo-violet,
+                                            # darkened to ~5.6:1 on the panel
+        text       = [28, 30, 40, 255],
+        surface    = [247, 248, 252, 255],  # Lifted panel, so the notch shows
+        title_bg   = [213, 216, 226, 255],  # Recessed strip
+        border     = [206, 209, 220, 255],  # Splitters and seams only
+        focus_border_color = [83, 82, 214, 255],
+        is_light   = True,
+        title_mode = "darker",
+        hover_mode = "darker",
+        success_color = [22, 128, 66, 255],
+        warning_color = [166, 110, 0, 255],
+        error_color   = [193, 40, 40, 255],
+        info_color    = [20, 116, 148, 255],
+
+        # Geometry — midnight_haze's, unchanged
+        corner_radius = 10,
+        border_width = 2.0,
+        border_below_title = True,
+        title_height = 32,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        title_border_bottom = 2.0,
+        tab_border_width = 2.0,
+        tab_border_color = [0, 0, 0, 0],            # Inactive: no outline
+        tab_border_active_color = [83, 82, 214, 255],
+        tab_border_unfocused_color = [0, 0, 0, 0],  # Unfocused: no line at all
+        indicator_position = "none",
+        tab_dimming = True,
+
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],
+        # The parent tints every idle sidebar tab with the accent and lets the
+        # ring alone say which is selected, capped just below where an idle tab
+        # would out-glow a hovered one.  That ceiling moves here, and in the
+        # other direction: hover_mode is "darker" on light, so the hover state
+        # darkens off the base while the tint lightens toward the accent, and
+        # the two separate instead of converging: measured, an idle tab reads
+        # (212, 214, 235) and a hovered one (202, 206, 221), on opposite sides
+        # of the bar's own (227, 229, 237) in hue but both below it in value.
+        # So the limit is no longer a crossover, it is simply that the wash
+        # must not read as a second selected tab.
+        sidebar_tab_bg_normal = [83, 82, 214, 26],
+        sidebar_tab_border_active_color = [83, 82, 214, 255],
+        sidebar_indicator_width = 2.0,
+    ),
+
+    # -------------------------------------------------------------------------
+    # CYBERPUNK EDGE NEUTRAL — the same two-state outline, told in value.
+    #
+    # The parent separates unfocused from focused by *hue*: muted violet
+    # against sodium amber.  With the hue gone that pair has to be carried by
+    # lightness instead — dim graphite unfocused, near-white focused.  Which is
+    # also the version that works for a viewer who could not separate those two
+    # hues to begin with.
+    # -------------------------------------------------------------------------
+    "cyberpunk_edge_neutral": ThemeSpec(
+        base       = [18, 18, 20, 255],     # Near-black, hue removed
+        accent     = [222, 224, 230, 255],  # Near-white: the "focused" state
+        text       = [232, 233, 236, 255],
+        surface    = [32, 32, 35, 255],
+        title_bg   = [11, 11, 12, 255],     # The distinct band, as on the parent
+        border     = [92, 94, 100, 220],    # Dim graphite, unfocused
+        focus_border_color = [222, 224, 230, 255],
+        title_mode = "darker",
+        hover_mode = "lighter",
+        success_color = [120, 224, 143, 255],
+        warning_color = [255, 196, 61, 255],
+        error_color   = [255, 84, 84, 255],
+        info_color    = [138, 180, 248, 255],
+
+        # Geometry — cyberpunk_edge's, unchanged
+        corner_radius = 10,
+        border_width = 1.5,
+        title_height = 32,
+        title_padding_left = 0,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        title_margin = 0,
+        title_border_bottom = 1.5,
+        title_border_focus_color = [222, 224, 230, 255],
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        indicator_width = 1.5,
+        indicator_position = "bottom",
+        tab_dimming = True,
+
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 1.5,
+        sidebar_tab_border_color = [92, 94, 100, 220],
+        sidebar_tab_border_active_color = [222, 224, 230, 255],
+        sidebar_indicator_width = 1.5,
+    ),
+
+    # -------------------------------------------------------------------------
+    # VIOLET HAZE NEUTRAL — the unbroken rule, in graphite.
+    # -------------------------------------------------------------------------
+    "violet_haze_neutral": ThemeSpec(
+        base       = [42, 43, 48, 255],
+        accent     = [190, 193, 200, 255],  # Light neutral, in the accent's role
+        text       = [242, 242, 245, 255],
+        surface    = [60, 62, 68, 255],     # Lifted panel, so the notch shows
+        title_bg   = [32, 33, 37, 255],     # Recessed strip
+        border     = [70, 72, 78, 255],
+        focus_border_color = [190, 193, 200, 255],
+        title_mode = "darker",
+        hover_mode = "lighter",
+        success_color = [80, 250, 123, 255],
+        warning_color = [241, 250, 140, 255],
+        error_color   = [255, 85, 85, 255],
+        info_color    = [139, 233, 253, 255],
+
+        # Geometry — violet_haze's, unchanged
+        corner_radius = 10,
+        border_width = 2.0,
+        border_below_title = True,
+        title_height = 32,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        title_border_bottom = 2.0,
+        tab_border_width = 2.0,
+        tab_border_color = [116, 119, 128, 210],    # Inactive: mid graphite,
+                                                    # in the "comment" role
+        tab_border_active_color = [190, 193, 200, 255],
+        indicator_position = "none",
+        tab_dimming = True,
+
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],
+        sidebar_tab_border_hover_color = [190, 193, 200, 130],
+        sidebar_indicator_width = 2.0,
+    ),
+
+    # -------------------------------------------------------------------------
+    # MIDNIGHT HAZE NEUTRAL — the focus-only frame with nothing but value.
+    #
+    # The purest reading of the parent: one area carries one near-white frame,
+    # everything else is unlined graphite, and nothing on screen is coloured at
+    # all except the four status tokens.
+    # -------------------------------------------------------------------------
+    "midnight_haze_neutral": ThemeSpec(
+        base       = [26, 27, 30, 255],
+        accent     = [186, 190, 198, 255],
+        text       = [230, 231, 234, 255],
+        surface    = [38, 40, 44, 255],
+        title_bg   = [17, 18, 20, 255],
+        border     = [44, 46, 50, 255],     # Splitters and seams only
+        focus_border_color = [186, 190, 198, 255],
+        title_mode = "darker",
+        hover_mode = "lighter",
+        success_color = [80, 250, 123, 255],
+        warning_color = [241, 250, 140, 255],
+        error_color   = [255, 85, 85, 255],
+        info_color    = [139, 233, 253, 255],
+
+        # Geometry — midnight_haze's, unchanged
+        corner_radius = 10,
+        border_width = 2.0,
+        border_below_title = True,
+        title_height = 32,
+        title_padding_right = 8,
+        title_button_spacing = 6,
+        tab_radius = 8,
+        tab_margin = 3,
+        content_margin = (8, 2),
+        title_border_bottom = 2.0,
+        tab_border_width = 2.0,
+        tab_border_color = [0, 0, 0, 0],
+        tab_border_active_color = [186, 190, 198, 255],
+        tab_border_unfocused_color = [0, 0, 0, 0],
+        indicator_position = "none",
+        tab_dimming = True,
+
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 2.0,
+        sidebar_tab_border_color = [0, 0, 0, 0],
+        # The parent's ceiling, recomputed.  Hover is derived from the base and
+        # carries no accent, so it sits near (46, 47, 50) however deep the tint
+        # goes; a neutral accent lightens the idle tab faster than a violet one
+        # did, because every channel moves rather than two, so the crossover
+        # arrives sooner and the cap comes down with it.  At 24 an idle tab
+        # reads (41, 42, 46) and still clears the hover.
+        sidebar_tab_bg_normal = [186, 190, 198, 24],
+        sidebar_tab_border_active_color = [186, 190, 198, 255],
+        sidebar_indicator_width = 2.0,
+    ),
+
+    # -------------------------------------------------------------------------
+    # SLATE AMBER DARK — the machine shop after hours.
+    #
+    # slate_amber is the light one already — proving the bottom rule is not a
+    # dark-theme trick was the whole reason it exists — so this is the
+    # counterpart it never had.  Geometry is identical, which means the tight
+    # 4px chassis it takes from neutral rather than the 10px one cyberpunk_edge
+    # uses.  The amber moves the opposite way from the light variants above:
+    # 186,98,0 was darkened *for* paper and sinks into a dark panel, so it
+    # lifts back toward the sodium original without going all the way to neon.
+    # -------------------------------------------------------------------------
+    "slate_amber_dark": ThemeSpec(
+        base       = [42, 40, 37, 255],     # Warm machine grey, dark
+        accent     = [230, 150, 45, 255],   # Amber, lifted to read on dark
+        text       = [232, 228, 222, 255],  # Warm off-white
+        surface    = [54, 51, 47, 255],     # Lifted inner panel
+        border     = [74, 70, 65, 255],     # Warm grey, unfocused
+        focus_border_color = [230, 150, 45, 255],  # Amber, focused
+        title_mode = "darker",
+        hover_mode = "lighter",
+        success_color = [120, 224, 143, 255],
+        warning_color = [255, 196, 61, 255],
+        error_color   = [255, 96, 84, 255],
+        info_color    = [138, 180, 248, 255],
+
+        # Geometry — slate_amber's, unchanged
+        corner_radius = 4,
+        border_width = 1.5,
+        title_margin = 0.5,
+        tab_radius = 4,
+        content_margin = 0.5,
+        title_border_bottom = 1.5,
+        title_border_focus_color = [230, 150, 45, 255],
+        indicator_width = 1.5,
+        indicator_position = "bottom",
+        tab_dimming = True,
+
+        # Bare when idle, the ring previewed at part alpha under the cursor,
+        # solid when selected — slate_amber's treatment exactly.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 1.5,
+        sidebar_tab_border_color = [0, 0, 0, 0],               # Inactive: bare
+        sidebar_tab_border_hover_color = [230, 150, 45, 160],
+        sidebar_tab_border_active_color = [230, 150, 45, 255],
+        sidebar_indicator_width = 1.5,
+    ),
 }
 
 # =============================================================================

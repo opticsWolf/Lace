@@ -5,6 +5,18 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.6.14] — 2026-09-03
+
+### Added
+
+- Seven theme presets, each a counterpart of one of the four edge-treatment
+  presets, keeping its parent's geometry exactly and changing only the palette:
+  `cyberpunk_edge_light`, `violet_haze_light`, `midnight_haze_light`,
+  `cyberpunk_edge_neutral`, `violet_haze_neutral`, `midnight_haze_neutral`,
+  and `slate_amber_dark`.  25 presets ship now.
+- `SIDEBAR.tab_icon_size` and `SIDEBAR.tab_icon_gap` were added in 0.6.11; the
+  counterparts inherit them like every other token.
+
 ## [0.6.13] — 2026-09-03
 
 ### Fixed
