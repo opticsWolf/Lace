@@ -5,6 +5,69 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.7.0] — 2026-09-03
+
+The release the 0.6.6 – 0.6.18 patches roll up into: the seven phases of
+`docs/IMPROVEMENT_PLAN_v0.7.md`, one bug found while testing them, and the
+theme work that followed.  Nothing new lands here that is not already in an
+entry below — this is the version number catching up with the work.
+
+Every phase shipped with at least one test that fails on the 0.6.5 baseline
+(`2f16f8e`) and passes after, checked by stashing the source and running the
+new tests against the old package.  The suite went from 443 tests to 613.
+
+### Highlights
+
+- **Docking** — one insertion path and one cache invalidator (0.6.6); one drop
+  policy, one root-splitter lookup, one delegation (0.6.7); a floating widget
+  can be dropped into the centre to tab (0.6.8); a drop onto a maximized area
+  restores it first (0.6.9); one centre indicator rather than two over a
+  solo-area float (0.6.13).
+- **Signals** — `DockSignals` is a real bus reachable as `dock_manager.signals`,
+  carrying `request_overlay_hide` and `floating_widget_dropped` (0.6.10).
+- **Icons** — tabs tint and size their icons from the theme, sidebar tabs
+  included (0.6.11).
+- **Hygiene** — one focus handler on the manager instead of one connect per
+  area, the `dock_context_menu` shim removed, and a `ruff` gate for F401/F811
+  in CI (0.6.12).
+- **Themes** — 14 presets became 27.  Light, neutral and dark counterparts for
+  the four edge-treatment designs (0.6.14, 0.6.15), the neutrals corrected
+  twice as what "neutral" should mean got pinned down (0.6.16, 0.6.18), and
+  the whole set grouped so a menu can show it in four submenus (0.6.17).
+
+### Breaking
+
+- **`lace.dock_context_menu` is gone** (0.6.12).  Import `MenuSection`,
+  `MenuContext` and `MenuActionTarget` from `lace` or `lace.dock_menu`.
+  `DockMenuMixin` is no longer in `lace.__all__`.
+- **`DockSignals.request_overlay_show` was removed** (0.6.10).  It was never
+  emitted in any released version; its only would-be call site needs
+  `show_overlay()`'s return value, which a signal cannot carry.
+- **`style_title_bar_buttons()` lost its `color` and `disabled` parameters**
+  (0.6.12).  Both were dead — the buttons take their colours from the theme.
+- **`floating_widget_dropped` carries three arguments now** (0.6.10), the
+  target container having been added between the widget and the position.
+- **`cyberpunk_edge_neutral`, `violet_haze_neutral` and
+  `midnight_haze_neutral` look substantially different** from their 0.6.14
+  debut, and all three are now `is_light = True` (0.6.16, 0.6.18).  Anything
+  reading that flag to sort themes into dark and light — OS auto-sync
+  overrides included — will classify them the other way now.
+- **`theme_choices()` returns a different order** (0.6.17): the grouped order
+  flattened, rather than definition order.  Same pairs, same shape.
+
+### Added
+
+- `tests/test_version_is_consistent.py` — the package version, `pyproject`,
+  the three doc headers and the newest CHANGELOG heading must agree.  At this
+  bump the headers read 0.6.5, 0.5.0 and 0.5.0 against a package at 0.6.18.
+
+### Known gaps
+
+Five behaviours cannot be exercised headless and want a manual pass on
+Windows: centre-drop tabbing, targeted splits sizing evenly, tab icons
+dimming with their labels, junction co-drag after a perspective restore, and
+a split drop onto a maximized area.
+
 ## [0.6.18] — 2026-09-03
 
 ### Changed
