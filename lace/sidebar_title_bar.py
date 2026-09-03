@@ -17,7 +17,8 @@ from lace.enums import DockWidgetFeature, DockFlags
 from lace.dock_chrome import (style_title_bar_buttons, DragDetector, ChromeToolButton,
                               resolve_sidebar_title_bar_rule)
 from lace.dock_menu import MenuSection, dock_icon, MenuContext, build_dock_context_menu, dispatch_dock_context_menu
-from lace.dock_theme import DockStyleCategory
+from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 from lace.dock_styled import DockStyled
 
 if TYPE_CHECKING:
@@ -77,21 +78,21 @@ class SideBarTitleBar(QFrame, DockStyled):
         # Unpin button
         self._reattach_btn = ChromeToolButton()
         self._reattach_btn.setAutoRaise(True)
-        self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.SIDEPANEL))
+        self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
         self._reattach_btn.setToolTip("Unpin from Sidebar")
         self._reattach_btn.clicked.connect(self._on_reattach_clicked)
 
         # Float button
         self._float_btn = ChromeToolButton()
         self._float_btn.setAutoRaise(True)
-        self._float_btn.setIcon(dock_icon("float", DockStyleCategory.SIDEPANEL))
+        self._float_btn.setIcon(dock_icon("float", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
         self._float_btn.setToolTip("Float")
         self._float_btn.clicked.connect(lambda: self.detach_requested.emit(self._active_widget) if self._active_widget and (self._active_widget.features() & DockWidgetFeature.floatable) else None)
 
         # Maximize button
         self._maximize_btn = ChromeToolButton()
         self._maximize_btn.setAutoRaise(True)
-        self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL))
+        self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
         self._maximize_btn.setToolTip("Maximize")
         self._maximize_btn.clicked.connect(self._on_maximize_clicked)
         self._maximized = False
@@ -99,7 +100,7 @@ class SideBarTitleBar(QFrame, DockStyled):
         # Close Button
         self._close_btn = ChromeToolButton()
         self._close_btn.setAutoRaise(True)
-        self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL))
+        self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
         self._close_btn.setToolTip("Close")
         self._close_btn.clicked.connect(self._on_close_clicked)
 
@@ -239,10 +240,10 @@ class SideBarTitleBar(QFrame, DockStyled):
         """Toggle maximize/restore for the sidebar overlay."""
         self._maximized = not self._maximized
         if self._maximized:
-            self._maximize_btn.setIcon(dock_icon("restore", DockStyleCategory.SIDEPANEL))
+            self._maximize_btn.setIcon(dock_icon("restore", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
             self._maximize_btn.setToolTip("Restore")
         else:
-            self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL))
+            self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
             self._maximize_btn.setToolTip("Maximize")
         self.maximize_requested.emit()
 
@@ -256,13 +257,22 @@ class SideBarTitleBar(QFrame, DockStyled):
         """Update maximize button icon (called from SideBarContainer)."""
         self._maximized = maximized
         if maximized:
-            self._maximize_btn.setIcon(dock_icon("restore", DockStyleCategory.SIDEPANEL))
+            self._maximize_btn.setIcon(dock_icon("restore", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
             self._maximize_btn.setToolTip("Restore")
         else:
-            self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL))
+            self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
             self._maximize_btn.setToolTip("Maximize")
 
     # --- Styling ---
+
+    def _button_icon_size(self) -> int:
+        """The themed display size for this bar's action-button icons.
+
+        One reader for the token, so dock_icon() renders at exactly the size
+        the button displays at.
+        """
+        return get_dock_style_manager().get(
+            DockStyleCategory.SIDEPANEL, "button_icon_size", DEFAULT_ICON_SIZE)
 
     def refresh_style(self):
         """Refresh styling from the DockStyleManager (mirrors dock_area_title_bar)."""
@@ -339,19 +349,19 @@ class SideBarTitleBar(QFrame, DockStyled):
             radius=styles.get("button_corner_radius", 3),
             padding=styles.get("button_padding", 2),
             size=styles.get("button_size", 17),
-            icon_size=styles.get("button_icon_size", 16),
+            icon_size=styles.get("button_icon_size", DEFAULT_ICON_SIZE),
             expand_vertical=styles.get("button_expand_vertical", False),
         )
 
         # Re-tint icons for the current theme (SIDEPANEL button colour), so they
         # recolour on theme change — mirrors DockAreaTitleBar.update_button_states.
-        self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.SIDEPANEL))
-        self._float_btn.setIcon(dock_icon("float", DockStyleCategory.SIDEPANEL))
+        self._reattach_btn.setIcon(dock_icon("unpin", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
+        self._float_btn.setIcon(dock_icon("float", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
         if self._maximized:
-            self._maximize_btn.setIcon(dock_icon("restore", DockStyleCategory.SIDEPANEL))
+            self._maximize_btn.setIcon(dock_icon("restore", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
         else:
-            self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL))
-        self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL))
+            self._maximize_btn.setIcon(dock_icon("maximize", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
+        self._close_btn.setIcon(dock_icon("close", DockStyleCategory.SIDEPANEL, size=self._button_icon_size()))
 
     def _is_overlay_focused(self) -> bool:
         """Whether the overlay this header belongs to holds focus.

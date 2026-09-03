@@ -27,7 +27,7 @@ from lace.dock_chrome import (ChromeToolButton, blend_colors as _blend_colors,
                               resolve_title_bar_bottom_rule,
                               tab_has_bottom_indicator)
 from lace.dock_styled import DockStyled
-from lace.dock_theme import DockStyleCategory
+from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 from lace.dock_menu import (
     MenuSection, dock_icon, MenuContext, build_dock_context_menu,
     dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
@@ -120,7 +120,8 @@ class DockWidgetTab(QFrame, DockStyled):
         self._close_button.setObjectName("tabCloseButton")
         # Tinted with the dedicated close_btn_color token (brighter than the
         # muted text_normal) so it stays legible on the colored tab backgrounds.
-        self._close_button.setIcon(dock_icon("close_tab", DockStyleCategory.TAB, token="close_btn_color"))
+        self._close_button.setIcon(dock_icon("close_tab", DockStyleCategory.TAB,
+                  token="close_btn_color", size=self._close_icon_size()))
 
         self._close_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._close_button.setVisible(False)
@@ -467,60 +468,74 @@ class DockWidgetTab(QFrame, DockStyled):
     def custom_icon_name(self) -> str:
         return self._custom_icon_name
 
+    def _close_icon_size(self) -> int:
+        """Display size for the tab close button's icon.
+
+        Read through the singleton, not ``self._style_mgr``: the button is
+        built before ``_init_dock_style()`` runs.
+        """
+        return get_dock_style_manager().get(
+            DockStyleCategory.TAB, "close_btn_icon_size", DEFAULT_ICON_SIZE)
+
     def update_icon(self):
         """
         Update tab icon respecting DockFlags.custom_tab_icons and DockIconProvider.
         """
         icon_to_use = QIcon()
         sm = get_dock_style_manager()
-        icon_size = sm.get(DockStyleCategory.TAB, "tab_icon_size", 16)
+        icon_size = sm.get(DockStyleCategory.TAB, "tab_icon_size",
+                           DEFAULT_ICON_SIZE)
 
         use_custom = self._test_config_flag(DockFlags.custom_tab_icons)
+        tint = self._focus_icon_color
 
         # Named icons are re-rendered and re-tinted by the provider, which is
         # the expensive branch.  Everything that can change the result is in
-        # this key, so an unchanged key means an identical icon.
+        # this key, so an unchanged key means an identical icon.  The focus
+        # tint belongs in it too: without that, the memo short-circuits the
+        # dimming refresh_focus_tint() just asked for.
         icon_key = (self._custom_icon_name, self._default_icon_name, use_custom,
                     self.is_active_tab(), self.isEnabled(), icon_size,
+                    tint.name() if isinstance(tint, QColor) else tint,
                     sm.generation)
-        if (self._custom_icon_name or self._default_icon_name) \
-                and icon_key == self._applied_icon_key:
+        # No "has a name" guard on the memo: a tab whose icon comes from
+        # windowIcon() used to re-run the whole of _set_icon_internal() —
+        # icon.pixmap() and setPixmap() included — on every tab switch.
+        if icon_key == self._applied_icon_key:
             return
         self._applied_icon_key = icon_key
 
+        def from_provider(name: str) -> QIcon:
+            try:
+                return get_icon_provider().get(
+                    name,
+                    DockStyleCategory.TAB,
+                    active=self.is_active_tab(),
+                    disabled=not self.isEnabled(),
+                    size=icon_size,
+                    color=tint,
+                )
+            except (ValueError, RuntimeError):
+                return QIcon()
+
+        # Each fallback is its own ``if ... isNull()`` test rather than an
+        # ``elif`` on the branch above: with elif, a name that resolved to a
+        # null icon (a missing SVG) made every later fallback unreachable, so
+        # the tab ended up with no icon at all instead of the one it should
+        # have fallen back to.
         if use_custom:
             if self._custom_icon_name:
-                try:
-                    provider = get_icon_provider()
-                    icon_to_use = provider.get(
-                        self._custom_icon_name,
-                        DockStyleCategory.TAB,
-                        active=self.is_active_tab(),
-                        disabled=not self.isEnabled(),
-                        size=icon_size
-                    )
-                except (ValueError, RuntimeError):
-                    pass
-            elif not self._custom_icon.isNull():
+                icon_to_use = from_provider(self._custom_icon_name)
+            if icon_to_use.isNull() and not self._custom_icon.isNull():
                 icon_to_use = self._custom_icon
 
-        if icon_to_use.isNull():
-            if self._default_icon_name:
-                try:
-                    provider = get_icon_provider()
-                    icon_to_use = provider.get(
-                        self._default_icon_name,
-                        DockStyleCategory.TAB,
-                        active=self.is_active_tab(),
-                        disabled=not self.isEnabled(),
-                        size=icon_size
-                    )
-                except (ValueError, RuntimeError):
-                    pass
-            elif not self._default_icon.isNull():
-                icon_to_use = self._default_icon
-            elif self._dock_widget and not self._dock_widget.windowIcon().isNull():
-                icon_to_use = self._dock_widget.windowIcon()
+        if icon_to_use.isNull() and self._default_icon_name:
+            icon_to_use = from_provider(self._default_icon_name)
+        if icon_to_use.isNull() and not self._default_icon.isNull():
+            icon_to_use = self._default_icon
+        if (icon_to_use.isNull() and self._dock_widget
+                and not self._dock_widget.windowIcon().isNull()):
+            icon_to_use = self._dock_widget.windowIcon()
 
         self._set_icon_internal(icon_to_use, icon_size)
 
@@ -582,7 +597,8 @@ class DockWidgetTab(QFrame, DockStyled):
     def _resolve_focus_colors(self, styles: dict) -> tuple:
         """The subset of the tab's styling that depends on focus/active state.
 
-        Returns ``(indicator, text_color, rule_width, rule_color, outline)``.
+        Returns ``(indicator, text_color, rule_width, rule_color, outline,
+        icon_color)``.
         Shared by the full restyle and the cheap :meth:`refresh_focus_tint`
         path so the two cannot compute different colours for the same state.
         """
@@ -617,6 +633,12 @@ class DockWidgetTab(QFrame, DockStyled):
         # left/top/right edges and leaves the bottom open.  Resolved centrally
         # so the area's frame, which continues this line, cannot pick a
         # different colour for the same state.
+        # The icon rides with the label.  It used to be tinted by
+        # DockIconProvider._resolve_normal_color(), which knows `active` and
+        # nothing about focus, so on the ten built-in themes that enable
+        # tab_dimming the label dimmed on focus loss and the icon did not.
+        icon_color = text_color
+
         outline = resolve_tab_outline_color(
             self._style_mgr, active=is_active, focused=is_area_focused)
         if is_active and rule_width > 0:
@@ -635,7 +657,7 @@ class DockWidgetTab(QFrame, DockStyled):
                 if rule_color is None:
                     rule_width = 0.0
 
-        return indicator, text_color, rule_width, rule_color, outline
+        return indicator, text_color, rule_width, rule_color, outline, icon_color
 
     def _apply_text_color(self, text_color: Optional[QColor]) -> None:
         """Set the label colour, skipping the stylesheet when it is unchanged.
@@ -663,8 +685,14 @@ class DockWidgetTab(QFrame, DockStyled):
         """
         styles = self._style_mgr.get_all(DockStyleCategory.TAB)
         (self._indicator, text_color, self._bottom_rule_width,
-         self._bottom_rule_color, self._outline_color) = self._resolve_focus_colors(styles)
+         self._bottom_rule_color, self._outline_color,
+         icon_color) = self._resolve_focus_colors(styles)
         self._apply_text_color(text_color)
+        # The icon dims with its label. Free on the nine themes without
+        # tab_dimming: the memo key carries the colour, so an unchanged
+        # colour short-circuits before any rendering.
+        self._focus_icon_color = icon_color
+        self.update_icon()
         self.update()
 
     def refresh_style(self):
@@ -679,7 +707,8 @@ class DockWidgetTab(QFrame, DockStyled):
         self._bg_hover = styles.get("bg_hover")
 
         (self._indicator, text_color, self._bottom_rule_width,
-         self._bottom_rule_color, self._outline_color) = self._resolve_focus_colors(styles)
+         self._bottom_rule_color, self._outline_color,
+         self._focus_icon_color) = self._resolve_focus_colors(styles)
 
         self._ind_width = styles.get("indicator_width", 2)
         self._ind_pos = styles.get("indicator_position", "bottom")
@@ -743,7 +772,8 @@ class DockWidgetTab(QFrame, DockStyled):
         if icon_key != self._applied_close_icon_key:
             self._applied_close_icon_key = icon_key
             self._close_button.setIcon(
-                dock_icon("close_tab", DockStyleCategory.TAB, token="close_btn_color")
+                dock_icon("close_tab", DockStyleCategory.TAB,
+                  token="close_btn_color", size=self._close_icon_size())
             )
 
         # 3. Typography.

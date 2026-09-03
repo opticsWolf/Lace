@@ -146,6 +146,12 @@ class DockTabStyleSchema(_FontFields):
     indicator_position: str = "bottom"   # "top" or "bottom"
     tab_dimming: bool = False
 
+    tab_icon_size: int = 16   # the widget's own icon, left of the label.
+                              # DockWidgetTab.update_icon() read this token
+                              # before any schema declared it, so themes that
+                              # set it were rejected with "unknown token" while
+                              # the code read as though it worked.
+
     # Action Buttons
     close_btn_color: Optional[List[int]] = None
     close_btn_bg_hover: Optional[List[int]] = None
@@ -160,6 +166,13 @@ class DockTabStyleSchema(_FontFields):
                                     # half-pixel rounding like size=20/pad=1)
     close_btn_expand_vertical: bool = False  # keep the close button a fixed square,
                                              # unlike the title-bar buttons which stretch
+
+
+#: Fallback display size for an icon whose caller names no size token.
+#: The one literal — the six sites that hardcoded it disagreed (14 in
+#: dock_menu and dock_area_title_bar, 16 in the rest), and the 14s were dead
+#: for every category that declares button_icon_size.
+DEFAULT_ICON_SIZE = 16
 
 
 @dataclass
@@ -255,6 +268,11 @@ class DockSidebarStyleSchema:
     tab_flat_edge: str = "all"
     tab_padding: int = 8
     tab_margin: int = 2
+    #: Edge length of the icon drawn on a sidebar tab, and the gap between it
+    #: and the label.  Both were hardcoded in ``VerticalTabButton.paintEvent``,
+    #: so a theme that scaled its fonts up left the icons behind.
+    tab_icon_size: int = DEFAULT_ICON_SIZE
+    tab_icon_gap: int = 8
 
     # Tab Buttons - Outline, mirroring the dock widget tabs' border_* block.
     # A transparent colour on either side skips that state, so a theme can

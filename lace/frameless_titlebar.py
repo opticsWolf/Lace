@@ -29,7 +29,7 @@ from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QMenuBar, QWidget
 
-from lace.dock_theme import DockStyleCategory
+from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 
 
 def _color_hex(col, alpha: Optional[float] = None) -> str:
@@ -174,7 +174,7 @@ class FramelessTitleBarStyler:
         btn_hover = sm.get(DockStyleCategory.TITLE_BAR, "button_hover_bg")
         btn_disable = sm.get(DockStyleCategory.TITLE_BAR, "button_disable_clr")
         btn_size = sm.get(DockStyleCategory.TITLE_BAR, "button_size", 17)
-        btn_icon = sm.get(DockStyleCategory.TITLE_BAR, "button_icon_size", 16)
+        btn_icon = sm.get(DockStyleCategory.TITLE_BAR, "button_icon_size", DEFAULT_ICON_SIZE)
         btn_radius = sm.get(DockStyleCategory.TITLE_BAR, "button_corner_radius", 3)
         font_family = sm.get(DockStyleCategory.TITLE_BAR, "font_family", "Segoe UI")
         font_size = sm.get(DockStyleCategory.TITLE_BAR, "font_size", 13)

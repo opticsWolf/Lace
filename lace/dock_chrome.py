@@ -15,6 +15,7 @@ from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QAbstractButton, QFrame, QSizePolicy, QToolButton, QWidget
 
 from lace.dock_paint import ChromeTokens, paint_panel, paint_panel_bg, paint_panel_border
+from lace.dock_theme import DEFAULT_ICON_SIZE
 from lace.util import start_drag_distance
 
 
@@ -325,7 +326,7 @@ def style_title_bar_buttons(
     radius: int = 3,
     padding: int = 2,
     size: int = 18,
-    icon_size: int = 16,
+    icon_size: int = DEFAULT_ICON_SIZE,
     expand_vertical: bool = False,
 ) -> None:
     """Apply the shared icon-button styling used by the dock-area and sidebar

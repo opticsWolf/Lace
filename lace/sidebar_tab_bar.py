@@ -327,7 +327,13 @@ class SideTabBar(QFrame, DockStyled):
         btn = VerticalTabButton(
             dock_widget.windowTitle(), icon, parent=self._scroll_container
         )
-        btn.set_area(self._area)  # <-- ADD THIS LINE
+        # The name, not just the QIcon: it lets the tab re-render the icon in
+        # its own text colour, so it tracks the theme like the label does.
+        name = (dock_widget.custom_icon_name() or dock_widget.default_icon_name()
+                if hasattr(dock_widget, 'default_icon_name') else None)
+        if name:
+            btn.set_icon_name(name)
+        btn.set_area(self._area)
         btn.setProperty("_dock_widget", dock_widget)
         btn.setAttribute(Qt.WA_Hover, True)
         btn.installEventFilter(self)

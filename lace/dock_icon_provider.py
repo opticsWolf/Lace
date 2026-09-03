@@ -118,6 +118,17 @@ class DockIconProvider:
         return cls._COLOR_PATTERN.sub(lambda m: f'{m.group(1)}="{color}"', svg)
 
     @staticmethod
+    def _device_pixel_ratio() -> float:
+        """The ratio ``_render_svg()`` bakes into every pixmap.
+
+        Part of the cache key: ``QGuiApplication::devicePixelRatio()`` returns
+        the *highest* ratio across all screens, so without it a window moved
+        between monitors of different DPR kept its stale pixmap.
+        """
+        app = QApplication.instance()
+        return app.devicePixelRatio() if app else 1.0
+
+    @staticmethod
     def _render_svg(svg_data: bytes, size: int) -> QPixmap:
         renderer = QSvgRenderer(QByteArray(svg_data))
         if not renderer.isValid():
@@ -126,7 +137,7 @@ class DockIconProvider:
             return fallback
 
         # Account for device pixel ratio (HiDPI displays)
-        dpr = QApplication.instance().devicePixelRatio() if QApplication.instance() else 1.0
+        dpr = DockIconProvider._device_pixel_ratio()
         target = max(1, int(round(size * dpr)))
 
         # Supersample: render the SVG large, then smooth-downscale. Rendering a
@@ -192,6 +203,7 @@ class DockIconProvider:
         disabled: bool = False,
         size: int = 16,
         token: Optional[str] = None,
+        color: Optional[Union[str, QColor]] = None,
     ) -> QIcon:
         """
         Get a theme-tinted icon.
@@ -205,6 +217,11 @@ class DockIconProvider:
             token: Optional explicit style token name to tint with (e.g.
                 ``"close_btn_color"``) instead of the category's default
                 active/normal resolution.  Ignored for disabled icons.
+            color: An already-resolved tint, overriding both *token* and the
+                category default (but not *disabled*).  This is how a caller
+                whose colour depends on something the provider cannot see —
+                the tab's focus state, say — keeps its icon and its label in
+                the same colour family.
 
         Returns:
             QIcon tinted with the appropriate color for the state.
@@ -214,16 +231,22 @@ class DockIconProvider:
             key = "restore"
         styles = self._style_mgr.get_all(category)
         if disabled:
-            color = self._resolve_disabled_color(category, styles)
+            tint = self._resolve_disabled_color(category, styles)
+        elif color is not None:
+            tint = color.name() if isinstance(color, QColor) else str(color)
         elif token is not None:
-            color = styles.get(token)
-            if isinstance(color, QColor) and color.isValid():
-                color = color.name()
+            tint = styles.get(token)
+            if isinstance(tint, QColor) and tint.isValid():
+                tint = tint.name()
             else:
-                color = self._resolve_normal_color(category, styles, active)
+                tint = self._resolve_normal_color(category, styles, active)
         else:
-            color = self._resolve_normal_color(category, styles, active)
-        cache_key = (key, color, active, disabled, size)
+            tint = self._resolve_normal_color(category, styles, active)
+        color = tint
+        # active/disabled are already folded into the resolved colour, so they
+        # add nothing to the key; the device pixel ratio, which _render_svg()
+        # bakes into the pixmap, was missing from it.
+        cache_key = (key, color, size, self._device_pixel_ratio())
 
         if cache_key in self._icon_cache:
             return self._icon_cache[cache_key]
