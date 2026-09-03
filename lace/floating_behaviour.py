@@ -546,17 +546,30 @@ class FloatingContainerBehaviour:
                      self._drop_container, self._drop_container.objectName())
 
         visible_dock_areas = top_container.visible_dock_area_count()
+        dock_area = top_container.dock_area_at(global_pos)
+        area_overlay_shows = bool(
+            dock_area and dock_area.isVisible() and visible_dock_areas > 0)
+
+        # Exactly one of the two crosses offers the centre, or the user sees
+        # two centre glyphs sitting on top of each other.  Whenever a dock area
+        # is under the cursor, that area owns it: its centre is the drop that
+        # tabs into *that* area.  Otherwise the container keeps it, which is
+        # the only way into a float with no visible area at all.
+        #
+        # The old rule keyed on the area count instead, and handing the
+        # container all five was right only while a lone area was armed with
+        # no_area and so drew nothing.  Once a lone area got its own centre
+        # back (0.6.8), the two indicators collided.
         container_overlay.set_allowed_areas(
             DockWidgetArea.outer_dock_areas
-            if visible_dock_areas > 1
+            if area_overlay_shows
             else DockWidgetArea.all_dock_areas
         )
 
         container_area = container_overlay.show_overlay(top_container)
         container_overlay.enable_drop_preview(container_area != DockWidgetArea.invalid)
-        dock_area = top_container.dock_area_at(global_pos)
 
-        if dock_area and dock_area.isVisible() and visible_dock_areas > 0:
+        if area_overlay_shows:
             dock_area_overlay.enable_drop_preview(True)
             dock_area_overlay.set_allowed_areas(
                 allowed_areas_for(top_container, dock_area))

@@ -5,6 +5,18 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.6.13] — 2026-09-03
+
+### Fixed
+
+- Dragging a dock onto a floating window holding a single tab drew **two**
+  centre indicators.  The container cross was armed with all five areas
+  whenever the container had one visible area or fewer, which was only right
+  while a lone area was armed with `no_area` and so drew nothing; once a lone
+  area got its own centre back in 0.6.8, the two collided.  Whichever cross
+  the cursor is actually over owns the centre now — the dock area when one is
+  under the cursor, the container otherwise.
+
 ## [0.6.12] — 2026-09-03
 
 Phase 7 of `docs/IMPROVEMENT_PLAN_v0.7.md`: cleanup and hygiene.
