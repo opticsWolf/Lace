@@ -10,7 +10,8 @@ definition-ordered one was merely the order they happened to be written in.
 ``THEME_GROUPS`` is the grouping, and this pins the properties that make it
 worth having: that it covers everything, that no theme can quietly fall out of
 it, and that inside a family the order is the one a person would expect to
-scan — dark, then neutral, then light.
+scan — dark, then neutral, then light, which since the neutrals were rebuilt as
+mid-tone is a real ordering by lightness rather than a convention.
 """
 
 import pytest
@@ -84,39 +85,38 @@ def test_a_family_stays_together_in_the_menu(family, members):
 
 
 @pytest.mark.parametrize("family,members", FAMILIES.items())
-def test_a_family_ends_on_its_lightest_member(family, members):
-    """The one ordering rule inside a family, and it is by measurement.
+def test_a_family_runs_from_its_darkest_to_its_lightest(family, members):
+    """The ordering rule inside a family, and it is by measurement.
 
-    Not a monotonic run — a neutral is a *saturation* variant, and flattening
-    the grounds toward grey moves the panel by a point either way (violet_haze
-    0.267 -> 0.249, cyberpunk_edge 0.118 -> 0.127).  Sorting on lightness would
-    shuffle parent and neutral on that noise.  What holds is the end: the light
-    counterpart is last and is nowhere near the rest.
+    This became a real ordering once the neutrals were rebuilt as mid-tone: a
+    family now steps 0.12 -> 0.73 -> 0.98 on cyberpunk_edge, 0.27 -> 0.74 ->
+    0.98 on violet_haze, 0.17 -> 0.74 -> 0.98 on midnight_haze.  Before that
+    the neutral was a near-black like its parent and the two sorted on noise.
 
     slate_amber is the case that makes this worth asserting rather than
     eyeballing.  Its parent was always the light one, so the family reads dark,
-    light, lighter — 0.198, 0.833, 0.967 — and the rule still names the right
-    member last.
+    light, lighter -- 0.20, 0.83, 0.97 -- the same monotonic run with the
+    parent in the middle instead of at the head.
     """
     lums = [_panel_luminance(name) for name in members]
-    assert lums[-1] == max(lums),         f"{family} does not end on its lightest: {list(zip(members, lums))}"
-    assert lums[-1] > 0.9, f"{family}'s last member is not a light one"
-    assert lums[-1] - max(lums[:-1]) > 0.1,         f"{family}'s last two are the same tier: {list(zip(members, lums))}"
+    assert lums == sorted(lums), \
+        f"{family} is not ordered by lightness: {list(zip(members, lums))}"
 
 
 @pytest.mark.parametrize("family,members", FAMILIES.items())
-def test_a_neutral_is_filed_next_to_the_parent_it_came_from(family, members):
-    """Dark, *neutral*, light — the neutral sits on the dark side of the run.
+def test_a_family_spans_its_full_range(family, members):
+    """Three tiers that are actually three tiers.
 
-    It is the parent with the tint pulled out of its grounds, so it belongs
-    beside the parent and not beside the light one it shares no palette with.
+    A neutral that sat in its parent's tier -- which is what shipped in 0.6.14
+    through 0.6.17 -- gave a family with a hole in the middle and two entries
+    a user could not tell apart in a menu.
     """
-    neutral = [name for name in members if name.endswith("_neutral")]
-    if not neutral:
-        pytest.skip(f"{family} ships no neutral")
-    index = members.index(neutral[0])
-    assert index == 1, f"{family}'s neutral is not second: {members}"
-    assert abs(_panel_luminance(neutral[0]) - _panel_luminance(members[0])) < 0.1,         f"{neutral[0]} is not in its parent's tier"
+    lums = [_panel_luminance(name) for name in members]
+    assert lums[0] < 0.35, f"{family} does not start dark: {lums[0]:.2f}"
+    assert lums[-1] > 0.9, f"{family} does not end light: {lums[-1]:.2f}"
+    gaps = [b - a for a, b in zip(lums, lums[1:])]
+    assert min(gaps) > 0.1, \
+        f"{family} has two members in one tier: {list(zip(members, lums))}"
 
 
 def test_every_group_label_is_a_menu_title():

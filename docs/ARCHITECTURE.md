@@ -494,9 +494,9 @@ pair reads as one design in two keys. `tests/test_theme_counterparts.py` pins th
 | `cyberpunk_edge_light` | The amber/violet outline pair on a near-white panel; keeps the big 10px chassis, which is what still separates it from `slate_amber` |
 | `violet_haze_light` | Dracula's purple on paper; the inactive "comment" outline inverted to a lavender-grey a step below the strip |
 | `midnight_haze_light` | The focus-only frame in daylight — more demanding, not less: on near-white a stray line hides |
-| `cyberpunk_edge_neutral` | The amber/violet pair intact, over a grey ground instead of plum and aubergine |
-| `violet_haze_neutral` | Dracula's purple and its "comment" outline, over grey instead of blue-violet charcoal |
-| `midnight_haze_neutral` | The indigo focus frame, with the blue cast taken out from behind it |
+| `cyberpunk_edge_neutral` | The amber/violet pair intact, over a flat mid grey instead of plum and aubergine. The amber goes **deeper** than the light counterpart's, not lighter — `186,98,0` measures 1.9:1 on this ground where it makes 4.5:1 on near-white |
+| `violet_haze_neutral` | Dracula's purple and its "comment" outline, over flat mid grey instead of blue-violet charcoal; both taken down a tier to read on it |
+| `midnight_haze_neutral` | The indigo focus frame, with the blue cast taken out from behind it and the ground raised to mid |
 | `slate_amber_dark` | `slate_amber`'s other half — same tight 4px chassis, amber lifted back toward sodium to read on a dark panel |
 | `slate_amber_light` | Not a counterpart in the sense of the six above: the same *light* design a tier brighter, for where `slate_amber`'s warm machine grey reads as dingy rather than industrial. The greys go up ~35 points and the amber goes **down**, because every point the ground gains is a point of separation its 1.5px lines lose |
 
@@ -505,19 +505,35 @@ A light counterpart is not the dark one inverted. The accent darkens (it draws 1
 `title_mode` is `"darker"` in both, and `hover_mode` flips to `"darker"` — a near-white panel has
 nowhere lighter to go.
 
-A neutral counterpart is neutral in its **grounds** — `base`, `surface` and `title_bg` — and
-nowhere else. Those flatten toward grey while keeping at most a trace of the parent's cast: the
-channel spread drops from 7 to 3 on `cyberpunk_edge`, 14 to 4 on `violet_haze`, 11 to 4 on
-`midnight_haze`. Every colour that carries meaning is kept and at most nudged — the accent, the
-outlines that mark focus and its absence (`cyberpunk_edge`'s violet/amber pair, `violet_haze`'s
-"comment" blue-grey), and `success_color` / `warning_color` / `error_color` / `info_color`.
+A neutral counterpart does two things, and the second was added in 0.6.18. Its grounds are
+**flat**: `base`, `surface` and `title_bg` carry at most a trace of the parent's cast, the channel
+spread dropping from 7 to 6 on `cyberpunk_edge`, 14 to 5 on `violet_haze`, 11 to 5 on
+`midnight_haze`. And those grounds sit **between** the parent and the light counterpart, nearer
+the light — panel lightness 0.73 against 0.12 and 0.98 on `cyberpunk_edge`, 0.74 against 0.27 and
+0.98 on `violet_haze`, 0.74 against 0.17 and 0.98 on `midnight_haze`.
 
-The effect is subtractive rather than substitutive: the backdrop stops competing with the accent
-in front of it. On the parents the two carry the same hue family, which is what makes the
-`violet_haze` outline read as part of the backdrop rather than as a line.
-`tests/test_theme_counterparts.py` pins both halves — grounds flatter than the parent's and no
-more than a cast, accent within 20 degrees of the parent's hue and at least 85% of its
-saturation.
+Flattening without moving, which is what 0.6.16 shipped, left three presets sitting on near-black
+beside their parents — close enough that a menu offered two entries hard to tell apart, and the
+family had a hole where its middle tier should be.
+
+A mid ground is the hardest of the three for these presets, because a dark accent loses contrast
+as the ground darkens and a pale one loses it as the ground lightens, so both halves of an outline
+pair have to be re-solved rather than interpolated. `cyberpunk_edge_neutral`'s amber lands at
+`148,72,0` — below the light counterpart's `186,98,0`, not between it and the parent's `255,154,0`
+— and its violet lands above the parent's. All three carry `is_light = True`, which reverses every
+derived adjustment: body text, hover fills, shadow alphas and the default status colours.
+
+What is *not* neutralised is anything that carries meaning: the accent, the outlines that mark
+focus and its absence (`cyberpunk_edge`'s violet/amber pair, `violet_haze`'s "comment" blue-grey),
+and `success_color` / `warning_color` / `error_color` / `info_color`.
+
+`tests/test_theme_counterparts.py` pins all of it — grounds flatter than the parent's and no more
+than a cast, the panel a tier of its own with 0.2 of clearance at each end and above the midpoint
+of its family's range, the accent within 20 degrees of the parent's hue and at least 85% of its
+saturation, and `is_light` set with body text still at 7:1. The tier test measures in **HSL
+lightness** rather than the WCAG relative luminance the rest of that file uses: relative luminance
+is gamma-corrected and brutally non-linear at the dark end, scoring these mid greys at 0.48 — a
+question about which tier something looks like is a question about perception.
 
 `slate_amber` therefore ships as three tiers — `slate_amber_dark`, `slate_amber`,
 `slate_amber_light` — rather than as a light/dark pair. It is the one family whose original member
@@ -540,11 +556,11 @@ menu should show them:
 | Edge Treatments | the four families above, twelve keys | Designs where the outline carries the meaning. Each ships as a family |
 
 Inside a family the order is **dark, neutral, light**, with `slate_amber`'s dark, light, lighter
-as the stated exception. It is not an ordering by lightness: a neutral is a *saturation* variant,
-and flattening the grounds moves the panel by a point either way (`violet_haze` 0.267 → 0.249,
-`cyberpunk_edge` 0.118 → 0.127), so sorting on lightness would shuffle parent and neutral on
-noise. Alphabetical is worse still — it files each counterpart away from its parent and puts
-`midnight_haze_light` above `midnight_haze`.
+as the stated exception — and since 0.6.18 that is a real ordering by lightness rather than a
+convention, each family stepping 0.12 → 0.73 → 0.98 or thereabouts. It was not one before: the
+neutrals were near-blacks like their parents, separated by a point either way (`violet_haze` 0.267
+→ 0.249), so a lightness sort would have shuffled them on noise. Alphabetical is worse still — it
+files each counterpart away from its parent and puts `midnight_haze_light` above `midnight_haze`.
 
 `theme_groups()` in `dock_style_manager` turns this into `(group label, [(label, key), ...])`
 for a menu; `theme_choices()` is the same order flattened, for a single-level one. `"default"`
@@ -594,8 +610,11 @@ tab is a closed rounded ring — differing only in which states are ringed at al
 Each counterpart takes its parent's row unchanged, in its own colours — that is what "geometry
 only" means for the sidebar too. `midnight_haze_light` and `midnight_haze_neutral` are the two
 that needed a number recomputed rather than copied: the parent caps `sidebar_tab_bg_normal` just
-below where an idle tab would out-glow a hovered one, and that ceiling moves with the palette (on
-light it stops being a crossover at all, since hover darkens while the tint lightens).
+below where an idle tab would out-glow a hovered one, and that ceiling moves with the palette. On
+`midnight_haze_neutral` the whole relationship is mirrored rather than removed — the wash is a
+dark accent over a light bar, so an idle tab reads *darker* than the bar and the hover it must not
+cross is darker still: bar `163,163,168`, idle `150,150,171`, hover `132,132,138`, with the
+ceiling at alpha 81.
 
 `violet_haze` is the one whose ring is a *hover* cue: bare when idle, ringed in a half-alpha
 accent under the cursor, ringed solid when selected — so the hover ring reads as the active

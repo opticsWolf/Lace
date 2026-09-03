@@ -10,11 +10,12 @@ at all until the two are seen side by side.
 
 The palette side is checked for the properties that actually make each kind of
 variant usable.  A light one has to darken its accent enough to survive on a
-near-white panel.  A *neutral* one is neutral in its **grounds** only — base,
-panel and strip flatten toward grey, keeping at most a trace of the parent's
-cast — while every colour that carries meaning is left alone: the accent, the
-outlines that mark focus, and the four status tokens.  Draining those would not
-make a subtler theme, it would make a different and worse one.
+near-white panel.  A *neutral* one is two things at once: its grounds are flat
+— base, panel and strip carry at most a trace of the parent's cast — and they
+sit **between** the parent and the light counterpart, nearer the light.  What
+is not neutralised is everything that carries meaning: the accent, the outlines
+that mark focus, and the four status tokens.  Draining those would not make a
+subtler theme, it would make a different and worse one.
 """
 
 import pytest
@@ -67,6 +68,19 @@ def _contrast(a, b) -> float:
     la, lb = _luminance(a), _luminance(b)
     hi, lo = max(la, lb), min(la, lb)
     return (hi + 0.05) / (lo + 0.05)
+
+
+def _lightness(rgba) -> float:
+    """HSL lightness -- how light a colour *looks*, not how much light it emits.
+
+    The rest of this file measures in WCAG relative luminance, which is the
+    right metric for a contrast ratio and the wrong one for "which tier is
+    this".  Relative luminance is gamma-corrected and brutally non-linear at
+    the dark end: a mid grey that reads as three-quarters of the way to white
+    scores 0.48, barely above near-black's 0.05.  Asking whether a neutral
+    leans light is a question about perception, so it is asked in HSL.
+    """
+    return QColor(*list(rgba)[:3]).lightnessF()
 
 
 def _panel(name: str):
@@ -148,6 +162,47 @@ def test_a_neutral_counterpart_flattens_its_grounds(parent, child):
         assert _spread(c) <= 6, (
             f"{child}: {field} {list(c)[:3]} still reads as a colour, "
             f"not as a cast")
+
+
+@pytest.mark.parametrize("parent,child", NEUTRAL_PAIRS)
+def test_a_neutral_counterpart_is_a_mid_tone_leaning_light(parent, child):
+    """The tier, not just the flatness.
+
+    Flattening the grounds without moving them left three presets sitting on
+    near-black beside their parents, close enough that a menu offered two
+    entries a user could not tell apart.  A neutral is the blend: measurably
+    between its parent and the light counterpart, and on the light side of the
+    midpoint rather than the dark one.
+
+    The margins matter more than the exact figure.  0.2 of clearance at each
+    end is what keeps this a third tier rather than a variation on a
+    neighbour; the 0.6 floor is what makes it the *lighter* half of the
+    range, which is the judgement call and so the part worth pinning.
+    """
+    light = child.replace("_neutral", "_light")
+    dark, mid, pale = (_lightness(_panel(name))
+                       for name in (parent, child, light))
+
+    assert dark + 0.2 < mid < pale - 0.2, (
+        f"{child} at {mid:.2f} is not a tier of its own between "
+        f"{parent} at {dark:.2f} and {light} at {pale:.2f}")
+    assert mid > (dark + pale) / 2, (
+        f"{child} at {mid:.2f} sits below the midpoint of "
+        f"{(dark + pale) / 2:.2f} — it should lean light")
+    assert mid > 0.6, f"{child}'s panel is {mid:.2f}, not a light-leaning mid"
+
+
+@pytest.mark.parametrize("name", NEUTRAL)
+def test_a_mid_tone_neutral_flips_to_a_light_chassis(name):
+    """is_light is not decoration: it reverses every derived adjustment.
+
+    Body text, the hover fill, the shadow alphas and the default status
+    colours are all computed off it.  A mid-tone ground with is_light left
+    False gets pale text on light grey — which is exactly what these three
+    would have been if the flag had been forgotten alongside the palette.
+    """
+    assert THEME_SPECS[name].is_light is True
+    assert _contrast(_core(name, "text_color"), _panel(name)) >= 7.0
 
 
 @pytest.mark.parametrize("parent,child", NEUTRAL_PAIRS)

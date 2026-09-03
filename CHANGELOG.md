@@ -5,6 +5,40 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.6.18] — 2026-09-03
+
+### Changed
+
+- **`cyberpunk_edge_neutral`, `violet_haze_neutral` and `midnight_haze_neutral`
+  are now mid-tone**, sitting between their parent and their light counterpart
+  and nearer the light — panel lightness 0.73 against 0.12 and 0.98 on
+  `cyberpunk_edge`, 0.74 against 0.27 and 0.98 on `violet_haze`, 0.74 against
+  0.17 and 0.98 on `midnight_haze`.  0.6.16 flattened the grounds without
+  moving them, which left three near-blacks sitting beside their parents:
+  close enough that a menu offered two entries hard to tell apart, and each
+  family had a hole where its middle tier should be.  Flatness is unchanged
+  and so is the rule that nothing meaning-bearing gets drained — the accent,
+  the focus outlines and the four status tokens are all still kept.
+- **All three carry `is_light = True` now**, which reverses every derived
+  adjustment: body text, hover fills, shadow alphas and the default status
+  colours.  Anything that read the flag to decide dark-versus-light — OS
+  auto-sync overrides included — will now classify these three as light.
+- **Their accents were re-solved rather than interpolated.**  A mid ground is
+  the hardest of the three: a dark accent loses contrast as the ground darkens
+  and a pale one loses it as the ground lightens.  `cyberpunk_edge_neutral`'s
+  amber lands at `148,72,0` — *below* the light counterpart's `186,98,0`, not
+  between it and the parent's `255,154,0`, because that colour measures 1.9:1
+  here against 4.5:1 on near-white.  Its violet moves the other way, up from
+  the parent's.
+- **`midnight_haze_neutral`'s sidebar wash goes to alpha 34** (from 30).  The
+  crossover it is capped against is mirrored rather than gone: the wash is a
+  dark accent over a light bar now, so an idle tab reads darker than the bar
+  and the hover it must not cross is darker still — bar `163,163,168`, idle
+  `150,150,171`, hover `132,132,138`, ceiling at alpha 81.
+- **Each family is now a real ordering by lightness**, so
+  `test_theme_grouping.py` asserts the monotonic run it could only assert the
+  end of before.
+
 ## [0.6.17] — 2026-09-03
 
 ### Added

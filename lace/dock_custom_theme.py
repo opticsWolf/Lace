@@ -507,40 +507,43 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     ),
 
     # -------------------------------------------------------------------------
-    # CYBERPUNK EDGE NEUTRAL — the same amber and violet, off a grey ground.
+    # CYBERPUNK EDGE NEUTRAL — the sodium-lamp preset at dusk.
     #
-    # "Neutral" here means the *grounds*, not the theme.  The parent's panel is
-    # a deep aubergine and its base a plum-tinted near-black; those flatten to
-    # grey, keeping only a whisper of the original cast so the theme still
-    # reads warm rather than clinical.  Everything that carries meaning is left
-    # alone: the sodium amber that marks the focused card, the muted violet
-    # that marks every unfocused one, and the four status colours.
+    # Not the dark one with the tint pulled out and not the light one dimmed:
+    # the grounds sit between the two and nearer the light — panel at 0.73
+    # lightness against 0.12 for the parent and 0.98 for the light one.  What
+    # makes it "neutral" is that those grounds are flat.  The parent's plum
+    # base and aubergine panel span 7 points across their channels; these span
+    # 6, which is a cast rather than a colour, so the backdrop still reads warm
+    # without competing with the amber in front of it.
     #
-    # So the violet/amber pair that is this preset's whole identity survives,
-    # and what goes is only the tint competing with it from behind.
+    # A mid ground is the hardest of the three for this preset, because both
+    # halves of its outline pair have to survive on it.  The amber goes to
+    # 148,72,0 — deeper than the light counterpart's 186,98,0 rather than
+    # lighter, because that colour measures 1.9:1 here where it makes 4.5:1 on
+    # near-white.  The violet moves the other way, up from the parent's, for
+    # the same reason from the other side.
     # -------------------------------------------------------------------------
     "cyberpunk_edge_neutral": ThemeSpec(
-        base       = [18, 16, 19, 255],     # Near-black.  The parent's plum
-                                            # spans 7 points across the
-                                            # channels; this spans 3 — a cast,
-                                            # not a colour
-        accent     = [246, 158, 30, 255],   # Sodium amber, a shade off the
-                                            # parent's 255,154,0: on a grey
-                                            # ground nothing dampens the neon,
-                                            # so it is dampened by hand
-        text       = [236, 233, 231, 255],  # Off-white, faint warmth kept
-        surface    = [33, 31, 34, 255],     # Grey inner panel, aubergine cast
-        title_bg   = [11, 10, 12, 255],     # The distinct band, as on the parent
-        border     = [116, 84, 150, 195],   # Muted violet, unfocused — kept:
+        base       = [164, 160, 166, 255],  # Mid grey, plum cast: 6 points
+                                            # across the channels where the
+                                            # parent's spans 7
+        accent     = [148, 72, 0, 255],     # Burnt amber, deeper than either
+                                            # neighbour — see above
+        text       = [38, 32, 42, 255],     # Warm near-black
+        surface    = [186, 182, 188, 255],  # The lit panel
+        title_bg   = [150, 147, 152, 255],  # The recessed band, as on the parent
+        border     = [108, 76, 146, 215],   # Muted violet, unfocused — kept:
                                             # this is the half of the pair that
                                             # says "not focused"
-        focus_border_color = [246, 158, 30, 255],  # Amber, focused
+        focus_border_color = [148, 72, 0, 255],    # Amber, focused
+        is_light   = True,
         title_mode = "darker",
         hover_mode = "lighter",
-        success_color = [120, 224, 143, 255],
-        warning_color = [255, 196, 61, 255],
-        error_color   = [255, 84, 84, 255],
-        info_color    = [186, 137, 255, 255],
+        success_color = [26, 137, 70, 255],
+        warning_color = [176, 116, 0, 255],
+        error_color   = [196, 42, 42, 255],
+        info_color    = [108, 61, 178, 255],
 
         # Geometry — cyberpunk_edge's, unchanged
         corner_radius = 10,
@@ -551,7 +554,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         title_button_spacing = 6,
         title_margin = 0,
         title_border_bottom = 1.5,
-        title_border_focus_color = [246, 158, 30, 255],
+        title_border_focus_color = [148, 72, 0, 255],
         tab_radius = 8,
         tab_margin = 3,
         content_margin = (8, 2),
@@ -561,8 +564,8 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 
         sidebar_tab_flat_edge = "none",
         sidebar_tab_border_width = 1.5,
-        sidebar_tab_border_color = [116, 84, 150, 195],         # muted violet
-        sidebar_tab_border_active_color = [246, 158, 30, 255],  # amber
+        sidebar_tab_border_color = [108, 76, 146, 215],         # muted violet
+        sidebar_tab_border_active_color = [148, 72, 0, 255],    # amber
         sidebar_indicator_width = 1.5,
     ),
 
@@ -690,31 +693,34 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     ),
 
     # -------------------------------------------------------------------------
-    # VIOLET HAZE NEUTRAL — the unbroken rule, over grey instead of indigo.
+    # VIOLET HAZE NEUTRAL — the unbroken rule, over mid grey.
     #
     # Dracula's background is a distinctly blue-violet charcoal, and against it
     # the purple accent and the blue-grey "comment" outline are two hues doing
-    # similar work.  Flattening the ground to grey — a trace of the cool cast
-    # left in — separates them: the outline reads as a line rather than as part
-    # of the backdrop, which is the whole point of a preset whose effect is a
-    # rule running unbroken behind the inactive tabs.
+    # similar work.  Flattening the ground separates them: the outline reads as
+    # a line rather than as part of the backdrop, which is the whole point of a
+    # preset whose effect is a rule running unbroken behind the inactive tabs.
+    #
+    # The ground lands between the parent and the light counterpart and nearer
+    # the light — 0.74 lightness against 0.27 and 0.98 — and stays flat while
+    # it does: 5 points across the channels where dracula's own spans 14.
     # -------------------------------------------------------------------------
     "violet_haze_neutral": ThemeSpec(
-        base       = [43, 43, 47, 255],     # Charcoal.  Dracula's own spans 14
-                                            # points across the channels; this
-                                            # spans 4
-        accent     = [186, 152, 244, 255],  # Dracula purple, a shade softer
-        text       = [246, 246, 244, 255],
-        surface    = [61, 61, 66, 255],     # Lifted panel, so the notch shows
-        title_bg   = [32, 32, 35, 255],     # Recessed strip
-        border     = [72, 72, 78, 255],
-        focus_border_color = [186, 152, 244, 255],
+        base       = [164, 164, 169, 255],  # Mid grey, cool cast
+        accent     = [104, 60, 176, 255],   # Dracula purple, deepened to hold
+                                            # its 2px lines on a mid ground
+        text       = [36, 34, 44, 255],
+        surface    = [186, 186, 191, 255],  # Lifted panel, so the notch shows
+        title_bg   = [150, 150, 155, 255],  # Recessed strip
+        border     = [144, 144, 150, 255],
+        focus_border_color = [104, 60, 176, 255],
+        is_light   = True,
         title_mode = "darker",
         hover_mode = "lighter",
-        success_color = [80, 250, 123, 255],
-        warning_color = [241, 250, 140, 255],
-        error_color   = [255, 85, 85, 255],
-        info_color    = [139, 233, 253, 255],
+        success_color = [22, 128, 66, 255],
+        warning_color = [166, 110, 0, 255],
+        error_color   = [193, 40, 40, 255],
+        info_color    = [20, 116, 148, 255],
 
         # Geometry — violet_haze's, unchanged
         corner_radius = 10,
@@ -728,18 +734,20 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         content_margin = (8, 2),
         title_border_bottom = 2.0,
         tab_border_width = 2.0,
-        tab_border_color = [104, 116, 158, 205],    # Inactive: the "comment"
-                                                    # blue-grey, kept — it is
-                                                    # the line the whole preset
-                                                    # is built around
-        tab_border_active_color = [186, 152, 244, 255],
+        tab_border_color = [96, 108, 150, 215],     # Inactive: the "comment"
+                                                    # blue-grey, kept and taken
+                                                    # down to read on a mid
+                                                    # ground — it is the line
+                                                    # the whole preset is built
+                                                    # around
+        tab_border_active_color = [104, 60, 176, 255],
         indicator_position = "none",
         tab_dimming = True,
 
         sidebar_tab_flat_edge = "none",
         sidebar_tab_border_width = 2.0,
         sidebar_tab_border_color = [0, 0, 0, 0],             # Idle: bare
-        sidebar_tab_border_hover_color = [186, 152, 244, 130],
+        sidebar_tab_border_hover_color = [104, 60, 176, 150],
         sidebar_indicator_width = 2.0,
     ),
 
@@ -865,31 +873,33 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     ),
 
     # -------------------------------------------------------------------------
-    # MIDNIGHT HAZE NEUTRAL — the focus-only frame, with only the frame lit.
+    # MIDNIGHT HAZE NEUTRAL — the focus-only frame, at mid tone.
     #
     # The parent's idea is that exactly one area on screen carries any line at
     # all, and it puts a blue cast under that line as well as in it.  Here the
-    # ground goes grey — a trace of the blue kept — and the indigo-violet stays
-    # exactly where it matters: the focused area's frame, the active tab's
-    # outline, and the wash over the idle sidebar tabs.  One colour on screen,
-    # and it is the one that means something.
+    # ground goes flat and mid — 0.73 lightness against the parent's 0.17 and
+    # the light counterpart's 0.98, 5 points across the channels against the
+    # parent's 11 — and the indigo-violet stays exactly where it matters: the
+    # focused area's frame, the active tab's outline, and the wash over the
+    # idle sidebar tabs.  One colour on screen, and it is the one that means
+    # something.
     # -------------------------------------------------------------------------
     "midnight_haze_neutral": ThemeSpec(
-        base       = [26, 26, 30, 255],     # The parent's spans 11 points
-                                            # across the channels; this spans 4
-        accent     = [128, 127, 246, 255],  # The parent's indigo-violet, a
-                                            # shade softer
-        text       = [231, 232, 234, 255],
-        surface    = [39, 39, 44, 255],     # Lifted panel, so the notch shows
-        title_bg   = [17, 17, 20, 255],     # Recessed strip
-        border     = [46, 46, 51, 255],     # Splitters and seams only
-        focus_border_color = [128, 127, 246, 255],
+        base       = [163, 163, 168, 255],  # Mid grey, cool cast
+        accent     = [66, 65, 192, 255],    # The parent's indigo-violet,
+                                            # deepened for the mid ground
+        text       = [28, 30, 40, 255],
+        surface    = [185, 185, 190, 255],  # Lifted panel, so the notch shows
+        title_bg   = [149, 149, 154, 255],  # Recessed strip
+        border     = [146, 146, 152, 255],  # Splitters and seams only
+        focus_border_color = [66, 65, 192, 255],
+        is_light   = True,
         title_mode = "darker",
         hover_mode = "lighter",
-        success_color = [80, 250, 123, 255],
-        warning_color = [241, 250, 140, 255],
-        error_color   = [255, 85, 85, 255],
-        info_color    = [139, 233, 253, 255],
+        success_color = [22, 128, 66, 255],
+        warning_color = [166, 110, 0, 255],
+        error_color   = [193, 40, 40, 255],
+        info_color    = [20, 116, 148, 255],
 
         # Geometry — midnight_haze's, unchanged
         corner_radius = 10,
@@ -904,7 +914,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         title_border_bottom = 2.0,
         tab_border_width = 2.0,
         tab_border_color = [0, 0, 0, 0],            # Inactive: no outline
-        tab_border_active_color = [128, 127, 246, 255],
+        tab_border_active_color = [66, 65, 192, 255],
         tab_border_unfocused_color = [0, 0, 0, 0],  # Unfocused: no line at all
         indicator_position = "none",
         tab_dimming = True,
@@ -912,14 +922,16 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         sidebar_tab_flat_edge = "none",
         sidebar_tab_border_width = 2.0,
         sidebar_tab_border_color = [0, 0, 0, 0],
-        # The parent's ceiling, recomputed against this base.  Hover is derived
-        # from the base and carries no accent, so it sits near (46, 46, 50)
-        # however deep the tint goes; past the crossover an idle tab out-glows
-        # a hovered one.  The accent is all but the parent's, so the parent's
-        # 30 carries over — measured, an idle tab reads (38, 38, 55) against
-        # that hover, the same clear margin the parent keeps.
-        sidebar_tab_bg_normal = [128, 127, 246, 30],
-        sidebar_tab_border_active_color = [128, 127, 246, 255],
+        # The parent's ceiling, recomputed for a light ground, where the
+        # whole relationship is mirrored.  The wash is a dark accent over a
+        # light bar now, so an idle tab reads *darker* than the bar rather
+        # than brighter, and the hover it must not cross is darker still:
+        # bar (163, 163, 168), idle (150, 150, 171), hover (132, 132, 138),
+        # a clean run in the other direction.  The ceiling is alpha 81 --
+        # past that an idle tab out-darkens a hovered one, which is the same
+        # failure the parent's alpha 30 was chosen to avoid from below.
+        sidebar_tab_bg_normal = [66, 65, 192, 34],
+        sidebar_tab_border_active_color = [66, 65, 192, 255],
         sidebar_indicator_width = 2.0,
     ),
 
