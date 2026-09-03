@@ -79,7 +79,7 @@ def restore_container_state(c, state: dict, testing: bool = False,
         # here also means a layout saved while an area was maximized restores
         # un-maximized rather than "maximized, pointing at a deleted area".
         c._maximized_dock_area = None
-        c._pre_maximize_splitter_sizes = None
+        # Pre-maximize sizes live on the splitters, which are all discarded here.
         c._top_level_dock_area = None
 
     if is_floating:

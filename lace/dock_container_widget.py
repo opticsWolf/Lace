@@ -123,7 +123,36 @@ class DropController:
         if floating_top_level_dock_widget is not None:
             floating_top_level_dock_widget.emit_top_level_changed(False)
 
+    def _restore_maximize_before_reshaping(self, drop_area: DockWidgetArea):
+        """Un-maximize before a drop that changes the splitter tree.
+
+        A drop that reshapes the tree invalidates the maximize state three
+        ways at once: ``_maximized_dock_area`` would keep pointing at an area
+        that no longer fills the container (so ``is_area_maximized()`` lies and
+        the title bar keeps offering *Restore*), the pre-maximize sizes were
+        captured against the old shape, and — worst — the siblings maximize hid
+        with ``setVisible(False)`` would stay hidden with no route back, since
+        an explicit hide sets ``WA_WState_ExplicitShowHide`` and defeats Qt's
+        ``ChildPolished`` auto-show.
+
+        Restore first, then let the drop divide the target's real geometry.
+        Dropping first would compute the split against the maximized extent and
+        the restore would then stomp it.
+
+        A centre drop only adds a tab: it leaves the tree alone and the
+        maximized area keeps filling the container, so it stays maximized.
+        That is also the least surprising outcome — the user maximized an area
+        and dropped a widget *into* it.
+
+        ``close_other_areas()`` already restores before mutating the layout;
+        this is the same precedent, finally applied to the drop path.
+        """
+        if (self._c._maximized_dock_area is not None
+                and drop_area != DockWidgetArea.center):
+            self._c._restore_maximized_area()
+
     def _drop_into_container(self, floating_widget: 'FloatingDockContainer', area: DockWidgetArea):
+        self._restore_maximize_before_reshaping(area)
         if area == DockWidgetArea.center:
             # Not top_level_dock_area(): that one answers None for a
             # non-floating container, which is the common case here.
@@ -257,6 +286,7 @@ class DropController:
 
     def _drop_into_section(self, floating_widget: 'FloatingDockContainer',
                            target_area: DockAreaWidget, area: DockWidgetArea):
+        self._restore_maximize_before_reshaping(area)
         if area == DockWidgetArea.center:
             self._drop_into_center_of_section(floating_widget, target_area)
             return
@@ -339,7 +369,6 @@ class DockContainerWidget(QFrame, DockStyled):
         self._top_level_dock_area: DockAreaWidget = None
         self._drop_controller = DropController(self)
         self._maximized_dock_area: DockAreaWidget = None
-        self._pre_maximize_splitter_sizes: dict = None  # {id(splitter): sizes_list}
         # DockSplitterHandle junction detection reads this on every hover-move;
         # None means "rebuild from findChildren".  Cleared wherever the area
         # layout changes, which is where handles are created and destroyed.
@@ -611,15 +640,12 @@ class DockContainerWidget(QFrame, DockStyled):
         self._dock_areas.remove(area)
 
         # ── Restore maximized state if the removed area was the maximized one ──
+        # Through _restore_maximized_area(), not by clearing the fields by
+        # hand: the hand-rolled version un-hid the siblings but left their
+        # splitter proportions at the zeroes maximize had set, so a restored
+        # sibling could come back with no width.
         if area is self._maximized_dock_area:
-            for sibling in self._dock_areas:
-                if sibling.opened_dock_widgets():
-                    sibling.setVisible(True)
-            self._maximized_dock_area = None
-            self._pre_maximize_splitter_sizes = None
-            self._visible_dock_area_count = -1
-            for dock_area in self._dock_areas:
-                dock_area._update_title_bar_button_states()
+            self._restore_maximized_area()
 
         splitter = find_parent(DockSplitter, area)
 
@@ -922,10 +948,16 @@ class DockContainerWidget(QFrame, DockStyled):
         return False
 
     def _collect_splitter_sizes(self, splitter: QSplitter) -> None:
-        """Recursively collect all splitter sizes into _pre_maximize_splitter_sizes."""
-        if self._pre_maximize_splitter_sizes is None:
-            self._pre_maximize_splitter_sizes = {}
-        self._pre_maximize_splitter_sizes[id(splitter)] = list(splitter.sizes())
+        """Recursively stash each splitter's sizes on the splitter itself.
+
+        This used to be a ``{id(splitter): sizes}`` dict on the container.
+        ``id()`` is a memory address: destroying a splitter while a maximize
+        was active left an entry keyed on freed memory, which CPython readily
+        recycles for the next allocation — so an unrelated splitter could
+        inherit a dead one's proportions.  Stored on the widget, the value
+        simply dies with it.
+        """
+        splitter._pre_maximize_sizes = list(splitter.sizes())
         for i in range(splitter.count()):
             child = splitter.widget(i)
             if isinstance(child, QSplitter):
@@ -964,8 +996,8 @@ class DockContainerWidget(QFrame, DockStyled):
         if self._root_splitter is None:
             return
 
-        # Save ALL splitter sizes (root + nested) for later restore
-        self._pre_maximize_splitter_sizes = {}
+        # Save ALL splitter sizes (root + nested) for later restore.
+        # They live on the splitters themselves, so they die with them.
         self._collect_splitter_sizes(self._root_splitter)
         self._maximized_dock_area = area
 
@@ -997,12 +1029,23 @@ class DockContainerWidget(QFrame, DockStyled):
                 dock_area.setVisible(True)
 
         # Restore original splitter proportions (all splitters, not just root)
-        if self._pre_maximize_splitter_sizes and self._root_splitter:
-            for sp in self._all_splitters():
-                sid = id(sp)
-                if sid in self._pre_maximize_splitter_sizes:
-                    sp.setSizes(self._pre_maximize_splitter_sizes[sid])
-        self._pre_maximize_splitter_sizes = None
+        for sp in self._all_splitters():
+            saved = getattr(sp, '_pre_maximize_sizes', None)
+            sp._pre_maximize_sizes = None
+            if not saved:
+                continue
+            if len(saved) != sp.count():
+                # The tree changed shape while maximized. Qt's setSizes()
+                # applies as many values as it is given and leaves the rest
+                # untouched — the same partial application documented in
+                # _maximize_splitter.collapse() — which would leave one pane
+                # squeezed to whatever it happened to hold. Better to let Qt
+                # keep the current distribution than to half-apply a stale one.
+                logger.debug(
+                    'Discarding stale pre-maximize sizes for %s: %d saved, '
+                    '%d children now', sp, len(saved), sp.count())
+                continue
+            sp.setSizes(saved)
 
         # Invalidate visible count cache and update button states
         self._visible_dock_area_count = -1
