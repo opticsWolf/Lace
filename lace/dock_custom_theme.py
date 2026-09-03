@@ -831,28 +831,40 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
     ),
 
     # -------------------------------------------------------------------------
-    # CYBERPUNK EDGE NEUTRAL — the same two-state outline, told in value.
+    # CYBERPUNK EDGE NEUTRAL — the same amber and violet, off a grey ground.
     #
-    # The parent separates unfocused from focused by *hue*: muted violet
-    # against sodium amber.  With the hue gone that pair has to be carried by
-    # lightness instead — dim graphite unfocused, near-white focused.  Which is
-    # also the version that works for a viewer who could not separate those two
-    # hues to begin with.
+    # "Neutral" here means the *grounds*, not the theme.  The parent's panel is
+    # a deep aubergine and its base a plum-tinted near-black; those flatten to
+    # grey, keeping only a whisper of the original cast so the theme still
+    # reads warm rather than clinical.  Everything that carries meaning is left
+    # alone: the sodium amber that marks the focused card, the muted violet
+    # that marks every unfocused one, and the four status colours.
+    #
+    # So the violet/amber pair that is this preset's whole identity survives,
+    # and what goes is only the tint competing with it from behind.
     # -------------------------------------------------------------------------
     "cyberpunk_edge_neutral": ThemeSpec(
-        base       = [18, 18, 20, 255],     # Near-black, hue removed
-        accent     = [222, 224, 230, 255],  # Near-white: the "focused" state
-        text       = [232, 233, 236, 255],
-        surface    = [32, 32, 35, 255],
-        title_bg   = [11, 11, 12, 255],     # The distinct band, as on the parent
-        border     = [92, 94, 100, 220],    # Dim graphite, unfocused
-        focus_border_color = [222, 224, 230, 255],
+        base       = [18, 16, 19, 255],     # Near-black.  The parent's plum
+                                            # spans 7 points across the
+                                            # channels; this spans 3 — a cast,
+                                            # not a colour
+        accent     = [246, 158, 30, 255],   # Sodium amber, a shade off the
+                                            # parent's 255,154,0: on a grey
+                                            # ground nothing dampens the neon,
+                                            # so it is dampened by hand
+        text       = [236, 233, 231, 255],  # Off-white, faint warmth kept
+        surface    = [33, 31, 34, 255],     # Grey inner panel, aubergine cast
+        title_bg   = [11, 10, 12, 255],     # The distinct band, as on the parent
+        border     = [116, 84, 150, 195],   # Muted violet, unfocused — kept:
+                                            # this is the half of the pair that
+                                            # says "not focused"
+        focus_border_color = [246, 158, 30, 255],  # Amber, focused
         title_mode = "darker",
         hover_mode = "lighter",
         success_color = [120, 224, 143, 255],
         warning_color = [255, 196, 61, 255],
         error_color   = [255, 84, 84, 255],
-        info_color    = [138, 180, 248, 255],
+        info_color    = [186, 137, 255, 255],
 
         # Geometry — cyberpunk_edge's, unchanged
         corner_radius = 10,
@@ -863,7 +875,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         title_button_spacing = 6,
         title_margin = 0,
         title_border_bottom = 1.5,
-        title_border_focus_color = [222, 224, 230, 255],
+        title_border_focus_color = [246, 158, 30, 255],
         tab_radius = 8,
         tab_margin = 3,
         content_margin = (8, 2),
@@ -873,22 +885,31 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 
         sidebar_tab_flat_edge = "none",
         sidebar_tab_border_width = 1.5,
-        sidebar_tab_border_color = [92, 94, 100, 220],
-        sidebar_tab_border_active_color = [222, 224, 230, 255],
+        sidebar_tab_border_color = [116, 84, 150, 195],         # muted violet
+        sidebar_tab_border_active_color = [246, 158, 30, 255],  # amber
         sidebar_indicator_width = 1.5,
     ),
 
     # -------------------------------------------------------------------------
-    # VIOLET HAZE NEUTRAL — the unbroken rule, in graphite.
+    # VIOLET HAZE NEUTRAL — the unbroken rule, over grey instead of indigo.
+    #
+    # Dracula's background is a distinctly blue-violet charcoal, and against it
+    # the purple accent and the blue-grey "comment" outline are two hues doing
+    # similar work.  Flattening the ground to grey — a trace of the cool cast
+    # left in — separates them: the outline reads as a line rather than as part
+    # of the backdrop, which is the whole point of a preset whose effect is a
+    # rule running unbroken behind the inactive tabs.
     # -------------------------------------------------------------------------
     "violet_haze_neutral": ThemeSpec(
-        base       = [42, 43, 48, 255],
-        accent     = [190, 193, 200, 255],  # Light neutral, in the accent's role
-        text       = [242, 242, 245, 255],
-        surface    = [60, 62, 68, 255],     # Lifted panel, so the notch shows
-        title_bg   = [32, 33, 37, 255],     # Recessed strip
-        border     = [70, 72, 78, 255],
-        focus_border_color = [190, 193, 200, 255],
+        base       = [43, 43, 47, 255],     # Charcoal.  Dracula's own spans 14
+                                            # points across the channels; this
+                                            # spans 4
+        accent     = [186, 152, 244, 255],  # Dracula purple, a shade softer
+        text       = [246, 246, 244, 255],
+        surface    = [61, 61, 66, 255],     # Lifted panel, so the notch shows
+        title_bg   = [32, 32, 35, 255],     # Recessed strip
+        border     = [72, 72, 78, 255],
+        focus_border_color = [186, 152, 244, 255],
         title_mode = "darker",
         hover_mode = "lighter",
         success_color = [80, 250, 123, 255],
@@ -908,34 +929,41 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         content_margin = (8, 2),
         title_border_bottom = 2.0,
         tab_border_width = 2.0,
-        tab_border_color = [116, 119, 128, 210],    # Inactive: mid graphite,
-                                                    # in the "comment" role
-        tab_border_active_color = [190, 193, 200, 255],
+        tab_border_color = [104, 116, 158, 205],    # Inactive: the "comment"
+                                                    # blue-grey, kept — it is
+                                                    # the line the whole preset
+                                                    # is built around
+        tab_border_active_color = [186, 152, 244, 255],
         indicator_position = "none",
         tab_dimming = True,
 
         sidebar_tab_flat_edge = "none",
         sidebar_tab_border_width = 2.0,
-        sidebar_tab_border_color = [0, 0, 0, 0],
-        sidebar_tab_border_hover_color = [190, 193, 200, 130],
+        sidebar_tab_border_color = [0, 0, 0, 0],             # Idle: bare
+        sidebar_tab_border_hover_color = [186, 152, 244, 130],
         sidebar_indicator_width = 2.0,
     ),
 
     # -------------------------------------------------------------------------
-    # MIDNIGHT HAZE NEUTRAL — the focus-only frame with nothing but value.
+    # MIDNIGHT HAZE NEUTRAL — the focus-only frame, with only the frame lit.
     #
-    # The purest reading of the parent: one area carries one near-white frame,
-    # everything else is unlined graphite, and nothing on screen is coloured at
-    # all except the four status tokens.
+    # The parent's idea is that exactly one area on screen carries any line at
+    # all, and it puts a blue cast under that line as well as in it.  Here the
+    # ground goes grey — a trace of the blue kept — and the indigo-violet stays
+    # exactly where it matters: the focused area's frame, the active tab's
+    # outline, and the wash over the idle sidebar tabs.  One colour on screen,
+    # and it is the one that means something.
     # -------------------------------------------------------------------------
     "midnight_haze_neutral": ThemeSpec(
-        base       = [26, 27, 30, 255],
-        accent     = [186, 190, 198, 255],
-        text       = [230, 231, 234, 255],
-        surface    = [38, 40, 44, 255],
-        title_bg   = [17, 18, 20, 255],
-        border     = [44, 46, 50, 255],     # Splitters and seams only
-        focus_border_color = [186, 190, 198, 255],
+        base       = [26, 26, 30, 255],     # The parent's spans 11 points
+                                            # across the channels; this spans 4
+        accent     = [128, 127, 246, 255],  # The parent's indigo-violet, a
+                                            # shade softer
+        text       = [231, 232, 234, 255],
+        surface    = [39, 39, 44, 255],     # Lifted panel, so the notch shows
+        title_bg   = [17, 17, 20, 255],     # Recessed strip
+        border     = [46, 46, 51, 255],     # Splitters and seams only
+        focus_border_color = [128, 127, 246, 255],
         title_mode = "darker",
         hover_mode = "lighter",
         success_color = [80, 250, 123, 255],
@@ -955,23 +983,23 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         content_margin = (8, 2),
         title_border_bottom = 2.0,
         tab_border_width = 2.0,
-        tab_border_color = [0, 0, 0, 0],
-        tab_border_active_color = [186, 190, 198, 255],
-        tab_border_unfocused_color = [0, 0, 0, 0],
+        tab_border_color = [0, 0, 0, 0],            # Inactive: no outline
+        tab_border_active_color = [128, 127, 246, 255],
+        tab_border_unfocused_color = [0, 0, 0, 0],  # Unfocused: no line at all
         indicator_position = "none",
         tab_dimming = True,
 
         sidebar_tab_flat_edge = "none",
         sidebar_tab_border_width = 2.0,
         sidebar_tab_border_color = [0, 0, 0, 0],
-        # The parent's ceiling, recomputed.  Hover is derived from the base and
-        # carries no accent, so it sits near (46, 47, 50) however deep the tint
-        # goes; a neutral accent lightens the idle tab faster than a violet one
-        # did, because every channel moves rather than two, so the crossover
-        # arrives sooner and the cap comes down with it.  At 24 an idle tab
-        # reads (41, 42, 46) and still clears the hover.
-        sidebar_tab_bg_normal = [186, 190, 198, 24],
-        sidebar_tab_border_active_color = [186, 190, 198, 255],
+        # The parent's ceiling, recomputed against this base.  Hover is derived
+        # from the base and carries no accent, so it sits near (46, 46, 50)
+        # however deep the tint goes; past the crossover an idle tab out-glows
+        # a hovered one.  The accent is all but the parent's, so the parent's
+        # 30 carries over — measured, an idle tab reads (38, 38, 55) against
+        # that hover, the same clear margin the parent keeps.
+        sidebar_tab_bg_normal = [128, 127, 246, 30],
+        sidebar_tab_border_active_color = [128, 127, 246, 255],
         sidebar_indicator_width = 2.0,
     ),
 

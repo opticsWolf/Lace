@@ -494,9 +494,9 @@ pair reads as one design in two keys. `tests/test_theme_counterparts.py` pins th
 | `cyberpunk_edge_light` | The amber/violet outline pair on a near-white panel; keeps the big 10px chassis, which is what still separates it from `slate_amber` |
 | `violet_haze_light` | Dracula's purple on paper; the inactive "comment" outline inverted to a lavender-grey a step below the strip |
 | `midnight_haze_light` | The focus-only frame in daylight — more demanding, not less: on near-white a stray line hides |
-| `cyberpunk_edge_neutral` | The two-state outline told in **value** rather than hue: dim graphite unfocused, near-white focused |
-| `violet_haze_neutral` | The unbroken rule, in graphite |
-| `midnight_haze_neutral` | The purest reading of the parent: one near-white frame, nothing else on screen coloured at all |
+| `cyberpunk_edge_neutral` | The amber/violet pair intact, over a grey ground instead of plum and aubergine |
+| `violet_haze_neutral` | Dracula's purple and its "comment" outline, over grey instead of blue-violet charcoal |
+| `midnight_haze_neutral` | The indigo focus frame, with the blue cast taken out from behind it |
 | `slate_amber_dark` | `slate_amber`'s other half — same tight 4px chassis, amber lifted back toward sodium to read on a dark panel |
 | `slate_amber_light` | Not a counterpart in the sense of the six above: the same *light* design a tier brighter, for where `slate_amber`'s warm machine grey reads as dingy rather than industrial. The greys go up ~35 points and the amber goes **down**, because every point the ground gains is a point of separation its 1.5px lines lose |
 
@@ -505,9 +505,19 @@ A light counterpart is not the dark one inverted. The accent darkens (it draws 1
 `title_mode` is `"darker"` in both, and `hover_mode` flips to `"darker"` — a near-white panel has
 nowhere lighter to go.
 
-A neutral counterpart drains the hue from the **decorative** colours only. `success_color`,
-`warning_color`, `error_color` and `info_color` keep theirs in all three: those are semantic, and a
-greyed-out error colour is not a subtler error colour.
+A neutral counterpart is neutral in its **grounds** — `base`, `surface` and `title_bg` — and
+nowhere else. Those flatten toward grey while keeping at most a trace of the parent's cast: the
+channel spread drops from 7 to 3 on `cyberpunk_edge`, 14 to 4 on `violet_haze`, 11 to 4 on
+`midnight_haze`. Every colour that carries meaning is kept and at most nudged — the accent, the
+outlines that mark focus and its absence (`cyberpunk_edge`'s violet/amber pair, `violet_haze`'s
+"comment" blue-grey), and `success_color` / `warning_color` / `error_color` / `info_color`.
+
+The effect is subtractive rather than substitutive: the backdrop stops competing with the accent
+in front of it. On the parents the two carry the same hue family, which is what makes the
+`violet_haze` outline read as part of the backdrop rather than as a line.
+`tests/test_theme_counterparts.py` pins both halves — grounds flatter than the parent's and no
+more than a cast, accent within 20 degrees of the parent's hue and at least 85% of its
+saturation.
 
 `slate_amber` therefore ships as three tiers — `slate_amber_dark`, `slate_amber`,
 `slate_amber_light` — rather than as a light/dark pair. It is the one family whose original member

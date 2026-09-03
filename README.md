@@ -47,7 +47,7 @@
 
 ### 🎨 Theming
 
-- **27 built-in themes** — Dark, light, midnight, warm, nordic, monokai, neutral, tokyo_night, catppuccin, dracula, solarized_dark/light, cyberpunk_neon, cyberpunk_edge, slate_amber, neon_dusk, violet_haze, and midnight_haze, plus light and neutral counterparts of the last four (`*_light`, `*_neutral`, plus `slate_amber_dark` and a brighter `slate_amber_light`) that keep their parent's geometry and change only the palette
+- **27 built-in themes** — Dark, light, midnight, warm, nordic, monokai, neutral, tokyo_night, catppuccin, dracula, solarized_dark/light, cyberpunk_neon, cyberpunk_edge, slate_amber, neon_dusk, violet_haze, and midnight_haze, plus light and neutral counterparts of the last four (`*_light`; `*_neutral`, which flattens the backdrop to grey but keeps the accent and focus outlines; plus `slate_amber_dark` and a brighter `slate_amber_light`) that keep their parent's geometry and change only the palette
 - **Declarative `ThemeSpec`** — Define custom themes with color palettes and geometrical tokens (corner radius, border width, title height, tab radius, content margin, etc.)
 - **Sidebar tab tokens** — A matching `sidebar_tab_*` set for the auto-hide tabs: shape, radius, outline width and per-state colours, fills, and highlight-strip width and edge
 - **JSON theme files** — Ship themes as JSON (Pydantic-validated via `ThemeJson`/`load_theme_json`); colors as `[r,g,b,a]` lists or `"#rrggbb"` strings

@@ -5,6 +5,20 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.6.16] — 2026-09-03
+
+### Changed
+
+- **`cyberpunk_edge_neutral`, `violet_haze_neutral` and `midnight_haze_neutral`
+  were rebuilt.**  As shipped in 0.6.14 they drained the hue from everything,
+  accent included, which cost each preset the thing that identified it.
+  "Neutral" now means the *grounds* only: `base`, `surface` and `title_bg`
+  flatten toward grey while keeping a trace of the parent's cast, and every
+  colour that carries meaning stays — the accent (nudged, not drained),
+  `cyberpunk_edge`'s violet/amber focus pair, `violet_haze`'s "comment"
+  outline, and the four status tokens.  The effect is subtractive: the backdrop
+  stops competing with the accent in front of it.
+
 ## [0.6.15] — 2026-09-03
 
 ### Added

@@ -8,13 +8,17 @@ keys, not as two designs.  It is also the part that rots silently, because
 tuning a radius on the parent and forgetting the counterpart looks like nothing
 at all until the two are seen side by side.
 
-The palette side is checked for the properties that actually make a light
-variant usable rather than merely lighter: the accent has to darken enough to
-survive on a near-white panel, and the neutral variants have to keep their four
-semantic colours chromatic.
+The palette side is checked for the properties that actually make each kind of
+variant usable.  A light one has to darken its accent enough to survive on a
+near-white panel.  A *neutral* one is neutral in its **grounds** only — base,
+panel and strip flatten toward grey, keeping at most a trace of the parent's
+cast — while every colour that carries meaning is left alone: the accent, the
+outlines that mark focus, and the four status tokens.  Draining those would not
+make a subtler theme, it would make a different and worse one.
 """
 
 import pytest
+from PySide6.QtGui import QColor
 
 from lace.dock_custom_theme import THEME_SPECS
 from lace.dock_theme import DockStyleCategory, build_theme
@@ -116,13 +120,71 @@ def test_every_counterpart_keeps_its_body_text_legible(name):
     assert ratio >= 7.0, f"{name}: text is {ratio:.2f}:1 on its own panel"
 
 
-@pytest.mark.parametrize("name", NEUTRAL)
-def test_a_neutral_counterpart_drains_the_decorative_hue(name):
-    """The accent goes grey; a channel spread is what "not grey" looks like."""
-    r, g, b = list(_core(name, "accent_color"))[:3]
-    assert max(r, g, b) - min(r, g, b) <= 16, \
-        f"{name}: accent {(r, g, b)} still carries a hue"
+def _spread(rgba) -> int:
+    """How far a colour is from grey: the gap between its widest channels."""
+    r, g, b = list(rgba)[:3]
+    return max(r, g, b) - min(r, g, b)
 
+
+GROUNDS = ("base", "surface", "title_bg")
+
+NEUTRAL_PAIRS = [(p, c) for p, c in PAIRS if c in NEUTRAL]
+
+
+@pytest.mark.parametrize("parent,child", NEUTRAL_PAIRS)
+def test_a_neutral_counterpart_flattens_its_grounds(parent, child):
+    """Neutral means the grounds, and only the grounds.
+
+    A trace of the parent's cast is allowed to stay: the point is a backdrop
+    that stops competing with the accent in front of it, not a grey one.
+    """
+    for field in GROUNDS:
+        p = getattr(THEME_SPECS[parent], field)
+        c = getattr(THEME_SPECS[child], field)
+        assert p is not None and c is not None, f"{child}: {field} is unset"
+        assert _spread(c) < _spread(p), (
+            f"{child}: {field} {list(c)[:3]} is no flatter "
+            f"than {parent}'s {list(p)[:3]}")
+        assert _spread(c) <= 6, (
+            f"{child}: {field} {list(c)[:3]} still reads as a colour, "
+            f"not as a cast")
+
+
+@pytest.mark.parametrize("parent,child", NEUTRAL_PAIRS)
+def test_a_neutral_counterpart_keeps_its_parents_highlight(parent, child):
+    """The accent survives: same hue family, adjusted rather than drained.
+
+    It is the colour that says which area has focus, and on two of these three
+    presets it is the *only* thing drawn.  Greying it out is the one change
+    that would cost the variant the thing it inherited.
+    """
+    p = QColor(*list(_core(parent, "accent_color"))[:3])
+    c = QColor(*list(_core(child, "accent_color"))[:3])
+
+    # Relative to the parent, not an absolute floor: dracula's purple is a
+    # pastel whose own saturation is only 104, so any fixed threshold high
+    # enough to catch a drained amber would fail it for being itself.
+    assert c.saturation() >= p.saturation() * 0.85, (
+        f"{child}: accent {c.getRgb()[:3]} at saturation {c.saturation()} "
+        f"was drained, not adjusted, off {parent}'s {p.saturation()}")
+    shift = abs(p.hue() - c.hue())
+    shift = min(shift, 360 - shift)
+    assert shift <= 20, (
+        f"{child}: accent moved {shift} degrees off {parent}'s hue")
+
+
+@pytest.mark.parametrize("parent,child", NEUTRAL_PAIRS)
+def test_a_neutral_counterpart_outcolours_its_own_ground(parent, child):
+    """The whole effect in one assertion: the accent beats the backdrop.
+
+    On the parents the gap is far narrower, because the backdrop carries the
+    same hue family the accent does — which is exactly what these variants
+    take away.
+    """
+    accent = _spread(_core(child, "accent_color"))
+    ground = max(_spread(getattr(THEME_SPECS[child], f)) for f in GROUNDS)
+    assert accent > ground * 10, (
+        f"{child}: accent spread {accent} against a ground spread of {ground}")
 
 @pytest.mark.parametrize("name", NEUTRAL)
 def test_a_neutral_counterpart_keeps_its_semantic_colours(name):
