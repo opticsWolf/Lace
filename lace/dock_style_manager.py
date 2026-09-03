@@ -273,21 +273,55 @@ def apply_dock_theme(theme_name: str) -> bool:
     return DockStyleManager.instance().apply_theme(theme_name)
 
 
+def _label(key: str) -> str:
+    """``"tokyo_night"`` -> ``"Tokyo Night"``."""
+    return key.replace("_", " ").title()
+
+
 def theme_choices() -> List[Tuple[str, str]]:
-    """``(label, key)`` for every built-in theme, in definition order.
+    """``(label, key)`` for every built-in theme, in presentation order.
 
-    For building a themes menu: pair each label with :func:`apply_dock_theme`.
-    Derived from ``DOCK_THEMES`` so a menu cannot fall behind the presets --
-    every hand-written copy of this list in the demos had gone stale.
+    For building a flat themes menu: pair each label with
+    :func:`apply_dock_theme`.  Derived from ``DOCK_THEMES`` so a menu cannot
+    fall behind the presets -- every hand-written copy of this list in the
+    demos had gone stale.
 
-    Keys are snake_case, so ``"tokyo_night"`` becomes ``"Tokyo Night"``.
+    The order is ``THEME_GROUPS``' order flattened, so even a flat menu keeps
+    each family together and its members in dark-neutral-light order.  Prefer
+    :func:`theme_groups` where submenus are an option: twenty-seven entries in
+    one list is a scroll, and it hides which of them are variants of which.
     """
-    from lace.dock_custom_theme import DOCK_THEMES
-    return [(key.replace("_", " ").title(), key) for key in DOCK_THEMES]
+    return [choice for _, choices in theme_groups() for choice in choices]
+
+
+def theme_groups() -> List[Tuple[str, List[Tuple[str, str]]]]:
+    """``(group label, [(label, key), ...])`` for every built-in theme.
+
+    The grouping a themes menu should be built from -- one submenu per pair,
+    in order.  See ``THEME_GROUPS`` in ``dock_custom_theme`` for what the
+    groups mean and why the order inside them is not alphabetical.
+
+    ``DOCK_THEMES`` carries one key ``THEME_GROUPS`` does not: ``"default"``,
+    which is the stock look rather than a preset and has no ``ThemeSpec``.  It
+    heads the first group.  Anything else ungrouped joins it there rather than
+    being dropped, so a preset added without a group is merely misfiled in the
+    menu instead of missing from it.
+    """
+    from lace.dock_custom_theme import DOCK_THEMES, THEME_GROUPS
+
+    grouped = {key for keys in THEME_GROUPS.values() for key in keys}
+    orphans = [key for key in DOCK_THEMES if key not in grouped]
+
+    out: List[Tuple[str, List[Tuple[str, str]]]] = []
+    for index, (title, keys) in enumerate(THEME_GROUPS.items()):
+        members = (orphans if index == 0 else []) + [
+            key for key in keys if key in DOCK_THEMES]
+        out.append((title, [(_label(key), key) for key in members]))
+    return out
 
 
 from lace.theme_manager import ThemeManager
 __all__ = [
     "DockStyleCategory", "DockStyleManager", "get_dock_style_manager",
-    "apply_dock_theme", "theme_choices", "ThemeManager"
+    "apply_dock_theme", "theme_choices", "theme_groups", "ThemeManager"
 ]

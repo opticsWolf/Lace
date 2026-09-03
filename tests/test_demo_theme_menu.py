@@ -9,7 +9,7 @@ lace.theme_choices(); this pins that they keep doing so.
 
 import pytest
 
-from lace import theme_choices
+from lace import theme_choices, theme_groups
 from lace.dock_custom_theme import DOCK_THEMES
 
 DEMOS = ("demos.demo_app",
@@ -69,3 +69,24 @@ def test_demo_hardcodes_no_theme_list(module_name):
     ]
     assert not menu_lines, \
         f"{module_name} names themes directly:\n" + "\n".join(menu_lines)
+
+
+@pytest.mark.parametrize("module_name", DEMOS)
+def test_demo_builds_grouped_submenus(module_name):
+    """A flat column of twenty-seven ran off the bottom of the short title bar.
+
+    theme_choices() still exists and still works; what a demo must not do is
+    iterate it straight into addAction() and call that a menu.
+    """
+    import importlib
+    import inspect
+
+    source = inspect.getsource(importlib.import_module(module_name))
+    assert "theme_groups()" in source,         f"{module_name} builds a flat themes menu"
+    assert "for name, key in theme_choices()" not in source
+
+
+def test_the_groups_reach_the_demos_intact():
+    """The demos add one submenu per group, so an empty group is an empty menu."""
+    assert all(choices for _, choices in theme_groups())
+    assert sum(len(choices) for _, choices in theme_groups()) == len(theme_choices())

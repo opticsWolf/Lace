@@ -527,6 +527,34 @@ to go, and this one is not quite that bright.
 
 All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
 
+### Grouping
+
+`THEME_SPECS` is written in four sections and `THEME_GROUPS` names them, both in the order a
+menu should show them:
+
+| Group | Members | What it is |
+|---|---|---|
+| Basics | `dark`, `light`, `neutral`, `midnight`, `warm` | The ones with no story attached — pick one when the theme is not meant to be noticed |
+| Editor Classics | `dracula`, `monokai`, `nordic`, `catppuccin`, `tokyo_night`, `solarized_dark`, `solarized_light` | Palettes people already know by sight, over Lace's stock chassis; these differ in hue and almost nothing else |
+| Neon | `cyberpunk_neon`, `neon_dusk` | Saturated accents on near-black. Dark by construction — the glow *is* the ground being dark, so neither has a light counterpart |
+| Edge Treatments | the four families above, twelve keys | Designs where the outline carries the meaning. Each ships as a family |
+
+Inside a family the order is **dark, neutral, light**, with `slate_amber`'s dark, light, lighter
+as the stated exception. It is not an ordering by lightness: a neutral is a *saturation* variant,
+and flattening the grounds moves the panel by a point either way (`violet_haze` 0.267 → 0.249,
+`cyberpunk_edge` 0.118 → 0.127), so sorting on lightness would shuffle parent and neutral on
+noise. Alphabetical is worse still — it files each counterpart away from its parent and puts
+`midnight_haze_light` above `midnight_haze`.
+
+`theme_groups()` in `dock_style_manager` turns this into `(group label, [(label, key), ...])`
+for a menu; `theme_choices()` is the same order flattened, for a single-level one. `"default"`
+lives in `DOCK_THEMES` but has no `ThemeSpec` and so no group; `theme_groups()` heads the first
+group with it, and with anything else ungrouped, so a preset added without a group is misfiled
+rather than missing. `dock_custom_theme` also asserts full coverage at **import**, because by the
+time a test run catches an ungrouped preset the wrong file has already been pushed.
+`tests/test_theme_grouping.py` pins the rest: coverage, that families stay adjacent, and that
+each family ends on its lightest member.
+
 #### Tab edge treatments
 
 Two independent ways to draw a tab's edge, usable separately or together. The last three

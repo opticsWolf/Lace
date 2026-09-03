@@ -53,7 +53,7 @@ from lace import (
     TitleBarMode,
     apply_dock_theme,
     get_icon_provider,
-    theme_choices,
+    theme_groups,
 )
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
@@ -131,17 +131,26 @@ class MenuEmbeddedTitleBar(LaceStandardTitleBar, DockStyled):
         )
         return menu
 
-    def add_themes_menu(self, themes: list[tuple[str, str]]) -> QMenu:
-        """Add a Themes menu to the embedded menu bar."""
+    def add_themes_menu(
+        self, groups: list[tuple[str, list[tuple[str, str]]]]
+    ) -> QMenu:
+        """Add a Themes menu to the embedded menu bar, one submenu per group.
+
+        Takes :func:`lace.theme_groups` output rather than the flat
+        :func:`lace.theme_choices`: this bar is short, and twenty-seven actions
+        in a single column ran off the bottom of it.
+        """
         menu = self.menu_bar.addMenu("Themes")
-        for name, key in themes:
-            menu.addAction(
-                QAction(
-                    name,
-                    self,
-                    triggered=lambda _=False, k=key: apply_dock_theme(k),
+        for title, choices in groups:
+            submenu = menu.addMenu(title)
+            for name, key in choices:
+                submenu.addAction(
+                    QAction(
+                        name,
+                        self,
+                        triggered=lambda _=False, k=key: apply_dock_theme(k),
+                    )
                 )
-            )
         return menu
 
     def _toggle_maximize(self) -> None:
@@ -435,7 +444,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
             return
 
         title_bar.add_window_menu()
-        title_bar.add_themes_menu(theme_choices())
+        title_bar.add_themes_menu(theme_groups())
 
 
 if __name__ == "__main__":

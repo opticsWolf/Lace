@@ -5,6 +5,35 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.6.17] — 2026-09-03
+
+### Added
+
+- **`theme_groups()`** (`lace.theme_groups`) — `(group label, [(label, key), ...])`
+  for building a themes menu as submenus.  Twenty-seven entries in one flat
+  column is a scroll, and it hid the thing a reader most needs to see: that
+  `violet_haze_neutral` is not a preset of its own but one key of a design that
+  ships in three.
+- **`THEME_GROUPS`** (`lace.dock_custom_theme`) — the grouping itself, in
+  presentation order: **Basics** (5), **Editor Classics** (7), **Neon** (2) and
+  **Edge Treatments** (12, the four families).  Full coverage of `THEME_SPECS`
+  is asserted at import, not just in the tests — an ungrouped preset vanishes
+  from every grouped menu, and by the time a test run catches it the wrong file
+  has already been pushed.
+
+### Changed
+
+- **`THEME_SPECS` is now written in those four sections**, and each family runs
+  dark, neutral, light — with `slate_amber`'s dark, light, lighter as the
+  documented exception.  Source reordering only; no palette or geometry moved.
+- **`theme_choices()` returns the grouped order flattened** rather than
+  definition order.  Same twenty-seven pairs, same shape, so existing callers
+  need no change; a flat menu now keeps each family together.
+- **The three demos build submenus** from `theme_groups()`.  In
+  `demo_app_custom_titlebar_menus` the flat column ran off the bottom of the
+  short title bar; `add_themes_menu()` there now takes groups rather than
+  choices.
+
 ## [0.6.16] — 2026-09-03
 
 ### Changed
