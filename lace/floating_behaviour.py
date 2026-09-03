@@ -77,6 +77,25 @@ _GWL_EXSTYLE = -20
 _WS_EX_APPWINDOW = 0x00040000
 
 
+def allowed_areas_for(container, dock_area) -> DockWidgetArea:
+    """The single source of truth for what a drag may target on *dock_area*.
+
+    Used by the drag preview (which decides what the user sees) and by the
+    drop itself (which decides what happens), so the two cannot disagree
+    about what was aimed at.
+
+    *container* is the container *dock_area* lives in; *dock_area* may be
+    ``None``, in which case nothing is allowed.
+    """
+    if dock_area is None or container is None:
+        return DockWidgetArea.no_area
+    if container.visible_dock_area_count() == 1:
+        # A lone area still accepts tabs.  The outer four stay suppressed
+        # because the container overlay owns them in that case.
+        return DockWidgetArea.no_area
+    return DockWidgetArea.all_dock_areas
+
+
 class FloatingContainerBehaviour:
     """Window-chrome-independent behaviour of a floating dock container."""
 
@@ -533,9 +552,7 @@ class FloatingContainerBehaviour:
         if dock_area and dock_area.isVisible() and visible_dock_areas > 0:
             dock_area_overlay.enable_drop_preview(True)
             dock_area_overlay.set_allowed_areas(
-                DockWidgetArea.no_area
-                if visible_dock_areas == 1
-                else DockWidgetArea.all_dock_areas)
+                allowed_areas_for(top_container, dock_area))
             area = dock_area_overlay.show_overlay(dock_area)
 
             if (area == DockWidgetArea.center and

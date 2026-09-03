@@ -682,14 +682,14 @@ class DockManager(QObject):
     def drop_floating_widget(self, floating_widget: 'FloatingDockContainer', target_pos: QPoint):
         self._root.drop_floating_widget(floating_widget, target_pos)
 
-    def _drop_into_container(self, floating_widget: 'FloatingDockContainer', area: DockWidgetArea):
-        self._root._drop_into_container(floating_widget, area)
+    def drop_controller(self) -> 'DropController':
+        """The root container's drop controller.
 
-    def _drop_into_section(self, floating_widget: 'FloatingDockContainer', area: 'DockAreaWidget', drop_area: DockWidgetArea):
-        self._root._drop_into_section(floating_widget, area, drop_area)
-
-    def _drop_into_center_of_section(self, floating_widget: 'FloatingDockContainer', area: 'DockAreaWidget'):
-        self._root._drop_into_center_of_section(floating_widget, area)
+        Replaces the ``_drop_into_container`` / ``_drop_into_section`` /
+        ``_drop_into_center_of_section`` pass-throughs removed in 0.6.7, which
+        forwarded through two objects to reach the same three methods.
+        """
+        return self._root.drop_controller()
 
     # ─────────────────────────────────────────────────────────────────────
     #  Delegated QWidget Surface (for compatibility with existing callers)

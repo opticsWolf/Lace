@@ -37,12 +37,29 @@ logger = logging.getLogger(__name__)
 _z_order_counter = 0
 
 
+#: What ``center`` used to alias to.  Kept as a named constant so the callers
+#: that deliberately fall back to it say which decision they are making,
+#: instead of inheriting it from a missing branch.
+CENTER_FALLBACK_INSERT_PARAM = DockInsertParam(Qt.Vertical, True)
+
+
 def dock_area_insert_parameters(area: DockWidgetArea) -> DockInsertParam:
+    """Orientation and side for a split insertion.
+
+    ``center`` is **not** a split — it means "tab into the target" — and every
+    caller that can receive it has to say so itself.  This used to alias it to
+    ``bottom``, which meant a missing centre branch silently split vertically
+    instead of failing.  Raising makes that a loud error at the first drop.
+    """
+    if area == DockWidgetArea.center:
+        raise ValueError(
+            "dock_area_insert_parameters() has no split for DockWidgetArea."
+            "center; the caller must handle tabbing itself")
     if area == DockWidgetArea.top:
         return DockInsertParam(Qt.Vertical, False)
     if area == DockWidgetArea.right:
         return DockInsertParam(Qt.Horizontal, True)
-    if area in (DockWidgetArea.center, DockWidgetArea.bottom):
+    if area == DockWidgetArea.bottom:
         return DockInsertParam(Qt.Vertical, True)
     if area == DockWidgetArea.left:
         return DockInsertParam(Qt.Horizontal, False)
@@ -76,8 +93,14 @@ class DropController:
         top_level_dock_widget = self._c.top_level_dock_widget()
 
         if dock_area is not None:
+            # No set_allowed_areas() here: the drag already configured the
+            # overlay through allowed_areas_for(), and re-arming with
+            # all_dock_areas would (a) let the drop land somewhere the preview
+            # never offered and (b) trigger DockOverlayCross.reset(), which
+            # un-hides indicator widgets that QGridLayout has not yet given
+            # any space — and show_overlay() hit-tests their geometry in the
+            # same call, before a layout pass has run.
             drop_overlay = self._c._dock_manager.dock_area_overlay()
-            drop_overlay.set_allowed_areas(DockWidgetArea.all_dock_areas)
             drop_area = drop_overlay.show_overlay(dock_area)
             if (container_drop_area not in (DockWidgetArea.invalid, drop_area)):
                 drop_area = DockWidgetArea.invalid
@@ -101,7 +124,25 @@ class DropController:
             floating_top_level_dock_widget.emit_top_level_changed(False)
 
     def _drop_into_container(self, floating_widget: 'FloatingDockContainer', area: DockWidgetArea):
-        insert_param = dock_area_insert_parameters(area)
+        if area == DockWidgetArea.center:
+            # Not top_level_dock_area(): that one answers None for a
+            # non-floating container, which is the common case here.
+            opened = self._c.opened_dock_areas()
+            if len(opened) == 1:
+                top_level_area = opened[0]
+                # One dock area in this container, so "centre of the
+                # container" and "centre of that area" are the same target:
+                # tab into it.
+                self._drop_into_center_of_section(floating_widget, top_level_area)
+                return
+            # Several areas — "centre of the container" has no single target.
+            # Deliberate fallback: split the container vertically, the same
+            # shape a bottom drop produces.  This used to happen by accident,
+            # through center being aliased to bottom in
+            # dock_area_insert_parameters(); it is now a decision.
+            insert_param = CENTER_FALLBACK_INSERT_PARAM
+        else:
+            insert_param = dock_area_insert_parameters(area)
         floating_dock_container = floating_widget.dock_container()
 
         new_dock_areas = find_children(
@@ -162,7 +203,7 @@ class DropController:
         return target_area_splitter, area_index
 
     def _insert_into_section_splitter(self, target_area_splitter: QSplitter, area_index: int,
-                                      target_area: DockAreaWidget, floating_splitter: QWidget, insert_param: DockInsertParam):
+                                      target_area: DockAreaWidget, floating_splitter: QSplitter, insert_param: DockInsertParam):
         if target_area_splitter.orientation() == insert_param.orientation:
             sizes = target_area_splitter.sizes()
             target_area_size = (target_area.width()
@@ -228,8 +269,12 @@ class DropController:
         target_area_splitter, area_index = self._resolve_section_insertion(target_area, insert_param)
         trace("drop.insert", splitter=target_area_splitter.objectName() or "section_splitter", index=area_index)
 
-        floating_splitter = find_child(
-            floating_widget.dock_container(), QWidget, '', Qt.FindDirectChildrenOnly)
+        # Ask the container for its root splitter rather than taking the first
+        # direct QWidget child: a root container has eight of those (splitter,
+        # QMenu, two overlays, two overlay crosses, sidebar container, side tab
+        # bar) and the scan only worked because construction order happened to
+        # put the splitter first.
+        floating_splitter = floating_widget.dock_container().root_splitter()
 
         self._insert_into_section_splitter(target_area_splitter, area_index, target_area, floating_splitter, insert_param)
 
@@ -447,7 +492,11 @@ class DockContainerWidget(QFrame, DockStyled):
         return new_dock_area
 
     def _add_dock_area(self, new_dock_area: DockAreaWidget, area: DockWidgetArea):
-        insert_param = dock_area_insert_parameters(area)
+        # This path always creates a *new* area — it never tabs — so ``center``
+        # here means "no side preference, append", not "tab into the target".
+        insert_param = (CENTER_FALLBACK_INSERT_PARAM
+                        if area == DockWidgetArea.center
+                        else dock_area_insert_parameters(area))
 
         if len(self._dock_areas) <= 1:
             self._root_splitter.setOrientation(insert_param.orientation)
@@ -473,16 +522,14 @@ class DockContainerWidget(QFrame, DockStyled):
     def drop_floating_widget(self, floating_widget: 'FloatingDockContainer', target_pos: QPoint):
         self._drop_controller.drop_floating_widget(floating_widget, target_pos)
 
-    def _drop_into_container(self, floating_widget: 'FloatingDockContainer', area: DockWidgetArea):
-        self._drop_controller._drop_into_container(floating_widget, area)
+    def drop_controller(self) -> DropController:
+        """The object that resolves and executes drops for this container.
 
-    def _drop_into_section(self, floating_widget: 'FloatingDockContainer',
-                           target_area: DockAreaWidget, area: DockWidgetArea):
-        self._drop_controller._drop_into_section(floating_widget, target_area, area)
-
-    def _drop_into_center_of_section(self, floating_widget: 'FloatingDockContainer',
-                                     target_area: DockAreaWidget):
-        self._drop_controller._drop_into_center_of_section(floating_widget, target_area)
+        The three ``_drop_into_*`` pass-throughs that used to sit here (and a
+        matching set on DockManager) were removed in 0.6.7 — call them on the
+        controller directly.
+        """
+        return self._drop_controller
 
     def add_dock_area(self, dock_area_widget: DockAreaWidget,
                       area: DockWidgetArea = DockWidgetArea.center):
