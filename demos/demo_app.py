@@ -22,6 +22,7 @@ from lace import (
     ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition,
     DockMenuBarStyler,
     theme_choices,
+    theme_groups,
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -352,7 +353,7 @@ class DemoMainWindow(QMainWindow):
         menubar = self.menuBar()
         theme_menu = menubar.addMenu("Themes")
 
-        def add_theme_action(name, theme_key):
+        def add_theme_action(name, theme_key, target):
             action = QAction(name, self)
             def on_theme_triggered():
                 if hasattr(self, "theme_manager"):
@@ -361,10 +362,14 @@ class DemoMainWindow(QMainWindow):
                         self._auto_theme_action.setChecked(False)
                 apply_dock_theme(theme_key)
             action.triggered.connect(on_theme_triggered)
-            theme_menu.addAction(action)
+            target.addAction(action)
 
-        for name, key in theme_choices():
-            add_theme_action(name, key)
+        # One submenu per group rather than twenty-seven actions in a column.
+        # theme_groups() carries the order, so this stays right as presets land.
+        for title, choices in theme_groups():
+            submenu = theme_menu.addMenu(title)
+            for name, key in choices:
+                add_theme_action(name, key, submenu)
 
         theme_menu.addSeparator()
         self._auto_theme_action = QAction("Auto Theme (OS Sync)", self, checkable=True)
@@ -385,23 +390,27 @@ class DemoMainWindow(QMainWindow):
 
             themes_list = theme_choices()
 
-            for name, key in themes_list:
-                act = QAction(name, self, checkable=True)
-                act._theme_key = key
-                group.addAction(act)
-                if current_target == key:
-                    act.setChecked(True)
+            for title, choices in theme_groups():
+                submenu = menu.addMenu(title)
+                for name, key in choices:
+                    act = QAction(name, self, checkable=True)
+                    act._theme_key = key
+                    # One exclusive group across all the submenus, so picking a
+                    # theme in one clears the tick in another.
+                    group.addAction(act)
+                    if current_target == key:
+                        act.setChecked(True)
 
-                def on_selected(checked=False, k=key):
-                    if is_dark_target:
-                        self.theme_manager.user_dark_theme = k
-                    else:
-                        self.theme_manager.user_light_theme = k
-                    if self.theme_manager.auto_mode_enabled:
-                        if self.theme_manager.is_windows_dark_mode() == is_dark_target:
-                            self.theme_manager.sync_theme(force=True)
-                act.triggered.connect(on_selected)
-                menu.addAction(act)
+                    def on_selected(checked=False, k=key):
+                        if is_dark_target:
+                            self.theme_manager.user_dark_theme = k
+                        else:
+                            self.theme_manager.user_light_theme = k
+                        if self.theme_manager.auto_mode_enabled:
+                            if self.theme_manager.is_windows_dark_mode() == is_dark_target:
+                                self.theme_manager.sync_theme(force=True)
+                    act.triggered.connect(on_selected)
+                    submenu.addAction(act)
 
             menu.addSeparator()
             custom_act = QAction("Custom QSS File...", self, checkable=True)

@@ -11,15 +11,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Flag, auto
-from typing import TYPE_CHECKING, Dict, Optional, Protocol, Any, List
+from typing import TYPE_CHECKING, Dict, Optional, Protocol, Any
 
 from PySide6.QtCore import QPoint, QRect, QSize
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QMenu, QStyle
 
-from lace.enums import DockWidgetArea, DockWidgetFeature, WidgetState, DockFlags
+from lace.enums import DockWidgetArea, DockWidgetFeature, DockFlags
 from lace.dock_style_manager import get_dock_style_manager
-from lace.dock_theme import DockStyleCategory
+from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 from lace.dock_icon_provider import get_icon_provider
 from lace._trace import trace
 
@@ -67,24 +67,67 @@ _ICON_SPECS: Dict[str, tuple] = {
 }
 
 
+#: dock_icon() results, keyed by (key, category, token, size, sm.generation).
+_DOCK_ICON_MEMO: dict = {}
+_DOCK_ICON_MEMO_LIMIT = 512
+
+
 def dock_icon(
     key: str,
     category: DockStyleCategory = DockStyleCategory.TITLE_BAR,
     token: Optional[str] = None,
+    size: Optional[int] = None,
 ) -> QIcon:
     """Return the canonical icon for key, tinted for Normal and Disabled states.
 
     ``token`` optionally names an explicit style token to tint with (e.g.
     ``"close_btn_color"``) instead of the category's default resolution.
+
+    ``size`` is the display size in pixels, **supplied by the caller** — every
+    caller already knows which token governs its own icons
+    (``button_icon_size`` for title-bar buttons, ``close_btn_icon_size`` for a
+    tab close button, ``tab_icon_size`` for a tab icon).  This used to guess
+    ``sm.get(category, "button_icon_size", 14)``, but ``button_icon_size``
+    lives on ``_ActionButtonFields``, which the TAB schema does not inherit —
+    so ``dock_icon(key, TAB)`` always rendered at the literal 14 and matched
+    ``close_btn_icon_size``'s default of 14 purely by coincidence.  Rendering
+    at one size and displaying at another is what turns a supersampled glyph
+    into a blurred, thickened stroke.
+
+    The result is memoised on ``(key, category, token, size, theme
+    generation)``: this used to allocate a fresh QIcon, call ``provider.get()``
+    twice and ``addPixmap()`` four times on *every* call, and
+    ``DockAreaTitleBar.update_button_states()`` calls it for all five buttons
+    on every tab click.
     """
+    icon_dim = DEFAULT_ICON_SIZE if size is None else size
+
+    memo_key = (key, category, token, icon_dim, get_dock_style_manager().generation)
+    cached = _DOCK_ICON_MEMO.get(memo_key)
+    if cached is not None:
+        return cached
+    icon = _build_dock_icon(key, category, token, icon_dim)
+    # The provider flushes its own tint cache on a theme change; the
+    # generation counter in the key is what keeps this layer in step.
+    if len(_DOCK_ICON_MEMO) > _DOCK_ICON_MEMO_LIMIT:
+        _DOCK_ICON_MEMO.clear()
+    _DOCK_ICON_MEMO[memo_key] = icon
+    return icon
+
+
+def _build_dock_icon(
+    key: str,
+    category: DockStyleCategory,
+    token: Optional[str],
+    icon_dim: int,
+) -> QIcon:
     sm = get_dock_style_manager()
     provider = get_icon_provider()
-    
-    icon_dim = sm.get(category, "button_icon_size", 14)
+
     size = QSize(icon_dim, icon_dim)
-    
+
     normal_icon = provider.get(key, category, active=False, disabled=False, size=icon_dim, token=token)
-    
+
     if not normal_icon.isNull():
         disabled_icon = provider.get(key, category, active=False, disabled=True, size=icon_dim, token=token)
         

@@ -14,7 +14,7 @@ Public API is imported explicitly at the top level for discoverability
 and IDE/mypy compatibility.
 """
 
-__version__ = "0.6.5"
+__version__ = "0.7.0"
 
 # ---------------------------------------------------------------------------
 # Core Classes
@@ -41,6 +41,7 @@ from lace.dock_style_manager import (
     apply_dock_theme,
     get_dock_style_manager,
     theme_choices,
+    theme_groups,
 )
 from lace.dock_theme_bridge import DockThemeBridge
 from lace.dock_menu_bar import DockMenuBarStyler
@@ -55,7 +56,7 @@ from lace.dock_area_tab_bar import DockAreaTabBar
 from lace.dock_area_title_bar import DockAreaTitleBar
 from lace.dock_chrome import DragDetector, ChromeToolButton, ChromeFrame
 from lace.dock_overlay import DockOverlay, DockOverlayCross
-from lace.dock_context_menu import DockMenuMixin, MenuSection, MenuContext, MenuActionTarget
+from lace.dock_menu import MenuSection, MenuContext, MenuActionTarget
 from lace.dock_signals import DockSignals
 from lace.layout_serializer import (
     LayoutError,
@@ -150,6 +151,7 @@ __all__ = [
     "apply_dock_theme",
     "get_dock_style_manager",
     "theme_choices",
+    "theme_groups",
     "DockThemeBridge",
     "DockMenuBarStyler",
     "ThemeManager",
@@ -163,7 +165,6 @@ __all__ = [
     "SideTabBar",
     "SideBarTitleBar",
     # Context menus
-    "DockMenuMixin",
     "MenuSection",
     "MenuContext",
     "MenuActionTarget",

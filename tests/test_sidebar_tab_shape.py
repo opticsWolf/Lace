@@ -488,19 +488,41 @@ def test_a_json_theme_carries_the_same_fields(qapp, tmp_path):
 
 
 # ── The shipped presets ───────────────────────────────────────────────────
+#: The light and neutral counterparts, keyed by the preset they derive from.
+#: Each keeps its parent's geometry exactly and changes only the palette, so it
+#: belongs to every roster below that its parent belongs to. Expanding the
+#: rosters through this mapping rather than re-listing the names is what stops
+#: them going stale the next time a counterpart is added.
+VARIANTS = {
+    "cyberpunk_edge": ("cyberpunk_edge_light", "cyberpunk_edge_neutral"),
+    "violet_haze": ("violet_haze_light", "violet_haze_neutral"),
+    "midnight_haze": ("midnight_haze_light", "midnight_haze_neutral"),
+    "slate_amber": ("slate_amber_dark", "slate_amber_light"),
+}
+
+
+def _with_variants(*names) -> tuple:
+    return tuple(n for name in names for n in (name,) + VARIANTS.get(name, ()))
+
+
 #: The presets that ring their sidebar tabs. Every other one sets tab_radius
 #: but leaves the sidebar alone, so its tabs stay rectangles.
-RINGED = ("cyberpunk_neon", "cyberpunk_edge", "midnight_haze", "violet_haze",
-          "slate_amber", "neon_dusk")
+RINGED = _with_variants("cyberpunk_neon", "cyberpunk_edge", "midnight_haze",
+                        "violet_haze", "slate_amber", "neon_dusk")
 #: Of those, the closed pills that ring their *active* tab. neon_dusk is the odd
 #: one out: it keeps a flat edge, so its outline is open along it — its own test.
-PILL = RINGED[:5]
+PILL = _with_variants("cyberpunk_neon", "cyberpunk_edge", "midnight_haze",
+                      "violet_haze", "slate_amber")
 #: The presets that give the hover an outline of its own.
-ON_HOVER = ("violet_haze", "neon_dusk", "slate_amber", "cyberpunk_neon")
+ON_HOVER = _with_variants("violet_haze", "neon_dusk", "slate_amber",
+                          "cyberpunk_neon")
 #: The pills that leave an *idle* tab bare — cyberpunk_edge rings both states.
 #: violet_haze belongs here: its extra ring is a hover state, and an idle tab is
 #: as bare as the other three's.
-ACTIVE_ONLY = ("cyberpunk_neon", "midnight_haze", "violet_haze", "slate_amber")
+ACTIVE_ONLY = _with_variants("cyberpunk_neon", "midnight_haze", "violet_haze",
+                             "slate_amber")
+#: The presets that tint every idle sidebar tab rather than leaving it bare.
+FILLED = _with_variants("midnight_haze")
 
 
 def test_only_the_ringed_presets_opt_into_the_new_shape(qapp):
@@ -589,7 +611,7 @@ def test_no_other_preset_fills_its_inactive_tabs(qapp):
 
     manager = get_dock_style_manager()
     for name in DOCK_THEMES:
-        if name == "midnight_haze":
+        if name in FILLED:
             continue
         manager.apply_theme(name)
         assert not manager.get_all(

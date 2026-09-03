@@ -226,20 +226,9 @@ class SideTabBar(QFrame, DockStyled):
         self._update_scroll_visibility()
 
     # ── MenuActionTarget & Menu Builder ───────────────────────────────────
-    def count(self) -> int:
-        return len(self._buttons)
-
-    def current_index(self) -> int:
-        for i, btn in enumerate(self._buttons):
-            if btn.isChecked():
-                return i
-        return -1
-
-    def is_tab_open(self, index: int) -> bool:
-        return True
-
-    def tab(self, index: int):
-        return self._buttons[index]
+    # count() / current_index() / is_tab_open() / tab() live further down: an
+    # unreachable first copy of each used to sit here, shadowed by the
+    # bounds-checked versions below.
 
     def _gather_menu_context(self, tab_bar=None) -> MenuContext:
         widget = self._context_menu_widget
@@ -327,7 +316,13 @@ class SideTabBar(QFrame, DockStyled):
         btn = VerticalTabButton(
             dock_widget.windowTitle(), icon, parent=self._scroll_container
         )
-        btn.set_area(self._area)  # <-- ADD THIS LINE
+        # The name, not just the QIcon: it lets the tab re-render the icon in
+        # its own text colour, so it tracks the theme like the label does.
+        name = (dock_widget.custom_icon_name() or dock_widget.default_icon_name()
+                if hasattr(dock_widget, 'default_icon_name') else None)
+        if name:
+            btn.set_icon_name(name)
+        btn.set_area(self._area)
         btn.setProperty("_dock_widget", dock_widget)
         btn.setAttribute(Qt.WA_Hover, True)
         btn.installEventFilter(self)
@@ -417,7 +412,7 @@ class SideTabBar(QFrame, DockStyled):
     
     # In sidebar_tab_bar.py
     def _on_tab_context_menu(self, button: VerticalTabButton, global_pos: QPoint):
-        """Show unified context menu using the standard DockMenuMixin."""
+        """Show the unified context menu for the tab under *pos*."""
         # Store the widget context so the mixin knows which widget to act on
         self._context_menu_widget = button.property("_dock_widget")
         if not self._context_menu_widget:

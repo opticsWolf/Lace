@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.5.0
+**Version:** 0.7.0
 
 ---
 
@@ -231,9 +231,38 @@ dock_manager.tab_badge_position = TabBadgePosition.bottom_left
 from lace import apply_dock_theme
 
 apply_dock_theme("cyberpunk_neon")
-# Themes: default, dark, light, midnight, warm, nordic, monokai,
-#         neutral, tokyo_night, catppuccin, dracula, solarized_dark,
-#         solarized_light, cyberpunk_neon, cyberpunk_edge
+```
+
+Twenty-seven presets, in four groups:
+
+| Group | Presets |
+|---|---|
+| Basics | `default`, `dark`, `light`, `neutral`, `midnight`, `warm` |
+| Editor Classics | `dracula`, `monokai`, `nordic`, `catppuccin`, `tokyo_night`, `solarized_dark`, `solarized_light` |
+| Neon | `cyberpunk_neon`, `neon_dusk` |
+| Edge Treatments | `cyberpunk_edge`, `violet_haze`, `midnight_haze` — each with a `*_neutral` and a `*_light` — plus `slate_amber_dark`, `slate_amber`, `slate_amber_light` |
+
+Within a family the order runs dark, neutral, light, where a `*_neutral` is a
+mid tone with flat grey grounds that keeps its parent's accent and focus
+outlines. `slate_amber` was always the light one, so its family runs dark,
+light, lighter.
+
+### Build a Themes Menu
+
+Never hand-write the list — every hand-written copy of it in the demos went stale.
+
+```python
+from lace import theme_groups, theme_choices, apply_dock_theme
+
+# Grouped: one submenu per group, which is what you want past a dozen entries
+for title, choices in theme_groups():
+    submenu = menu.addMenu(title)
+    for label, key in choices:
+        submenu.addAction(label, lambda k=key: apply_dock_theme(k))
+
+# Flat: same pairs, same order, one level
+for label, key in theme_choices():
+    menu.addAction(label, lambda k=key: apply_dock_theme(k))
 ```
 
 ### Auto Theme (OS Sync)
@@ -779,6 +808,7 @@ class ThemeSwitcher:
 | `sidebar_focus_behavior` | Get/set sidebar focus behavior |
 | `tab_badge_position` | Get/set default badge position |
 | `set_active_dock_area(area)` | Set which dock area is visually focused |
+| `signals` | `DockSignals` bus for the floating-drag path (see §13) |
 
 ### DockWidget
 
@@ -816,6 +846,17 @@ class ThemeSwitcher:
 | `save_state()` | Serialize sidebar state |
 | `restore_state(dict)` | Restore sidebar state |
 
+### Theming (module level, `from lace import ...`)
+
+| Function | Description |
+|---|---|
+| `apply_dock_theme(key)` | Apply a built-in preset by key |
+| `theme_groups()` | `(group label, [(label, key), ...])` — for submenus |
+| `theme_choices()` | `[(label, key), ...]` — the same, flattened |
+| `build_theme(spec)` | Turn a `ThemeSpec` into a token dict and register it |
+| `load_theme_json(path)` | Load and validate a JSON theme |
+| `get_dock_style_manager()` | The `DockStyleManager` singleton |
+
 ---
 
 ## 13. Signals
@@ -846,6 +887,20 @@ class ThemeSwitcher:
 |---|---|---|
 | `sidebar_toggled` | `(area, bool)` | Sidebar slide in/out |
 | `widget_unpinned` | — | Widget unpinned from sidebar |
+
+### Drag Event Bus (`dock_manager.signals`)
+
+A `DockSignals` instance, for observing a drag without patching Lace.
+
+| Signal | Args | Description |
+|---|---|---|
+| `request_overlay_hide` | — | Hide every drop overlay. Emitted wherever a drag ends: dropped, released outside any container, or cancelled |
+| `floating_widget_dropped` | `(floating_widget, target_container, global_pos)` | A floating widget was dropped onto a container |
+
+```python
+dock_manager.signals.floating_widget_dropped.connect(
+    lambda widget, container, pos: print(f"{widget} -> {container} at {pos}"))
+```
 
 ---
 

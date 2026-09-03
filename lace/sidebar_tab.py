@@ -8,7 +8,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 
-from typing import Any, Union, Optional
+from typing import Any, Optional
 from enum import Enum, auto
 from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect, QRectF
 from PySide6.QtGui import (
@@ -20,7 +20,9 @@ from lace.dock_chrome import DragDetector
 from lace.dock_paint import paint_tab
 from lace.enums import DockWidgetArea
 from lace.dock_styled import DockStyled
-from lace.dock_theme import DockStyleCategory
+from lace.dock_icon_provider import get_icon_provider
+from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 
 
 class TabBadgePosition(Enum):
@@ -62,6 +64,13 @@ class VerticalTabButton(QToolButton, DockStyled):
         super().__init__(parent)
         self._text = text
         self._icon = icon or QIcon()
+        #: Name of an SVG in the icon set.  When set, the icon is re-rendered
+        #: through the provider in the tab's own text colour, so it tracks the
+        #: theme and the checked state the way the label beside it does; the
+        #: QIcon above stays as the fallback for callers that pass a pixmap.
+        self._icon_name: Optional[str] = None
+        self._tinted_icon: Optional[QIcon] = None
+        self._tinted_icon_key: tuple = ()
         self._badge_count: Any = 0
         self._badge_position: TabBadgePosition = badge_position
         self._is_hovered = False
@@ -86,6 +95,8 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._border_hover = None   # None follows _border_normal
         self._border_width = 0.0
         self._border_closed = False
+        self._icon_size = DEFAULT_ICON_SIZE
+        self._icon_gap = 8
 
         self.setCheckable(True)
         self.setAutoRaise(True)
@@ -160,10 +171,63 @@ class VerticalTabButton(QToolButton, DockStyled):
             self.close_requested.emit(self)
         super().mousePressEvent(ev)
 
+    def set_icon_name(self, name: Optional[str]):
+        """Draw this tab's icon from the icon set named *name*.
+
+        Takes precedence over the QIcon passed to the constructor, which
+        remains the fallback when the name resolves to nothing.
+        """
+        if name == self._icon_name:
+            return
+        self._icon_name = name or None
+        self._tinted_icon = None
+        self._tinted_icon_key = ()
+        self.updateGeometry()
+        self.update()
+
+    def icon_name(self) -> Optional[str]:
+        return self._icon_name
+
+    def _resolved_icon(self) -> QIcon:
+        """The icon to paint, tinted to match the label beside it.
+
+        Sidebar tabs used to paint whatever QIcon they were handed, so a dark
+        icon stayed dark on a dark theme while the text next to it turned
+        light.  Named icons go through the provider in the tab's own
+        active/normal text colour instead.
+        """
+        if not self._icon_name:
+            return self._icon
+        mgr = get_dock_style_manager()
+        checked = self.isChecked()
+        color = self._text_active if checked else self._text_normal
+        key = (self._icon_name, checked, self._icon_size,
+               color.name() if isinstance(color, QColor) else color,
+               mgr.generation)
+        if key == self._tinted_icon_key and self._tinted_icon is not None:
+            return self._tinted_icon
+        try:
+            icon = get_icon_provider().get(
+                self._icon_name,
+                DockStyleCategory.SIDEBAR,
+                active=checked,
+                disabled=not self.isEnabled(),
+                size=self._icon_size,
+                color=color,
+            )
+        except (ValueError, RuntimeError):
+            icon = QIcon()
+        if icon.isNull():
+            icon = self._icon
+        self._tinted_icon = icon
+        self._tinted_icon_key = key
+        return icon
+
     def sizeHint(self) -> QSize:
         fm = QFontMetrics(self.font())
         text_w = fm.horizontalAdvance(self._text)
-        icon_space = 20 if (self._icon and not self._icon.isNull()) else 0
+        icon_space = (self._icon_size + self._icon_gap
+                      if not self._resolved_icon().isNull() else 0)
         pad = 22  # FIX: Increased padding slightly to prevent visual clipping
         
         return QSize(1, text_w + icon_space + pad)
@@ -220,8 +284,9 @@ class VerticalTabButton(QToolButton, DockStyled):
         # Measure content for centering
         fm = p.fontMetrics()
         text_w = fm.horizontalAdvance(self._text)
-        icon_size = 16 if (self._icon and not self._icon.isNull()) else 0
-        gap = 8 if icon_size > 0 else 0
+        icon = self._resolved_icon()
+        icon_size = self._icon_size if not icon.isNull() else 0
+        gap = self._icon_gap if icon_size > 0 else 0
         
         # Calculate the total width of the block to center it vertically
         total_content_w = icon_size + gap + text_w
@@ -234,7 +299,7 @@ class VerticalTabButton(QToolButton, DockStyled):
         # Draw Icon
         if icon_size > 0:
             iy = (r_height - icon_size) / 2
-            self._icon.paint(p, int(current_x), int(iy), icon_size, icon_size)
+            icon.paint(p, int(current_x), int(iy), icon_size, icon_size)
             current_x += icon_size + gap
             
         # Draw Text
@@ -368,6 +433,14 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._border_hover = s.get("tab_border_hover_color")
         self._border_width = float(s.get("tab_border_width") or 0.0)
         self._border_closed = bool(s.get("tab_border_closed", False))
+        self._icon_size = int(s.get("tab_icon_size", DEFAULT_ICON_SIZE) or
+                              DEFAULT_ICON_SIZE)
+        self._icon_gap = int(s.get("tab_icon_gap", 8))
+        # Drop the tint, not just the geometry: the icon is coloured from
+        # tab_text_active / tab_text_normal, which this method has just
+        # re-read, so a cached pixmap here is a pixmap in the old theme.
+        self._tinted_icon = None
+        self._tinted_icon_key = ()
         self._badge_color = s.get("badge_bg") or self._badge_color
         self._badge_text_color = s.get("badge_text") or self._badge_text_color
         badge_pos = s.get("badge_position")

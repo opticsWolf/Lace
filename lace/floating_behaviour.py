@@ -77,6 +77,30 @@ _GWL_EXSTYLE = -20
 _WS_EX_APPWINDOW = 0x00040000
 
 
+def allowed_areas_for(container, dock_area) -> DockWidgetArea:
+    """The single source of truth for what a drag may target on *dock_area*.
+
+    Used by the drag preview (which decides what the user sees) and by the
+    drop itself (which decides what happens), so the two cannot disagree
+    about what was aimed at.
+
+    *container* is the container *dock_area* lives in; *dock_area* may be
+    ``None``, in which case nothing is allowed.
+    """
+    if dock_area is None or container is None:
+        return DockWidgetArea.no_area
+    if container.visible_dock_area_count() == 1:
+        # A lone area still accepts tabs.  The outer four stay suppressed
+        # because the container overlay owns them in that case.
+        #
+        # This used to be no_area, which is 0 — so DockOverlayCross.reset()
+        # hid *every* indicator, centre included, and cursor_location() could
+        # only ever return invalid.  That is why a floating widget could not be
+        # dropped into the centre of a one-area container to get tabs.
+        return DockWidgetArea.center
+    return DockWidgetArea.all_dock_areas
+
+
 class FloatingContainerBehaviour:
     """Window-chrome-independent behaviour of a floating dock container."""
 
@@ -274,8 +298,7 @@ class FloatingContainerBehaviour:
         if not self._drop_container or not self._is_movable():
             logger.debug("[FDC._finalize_drag] No drop container or not movable — surviving as independent window.")
             if self._dock_manager:
-                self._dock_manager.container_overlay().hide_overlay()
-                self._dock_manager.dock_area_overlay().hide_overlay()
+                self._dock_manager.signals.request_overlay_hide.emit()
             self._activate_window()
             return
 
@@ -304,13 +327,17 @@ class FloatingContainerBehaviour:
                 self.setGeometry(geom)
 
             logger.debug(f"[FDC._finalize_drag] Dropping into {self._drop_container}")
-            self._drop_container.drop_floating_widget(self, QCursor.pos())
+            # Through the bus rather than straight into the container, so a
+            # subscriber can observe the drop without patching Lace.  The
+            # target container rides along: routing on the manager alone
+            # would send every drop to the root container.
+            self._dock_manager.signals.floating_widget_dropped.emit(
+                self, self._drop_container, QCursor.pos())
             dropped = True
 
         # Always hide overlays and clear the reference
         if self._dock_manager:
-            self._dock_manager.container_overlay().hide_overlay()
-            self._dock_manager.dock_area_overlay().hide_overlay()
+            self._dock_manager.signals.request_overlay_hide.emit()
         self._drop_container = None
 
         if not dropped:
@@ -512,30 +539,40 @@ class FloatingContainerBehaviour:
         dock_area_overlay = self._dock_manager.dock_area_overlay()
         if not top_container:
             logger.debug('update_drop_overlays: No top container')
-            container_overlay.hide_overlay()
-            dock_area_overlay.hide_overlay()
+            self._dock_manager.signals.request_overlay_hide.emit()
             return
 
         logger.debug('update_drop_overlays: top container=%s name=%s',
                      self._drop_container, self._drop_container.objectName())
 
         visible_dock_areas = top_container.visible_dock_area_count()
+        dock_area = top_container.dock_area_at(global_pos)
+        area_overlay_shows = bool(
+            dock_area and dock_area.isVisible() and visible_dock_areas > 0)
+
+        # Exactly one of the two crosses offers the centre, or the user sees
+        # two centre glyphs sitting on top of each other.  Whenever a dock area
+        # is under the cursor, that area owns it: its centre is the drop that
+        # tabs into *that* area.  Otherwise the container keeps it, which is
+        # the only way into a float with no visible area at all.
+        #
+        # The old rule keyed on the area count instead, and handing the
+        # container all five was right only while a lone area was armed with
+        # no_area and so drew nothing.  Once a lone area got its own centre
+        # back (0.6.8), the two indicators collided.
         container_overlay.set_allowed_areas(
             DockWidgetArea.outer_dock_areas
-            if visible_dock_areas > 1
+            if area_overlay_shows
             else DockWidgetArea.all_dock_areas
         )
 
         container_area = container_overlay.show_overlay(top_container)
         container_overlay.enable_drop_preview(container_area != DockWidgetArea.invalid)
-        dock_area = top_container.dock_area_at(global_pos)
 
-        if dock_area and dock_area.isVisible() and visible_dock_areas > 0:
+        if area_overlay_shows:
             dock_area_overlay.enable_drop_preview(True)
             dock_area_overlay.set_allowed_areas(
-                DockWidgetArea.no_area
-                if visible_dock_areas == 1
-                else DockWidgetArea.all_dock_areas)
+                allowed_areas_for(top_container, dock_area))
             area = dock_area_overlay.show_overlay(dock_area)
 
             if (area == DockWidgetArea.center and

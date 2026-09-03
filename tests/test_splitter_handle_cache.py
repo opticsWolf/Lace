@@ -111,3 +111,25 @@ def test_stale_handles_do_not_raise(grid, qapp):
 
     container._handle_cache = [Dead()] + list(handle._all_handles())
     handle._find_intersecting_handles(handle.mapToGlobal(handle.rect().center()))
+
+
+def test_restoring_a_layout_invalidates_the_cache(grid, qapp):
+    """The third layout-change choke point — Plan v0.7 §1.3.
+
+    ``restore_container_state()`` rebuilds the whole splitter tree, but used to
+    reset only the area list and the visible count. The handle cache survived,
+    so junction detection kept hit-testing handles from the discarded tree.
+    """
+    dock_manager, _, _ = grid
+    container = _container(dock_manager)
+
+    handle = _handles(dock_manager)[0]
+    handle._all_handles()
+    assert container._handle_cache is not None, "cache was never primed"
+
+    state = dock_manager.save_state()
+    assert dock_manager.restore_state(state)
+    qapp.processEvents()
+
+    assert container._handle_cache is None, \
+        "a layout restore left the cache holding handles from the old tree"

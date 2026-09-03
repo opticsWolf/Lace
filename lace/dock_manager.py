@@ -12,7 +12,7 @@
 
 import logging
 import pathlib
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional
 
 from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QWidget
@@ -25,6 +25,7 @@ from lace.dock_overlay import DockOverlay
 from lace.floating_dock_container import FloatingDockContainer
 from lace.dock_widget import DockWidget
 from lace.dock_area_widget import DockAreaWidget
+from lace.util import find_parent
 
 # New Modular Sub-systems
 from lace.dock_signals import DockSignals
@@ -79,7 +80,6 @@ class DockManager(QObject):
 
         # 4. Global Event Bus (Phase 5)
         self.signals = DockSignals()
-        self.signals.request_overlay_show.connect(self._handle_request_overlay_show)
         self.signals.request_overlay_hide.connect(self._handle_request_overlay_hide)
         self.signals.floating_widget_dropped.connect(self._handle_floating_widget_dropped)
 
@@ -435,15 +435,19 @@ class DockManager(QObject):
     #  Event Handlers for Decoupled Signals
     # ─────────────────────────────────────────────────────────────────────
 
-    def _handle_request_overlay_show(self, container: 'DockContainerWidget'):
-        self._container_overlay.show_overlay(container)
-
     def _handle_request_overlay_hide(self):
         self._container_overlay.hide_overlay()
         self._dock_area_overlay.hide_overlay()
 
-    def _handle_floating_widget_dropped(self, floating_widget: FloatingDockContainer, target_pos):
-        self.drop_floating_widget(floating_widget, target_pos)
+    def _handle_floating_widget_dropped(self, floating_widget: FloatingDockContainer,
+                                        target_container: 'DockContainerWidget',
+                                        target_pos):
+        # The target container travels with the signal.  Routing through
+        # self.drop_floating_widget() instead would send every drop to the
+        # root container, which is wrong whenever a float is dropped onto
+        # another float.
+        target_container.drop_controller().drop_floating_widget(
+            floating_widget, target_pos)
 
     # ─────────────────────────────────────────────────────────────────────
     #  Internal Accessors & Routing
@@ -682,14 +686,14 @@ class DockManager(QObject):
     def drop_floating_widget(self, floating_widget: 'FloatingDockContainer', target_pos: QPoint):
         self._root.drop_floating_widget(floating_widget, target_pos)
 
-    def _drop_into_container(self, floating_widget: 'FloatingDockContainer', area: DockWidgetArea):
-        self._root._drop_into_container(floating_widget, area)
+    def drop_controller(self) -> 'DropController':
+        """The root container's drop controller.
 
-    def _drop_into_section(self, floating_widget: 'FloatingDockContainer', area: 'DockAreaWidget', drop_area: DockWidgetArea):
-        self._root._drop_into_section(floating_widget, area, drop_area)
-
-    def _drop_into_center_of_section(self, floating_widget: 'FloatingDockContainer', area: 'DockAreaWidget'):
-        self._root._drop_into_center_of_section(floating_widget, area)
+        Replaces the ``_drop_into_container`` / ``_drop_into_section`` /
+        ``_drop_into_center_of_section`` pass-throughs removed in 0.6.7, which
+        forwarded through two objects to reach the same three methods.
+        """
+        return self._root.drop_controller()
 
     # ─────────────────────────────────────────────────────────────────────
     #  Delegated QWidget Surface (for compatibility with existing callers)
@@ -757,6 +761,19 @@ class DockManager(QObject):
                     return
             except RuntimeError:
                 pass
+
+        # The one focus fan-out.  Each DockAreaWidget used to connect to
+        # focusChanged itself, so a focus change cost one isAncestorOf() walk
+        # per open area on one of Qt's hottest signals.  Walking *up* from the
+        # focused widget once is O(depth) instead of O(areas), and it answers
+        # the same question.
+        area = new_widget if isinstance(new_widget, DockAreaWidget) else None
+        if area is None:
+            area = find_parent(DockAreaWidget, new_widget)
+        # Areas belonging to another DockManager in the same application are
+        # not ours to activate.
+        if area is not None and area.dock_manager() is self:
+            area.handle_focus_gained()
 
     def set_active_dock_area(self, area: Optional['DockAreaWidget']):
         if hasattr(self, '_active_dock_area') and self._active_dock_area is area:

@@ -24,7 +24,8 @@ from lace.dock_chrome import (style_title_bar_buttons, ChromeToolButton,
                               resolve_title_bar_bottom_rule)
 from lace.dock_paint import chrome_content_margin, top_rounded_path
 from lace.dock_styled import DockStyled
-from lace.dock_theme import DockStyleCategory
+from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 from lace.dock_menu import (
     MenuSection, dock_icon, MenuContext, build_dock_context_menu,
     dispatch_dock_context_menu, menu_default_pin, menu_default_unpin,
@@ -100,7 +101,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._tabs_menu_button.setAutoRaise(True)
         self._tabs_menu_button.setPopupMode(QToolButton.InstantPopup)
         # Use dock_icon for proper Normal/Disabled state handling
-        self._tabs_menu_button.setIcon(dock_icon("tabs_menu", DockStyleCategory.TITLE_BAR))
+        self._tabs_menu_button.setIcon(dock_icon("tabs_menu", DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._tabs_menu_button.setToolTip("Menu")
 
         self._tabs_menu = QMenu(self._tabs_menu_button)
@@ -121,7 +122,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._pin_button.setAutoRaise(True)
         self._pin_button.setToolTip("Pin to Sidebar")
         # Use dock_icon for proper Normal/Disabled state handling
-        self._pin_button.setIcon(dock_icon("pin", DockStyleCategory.TITLE_BAR))
+        self._pin_button.setIcon(dock_icon("pin", DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._pin_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self._top_layout.addWidget(self._pin_button, 0)
         self._pin_button.clicked.connect(self.on_pin_button_clicked)
@@ -133,7 +134,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._maximize_button.setObjectName("maximizeButton")
         self._maximize_button.setAutoRaise(True)
         self._maximize_button.setToolTip("Maximize")
-        self._maximize_button.setIcon(dock_icon("maximize", DockStyleCategory.TITLE_BAR))
+        self._maximize_button.setIcon(dock_icon("maximize", DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._maximize_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self._top_layout.addWidget(self._maximize_button, 0)
         self._maximize_button.clicked.connect(self.on_maximize_button_clicked)
@@ -147,7 +148,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._undock_button.setAutoRaise(True)
         self._undock_button.setToolTip("Float")
         # Use dock_icon for proper Normal/Disabled state handling
-        self._undock_button.setIcon(dock_icon("float", DockStyleCategory.TITLE_BAR))
+        self._undock_button.setIcon(dock_icon("float", DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._undock_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self._top_layout.addWidget(self._undock_button, 0)
         self._undock_button.clicked.connect(self.on_undock_button_clicked)
@@ -157,7 +158,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._close_button.setObjectName("closeButton")
         self._close_button.setAutoRaise(True)
         # Use dock_icon for proper Normal/Disabled state handling
-        self._close_button.setIcon(dock_icon("close", DockStyleCategory.TITLE_BAR))
+        self._close_button.setIcon(dock_icon("close", DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
 
         if self._test_config_flag(DockFlags.dock_area_close_button_closes_tab):
             self._close_button.setToolTip("Close")
@@ -165,7 +166,8 @@ class DockAreaTitleBar(QFrame, DockStyled):
             self._close_button.setToolTip("Close Group")
 
         self._close_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-        self._close_button.setIconSize(QSize(16, 16))
+        # No setIconSize() here: it was set on this one button out of five and
+        # overwritten by refresh_style() moments later anyway.
         self._top_layout.addWidget(self._close_button, 0)
         self._close_button.clicked.connect(self.on_close_button_clicked)
 
@@ -303,6 +305,16 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
     # ── Button state management ───────────────────────────────────────────
 
+    def _button_icon_size(self) -> int:
+        """The themed display size for this bar's action-button icons.
+
+        One reader for the token, so dock_icon() renders at exactly the size
+        the button displays at — rendering at one size and scaling to another
+        is what blurs and thickens a supersampled glyph.
+        """
+        return get_dock_style_manager().get(
+            DockStyleCategory.TITLE_BAR, "button_icon_size", DEFAULT_ICON_SIZE)
+
     def update_button_states(self):
         """Synchronise every title-bar button with themed icons, sizes, and widget features."""
         area = self._dock_area
@@ -318,7 +330,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         is_pinned = self._menu_is_pinned()
         hide_disabled = self._test_config_flag(DockFlags.hide_disabled_title_bar_icons)
 
-        icon_dim = self._style_mgr.get(DockStyleCategory.TITLE_BAR, "button_icon_size", 14)
+        icon_dim = self._button_icon_size()
         icon_size = QSize(icon_dim, icon_dim)
 
         # Tab-level features (current widget)
@@ -334,12 +346,12 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
         # — Tabs Menu Button —
         # Use dock_icon for proper Normal/Disabled state handling
-        self._tabs_menu_button.setIcon(dock_icon("tabs_menu", DockStyleCategory.TITLE_BAR))
+        self._tabs_menu_button.setIcon(dock_icon("tabs_menu", DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._tabs_menu_button.setIconSize(icon_size)
         self._tabs_menu_button.setVisible(self._test_config_flag(DockFlags.dock_area_has_tabs_menu_button))
 
         # — Close Button —
-        self._close_button.setIcon(dock_icon("close", DockStyleCategory.TITLE_BAR))
+        self._close_button.setIcon(dock_icon("close", DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._close_button.setIconSize(icon_size)
         
         closes_tab = self._test_config_flag(DockFlags.dock_area_close_button_closes_tab)
@@ -360,7 +372,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
         # — Undock / Float Button —
         undock_key = "dock" if is_floating else "float"
-        self._undock_button.setIcon(dock_icon(undock_key, DockStyleCategory.TITLE_BAR))
+        self._undock_button.setIcon(dock_icon(undock_key, DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._undock_button.setIconSize(icon_size)
         
         if self._test_config_flag(DockFlags.dock_area_has_undock_button):
@@ -381,7 +393,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         # — Maximize / Restore Button —
         is_maximized = area.is_maximized()
         max_key = "restore" if is_maximized else "maximize"
-        self._maximize_button.setIcon(dock_icon(max_key, DockStyleCategory.TITLE_BAR))
+        self._maximize_button.setIcon(dock_icon(max_key, DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._maximize_button.setIconSize(icon_size)
         self._maximize_button.setToolTip("Restore" if is_maximized else "Maximize")
 
@@ -397,7 +409,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
         # — Pin / Unpin Button —
         pin_key = "unpin" if is_pinned else "pin"
-        self._pin_button.setIcon(dock_icon(pin_key, DockStyleCategory.TITLE_BAR))
+        self._pin_button.setIcon(dock_icon(pin_key, DockStyleCategory.TITLE_BAR, size=self._button_icon_size()))
         self._pin_button.setIconSize(icon_size)
         self._pin_button.setToolTip("Unpin from Sidebar" if is_pinned else "Pin to Sidebar")
         
@@ -460,9 +472,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         
         # Resolve Colors with fallbacks (matching sidebar_title_bar pattern)
         bg = styles.get("bg_normal")
-        btn_color = styles.get("button_color")
         btn_hover = styles.get("button_hover_bg")
-        disabled_color = core_styles.get("disabled_text_color")
 
         # Painted background (rounded on top to nest inside the dock-area card),
         # instead of a square stylesheet background that would clash with the
@@ -494,11 +504,11 @@ class DockAreaTitleBar(QFrame, DockStyled):
         style_title_bar_buttons(
             (self._tabs_menu_button, self._pin_button, self._maximize_button,
              self._undock_button, self._close_button),
-            color=btn_color, hover_bg=btn_hover, disabled=disabled_color,
+            hover_bg=btn_hover,
             radius=styles.get("button_corner_radius", 3),
             padding=styles.get("button_padding", 4),
             size=styles.get("button_size", 17),
-            icon_size=styles.get("button_icon_size", 16),
+            icon_size=styles.get("button_icon_size", DEFAULT_ICON_SIZE),
             expand_vertical=styles.get("button_expand_vertical", True),
         )
 

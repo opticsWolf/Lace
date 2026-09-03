@@ -62,10 +62,12 @@ class DockAreaWidget(ChromeFrame, DockStyled):
 
         self._init_dock_style()
 
-        from PySide6.QtWidgets import QApplication
-        qapp = QApplication.instance()
-        if qapp:
-            qapp.focusChanged.connect(self._on_app_focus_changed)
+        # No focusChanged connection here.  Every area used to take its own,
+        # each slot doing an isAncestorOf() walk on one of Qt's hottest
+        # signals, so the per-focus-change cost grew linearly with the number
+        # of open areas.  DockManager keeps a single connection and resolves
+        # the area from the focused widget instead — see
+        # DockManager._on_app_focus_changed.
 
     @property
     def locked_name(self) -> Optional[str]:
@@ -76,21 +78,19 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         self._locked_name = name
         self._update_title_bar_button_states()
 
-    def _on_app_focus_changed(self, old_widget, new_widget):
+    def handle_focus_gained(self) -> None:
+        """This area now contains the application's focus widget.
+
+        Called by ``DockManager``'s single ``focusChanged`` handler rather
+        than by a connection of the area's own.
+        """
         try:
             if self.isHidden() or not self.isVisible():
                 return
-            if new_widget is not None:
-                try:
-                    if not new_widget.isVisible():
-                        return
-                except RuntimeError:
-                    return
-                if self.isAncestorOf(new_widget) or (new_widget is self):
-                    if self._dock_manager:
-                        self._dock_manager.set_active_dock_area(self)
-                    else:
-                        self.set_chrome_focused(True)
+            if self._dock_manager:
+                self._dock_manager.set_active_dock_area(self)
+            else:
+                self.set_chrome_focused(True)
         except RuntimeError:
             return
 
@@ -165,9 +165,6 @@ class DockAreaWidget(ChromeFrame, DockStyled):
 
     def _tab_bar(self) -> 'DockAreaTabBar':
         return self._title_bar.tab_bar()
-
-    def dock_manager(self) -> 'DockManager':
-        return self._dock_manager
 
     def _update_title_bar_button_states(self):
         """Delegates synchronization of the title bar buttons to the title bar itself."""

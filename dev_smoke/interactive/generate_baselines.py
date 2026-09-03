@@ -7,6 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 
 Automated baseline generator for interactive smoke test sessions S1-S4.
 Executes deterministic programmatic interactions to record baseline trace logs.
+
+Note (0.6.7): the three _drop_into_* pass-throughs on DockManager and
+DockContainerWidget were removed. S2 now drives DropController directly via
+dock_manager.drop_controller(); the emitted trace lines are unchanged, so the
+recorded baselines stay comparable.
 """
 
 import sys
@@ -77,19 +82,19 @@ def run_s2(win: DemoMainWindow, collector: TraceCollector, out_dir: Path):
     # Test drop into container
     dw1 = DockWidget("Drop Test 1", win)
     fw1 = FloatingDockContainer(dock_widget=dw1, dock_manager=win.dock_manager)
-    win.dock_manager._drop_into_container(fw1, DockWidgetArea.top)
+    win.dock_manager.drop_controller()._drop_into_container(fw1, DockWidgetArea.top)
     
     # Test drop into section
     dw2 = DockWidget("Drop Test 2", win)
     fw2 = FloatingDockContainer(dock_widget=dw2, dock_manager=win.dock_manager)
     area = win.dock_manager.dock_area(0)
-    win.dock_manager._drop_into_section(fw2, area, DockWidgetArea.left)
+    win.dock_manager.drop_controller()._drop_into_section(fw2, area, DockWidgetArea.left)
     
     # Test drop into center of section
     dw3 = DockWidget("Drop Test 3", win)
     fw3 = FloatingDockContainer(dock_widget=dw3, dock_manager=win.dock_manager)
     area = win.dock_manager.dock_area(0)
-    win.dock_manager._drop_into_center_of_section(fw3, area)
+    win.dock_manager.drop_controller()._drop_into_center_of_section(fw3, area)
 
     # Test drop resolve
     dw4 = DockWidget("Drop Test 4", win)

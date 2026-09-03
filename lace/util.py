@@ -74,6 +74,17 @@ def set_button_icon(style: QStyle, button: QAbstractButton, icon_type: QStyle.St
     button.setIcon(style.standardIcon(icon_type))
 
 
+def split_share(target_size: int, handle_width: int, n_total: int) -> int:
+    """Even split of *target_size* across *n_total* panes, minus handle gutters.
+
+    One arithmetic for "insert a sibling next to this area", shared by the drop
+    path and the programmatic path so the two cannot drift apart.
+    """
+    if n_total <= 0:
+        return 0
+    return (target_size - handle_width * (n_total - 1)) // n_total
+
+
 def hide_empty_parent_splitters(splitter: Optional['DockSplitter']):
     """
     Walks up the widget tree and hides all splitters that do not have visible content.

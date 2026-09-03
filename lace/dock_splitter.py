@@ -76,8 +76,8 @@ class DockSplitterHandle(QSplitterHandle, DockStyled):
 
         ``findChildren`` is a full recursive tree walk, and this runs on every
         hover-move over a handle.  The cache lives on the container and is
-        cleared from its two layout-change choke points (``_emit_dock_areas_``
-        ``added``/``_removed``), which is where handles come and go.
+        cleared by ``DockContainerWidget._invalidate_layout_caches()``, the one
+        choke point for every cache derived from the splitter tree's shape.
         """
         from lace.dock_container_widget import DockContainerWidget
         from lace.util import find_parent

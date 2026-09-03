@@ -11,19 +11,30 @@
 from PySide6.QtCore import QObject, Signal
 
 class DockSignals(QObject):
+    """Event bus between the floating drag path and the dock manager.
+
+    Deep widgets used to call manager methods directly.  These signals carry
+    the two events where that coupling bought nothing, and they are a genuine
+    extension point: subscribe to observe a drag without patching Lace.
+
+    Reach it as ``dock_manager.signals``.
+
+    .. note::
+       ``request_overlay_show`` used to live here and was removed in 0.6.10.
+       Its only would-be call site consumes ``DockOverlay.show_overlay()``'s
+       *return value* — the drop area under the cursor — inside the drag's
+       mouse-move path.  A signal cannot return anything, so emitting it
+       would have meant reading the result back out of band on the next
+       event, which is worse code than the direct call it replaced.  It was
+       never emitted in any released version.
     """
-    Internal global event bus for the Advanced Docking System.
-    Replaces tight coupling (where deep widgets call manager methods directly)
-    with a loosely coupled, signal-driven architecture.
-    """
-    
-    # Emitted when a widget wants to trigger the drop overlays
-    # args: target_container (DockContainerWidget)
-    request_overlay_show = Signal(object)
-    
-    # Emitted to hide all active overlays
+
+    #: Hide every drop overlay.  Emitted when a drag ends, wherever it ends:
+    #: dropped, released outside any container, or cancelled.
     request_overlay_hide = Signal()
-    
-    # Emitted when a floating widget is dropped
-    # args: floating_widget (FloatingDockContainer), target_pos (QPoint)
-    floating_widget_dropped = Signal(object, object)
+
+    #: A floating widget was dropped onto a container.
+    #: args: floating_widget (FloatingDockContainer),
+    #:       target_container (DockContainerWidget),
+    #:       target_pos (QPoint, global)
+    floating_widget_dropped = Signal(object, object, object)

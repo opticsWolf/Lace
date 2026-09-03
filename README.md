@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.6.5
+**Version:** 0.7.0
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -47,7 +47,8 @@
 
 ### 🎨 Theming
 
-- **19 built-in themes** — Dark, light, midnight, warm, nordic, monokai, neutral, tokyo_night, catppuccin, dracula, solarized_dark/light, cyberpunk_neon, cyberpunk_edge, slate_amber, neon_dusk, violet_haze, and midnight_haze
+- **27 built-in themes** — Dark, light, midnight, warm, nordic, monokai, neutral, tokyo_night, catppuccin, dracula, solarized_dark/light, cyberpunk_neon, cyberpunk_edge, slate_amber, neon_dusk, violet_haze, and midnight_haze, plus light and neutral counterparts of the last four (`*_light`; `*_neutral`, a mid tone between the two and nearer the light, with the backdrop flattened to grey but the accent and focus outlines kept; plus `slate_amber_dark` and a brighter `slate_amber_light`) that keep their parent's geometry and change only the palette
+- **Grouped theme menus** — `theme_groups()` returns `(group, [(label, key), ...])` in presentation order — Basics, Editor Classics, Neon, Edge Treatments — with each family kept together and ordered dark, neutral, light; `theme_choices()` is the same order flattened for a single-level menu
 - **Declarative `ThemeSpec`** — Define custom themes with color palettes and geometrical tokens (corner radius, border width, title height, tab radius, content margin, etc.)
 - **Sidebar tab tokens** — A matching `sidebar_tab_*` set for the auto-hide tabs: shape, radius, outline width and per-state colours, fills, and highlight-strip width and edge
 - **JSON theme files** — Ship themes as JSON (Pydantic-validated via `ThemeJson`/`load_theme_json`); colors as `[r,g,b,a]` lists or `"#rrggbb"` strings
@@ -132,7 +133,7 @@ python -m demos.demo_app
 The demo includes:
 - Multiple dock widgets with different feature flags (closable, movable, floatable, pinnable)
 - Sidebar setup with notification badges
-- Theme switching menu with 19 built-in themes
+- Theme switching menu, grouped into Basics / Editor Classics / Neon / Edge Treatments submenus via `theme_groups()`
 - Global flags menu for live configuration toggling
 
 For frameless/custom-title-bar examples, see:
