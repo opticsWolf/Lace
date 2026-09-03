@@ -19,7 +19,7 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QSplitter, QWidget
 
 from lace.util import (find_parent, hide_empty_parent_splitters,
                    emit_top_level_event_for_widget, find_child, find_children,
-                   is_window_maximized, toggle_window_maximized,
+                   is_window_maximized, toggle_window_maximized, split_share,
                    dump_layout as _dump_layout)
 from lace.enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,
                     DockFlags, DockInsertParam)
@@ -145,8 +145,7 @@ class DropController:
         emit_top_level_event_for_widget(single_dropped_dock_widget, False)
         emit_top_level_event_for_widget(single_dock_widget, False)
 
-        if not splitter.isVisible():
-            splitter.show()
+        self._c._show_if_explicitly_hidden(splitter)
 
         self._c.dump_layout()
 
@@ -186,8 +185,9 @@ class DropController:
                     insert_index += 1
 
             # Split target_area's size among itself + inserted children.
-            total = child_count + 1
-            share = (target_area_size - target_area_splitter.handleWidth() * (total - 1)) / total
+            share = split_share(target_area_size,
+                                target_area_splitter.handleWidth(),
+                                child_count + 1)
             for _ in range(child_count):
                 sizes.insert(area_index, share)
             sizes[area_index + child_count] = share
@@ -208,7 +208,7 @@ class DropController:
             sizes = target_area_splitter.sizes()
             insert_widget_into_splitter(new_splitter, target_area, not insert_param.append)
             # Equal split: target_area vs. new_splitter content.
-            size = target_area_size / 2
+            size = split_share(target_area_size, new_splitter.handleWidth(), 2)
             new_splitter.setSizes((size, size))
 
             target_area_splitter.insertWidget(area_index, new_splitter)
@@ -350,12 +350,59 @@ class DockContainerWidget(QFrame, DockStyled):
         self._layout.setRowStretch(1, 1)
         self._layout.setColumnStretch(1, 1)
 
+    def _show_if_explicitly_hidden(self, splitter: Optional[QSplitter]):
+        """Re-show a splitter that gained content while hidden.
+
+        Not redundant with Qt's ``ChildPolished`` auto-show:
+        :func:`~lace.util.hide_empty_parent_splitters` hides splitters with
+        ``hide()``, which sets ``WA_WState_ExplicitShowHide`` and suppresses
+        that auto-show for good.  This is the one place the workaround lives.
+        """
+        if splitter is not None and not splitter.isVisible():
+            splitter.show()
+
+    def _finish_area_insertion(self, new_dock_area: DockAreaWidget,
+                               area: Optional[DockWidgetArea] = None,
+                               splitter: Optional[QSplitter] = None,
+                               emit: bool = True):
+        """Every post-condition a newly created dock area requires.
+
+        Called by :meth:`_add_dock_area`, :meth:`_dock_widget_into_dock_area`
+        and the layout-restore path so the three cannot drift apart again.
+
+        *splitter*, when given, is handed to :meth:`_show_if_explicitly_hidden`.
+        """
+        self._append_dock_areas(new_dock_area)
+        new_dock_area.ensure_title_bar_visible()
+        new_dock_area.destroyed.connect(self.remove_dock_area)
+        self._show_if_explicitly_hidden(splitter)
+        if area is not None:
+            self._last_added_area_cache[area] = new_dock_area
+        if emit:
+            self._emit_dock_areas_added()
+
+    def _invalidate_layout_caches(self):
+        """Reset every cache derived from the splitter tree's *shape*.
+
+        The single choke point for both: the visible-area count and the
+        splitter-handle list used by junction detection.  Anything that
+        reshapes the tree calls this.
+
+        ``_last_added_area_cache`` is deliberately **not** reset here.  It is
+        keyed by :class:`DockWidgetArea`, not by tree shape, and its contract
+        (``tests/test_area_cache.py``) is that removing one area leaves the
+        other areas' entries intact.  It is maintained per entry instead:
+        written by :meth:`_finish_area_insertion`, cleared for the removed
+        area in :meth:`remove_dock_area`, and emptied wholesale only by
+        ``restore_container_state()``, where every area really is discarded.
+        """
+        self._visible_dock_area_count = -1
+        self._handle_cache = None
+
     def _dock_widget_into_container(self, area: DockWidgetArea, dockwidget: 'DockWidget') -> DockAreaWidget:
         new_dock_area = DockAreaWidget(self._dock_manager, self)
         new_dock_area.add_dock_widget(dockwidget)
         self._add_dock_area(new_dock_area, area)
-        new_dock_area.ensure_title_bar_visible()
-        self._last_added_area_cache[area] = new_dock_area
         return new_dock_area
 
     def _dock_widget_into_dock_area(self, area: DockWidgetArea, dock_widget: 'DockWidget',
@@ -373,15 +420,30 @@ class DockContainerWidget(QFrame, DockStyled):
         if target_area_splitter.orientation() == insert_param.orientation:
             logger.debug('TargetAreaSplitter.orientation() == insert_orientation')
             target_area_splitter.insertWidget(index + insert_param.insert_offset, new_dock_area)
+            # Divide the target's own extent between it and the new sibling,
+            # the same arithmetic the drop path uses.
+            sizes = target_area_splitter.sizes()
+            target_size = (target_dock_area.width()
+                           if insert_param.orientation == Qt.Horizontal
+                           else target_dock_area.height())
+            share = split_share(target_size, target_area_splitter.handleWidth(), 2)
+            insert_at = index + insert_param.insert_offset
+            sizes.insert(insert_at, share)
+            sizes[target_area_splitter.indexOf(target_dock_area)] = share
+            target_area_splitter.setSizes(sizes)
         else:
             logger.debug('TargetAreaSplitter.orientation() != insert_orientation')
             new_splitter = self._new_splitter(insert_param.orientation)
             new_splitter.addWidget(target_dock_area)
             insert_widget_into_splitter(new_splitter, new_dock_area, insert_param.append)
             target_area_splitter.insertWidget(index, new_splitter)
+            target_size = (target_dock_area.width()
+                           if insert_param.orientation == Qt.Horizontal
+                           else target_dock_area.height())
+            share = split_share(target_size, new_splitter.handleWidth(), 2)
+            new_splitter.setSizes([share, share])
 
-        self._append_dock_areas(new_dock_area)
-        self._emit_dock_areas_added()
+        self._finish_area_insertion(new_dock_area, area, target_area_splitter)
         return new_dock_area
 
     def _add_dock_area(self, new_dock_area: DockAreaWidget, area: DockWidgetArea):
@@ -406,17 +468,7 @@ class DockContainerWidget(QFrame, DockStyled):
 
             self._root_splitter = new_splitter
 
-        self._append_dock_areas(new_dock_area)
-        new_dock_area.ensure_title_bar_visible()
-        
-        #--- FIX START ---
-        #Ensure the root splitter is visible now that it has content
-        if not self._root_splitter.isVisible():
-            self._root_splitter.show()
-        #--- FIX END ---
-        
-        self._emit_dock_areas_added()
-        new_dock_area.destroyed.connect(self.remove_dock_area)
+        self._finish_area_insertion(new_dock_area, area, self._root_splitter)
 
     def drop_floating_widget(self, floating_widget: 'FloatingDockContainer', target_pos: QPoint):
         self._drop_controller.drop_floating_widget(floating_widget, target_pos)
@@ -517,6 +569,7 @@ class DockContainerWidget(QFrame, DockStyled):
 
         # Drop the cached reference to the area we just removed, or
         # last_added_dock_area_widget() hands back a deleted C++ object.
+        # Only this entry — the other area codes' entries stay valid.
         for _area, _widget in self._last_added_area_cache.items():
             if _widget is area:
                 self._last_added_area_cache[_area] = None
@@ -693,14 +746,12 @@ class DockContainerWidget(QFrame, DockStyled):
             self._top_level_dock_area = None
 
     def _emit_dock_areas_removed(self):
-            self._visible_dock_area_count = -1  # Force cache invalidation
-            self._handle_cache = None
+            self._invalidate_layout_caches()
             self._on_visible_dock_area_count_changed()
             self.dock_areas_removed.emit()
 
     def _emit_dock_areas_added(self):
-        self._visible_dock_area_count = -1  # Force cache invalidation
-        self._handle_cache = None
+        self._invalidate_layout_caches()
         self._on_visible_dock_area_count_changed()
         self.dock_areas_added.emit()
 

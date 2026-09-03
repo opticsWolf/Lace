@@ -67,7 +67,11 @@ def restore_container_state(c, state: dict, testing: bool = False,
     logger.debug('Restore DockContainerWidget Floating %s', is_floating)
 
     if not testing:
-        c._visible_dock_area_count = -1
+        # The third layout-change choke point: the whole tree is about to be
+        # rebuilt, so every shape-derived cache — including the splitter-handle
+        # list, which used to survive a restore and hand junction detection
+        # handles from the old tree — must go.
+        c._invalidate_layout_caches()
         c._dock_areas.clear()
         c._last_added_area_cache.clear()
         # Every dock area is about to be rebuilt from scratch, so any cached
@@ -206,6 +210,10 @@ def _restore_dock_area(c, state: dict, testing: bool,
         if "locked_name" in state:
             dock_area.locked_name = state["locked_name"]
         dock_area.setProperty("currentDockWidget", current_dock_widget)
-        c._append_dock_areas(dock_area)
+        # Same post-conditions as every other insertion path — in particular
+        # the destroyed guard, without which a restored area that is later
+        # deleted never leaves c._dock_areas.  No emit: the caller is still
+        # mid-rebuild and the tree is not yet coherent.
+        c._finish_area_insertion(dock_area, emit=False)
 
     return True, dock_area
