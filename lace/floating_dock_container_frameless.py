@@ -634,8 +634,7 @@ class FramelessFloatingDockContainer(FloatingContainerBehaviour,
         if self._drop_container is not None:
             self._drop_container = None
             if self._dock_manager:
-                self._dock_manager.container_overlay().hide_overlay()
-                self._dock_manager.dock_area_overlay().hide_overlay()
+                self._dock_manager.signals.request_overlay_hide.emit()
 
     def _handle_titlebar_drag(self, obj: QObject, event: QEvent) -> bool:
         """Drive the dock-drag machinery from the frameless title bar.

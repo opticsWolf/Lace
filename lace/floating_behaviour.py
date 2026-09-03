@@ -298,8 +298,7 @@ class FloatingContainerBehaviour:
         if not self._drop_container or not self._is_movable():
             logger.debug("[FDC._finalize_drag] No drop container or not movable — surviving as independent window.")
             if self._dock_manager:
-                self._dock_manager.container_overlay().hide_overlay()
-                self._dock_manager.dock_area_overlay().hide_overlay()
+                self._dock_manager.signals.request_overlay_hide.emit()
             self._activate_window()
             return
 
@@ -328,13 +327,17 @@ class FloatingContainerBehaviour:
                 self.setGeometry(geom)
 
             logger.debug(f"[FDC._finalize_drag] Dropping into {self._drop_container}")
-            self._drop_container.drop_floating_widget(self, QCursor.pos())
+            # Through the bus rather than straight into the container, so a
+            # subscriber can observe the drop without patching Lace.  The
+            # target container rides along: routing on the manager alone
+            # would send every drop to the root container.
+            self._dock_manager.signals.floating_widget_dropped.emit(
+                self, self._drop_container, QCursor.pos())
             dropped = True
 
         # Always hide overlays and clear the reference
         if self._dock_manager:
-            self._dock_manager.container_overlay().hide_overlay()
-            self._dock_manager.dock_area_overlay().hide_overlay()
+            self._dock_manager.signals.request_overlay_hide.emit()
         self._drop_container = None
 
         if not dropped:
@@ -536,8 +539,7 @@ class FloatingContainerBehaviour:
         dock_area_overlay = self._dock_manager.dock_area_overlay()
         if not top_container:
             logger.debug('update_drop_overlays: No top container')
-            container_overlay.hide_overlay()
-            dock_area_overlay.hide_overlay()
+            self._dock_manager.signals.request_overlay_hide.emit()
             return
 
         logger.debug('update_drop_overlays: top container=%s name=%s',

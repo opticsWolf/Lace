@@ -79,7 +79,6 @@ class DockManager(QObject):
 
         # 4. Global Event Bus (Phase 5)
         self.signals = DockSignals()
-        self.signals.request_overlay_show.connect(self._handle_request_overlay_show)
         self.signals.request_overlay_hide.connect(self._handle_request_overlay_hide)
         self.signals.floating_widget_dropped.connect(self._handle_floating_widget_dropped)
 
@@ -435,15 +434,19 @@ class DockManager(QObject):
     #  Event Handlers for Decoupled Signals
     # ─────────────────────────────────────────────────────────────────────
 
-    def _handle_request_overlay_show(self, container: 'DockContainerWidget'):
-        self._container_overlay.show_overlay(container)
-
     def _handle_request_overlay_hide(self):
         self._container_overlay.hide_overlay()
         self._dock_area_overlay.hide_overlay()
 
-    def _handle_floating_widget_dropped(self, floating_widget: FloatingDockContainer, target_pos):
-        self.drop_floating_widget(floating_widget, target_pos)
+    def _handle_floating_widget_dropped(self, floating_widget: FloatingDockContainer,
+                                        target_container: 'DockContainerWidget',
+                                        target_pos):
+        # The target container travels with the signal.  Routing through
+        # self.drop_floating_widget() instead would send every drop to the
+        # root container, which is wrong whenever a float is dropped onto
+        # another float.
+        target_container.drop_controller().drop_floating_widget(
+            floating_widget, target_pos)
 
     # ─────────────────────────────────────────────────────────────────────
     #  Internal Accessors & Routing
