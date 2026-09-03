@@ -5,6 +5,19 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.6.15] — 2026-09-03
+
+### Added
+
+- `slate_amber_light`, a brighter tier of `slate_amber` — not a counterpart in
+  the sense of the seven added in 0.6.14, but the same light design with the
+  greys lifted ~35 points.  `slate_amber` itself is unchanged.  The amber moves
+  the other way (186,98,0 to 176,92,0): it draws 1.5px lines, and every point
+  the ground gains is a point of separation they lose.  The family now runs
+  `slate_amber_dark` / `slate_amber` / `slate_amber_light`.
+- README and ARCHITECTURE now document the counterparts (both were still
+  claiming 19 themes after 0.6.14 added seven).
+
 ## [0.6.14] — 2026-09-03
 
 ### Added

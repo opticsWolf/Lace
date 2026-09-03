@@ -483,6 +483,38 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; both tab states outlined; area outline limited to three sides (reference preset for `border_below_title`) |
 | `midnight_haze` | `violet_haze` × `midnight`: violet_haze's geometry over a near-black base. Only the focused area's active tab is outlined — everything else is drawn without a line (reference preset for `tab_border_unfocused_color`); its sidebar follows the same rule, ringing the active tab only |
 
+### Counterparts
+
+Seven variants of the four presets above. Each keeps its parent's **geometry** exactly — radii,
+line widths, which edges are drawn and which are left open — and changes only the palette, so a
+pair reads as one design in two keys. `tests/test_theme_counterparts.py` pins that field by field.
+
+| Preset | Notes |
+|---|---|
+| `cyberpunk_edge_light` | The amber/violet outline pair on a near-white panel; keeps the big 10px chassis, which is what still separates it from `slate_amber` |
+| `violet_haze_light` | Dracula's purple on paper; the inactive "comment" outline inverted to a lavender-grey a step below the strip |
+| `midnight_haze_light` | The focus-only frame in daylight — more demanding, not less: on near-white a stray line hides |
+| `cyberpunk_edge_neutral` | The two-state outline told in **value** rather than hue: dim graphite unfocused, near-white focused |
+| `violet_haze_neutral` | The unbroken rule, in graphite |
+| `midnight_haze_neutral` | The purest reading of the parent: one near-white frame, nothing else on screen coloured at all |
+| `slate_amber_dark` | `slate_amber`'s other half — same tight 4px chassis, amber lifted back toward sodium to read on a dark panel |
+| `slate_amber_light` | Not a counterpart in the sense of the six above: the same *light* design a tier brighter, for where `slate_amber`'s warm machine grey reads as dingy rather than industrial. The greys go up ~35 points and the amber goes **down**, because every point the ground gains is a point of separation its 1.5px lines lose |
+
+A light counterpart is not the dark one inverted. The accent darkens (it draws 1.5–2px lines, and
+`cyberpunk_edge`'s sodium `255,154,0` is 1.6:1 on white), the panel/strip order stays put because
+`title_mode` is `"darker"` in both, and `hover_mode` flips to `"darker"` — a near-white panel has
+nowhere lighter to go.
+
+A neutral counterpart drains the hue from the **decorative** colours only. `success_color`,
+`warning_color`, `error_color` and `info_color` keep theirs in all three: those are semantic, and a
+greyed-out error colour is not a subtler error colour.
+
+`slate_amber` therefore ships as three tiers — `slate_amber_dark`, `slate_amber`,
+`slate_amber_light` — rather than as a light/dark pair. It is the one family whose original member
+was already the light one. `slate_amber_light` also keeps `hover_mode = "lighter"` where the three
+`*_light` presets above had to flip to `"darker"`: they are near-white panels with nowhere lighter
+to go, and this one is not quite that bright.
+
 All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()`.
 
 #### Tab edge treatments
@@ -520,6 +552,12 @@ tab is a closed rounded ring — differing only in which states are ringed at al
 | `midnight_haze` | bare | — | accent, 2.0 |
 | `violet_haze` | bare | accent at alpha 130 | accent, 2.0 |
 | `slate_amber` | bare | amber at alpha 160 | amber, 1.5 |
+
+Each counterpart takes its parent's row unchanged, in its own colours — that is what "geometry
+only" means for the sidebar too. `midnight_haze_light` and `midnight_haze_neutral` are the two
+that needed a number recomputed rather than copied: the parent caps `sidebar_tab_bg_normal` just
+below where an idle tab would out-glow a hovered one, and that ceiling moves with the palette (on
+light it stops being a crossover at all, since hover darkens while the tint lightens).
 
 `violet_haze` is the one whose ring is a *hover* cue: bare when idle, ringed in a half-alpha
 accent under the cursor, ringed solid when selected — so the hover ring reads as the active

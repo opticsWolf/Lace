@@ -25,7 +25,7 @@ FAMILIES = {
     "cyberpunk_edge": ("cyberpunk_edge_light", "cyberpunk_edge_neutral"),
     "violet_haze": ("violet_haze_light", "violet_haze_neutral"),
     "midnight_haze": ("midnight_haze_light", "midnight_haze_neutral"),
-    "slate_amber": ("slate_amber_dark",),
+    "slate_amber": ("slate_amber_dark", "slate_amber_light"),
 }
 
 PAIRS = [(parent, child)
@@ -146,9 +146,52 @@ def test_a_counterpart_moves_its_accent(parent, child):
     assert list(_core(parent, "accent_color")) != list(_core(child, "accent_color"))
 
 
-def test_slate_amber_ships_as_a_light_dark_pair():
-    """slate_amber was always the light one; slate_amber_dark is its other half."""
-    assert THEME_SPECS["slate_amber"].is_light is True
+def test_slate_amber_ships_as_three_tiers():
+    """slate_amber was always light, so its family runs dark -> light -> lighter.
+
+    slate_amber_light is not a counterpart in the sense the other six are — it
+    is not the same design in another key, it is the same *light* design a tier
+    brighter, and the parent is untouched beside it.
+    """
+    tiers = ["slate_amber_dark", "slate_amber", "slate_amber_light"]
+    lums = [_luminance(_panel(name)) for name in tiers]
+    assert lums == sorted(lums), f"the tiers are out of order: {list(zip(tiers, lums))}"
+    assert lums[0] < 0.1, "slate_amber_dark is not a dark panel"
+    assert lums[1] > 0.6
+    assert lums[2] > 0.9, "slate_amber_light is not brighter than slate_amber"
+
     assert THEME_SPECS["slate_amber_dark"].is_light is False
-    assert _luminance(_panel("slate_amber")) > 0.6
-    assert _luminance(_panel("slate_amber_dark")) < 0.1
+    assert THEME_SPECS["slate_amber"].is_light is True
+    assert THEME_SPECS["slate_amber_light"].is_light is True
+
+
+def test_slate_amber_light_deepens_its_amber_as_the_ground_brightens():
+    """The greys go up, the accent goes down — otherwise the lines dissolve.
+
+    Amber draws the rule under the tab strip, the focused card's outline and
+    the active sidebar ring, all at 1.5px, and every point the panel gains is a
+    point of separation those lines lose.  Keeping the parent's 186,98,0 would
+    have dropped them from 4.94:1 to 4.04:1.
+    """
+    parent, brighter = THEME_SPECS["slate_amber"], THEME_SPECS["slate_amber_light"]
+    assert sum(list(brighter.base)[:3]) > sum(list(parent.base)[:3])
+    assert sum(list(brighter.surface)[:3]) > sum(list(parent.surface)[:3])
+    assert sum(list(brighter.accent)[:3]) < sum(list(parent.accent)[:3])
+
+    # And the deepening more than pays for the brighter ground.
+    assert _contrast(_core("slate_amber_light", "accent_color"),
+                     _panel("slate_amber_light")) >            _contrast(_core("slate_amber", "accent_color"), _panel("slate_amber"))
+
+
+def test_slate_amber_light_keeps_the_parents_hover_direction():
+    """The three *_light counterparts flip hover_mode to "darker"; this does not.
+
+    They are near-white panels with nowhere lighter to go.  This one is not
+    quite that bright, and "lighter" separates the hover from the tab strip by
+    34 points here against the parent's 35 — where "darker" flattens it to 26.
+    """
+    assert THEME_SPECS["slate_amber_light"].hover_mode ==            THEME_SPECS["slate_amber"].hover_mode == "lighter"
+
+    tab = build_theme(THEME_SPECS["slate_amber_light"])[DockStyleCategory.TAB]
+    strip, hover = list(tab["bg_normal"])[:3], list(tab["bg_hover"])[:3]
+    assert abs(sum(strip) - sum(hover)) / 3 > 25,         f"the hover barely separates from the strip: {strip} vs {hover}"

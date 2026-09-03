@@ -1021,6 +1021,64 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
         sidebar_tab_border_active_color = [230, 150, 45, 255],
         sidebar_indicator_width = 1.5,
     ),
+    # -------------------------------------------------------------------------
+    # SLATE AMBER LIGHT — the machine shop under better lighting.
+    #
+    # Not a counterpart of slate_amber in the sense the six above are
+    # counterparts: it is the same light theme a tier brighter, for a room or a
+    # monitor where the parent's warm machine grey reads as dingy rather than
+    # industrial.  slate_amber stays exactly as it was; this sits beside it.
+    #
+    # The greys carry the whole change — base and panel move up roughly 35
+    # points, the border with them — and the amber moves the *other* way.  That
+    # is not a stylistic choice: amber is what draws the rule under the tab
+    # strip, the focused card's outline and the active sidebar ring, all at
+    # 1.5px, and every point the ground gains is a point of separation those
+    # lines lose.  186,98,0 measures 4.04:1 on the brighter panel where it was
+    # 4.94:1 on the parent's; deepening it to 176,92,0 puts it back to 4.44:1,
+    # which is what keeps a 1.5px line reading as a line.
+    #
+    # hover_mode stays "lighter", as on the parent, and is worth stating
+    # because the three *_light presets above all had to flip it to "darker".
+    # They are near-white panels with nowhere lighter to go; this one is not
+    # quite that bright.  Measured, "lighter" separates the hover from the tab
+    # strip by 34 points here against the parent's 35 — the same tab bar, in a
+    # brighter key — where "darker" would have flattened it to 26.
+    # -------------------------------------------------------------------------
+    "slate_amber_light": ThemeSpec(
+        base       = [230, 227, 222, 255],  # Warm machine grey, lifted
+        accent     = [176, 92, 0, 255],     # Burnt amber, deepened to hold the
+                                            # 1.5px lines against the brighter
+                                            # ground
+        text       = [42, 37, 32, 255],     # Warm near-black
+        surface    = [249, 247, 244, 255],  # Near-white paper inner panel
+        border     = [201, 196, 188, 255],  # Warm grey, unfocused
+        focus_border_color = [176, 92, 0, 255],    # Amber, focused
+        is_light   = True,
+        title_mode = "darker",
+        hover_mode = "lighter",
+
+        # Geometry — slate_amber's, unchanged
+        corner_radius = 4,
+        border_width = 1.5,
+        title_margin = 0.5,
+        tab_radius = 4,
+        content_margin = 0.5,
+        title_border_bottom = 1.5,
+        title_border_focus_color = [176, 92, 0, 255],
+        indicator_width = 1.5,
+        indicator_position = "bottom",
+        tab_dimming = True,
+
+        # Bare when idle, the ring previewed at part alpha under the cursor,
+        # solid when selected — slate_amber's treatment exactly.
+        sidebar_tab_flat_edge = "none",
+        sidebar_tab_border_width = 1.5,
+        sidebar_tab_border_color = [0, 0, 0, 0],               # Inactive: bare
+        sidebar_tab_border_hover_color = [176, 92, 0, 160],
+        sidebar_tab_border_active_color = [176, 92, 0, 255],
+        sidebar_indicator_width = 1.5,
+    ),
 }
 
 # =============================================================================

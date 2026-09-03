@@ -497,7 +497,7 @@ VARIANTS = {
     "cyberpunk_edge": ("cyberpunk_edge_light", "cyberpunk_edge_neutral"),
     "violet_haze": ("violet_haze_light", "violet_haze_neutral"),
     "midnight_haze": ("midnight_haze_light", "midnight_haze_neutral"),
-    "slate_amber": ("slate_amber_dark",),
+    "slate_amber": ("slate_amber_dark", "slate_amber_light"),
 }
 
 
