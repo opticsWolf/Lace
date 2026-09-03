@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import Qt, Signal, QPoint, QPointF
 from PySide6.QtGui import QAction, QColor, QPainter, QPalette
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu
+    QFrame, QHBoxLayout, QLabel, QWidget, QMenu
 )
 from lace.enums import DockWidgetFeature, DockFlags
 from lace.dock_chrome import (style_title_bar_buttons, DragDetector, ChromeToolButton,
@@ -293,9 +293,7 @@ class SideBarTitleBar(QFrame, DockStyled):
         # Resolve Colors with fallbacks
         bg = styles.get("bg_normal")
         title_text = styles.get("title_text_color")
-        btn_color = styles.get("button_color")
         btn_hover = styles.get("button_hover_bg")
-        disabled_color = core_styles.get("disabled_text_color")
 
         title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
         card_radius = styles.get("corner_radius")
@@ -345,7 +343,7 @@ class SideBarTitleBar(QFrame, DockStyled):
         # Shared icon-button styling (see dock_area_title_bar — same call).
         style_title_bar_buttons(
             (self._reattach_btn, self._float_btn, self._maximize_btn, self._close_btn),
-            color=btn_color, hover_bg=btn_hover, disabled=disabled_color,
+            hover_bg=btn_hover,
             radius=styles.get("button_corner_radius", 3),
             padding=styles.get("button_padding", 2),
             size=styles.get("button_size", 17),

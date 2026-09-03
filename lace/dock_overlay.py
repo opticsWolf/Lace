@@ -12,8 +12,8 @@
 
 from typing import Optional
 
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt, QSizeF, QRectF, QLineF
-from PySide6.QtGui import QColor, QCursor, QHideEvent, QPainter, QShowEvent, QPixmap, QPolygonF
+from PySide6.QtCore import QEvent, QPoint, QRect, Qt, QSizeF
+from PySide6.QtGui import QColor, QCursor, QHideEvent, QPainter, QShowEvent, QPixmap
 from PySide6.QtWidgets import QFrame, QWidget, QLabel, QGridLayout
 
 # Note: area_alignment removed completely!

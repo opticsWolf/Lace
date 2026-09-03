@@ -12,7 +12,7 @@
 
 import logging
 import pathlib
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional
 
 from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QWidget
@@ -25,6 +25,7 @@ from lace.dock_overlay import DockOverlay
 from lace.floating_dock_container import FloatingDockContainer
 from lace.dock_widget import DockWidget
 from lace.dock_area_widget import DockAreaWidget
+from lace.util import find_parent
 
 # New Modular Sub-systems
 from lace.dock_signals import DockSignals
@@ -760,6 +761,19 @@ class DockManager(QObject):
                     return
             except RuntimeError:
                 pass
+
+        # The one focus fan-out.  Each DockAreaWidget used to connect to
+        # focusChanged itself, so a focus change cost one isAncestorOf() walk
+        # per open area on one of Qt's hottest signals.  Walking *up* from the
+        # focused widget once is O(depth) instead of O(areas), and it answers
+        # the same question.
+        area = new_widget if isinstance(new_widget, DockAreaWidget) else None
+        if area is None:
+            area = find_parent(DockAreaWidget, new_widget)
+        # Areas belonging to another DockManager in the same application are
+        # not ours to activate.
+        if area is not None and area.dock_manager() is self:
+            area.handle_focus_gained()
 
     def set_active_dock_area(self, area: Optional['DockAreaWidget']):
         if hasattr(self, '_active_dock_area') and self._active_dock_area is area:

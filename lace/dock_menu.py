@@ -11,13 +11,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Flag, auto
-from typing import TYPE_CHECKING, Dict, Optional, Protocol, Any, List
+from typing import TYPE_CHECKING, Dict, Optional, Protocol, Any
 
 from PySide6.QtCore import QPoint, QRect, QSize
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QMenu, QStyle
 
-from lace.enums import DockWidgetArea, DockWidgetFeature, WidgetState, DockFlags
+from lace.enums import DockWidgetArea, DockWidgetFeature, DockFlags
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 from lace.dock_icon_provider import get_icon_provider

@@ -18,7 +18,7 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QGridLayout, QSplitter, QWidget
 
 from lace.util import (find_parent, hide_empty_parent_splitters,
-                   emit_top_level_event_for_widget, find_child, find_children,
+                   emit_top_level_event_for_widget, find_children,
                    is_window_maximized, toggle_window_maximized, split_share,
                    dump_layout as _dump_layout)
 from lace.enums import (DockWidgetArea, DockWidgetFeature, TitleBarButton,

@@ -16,7 +16,7 @@ import logging
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (QAction, QColor, QContextMenuEvent, QCursor, QFontMetrics,
                            QIcon, QMouseEvent, QPainter, QPalette, QPen)
-from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget, QPushButton
+from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QMenu, QSizePolicy, QWidget
 
 from lace.util import start_drag_distance
 from lace.enums import DragState, DockFlags, DockWidgetArea, DockWidgetFeature, WidgetState

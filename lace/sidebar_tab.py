@@ -8,7 +8,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 
-from typing import Any, Union, Optional
+from typing import Any, Optional
 from enum import Enum, auto
 from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect, QRectF
 from PySide6.QtGui import (

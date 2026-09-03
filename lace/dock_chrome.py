@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt, QEvent, QObject, QPoint, QRectF, QSize, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QAbstractButton, QFrame, QSizePolicy, QToolButton, QWidget
 
-from lace.dock_paint import ChromeTokens, paint_panel, paint_panel_bg, paint_panel_border
+from lace.dock_paint import ChromeTokens, paint_panel_bg, paint_panel_border
 from lace.dock_theme import DEFAULT_ICON_SIZE
 from lace.util import start_drag_distance
 
@@ -320,9 +320,7 @@ class ChromeToolButton(QToolButton):
 def style_title_bar_buttons(
     buttons: Iterable[QAbstractButton],
     *,
-    color: QColor = None,
     hover_bg: QColor = None,
-    disabled: QColor = None,
     radius: int = 3,
     padding: int = 2,
     size: int = 18,
@@ -335,9 +333,11 @@ def style_title_bar_buttons(
     The hover background is painted by :class:`ChromeToolButton` (no more
     ``:hover`` colour QSS); the stylesheet applied here carries *sizing only*
     (no colour / no ``palette()`` role), so it neither goes stale on theme
-    change nor blocks deleting the theme-bridge nudge.  ``color`` / ``disabled``
-    are accepted for call-site compatibility but unused — the icons are
-    pre-coloured pixmaps and disabled state greys them automatically.
+    change nor blocks deleting the theme-bridge nudge.
+
+    There is no ``color`` / ``disabled`` here: the icons are pre-coloured
+    pixmaps and Qt greys them for the disabled state itself, so both were
+    accepted and dropped on the floor.
     """
     css = f"""
         QToolButton {{

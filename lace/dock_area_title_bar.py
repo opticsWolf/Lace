@@ -166,7 +166,8 @@ class DockAreaTitleBar(QFrame, DockStyled):
             self._close_button.setToolTip("Close Group")
 
         self._close_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-        self._close_button.setIconSize(QSize(16, 16))
+        # No setIconSize() here: it was set on this one button out of five and
+        # overwritten by refresh_style() moments later anyway.
         self._top_layout.addWidget(self._close_button, 0)
         self._close_button.clicked.connect(self.on_close_button_clicked)
 
@@ -471,9 +472,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         
         # Resolve Colors with fallbacks (matching sidebar_title_bar pattern)
         bg = styles.get("bg_normal")
-        btn_color = styles.get("button_color")
         btn_hover = styles.get("button_hover_bg")
-        disabled_color = core_styles.get("disabled_text_color")
 
         # Painted background (rounded on top to nest inside the dock-area card),
         # instead of a square stylesheet background that would clash with the
@@ -505,7 +504,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         style_title_bar_buttons(
             (self._tabs_menu_button, self._pin_button, self._maximize_button,
              self._undock_button, self._close_button),
-            color=btn_color, hover_bg=btn_hover, disabled=disabled_color,
+            hover_bg=btn_hover,
             radius=styles.get("button_corner_radius", 3),
             padding=styles.get("button_padding", 4),
             size=styles.get("button_size", 17),

@@ -22,6 +22,26 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
+  # ---- Lint ----
+  # Deliberately two rules, not a ruleset: F401 (unused imports) and F811
+  # (redefinitions) are the two that actually re-accumulated here, and a broad
+  # ruleset on an existing codebase produces a wall of findings nobody acts on.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install ruff
+        run: pipx install ruff
+
+      - name: Check for unused imports and redefinitions
+        run: ruff check --select F401,F811 lace/
+
   # ---- Run tests before publishing ----
   test:
     name: Test (Python ${{ matrix.python }}, ${{ matrix.os }})

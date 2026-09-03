@@ -258,7 +258,11 @@ class DockStyleManager(QObject):
                     subscriber.on_style_changed(category, changes)
                 elif hasattr(subscriber, 'refresh_style'):
                     subscriber.refresh_style()
-            except Exception as e:
+            except RuntimeError as e:
+                # Only the deleted-C++-object case is swallowed.  A blanket
+                # ``except Exception`` here turned every bug in a
+                # refresh_style() into a log line and a widget that quietly
+                # kept its old colours; those propagate now.
                 logger.error(f"Subscriber notification failed: {e}")
 
 # Convenience Functions
