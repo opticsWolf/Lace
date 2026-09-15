@@ -26,8 +26,9 @@ import sys
 from typing import Optional, Union
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
-from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QMenu, QMenuBar, QVBoxLayout, QWidget
+from PySide6.QtGui import QColor, QMouseEvent, QPainter
+from PySide6.QtWidgets import (QAbstractButton, QLineEdit, QMenu, QMenuBar,
+                               QVBoxLayout, QWidget)
 from qframelesswindow import FramelessMainWindow, FramelessWindow
 from qframelesswindow.titlebar import StandardTitleBar, TitleBarButton
 from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
@@ -217,6 +218,33 @@ class _FramelessChromeHealMixin:
             return False
 
 
+#: Widget types inside a title bar that never start a window drag.
+#: ``QAbstractButton`` covers push/check/tool buttons including the
+#: min/max/close buttons' siblings; add your own type to the walk in
+#: :func:`titlebar_blocks_drag` only for exotic controls.
+TITLEBAR_NON_DRAG_TYPES = (QMenuBar, QMenu, QAbstractButton, QLineEdit)
+
+
+def titlebar_child_blocks_drag(child: QObject | None, root: QObject) -> bool:
+    """Whether *child* (walked up to *root*) vetoes a title-bar drag."""
+    while child is not None and child is not root:
+        if isinstance(child, TITLEBAR_NON_DRAG_TYPES):
+            return True
+        parent = child.parent()
+        if parent is None:
+            return False
+        child = parent
+    return False
+
+
+def titlebar_blocks_drag(bar: QWidget, pos: QPoint) -> bool:
+    """Whether the child under *pos* vetoes a drag on *bar*."""
+    try:
+        return titlebar_child_blocks_drag(bar.childAt(pos), bar)
+    except RuntimeError:
+        return True
+
+
 class LaceStandardTitleBar(StandardTitleBar):
     """StandardTitleBar with a single, synchronous maximize mechanism.
 
@@ -260,6 +288,68 @@ class LaceStandardTitleBar(StandardTitleBar):
         # See eventFilter: the buttons do not clear their own pressed state.
         for button in self.findChildren(TitleBarButton):
             button.installEventFilter(self)
+
+    # -- custom-bar helpers (findings §1) --------------------------------
+
+    def content_index_after_title(self) -> int:
+        """Layout index just after ``titleLabel`` (anchored, not hardcoded).
+
+        The base layout order changed before; never assume a literal index.
+        Falls back to 2 (after icon) when the label cannot be found.
+        """
+        try:
+            idx = self.hBoxLayout.indexOf(self.titleLabel)
+        except (AttributeError, RuntimeError):
+            return 2
+        return idx + 1 if idx >= 0 else 2
+
+    def insert_content_widget(self, widget: QWidget, stretch: int = 0,
+                              alignment: Qt.AlignmentFlag = Qt.AlignVCenter) -> int:
+        """Insert *widget* after the title and return its layout index."""
+        index = self.content_index_after_title()
+        self.hBoxLayout.insertWidget(index, widget, stretch, alignment)
+        return index
+
+    def canDrag(self, pos: QPoint) -> bool:  # type: ignore[override]
+        """Never start the OS move loop from an interactive child.
+
+        The base ``canDrag`` only excludes the min/max/close buttons; a
+        press on an embedded menu, button or line edit would otherwise drag
+        the window instead of activating the control. Subclasses inherit
+        this and do not need their own walk.
+        """
+        if titlebar_blocks_drag(self, pos):
+            return False
+        return super().canDrag(pos)
+
+    def paintEvent(self, event) -> None:
+        """Fill the theme background so QSS gaps cannot show through.
+
+        The styler QSS does not always reach a custom bar; painting the
+        current theme colour first guarantees embedded widgets share one
+        exact surface. Reads the live theme (no subscription needed).
+        Subclasses that fill the same colour may drop their own override.
+        """
+        bg = None
+        try:
+            from lace.dock_style_manager import get_dock_style_manager
+            from lace.dock_theme import DockStyleCategory
+            sm = get_dock_style_manager()
+            bg = sm.get(DockStyleCategory.SIDEBAR, "bg_color")
+            if bg is None:
+                bg = sm.get(DockStyleCategory.TITLE_BAR, "bg_normal")
+        except Exception:
+            bg = None
+        try:
+            painter = QPainter(self)
+            if bg is not None:
+                painter.fillRect(self.rect(), QColor(bg))
+            else:
+                painter.fillRect(self.rect(), self.palette().window())
+            painter.end()
+        except (RuntimeError, TypeError, ValueError):
+            pass
+        super().paintEvent(event)
 
     # -- button state ----------------------------------------------------
 
@@ -422,11 +512,14 @@ class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
         self._menu_bar: Optional[QMenuBar] = None
         self._menu_bar_container: Optional[QWidget] = None
         self._titlebar_styler: Optional["FramelessTitleBarStyler"] = None
-        # Apply a custom title bar before integrating it into the main-window
-        # layout.  When none is requested the base class already created a
-        # default StandardTitleBar.
+        # Resolve the title bar before integrating it into the main-window
+        # layout. ``None`` upgrades the base default to LaceStandardTitleBar
+        # (single maximize path, interactive-child canDrag veto, theme
+        # paint); a descriptor resolves via _resolve_title_bar.
         if title_bar is not None:
             self.setTitleBar(_resolve_title_bar(title_bar, self))
+        elif not isinstance(self.titleBar, LaceStandardTitleBar):
+            self.setTitleBar(LaceStandardTitleBar(self))
         # Integrate title bar into QMainWindow layout so the central
         # widget is positioned below it.
         self.setMenuWidget(self.titleBar)
@@ -580,6 +673,11 @@ class FramelessLaceWindow(_FramelessChromeHealMixin, FramelessWindow):
         _enable_system_dark_mode_menus()
         if title_bar is not None:
             self.setTitleBar(_resolve_title_bar(title_bar, self))
+        elif not isinstance(getattr(self, "titleBar", None), LaceStandardTitleBar):
+            try:
+                self.setTitleBar(LaceStandardTitleBar(self))
+            except (RuntimeError, TypeError):
+                logger.debug("default Lace title-bar swap failed", exc_info=True)
         self._frameless_heal_queued = False
         self._last_healed_winid = 0
 
@@ -595,5 +693,8 @@ __all__ = [
     "FramelessLaceMainWindow",
     "FramelessLaceWindow",
     "LaceStandardTitleBar",
+    "TITLEBAR_NON_DRAG_TYPES",
     "ensure_frameless_chrome",
+    "titlebar_blocks_drag",
+    "titlebar_child_blocks_drag",
 ]

@@ -29,10 +29,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QColor, QIcon, QPainter
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
-    QAbstractButton,
     QApplication,
     QLineEdit,
     QMainWindow,
@@ -49,7 +47,6 @@ from lace import (
     DockWidget,
     DockWidgetArea,
     DockWidgetFeature,
-    DockThemeBridge,
     TitleBarMode,
     apply_dock_theme,
     get_icon_provider,
@@ -90,9 +87,10 @@ class MenuEmbeddedTitleBar(LaceStandardTitleBar, DockStyled):
         # one continuous chrome surface and its items are vertically centered.
         self.menu_bar.setFixedHeight(self.height())
 
-        # The base layout is: spacing, iconLabel, titleLabel, stretch, buttons.
-        # Insert the menu bar right after the icon and before the title label.
-        self.hBoxLayout.insertWidget(2, self.menu_bar, 0, Qt.AlignVCenter)
+        # Anchored after the title (the title is hidden, so this reads as
+        # right-after-the-icon). Never hardcode the index: the base layout
+        # order changed before (see docs/frameless-webengine-findings.md §1).
+        self.insert_content_widget(self.menu_bar)
 
         self._build_menus()
         self._init_dock_style()
@@ -246,42 +244,9 @@ class MenuEmbeddedTitleBar(LaceStandardTitleBar, DockStyled):
             }}
         """)
 
-    def paintEvent(self, event) -> None:
-        """Paint a solid theme background before the base title bar paints.
-
-        The qframelesswindow base class does not always render the QSS
-        background set by :class:`FramelessTitleBarStyler` on the title-bar
-        widget, so we fill the rect with the current dock-theme background
-        explicitly.  This guarantees the embedded menu bar and the areas
-        around it share the exact same colour.
-        """
-        try:
-            sm = self._style_mgr
-            bg = sm.get(DockStyleCategory.SIDEBAR, "bg_color") or sm.get(
-                DockStyleCategory.TITLE_BAR, "bg_normal"
-            )
-        except (AttributeError, RuntimeError):
-            bg = None
-
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor(_color_hex(bg)) if bg else QColor("#1e1e1e"))
-        painter.end()
-
-        super().paintEvent(event)
-
-    def canDrag(self, pos) -> bool:
-        """Disable dragging when the cursor is over the menu bar or buttons.
-
-        Without this, pressing the mouse on a menu item could start a window
-        drag on platforms where the frameless library initiates the OS move
-        loop on press.
-        """
-        child = self.childAt(pos)
-        while child is not None and child is not self:
-            if isinstance(child, (QMenuBar, QMenu, QAbstractButton, QLineEdit)):
-                return False
-            child = child.parent()
-        return super().canDrag(pos)
+    # paintEvent + canDrag are inherited from LaceStandardTitleBar: the base
+    # fills the theme background (so QSS gaps cannot show) and vetoes drags
+    # starting on QMenuBar/QMenu/QAbstractButton/QLineEdit children.
 
 
 # ── Custom floating-container title bar with search input ────────────
@@ -308,12 +273,12 @@ class SearchTitleBar(LaceStandardTitleBar):
         )
         self.search_input.returnPressed.connect(self._on_search)
 
-        # Center the search box by placing equal stretchable space on both
-        # sides.  The base layout is: spacing, icon, title, stretch, buttons.
-        # No alignment flag is passed so the line edit can actually expand
-        # between the two stretches while remaining centered.
-        self.hBoxLayout.insertStretch(3, 1)
-        self.hBoxLayout.insertWidget(4, self.search_input, 1)
+        # Center the search box with equal stretch on both sides (anchored
+        # after the title; the base layout's own stretch remains on the far
+        # side). No alignment flag so the line edit expands while centered.
+        at = self.content_index_after_title()
+        self.hBoxLayout.insertStretch(at, 1)
+        self.hBoxLayout.insertWidget(at + 1, self.search_input, 1)
 
         self.search_input.setStyleSheet("""
             QLineEdit {
@@ -329,14 +294,8 @@ class SearchTitleBar(LaceStandardTitleBar):
         text = self.search_input.text().strip()
         print(f"[SearchTitleBar] search query: {text!r}")
 
-    def canDrag(self, pos) -> bool:
-        """Disable dragging when the cursor is over the search box or buttons."""
-        child = self.childAt(pos)
-        while child is not None and child is not self:
-            if isinstance(child, (QLineEdit, QAbstractButton)):
-                return False
-            child = child.parent()
-        return super().canDrag(pos)
+    # canDrag is inherited from LaceStandardTitleBar (search box + buttons
+    # already veto the OS move loop).
 
 
 # ── Main demo window ─────────────────────────────────────────────────
@@ -359,11 +318,9 @@ class DemoMainWindow(FramelessLaceMainWindow):
         self.dock_manager.title_bar_mode = TitleBarMode.custom
         self.dock_manager.floating_title_bar = SearchTitleBar
 
-        # App-wide theme bridge (as in the other demos): popup menus (QMenu)
-        # are top-level windows that read the application palette, not the
-        # dock root's — without this the dock-area title-bar tabs menu and
-        # context menus stay on the default system palette.
-        self.theme_bridge = DockThemeBridge()
+        # No manual DockThemeBridge needed: DockManager installs both the
+        # root-tree bridge and the app-wide bridge (top-level QMenus read
+        # the application palette) automatically.
 
         # Set the central widget *after* the dock manager so the title bar
         # stays on top.

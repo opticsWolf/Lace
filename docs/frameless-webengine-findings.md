@@ -163,16 +163,25 @@ to disappear.
 ## 4. Checklist for a custom Lace title bar
 
 1. `super().__init__(parent)`, hide/adjust `titleLabel` as desired.
-2. Embed widgets at a computed index (see §1), same height as the bar.
+2. Embed widgets at a computed index (see §1), same height as the bar —
+   use `LaceStandardTitleBar.insert_content_widget()` /
+   `content_index_after_title()` rather than a literal index.
 3. Transparent QSS on the embedded menu bar; popups styled from the same
    dock-theme tokens.
-4. `paintEvent` fills the rect with the theme background before `super()`.
-5. `canDrag()` returns `False` over every interactive child.
+4. Theme background fill is inherited from `LaceStandardTitleBar.paintEvent`;
+   subclasses filling the same colour may drop their own override.
+5. `canDrag()` veto over interactive children is inherited from
+   `LaceStandardTitleBar` (`titlebar_blocks_drag`); subclasses need no walk.
 6. `DockStyled` with `STYLE_CATEGORIES = (TITLE_BAR, SIDEBAR, CORE)` so
-   theme switches restyle the bar.
-7. If a `QWebEngineView` (or `QOpenGLWidget`) lives inside the window,
-   call `window().updateFrameless()` after it initializes (§3).
+   theme switches restyle embedded widgets (the bar itself is covered by
+   `FramelessTitleBarStyler` + the inherited paint).
+7. WebEngine/GL handle recreation (§3) auto-heals via `WinIdChange` →
+   `ensure_frameless_chrome()`; `restore_frameless_chrome()` remains as a
+   manual escape hatch.
 8. Floats get a custom bar via `title_bar_mode = TitleBarMode.custom` plus
    `floating_title_bar = <descriptor>` — the main window's bar is the
-   `title_bar=` argument to `FramelessLaceMainWindow`, not
-   `title_bar_mode`.
+   `title_bar=` argument to `FramelessLaceMainWindow` (or the live
+   `DockManager.main_title_bar`), not `title_bar_mode`.
+
+`DockManager` installs both theme bridges (root tree + app-wide for
+top-level `QMenu`s) itself — no manual `DockThemeBridge()` needed.

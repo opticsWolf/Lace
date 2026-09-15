@@ -17,7 +17,7 @@ from pathlib import Path
 
 # Adjust these imports if your docking framework is in a subfolder
 from lace import (
-    DockManager, DockWidget, DockWidgetArea, DockThemeBridge, 
+    DockManager, DockWidget, DockWidgetArea,
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
     ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition,
     TitleBarMode,
@@ -166,7 +166,8 @@ class DemoMainWindow(FramelessLaceMainWindow):
             self.setWindowIcon(standard_icon)
             QApplication.instance().setWindowIcon(standard_icon)
 
-        self.theme_bridge = DockThemeBridge()
+        # Theme bridges (root tree + app-wide for top-level QMenus) are
+        # installed by DockManager itself.
         self.theme_manager = ThemeManager(QApplication.instance())
         self.theme_manager.auto_mode_enabled = False  # Start disabled so default theme shows until user toggles auto
 

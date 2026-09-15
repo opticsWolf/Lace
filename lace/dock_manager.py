@@ -96,10 +96,17 @@ class DockManager(QObject):
         self._persistence = LayoutPersistenceManager(pathlib.Path.cwd())
         self.sidebar_manager = SidebarManager(self)
 
-        # 8. Theme Bridge — pushes QPalette to the root container tree so
-        #    standard Qt children (spinboxes, combos, tree-views) inside
-        #    dock panels match the active dock theme automatically.
+        # 8. Theme Bridges — pushes QPalette so standard Qt widgets match
+        #    the active dock theme automatically. Two targets: the root
+        #    container tree (dock-panel children) and the QApplication
+        #    itself (top-level QMenus read the app palette, not the root's).
+        #    Both skip the base-style application so the host app's style is
+        #    never clobbered.
         self._theme_bridge = DockThemeBridge(target=self._root, style_name="", parent=self)
+        try:
+            self._app_theme_bridge = DockThemeBridge(style_name="", parent=self)
+        except RuntimeError:
+            self._app_theme_bridge = None
 
         # 9. Frameless title bar theme integration — if the parent window
         #    is a FramelessLaceMainWindow, register it with DockStyleManager
@@ -197,16 +204,29 @@ class DockManager(QObject):
 
         Accepts ``None`` (standard Lace title bar), a :class:`QWidget`
         instance, a QWidget subclass, or a callable returning a QWidget.
-        This is consumed by callers that build a
-        :class:`.frameless_window.FramelessLaceMainWindow` and want a
-        single configuration source for custom chrome.
+        Pass it as the ``title_bar=`` argument when building a
+        :class:`.frameless_window.FramelessLaceMainWindow`, or set it live:
+        when the manager's parent is a frameless main window the bar is
+        swapped immediately via ``setTitleBar`` (``title_bar_mode`` only
+        ever chooses the *floating* container class).
         """
         return self._main_title_bar
 
     @main_title_bar.setter
     def main_title_bar(self, title_bar: TitleBarDescriptor) -> None:
-        """Set the title-bar descriptor for the main window."""
+        """Set the title-bar descriptor for the main window.
+
+        Stored for :meth:`create_main_title_bar` and, when the parent
+        window is a frameless main window, applied immediately.
+        """
         self._main_title_bar = title_bar
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "setTitleBar"):
+            try:
+                from lace.frameless_window import _resolve_title_bar
+                parent.setTitleBar(_resolve_title_bar(title_bar, parent))
+            except (RuntimeError, TypeError):
+                logger.debug("live main title-bar swap failed", exc_info=True)
 
     @property
     def floating_title_bar(self) -> TitleBarDescriptor:
