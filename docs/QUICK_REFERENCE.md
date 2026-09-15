@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.7.0
+**Version:** 0.7.5
 
 ---
 
@@ -33,17 +33,17 @@ window.show()
 app.exec()
 ```
 
-### With Theming Bridge (recommended)
+### With Theming (automatic)
 
 ```python
-from lace import DockManager, DockThemeBridge, ThemeManager, apply_dock_theme
+from lace import DockManager, ThemeManager, apply_dock_theme
 
 # ... after creating window ...
 dock_manager = DockManager(window)
 window.setCentralWidget(dock_manager._root)
 
-# Optional: bridge pushes QPalette to Qt children so they match the dock theme
-theme_bridge = DockThemeBridge(parent=window)
+# DockManager installs both palette bridges itself (dock tree + app-wide
+# for top-level QMenus) — no manual DockThemeBridge() needed.
 
 # Optional: auto-switch with OS dark/light mode
 theme_manager = ThemeManager(QApplication.instance())
@@ -627,8 +627,9 @@ class MainWindow(FramelessLaceMainWindow):
         self.setCentralWidget(self.dock_manager._root)
 ```
 
-- `DockManager.main_title_bar` — descriptor for the main window (consumed
-  by callers that build a `FramelessLaceMainWindow`).
+- `DockManager.main_title_bar` — descriptor for the main window: pass it as
+  `title_bar=` when building a `FramelessLaceMainWindow`, or set it live
+  (applied immediately via `setTitleBar` when the parent is frameless).
 - `DockManager.floating_title_bar` — descriptor used by every new floating
   container created after it is set (see `floating_dock_container_frameless.py`).
 - `DockManager.create_main_title_bar(parent)` /
@@ -655,8 +656,11 @@ It defines two custom title bars:
   min/max width and equal stretches on both sides, so it stays centered
   while resizing with the window.
 
-Both title bars override `canDrag()` so pressing on the embedded widget
-(menu bar items, the search field) never starts a window drag.
+Both title bars inherit `canDrag()` (vetoes drags from `QMenuBar`/`QMenu`/
+`QAbstractButton`/`QLineEdit`), the theme-background `paintEvent`, and the
+anchored `insert_content_widget()` from `LaceStandardTitleBar` — they only
+add widgets. Embed new widgets with `insert_content_widget()` rather than a
+hardcoded layout index (the base order changed before).
 
 `LaceStandardTitleBar` toggles maximization **synchronously** (via
 `showMaximized()` / `showNormal()`).  This matters because qframelesswindow's
@@ -675,6 +679,13 @@ fall back to an equivalent `QMenu`.  Creating a Lace frameless window also
 calls `SetPreferredAppMode(AllowDark)` (uxtheme) so native menus follow the
 system light/dark theme — dark when the OS is in dark mode, light when it is
 in light mode.
+
+A GL child (`QWebEngineView` first `setHtml()`, `QOpenGLWidget`, …) makes Qt
+recreate the top-level native handle, stripping the DWM bits. Both frameless
+window classes watch `QEvent.WinIdChange` and re-apply the chrome
+(`ensure_frameless_chrome()` — `updateFrameless()` plus the float taskbar
+ex-style), coalesced and idempotent; `restore_frameless_chrome()` remains as
+a manual escape hatch. See `docs/frameless-webengine-findings.md`.
 
 ### Chromeless Floating Windows
 

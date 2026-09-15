@@ -21,12 +21,14 @@ On Windows this resolves to ``WindowsFramelessMainWindow`` /
 
 from __future__ import annotations
 
+import logging
 import sys
 from typing import Optional, Union
 
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt
-from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QMenu, QMenuBar, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
+from PySide6.QtGui import QColor, QMouseEvent, QPainter
+from PySide6.QtWidgets import (QAbstractButton, QLineEdit, QMenu, QMenuBar,
+                               QVBoxLayout, QWidget)
 from qframelesswindow import FramelessMainWindow, FramelessWindow
 from qframelesswindow.titlebar import StandardTitleBar, TitleBarButton
 from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
@@ -34,6 +36,8 @@ from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
 from lace.util import (is_window_maximized, restore_window,
                        toggle_window_maximized)
 
+
+logger = logging.getLogger(__name__)
 
 _DARK_MODE_OPTED_IN = False
 
@@ -125,6 +129,122 @@ def _resolve_title_bar(title_bar: TitleBarDescriptor, parent: QWidget) -> QWidge
     )
 
 
+def ensure_frameless_chrome(window: QWidget) -> bool:
+    """Re-apply frameless chrome after the native handle was recreated.
+
+    A GL child (``QWebEngineView`` first ``setHtml()``, ``QOpenGLWidget``, …)
+    makes Qt destroy and recreate the top-level native handle, which strips
+    the CAPTION/THICKFRAME bits DWM rounding and Snap depend on (see
+    ``docs/frameless-webengine-findings.md`` §3). ``updateFrameless()``
+    restores them without changing the ``winId`` itself, so healing is
+    idempotent and cannot loop.
+
+    Also re-applies the floating-container taskbar ex-style when *window*
+    provides ``_apply_taskbar_presence`` (the new handle does not inherit
+    it). Safe to call on any widget: returns ``False`` when there is no
+    ``updateFrameless`` to call.
+    """
+    updater = getattr(window, "updateFrameless", None)
+    if not callable(updater):
+        return False
+    try:
+        updater()
+    except RuntimeError:
+        return False
+    except Exception:
+        logger.debug("frameless chrome heal failed", exc_info=True)
+        return False
+    apply_taskbar = getattr(window, "_apply_taskbar_presence", None)
+    if callable(apply_taskbar):
+        try:
+            apply_taskbar()
+        except Exception:
+            logger.debug("taskbar presence re-apply failed", exc_info=True)
+    try:
+        window._last_healed_winid = int(window.winId())  # type: ignore[attr-defined]
+    except (RuntimeError, TypeError, ValueError):
+        pass
+    return True
+
+
+class _FramelessChromeHealMixin:
+    """Auto-heal frameless chrome when Qt recreates the native handle.
+
+    Mixed into the frameless window classes below. A ``QEvent.WinIdChange``
+    schedules a deferred :func:`ensure_frameless_chrome` (coalesced: Chromium
+    delivers the event twice per recreation). The heal itself does not change
+    the ``winId``, so it cannot re-trigger; spurious events with an unchanged
+    handle are skipped via ``_last_healed_winid``.
+    """
+
+    _frameless_heal_queued: bool = False
+    _last_healed_winid: int = 0
+
+    def _schedule_frameless_heal(self) -> None:
+        try:
+            if getattr(self, "_frameless_heal_queued", False):
+                return
+            self._frameless_heal_queued = True  # type: ignore[attr-defined]
+            QTimer.singleShot(0, self._heal_frameless_chrome)  # type: ignore[attr-defined]
+        except RuntimeError:
+            pass
+
+    def _heal_frameless_chrome(self) -> None:
+        try:
+            self._frameless_heal_queued = False  # type: ignore[attr-defined]
+        except RuntimeError:
+            return
+        try:
+            current = int(self.winId())  # type: ignore[attr-defined]
+        except (RuntimeError, TypeError, ValueError):
+            return
+        last = getattr(self, "_last_healed_winid", 0)
+        if current != 0 and current == last:
+            return
+        try:
+            self.restore_frameless_chrome()  # type: ignore[attr-defined]
+        except RuntimeError:
+            pass
+
+    def restore_frameless_chrome(self) -> bool:
+        """Immediately re-apply frameless chrome and taskbar presence.
+
+        Manual escape hatch for cases where the automatic ``WinIdChange``
+        heal has not run yet (or event delivery is in doubt). Idempotent.
+        """
+        try:
+            return ensure_frameless_chrome(self)  # type: ignore[arg-type]
+        except RuntimeError:
+            return False
+
+
+#: Widget types inside a title bar that never start a window drag.
+#: ``QAbstractButton`` covers push/check/tool buttons including the
+#: min/max/close buttons' siblings; add your own type to the walk in
+#: :func:`titlebar_blocks_drag` only for exotic controls.
+TITLEBAR_NON_DRAG_TYPES = (QMenuBar, QMenu, QAbstractButton, QLineEdit)
+
+
+def titlebar_child_blocks_drag(child: QObject | None, root: QObject) -> bool:
+    """Whether *child* (walked up to *root*) vetoes a title-bar drag."""
+    while child is not None and child is not root:
+        if isinstance(child, TITLEBAR_NON_DRAG_TYPES):
+            return True
+        parent = child.parent()
+        if parent is None:
+            return False
+        child = parent
+    return False
+
+
+def titlebar_blocks_drag(bar: QWidget, pos: QPoint) -> bool:
+    """Whether the child under *pos* vetoes a drag on *bar*."""
+    try:
+        return titlebar_child_blocks_drag(bar.childAt(pos), bar)
+    except RuntimeError:
+        return True
+
+
 class LaceStandardTitleBar(StandardTitleBar):
     """StandardTitleBar with a single, synchronous maximize mechanism.
 
@@ -168,6 +288,68 @@ class LaceStandardTitleBar(StandardTitleBar):
         # See eventFilter: the buttons do not clear their own pressed state.
         for button in self.findChildren(TitleBarButton):
             button.installEventFilter(self)
+
+    # -- custom-bar helpers (findings §1) --------------------------------
+
+    def content_index_after_title(self) -> int:
+        """Layout index just after ``titleLabel`` (anchored, not hardcoded).
+
+        The base layout order changed before; never assume a literal index.
+        Falls back to 2 (after icon) when the label cannot be found.
+        """
+        try:
+            idx = self.hBoxLayout.indexOf(self.titleLabel)
+        except (AttributeError, RuntimeError):
+            return 2
+        return idx + 1 if idx >= 0 else 2
+
+    def insert_content_widget(self, widget: QWidget, stretch: int = 0,
+                              alignment: Qt.AlignmentFlag = Qt.AlignVCenter) -> int:
+        """Insert *widget* after the title and return its layout index."""
+        index = self.content_index_after_title()
+        self.hBoxLayout.insertWidget(index, widget, stretch, alignment)
+        return index
+
+    def canDrag(self, pos: QPoint) -> bool:  # type: ignore[override]
+        """Never start the OS move loop from an interactive child.
+
+        The base ``canDrag`` only excludes the min/max/close buttons; a
+        press on an embedded menu, button or line edit would otherwise drag
+        the window instead of activating the control. Subclasses inherit
+        this and do not need their own walk.
+        """
+        if titlebar_blocks_drag(self, pos):
+            return False
+        return super().canDrag(pos)
+
+    def paintEvent(self, event) -> None:
+        """Fill the theme background so QSS gaps cannot show through.
+
+        The styler QSS does not always reach a custom bar; painting the
+        current theme colour first guarantees embedded widgets share one
+        exact surface. Reads the live theme (no subscription needed).
+        Subclasses that fill the same colour may drop their own override.
+        """
+        bg = None
+        try:
+            from lace.dock_style_manager import get_dock_style_manager
+            from lace.dock_theme import DockStyleCategory
+            sm = get_dock_style_manager()
+            bg = sm.get(DockStyleCategory.SIDEBAR, "bg_color")
+            if bg is None:
+                bg = sm.get(DockStyleCategory.TITLE_BAR, "bg_normal")
+        except Exception:
+            bg = None
+        try:
+            painter = QPainter(self)
+            if bg is not None:
+                painter.fillRect(self.rect(), QColor(bg))
+            else:
+                painter.fillRect(self.rect(), self.palette().window())
+            painter.end()
+        except (RuntimeError, TypeError, ValueError):
+            pass
+        super().paintEvent(event)
 
     # -- button state ----------------------------------------------------
 
@@ -293,7 +475,7 @@ class LaceStandardTitleBar(StandardTitleBar):
 
 # ── Frameless MainWindow ───────────────────────────────────────────────
 
-class FramelessLaceMainWindow(FramelessMainWindow):
+class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
     """A frameless main window that uses PySideSix-Frameless-Window for
     custom title bars and non-client area handling.
 
@@ -330,14 +512,27 @@ class FramelessLaceMainWindow(FramelessMainWindow):
         self._menu_bar: Optional[QMenuBar] = None
         self._menu_bar_container: Optional[QWidget] = None
         self._titlebar_styler: Optional["FramelessTitleBarStyler"] = None
-        # Apply a custom title bar before integrating it into the main-window
-        # layout.  When none is requested the base class already created a
-        # default StandardTitleBar.
+        # Resolve the title bar before integrating it into the main-window
+        # layout. ``None`` upgrades the base default to LaceStandardTitleBar
+        # (single maximize path, interactive-child canDrag veto, theme
+        # paint); a descriptor resolves via _resolve_title_bar.
         if title_bar is not None:
             self.setTitleBar(_resolve_title_bar(title_bar, self))
+        elif not isinstance(self.titleBar, LaceStandardTitleBar):
+            self.setTitleBar(LaceStandardTitleBar(self))
         # Integrate title bar into QMainWindow layout so the central
         # widget is positioned below it.
         self.setMenuWidget(self.titleBar)
+        self._frameless_heal_queued = False
+        self._last_healed_winid = 0
+
+    def event(self, e: QEvent) -> bool:
+        # A GL child (WebEngine first setHtml, QOpenGLWidget, …) recreates
+        # the top-level native handle, stripping the DWM bits. Heal
+        # deferred + coalesced: Chromium delivers WinIdChange twice.
+        if e.type() == QEvent.Type.WinIdChange:
+            self._schedule_frameless_heal()
+        return super().event(e)
 
     # -- title bar --------------------------------------------------------
 
@@ -449,7 +644,7 @@ class FramelessLaceMainWindow(FramelessMainWindow):
 
 # ── Frameless Floating Window ──────────────────────────────────────────
 
-class FramelessLaceWindow(FramelessWindow):
+class FramelessLaceWindow(_FramelessChromeHealMixin, FramelessWindow):
     """A frameless floating window that uses PySideSix-Frameless-Window
     for custom title bars on floating dock containers.
 
@@ -478,10 +673,28 @@ class FramelessLaceWindow(FramelessWindow):
         _enable_system_dark_mode_menus()
         if title_bar is not None:
             self.setTitleBar(_resolve_title_bar(title_bar, self))
+        elif not isinstance(getattr(self, "titleBar", None), LaceStandardTitleBar):
+            try:
+                self.setTitleBar(LaceStandardTitleBar(self))
+            except (RuntimeError, TypeError):
+                logger.debug("default Lace title-bar swap failed", exc_info=True)
+        self._frameless_heal_queued = False
+        self._last_healed_winid = 0
+
+    def event(self, e: QEvent) -> bool:
+        # Same auto-heal as the main window. FramelessFloatingDockContainer
+        # reaches this via super().event(e) from its own event() override.
+        if e.type() == QEvent.Type.WinIdChange:
+            self._schedule_frameless_heal()
+        return super().event(e)
 
 
 __all__ = [
     "FramelessLaceMainWindow",
     "FramelessLaceWindow",
     "LaceStandardTitleBar",
+    "TITLEBAR_NON_DRAG_TYPES",
+    "ensure_frameless_chrome",
+    "titlebar_blocks_drag",
+    "titlebar_child_blocks_drag",
 ]

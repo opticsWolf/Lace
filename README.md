@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.7.0
+**Version:** 0.7.5
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -74,8 +74,8 @@
 - **SVG-based icon system** — Theme-aware SVG icons with automatic color tinting
 - **Custom icon provider** — Register a directory of SVG icons for use across tabs and menus
 - **Painted chrome** — Custom-drawn title bars, tab buttons, splitter handles, and drop indicators with rounded corners and hover states
-- **Frameless windows** — Custom (PySideSix-Frameless-Window) title bars for the main window and floating containers with a synchronous double-click-to-maximize, DWM shadow, and resize borders
-- **Configurable custom title bars** — Set different title-bar classes for the main window and floating dock containers (`title_bar=` constructor arg, `DockManager.main_title_bar` / `floating_title_bar`); embed menus, search fields, or any widget directly in the frameless chrome
+- **Frameless windows** — Custom (PySideSix-Frameless-Window) title bars for the main window and floating containers with a synchronous double-click-to-maximize, DWM shadow, and resize borders; GL children (`QWebEngineView`, `QOpenGLWidget`) auto-heal the native chrome via `WinIdChange` (`ensure_frameless_chrome()`)
+- **Configurable custom title bars** — Set different title-bar classes for the main window and floating dock containers (`title_bar=` constructor arg, live `DockManager.main_title_bar` / `floating_title_bar`); embed menus, search fields, or any widget directly in the frameless chrome — `LaceStandardTitleBar` already vetoes drags from interactive children, paints the theme background, and anchors inserts, so subclasses only add widgets
 - **Chromeless floating windows** — Optional bare floating surfaces without any title bar
 
 ---
@@ -166,10 +166,12 @@ class MainWindow(FramelessLaceMainWindow):
         self.dock_manager.floating_title_bar = SearchTitleBar
 ```
 
-`DockManager.main_title_bar` configures the main window, and
-`DockManager.floating_title_bar` configures new floating containers created
-when dock widgets are torn off. See [Quick Reference — Frameless Windows
-& the Custom Title Bar](docs/QUICK_REFERENCE.md#frameless-windows--the-custom-title-bar)
+`DockManager.main_title_bar` configures the main window (applied live when
+the parent is frameless), and `DockManager.floating_title_bar` configures
+new floating containers created when dock widgets are torn off.
+`DockManager` also installs both theme bridges itself (dock tree + app-wide
+for top-level `QMenu`s), so no manual `DockThemeBridge()` is needed. See
+[Quick Reference — Frameless Windows & the Custom Title Bar](docs/QUICK_REFERENCE.md#frameless-windows--the-custom-title-bar)
 for the full API.
 - Insertion order control
 - Sidebar focus mode and badge position controls
