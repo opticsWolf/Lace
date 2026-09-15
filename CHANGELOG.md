@@ -5,6 +5,36 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.7.5] — 2026-09-15
+
+Frameless follow-through from `docs/frameless-webengine-findings.md`
+(Kilim WebEngine surface): the GL-child handle recreation now auto-heals,
+and the custom-bar recipe is code instead of documentation.
+
+### Fixed
+
+- **Frameless chrome survives GL children** — a `QWebEngineView` first
+  `setHtml()` (or `QOpenGLWidget`) makes Qt recreate the top-level native
+  handle, stripping the CAPTION/THICKFRAME bits DWM rounding and Snap need.
+  Both frameless window classes now watch `QEvent.WinIdChange` and re-apply
+  `updateFrameless()` plus the float taskbar ex-style
+  (`ensure_frameless_chrome()`, coalesced and idempotent — the heal keeps the
+  `winId`, so it cannot loop). `restore_frameless_chrome()` remains as a
+  manual escape hatch.
+
+### Changed
+
+- **`LaceStandardTitleBar` is a real base class** — `canDrag()` vetoes drags
+  from `QMenuBar`/`QMenu`/`QAbstractButton`/`QLineEdit`, `paintEvent` fills
+  the live theme background, and `insert_content_widget()` /
+  `content_index_after_title()` anchor embeds after `titleLabel` instead of
+  hardcoding indices. Both window classes default to it.
+- **`DockManager` installs both palette bridges itself** (dock tree +
+  app-wide for top-level `QMenu`s, host style untouched) — no manual
+  `DockThemeBridge()` needed; demos dropped theirs.
+- **`DockManager.main_title_bar` applies live** via `setTitleBar` when the
+  parent is frameless (was write-only).
+
 ## [0.7.0] — 2026-09-03
 
 The release the 0.6.6 – 0.6.18 patches roll up into: the seven phases of
