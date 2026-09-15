@@ -5,6 +5,21 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.7.6] — 2026-09-15
+
+### Fixed
+
+- **Sidebar Escape no longer swallows Esc for the whole window** — the
+  window-wide `Escape` shortcut (whose only purpose is dismissing the hover
+  overlay, which never takes focus) is now enabled only while an overlay is
+  actually up. `SidebarManager` syncs it on overlay Show/Hide, so every
+  show/hide path is covered with no per-call-site bookkeeping; with nothing
+  open, Esc reaches focused widgets (terminals, editors, dialogs) instead of
+  firing `close_current` — or worse, going ambiguous against a second same-key
+  shortcut so neither fires. `close_overlay()` also honours
+  `animations_enabled` now (was hardcoded animated), making the hide — and
+  the gate — synchronous when animations are off.
+
 ## [0.7.5] — 2026-09-15
 
 Frameless follow-through from `docs/frameless-webengine-findings.md`

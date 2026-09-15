@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.7.5
+**Version:** 0.7.6
 
 ---
 
@@ -845,7 +845,7 @@ VS Code-style auto-hide sidebar with hover, animations, badges, and drag-to-floa
 | **Internal** | `_uncheck_all()`, `_on_tab_hover_enter/leave()`, `_process_pending_switch()`, `_on_hide_timeout()`, `_on_tab_clicked()`, `_show_for_button()`, `_on_overlay_pin_back/drag_unpin/resized()`, `_on_tab_drag_started()`, `_on_sidebar_activated()` |
 
 **Inner controllers:**
-- **SidebarKeyboardHandler** — shortcut registration (Escape), signals: `toggle_sidebar`, `focus_sidebar`, `close_current`
+- **SidebarKeyboardHandler** — shortcut registration (Escape, enabled only while an overlay is up — see `SidebarManager.eventFilter`), signals: `toggle_sidebar`, `focus_sidebar`, `close_current`
 - **SidebarHoverController** — hover timers (400ms hide, 150ms switch), pending tab switching
 - **SidebarOverlayController** — show/hide/resizing overlay, detach from overlay
 - **SidebarDragController** — drag tab off sidebar → floating window

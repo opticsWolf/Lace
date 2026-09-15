@@ -55,11 +55,29 @@ class SidebarKeyboardHandler(QObject):
             #"Ctrl+Shift+X": (lambda: self.focus_sidebar.emit(DockWidgetArea.left), "Focus Extensions"),
             "Escape": (lambda: self.close_current.emit(), "Close Sidebar"),
         }
-        
+
         for key, (callback, tooltip) in shortcuts.items():
+            if key in self._shortcuts:
+                continue
             shortcut = QShortcut(QKeySequence(key), window)
             shortcut.activated.connect(callback)
             self._shortcuts[key] = shortcut
+        # The Escape binding exists only to dismiss a hover overlay, which
+        # never takes focus — but as a window-wide shortcut it would swallow
+        # Esc for every focused widget (terminals, editors, dialogs) even
+        # with nothing to close. Start disabled; SidebarManager syncs it on
+        # overlay Show/Hide so the key belongs to the app unless an overlay
+        # is actually up.
+        self.set_escape_enabled(False)
+
+    def set_escape_enabled(self, enabled: bool) -> None:
+        """Enable the Escape-to-close binding only while an overlay is up."""
+        shortcut = self._shortcuts.get("Escape")
+        if shortcut is not None:
+            try:
+                shortcut.setEnabled(enabled)
+            except RuntimeError:
+                pass
 
 
 class SidebarHoverController(QObject):
@@ -192,7 +210,8 @@ class SidebarOverlayController(QObject):
                 if dw:
                     dw.set_widget_state(WidgetState.pinned_hidden)
 
-            self._manager._overlay.hide_widget()
+            self._manager._overlay.hide_widget(
+                animate=self._manager._animations_enabled)
             self._manager._uncheck_all()
             self._manager._active_button = None
 
@@ -323,7 +342,12 @@ class SidebarManager(QObject):
         
         self._state_manager = SidebarStateManager()
         self._keyboard = SidebarKeyboardHandler(self)
-        
+        # Gate the window-wide Escape shortcut on actual overlay visibility
+        # (see eventFilter): covers every show/hide path — hover, click,
+        # toggle, drag-out, animation completion — with no per-call-site
+        # bookkeeping to miss.
+        self._overlay.installEventFilter(self)
+
         qapp = QApplication.instance()
         if qapp:
             self._click_filter = ClickOutsideFilter(self, parent=self)
@@ -350,6 +374,22 @@ class SidebarManager(QObject):
         self._keyboard.toggle_sidebar.connect(self.toggle_sidebar)
         self._keyboard.focus_sidebar.connect(self.focus_sidebar)
         self._keyboard.close_current.connect(self.close_overlay)
+        # Registration starts Escape disabled; sync with reality in case an
+        # overlay is somehow already up.
+        self._keyboard.set_escape_enabled(self._overlay.isVisible())
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        # The Escape shortcut is window-wide (the hover overlay never takes
+        # focus, so scoping it to the sidebar would break its only purpose)
+        # but must not swallow Esc for focused widgets when nothing is open.
+        # Syncing on Show/Hide follows the overlay's actual visibility —
+        # including animation-delayed hides — whatever path showed or hid it.
+        if watched is self._overlay:
+            if event.type() == QEvent.Show:
+                self._keyboard.set_escape_enabled(True)
+            elif event.type() == QEvent.Hide:
+                self._keyboard.set_escape_enabled(False)
+        return False
     
     def add_sidebar(self, area: DockWidgetArea) -> SideTabBar:
         if area in self._sidebars:
