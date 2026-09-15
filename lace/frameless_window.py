@@ -21,10 +21,11 @@ On Windows this resolves to ``WindowsFramelessMainWindow`` /
 
 from __future__ import annotations
 
+import logging
 import sys
 from typing import Optional, Union
 
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QMenu, QMenuBar, QVBoxLayout, QWidget
 from qframelesswindow import FramelessMainWindow, FramelessWindow
@@ -34,6 +35,8 @@ from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
 from lace.util import (is_window_maximized, restore_window,
                        toggle_window_maximized)
 
+
+logger = logging.getLogger(__name__)
 
 _DARK_MODE_OPTED_IN = False
 
@@ -123,6 +126,95 @@ def _resolve_title_bar(title_bar: TitleBarDescriptor, parent: QWidget) -> QWidge
     raise TypeError(
         f"title_bar must be None, QWidget, class, or callable, got {type(title_bar)}"
     )
+
+
+def ensure_frameless_chrome(window: QWidget) -> bool:
+    """Re-apply frameless chrome after the native handle was recreated.
+
+    A GL child (``QWebEngineView`` first ``setHtml()``, ``QOpenGLWidget``, …)
+    makes Qt destroy and recreate the top-level native handle, which strips
+    the CAPTION/THICKFRAME bits DWM rounding and Snap depend on (see
+    ``docs/frameless-webengine-findings.md`` §3). ``updateFrameless()``
+    restores them without changing the ``winId`` itself, so healing is
+    idempotent and cannot loop.
+
+    Also re-applies the floating-container taskbar ex-style when *window*
+    provides ``_apply_taskbar_presence`` (the new handle does not inherit
+    it). Safe to call on any widget: returns ``False`` when there is no
+    ``updateFrameless`` to call.
+    """
+    updater = getattr(window, "updateFrameless", None)
+    if not callable(updater):
+        return False
+    try:
+        updater()
+    except RuntimeError:
+        return False
+    except Exception:
+        logger.debug("frameless chrome heal failed", exc_info=True)
+        return False
+    apply_taskbar = getattr(window, "_apply_taskbar_presence", None)
+    if callable(apply_taskbar):
+        try:
+            apply_taskbar()
+        except Exception:
+            logger.debug("taskbar presence re-apply failed", exc_info=True)
+    try:
+        window._last_healed_winid = int(window.winId())  # type: ignore[attr-defined]
+    except (RuntimeError, TypeError, ValueError):
+        pass
+    return True
+
+
+class _FramelessChromeHealMixin:
+    """Auto-heal frameless chrome when Qt recreates the native handle.
+
+    Mixed into the frameless window classes below. A ``QEvent.WinIdChange``
+    schedules a deferred :func:`ensure_frameless_chrome` (coalesced: Chromium
+    delivers the event twice per recreation). The heal itself does not change
+    the ``winId``, so it cannot re-trigger; spurious events with an unchanged
+    handle are skipped via ``_last_healed_winid``.
+    """
+
+    _frameless_heal_queued: bool = False
+    _last_healed_winid: int = 0
+
+    def _schedule_frameless_heal(self) -> None:
+        try:
+            if getattr(self, "_frameless_heal_queued", False):
+                return
+            self._frameless_heal_queued = True  # type: ignore[attr-defined]
+            QTimer.singleShot(0, self._heal_frameless_chrome)  # type: ignore[attr-defined]
+        except RuntimeError:
+            pass
+
+    def _heal_frameless_chrome(self) -> None:
+        try:
+            self._frameless_heal_queued = False  # type: ignore[attr-defined]
+        except RuntimeError:
+            return
+        try:
+            current = int(self.winId())  # type: ignore[attr-defined]
+        except (RuntimeError, TypeError, ValueError):
+            return
+        last = getattr(self, "_last_healed_winid", 0)
+        if current != 0 and current == last:
+            return
+        try:
+            self.restore_frameless_chrome()  # type: ignore[attr-defined]
+        except RuntimeError:
+            pass
+
+    def restore_frameless_chrome(self) -> bool:
+        """Immediately re-apply frameless chrome and taskbar presence.
+
+        Manual escape hatch for cases where the automatic ``WinIdChange``
+        heal has not run yet (or event delivery is in doubt). Idempotent.
+        """
+        try:
+            return ensure_frameless_chrome(self)  # type: ignore[arg-type]
+        except RuntimeError:
+            return False
 
 
 class LaceStandardTitleBar(StandardTitleBar):
@@ -293,7 +385,7 @@ class LaceStandardTitleBar(StandardTitleBar):
 
 # ── Frameless MainWindow ───────────────────────────────────────────────
 
-class FramelessLaceMainWindow(FramelessMainWindow):
+class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
     """A frameless main window that uses PySideSix-Frameless-Window for
     custom title bars and non-client area handling.
 
@@ -338,6 +430,16 @@ class FramelessLaceMainWindow(FramelessMainWindow):
         # Integrate title bar into QMainWindow layout so the central
         # widget is positioned below it.
         self.setMenuWidget(self.titleBar)
+        self._frameless_heal_queued = False
+        self._last_healed_winid = 0
+
+    def event(self, e: QEvent) -> bool:
+        # A GL child (WebEngine first setHtml, QOpenGLWidget, …) recreates
+        # the top-level native handle, stripping the DWM bits. Heal
+        # deferred + coalesced: Chromium delivers WinIdChange twice.
+        if e.type() == QEvent.Type.WinIdChange:
+            self._schedule_frameless_heal()
+        return super().event(e)
 
     # -- title bar --------------------------------------------------------
 
@@ -449,7 +551,7 @@ class FramelessLaceMainWindow(FramelessMainWindow):
 
 # ── Frameless Floating Window ──────────────────────────────────────────
 
-class FramelessLaceWindow(FramelessWindow):
+class FramelessLaceWindow(_FramelessChromeHealMixin, FramelessWindow):
     """A frameless floating window that uses PySideSix-Frameless-Window
     for custom title bars on floating dock containers.
 
@@ -478,10 +580,20 @@ class FramelessLaceWindow(FramelessWindow):
         _enable_system_dark_mode_menus()
         if title_bar is not None:
             self.setTitleBar(_resolve_title_bar(title_bar, self))
+        self._frameless_heal_queued = False
+        self._last_healed_winid = 0
+
+    def event(self, e: QEvent) -> bool:
+        # Same auto-heal as the main window. FramelessFloatingDockContainer
+        # reaches this via super().event(e) from its own event() override.
+        if e.type() == QEvent.Type.WinIdChange:
+            self._schedule_frameless_heal()
+        return super().event(e)
 
 
 __all__ = [
     "FramelessLaceMainWindow",
     "FramelessLaceWindow",
     "LaceStandardTitleBar",
+    "ensure_frameless_chrome",
 ]
