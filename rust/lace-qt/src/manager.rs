@@ -200,6 +200,12 @@ pub mod ffi {
         #[cxx_name = "cancelDrag"]
         fn cancel_drag(self: Pin<&mut Self>);
 
+        /// Clear the hover highlight without ending the session (the
+        /// pointer left every zone mid-drag).
+        #[qinvokable]
+        #[cxx_name = "clearDragTarget"]
+        fn clear_drag_target(self: Pin<&mut Self>);
+
         /// Maximize an area (`"<container>/<path>"`); repeat or `""` to
         /// restore. Never reshapes the tree — siblings just hide.
         #[qinvokable]
@@ -673,6 +679,10 @@ impl ffi::LaceManager {
     fn cancel_drag(mut self: Pin<&mut Self>) {
         self.as_mut().rust_mut().drag.cancel();
         self.as_mut().clear_drag();
+    }
+
+    fn clear_drag_target(mut self: Pin<&mut Self>) {
+        self.as_mut().set_drag_target_key(QString::from(""));
     }
 
     /// Centre-tabs never reshape, so maximize survives them; every other

@@ -10,6 +10,7 @@ import com.lace.dock 1.0
 Item {
     id: root
     required property var manager
+    required property var docksView
     required property int containerIndex
     required property string areaPath
     required property var area
@@ -65,53 +66,77 @@ Item {
                 : (LaceTheme.color("title_bar.bg_normal") || "darkgrey")
             // Drag sensor FIRST (bottom of z-order): the action buttons above
             // must receive their presses; empty strip areas fall through here.
+            // Pure mouse tracker: arming the attached Drag object starts a
+            // session no DropArea ever enters, so hover is computed
+            // geometrically (docksView.hoverMove) and the drop commits the
+            // proven move ops on release. Nothing structural happens
+            // mid-gesture, so this sensor always survives to the release.
             MouseArea {
                 id: titleMouse
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton
+                property string pendingName: ""
                 property var pressPos: null
-                property bool dragging: false
-                function startDrag() {
-                    if (dragging || root.currentName === "")
-                        return
-                    dragging = true
-                    // Bare Drag.* (NOT titleMouse.Drag.*): prefixed attached
-                    // access silently detaches the key list, so DropAreas
-                    // never match and drops land nowhere.
-                    Drag.source = titleMouse
-                    Drag.keys = ["lace-tab"]
-                    Drag.mimeData = { "text/plain": root.currentName }
-                    Drag.active = true
-                    root.manager.beginDrag(root.currentName)
+                // View coordinates of the current pointer position.
+                function viewPos(mx, my) {
+                    return titleMouse.mapToItem(root.docksView, mx, my)
                 }
-                function stopDrag() {
-                    dragging = false
-                    Drag.active = false
-                    if (root.manager.dragActive)
-                        root.manager.cancelDrag()
+                function endGesture() {
+                    pendingName = ""
+                    pressPos = null
+                }
+                onPressed: function(mouse) {
+                    pressPos = Qt.point(mouse.x, mouse.y)
+                    pendingName = root.currentName
                 }
                 onClicked: function(event) {
                     root.manager.focusedArea = root.focusKey
                     event.accepted = false
                 }
-                onPressAndHold: titleMouse.startDrag()
-                onPressed: function(mouse) {
-                    pressPos = Qt.point(mouse.x, mouse.y)
-                    dragging = false
+                onDoubleClicked: root.manager.toggleMaximize(root.focusKey)
+                // Hold arms the manager session; motion past 8px does too.
+                onPressAndHold: {
+                    if (pendingName !== "")
+                        root.manager.beginDrag(pendingName)
                 }
-                // Press-and-hold alone is hard to discover (and small moves
-                // cancel it): also arm once the pointer travels, like Qt
-                // Widgets drags do. Either path calls startDrag once.
                 onPositionChanged: function(mouse) {
-                    if (pressed && !dragging && pressPos) {
+                    if (!pressed || pressPos === null)
+                        return
+                    if (!root.manager.dragActive) {
                         var dx = mouse.x - pressPos.x
                         var dy = mouse.y - pressPos.y
-                        if (dx * dx + dy * dy > 64)
-                            startDrag()
+                        if (dx * dx + dy * dy > 64 && pendingName !== "")
+                            root.manager.beginDrag(pendingName)
+                    } else {
+                        var p = viewPos(mouse.x, mouse.y)
+                        root.docksView.hoverMove(p.x, p.y)
                     }
                 }
-                onReleased: titleMouse.stopDrag()
-                onCanceled: titleMouse.stopDrag()
+                onReleased: function(mouse) {
+                    if (root.manager.dragActive) {
+                        var p = viewPos(mouse.x, mouse.y)
+                        var hit = root.docksView.hoverMove(p.x, p.y)
+                        if (hit !== null) {
+                            if (hit.kind === "C")
+                                root.manager.commitContainerDrop(hit.container, hit.edge)
+                            else
+                                root.manager.commitSectionDrop(hit.container, hit.path, hit.edge)
+                        } else {
+                            // Released outside any target: float in place.
+                            root.manager.floatWidget(pendingName !== "" ? pendingName : root.currentName)
+                            root.manager.cancelDrag()
+                        }
+                        root.docksView.clearHover()
+                    }
+                    endGesture()
+                }
+                onCanceled: {
+                    if (root.manager.dragActive) {
+                        root.manager.cancelDrag()
+                        root.docksView.clearHover()
+                    }
+                    endGesture()
+                }
             }
             RowLayout {
                 anchors.fill: parent
@@ -213,6 +238,75 @@ Item {
                     id: tabBtn
                     required property var modelData
                     required property int index
+                    // Sensor overlay over the label (the × stays on top and
+                    // clickable): pure tracker like the title strip — hover is
+                    // geometric, the drop commits on release. Clicks forward
+                    // to the tab (selection); hold/move drags.
+                    MouseArea {
+                        id: tabSensor
+                        anchors.fill: parent
+                        anchors.rightMargin: 26
+                        acceptedButtons: Qt.LeftButton
+                        hoverEnabled: false
+                        property string pendingTab: ""
+                        property var pressTabPos: null
+                        function viewPos(mx, my) {
+                            return tabSensor.mapToItem(root.docksView, mx, my)
+                        }
+                        function endGesture() {
+                            pendingTab = ""
+                            pressTabPos = null
+                        }
+                        onPressed: function(mouse) {
+                            pendingTab = tabBtn.modelData.name
+                            pressTabPos = Qt.point(mouse.x, mouse.y)
+                        }
+                        onClicked: {
+                            bar.currentIndex = tabBtn.index
+                            root.manager.setCurrentTab(root.containerIndex, root.areaPath, tabBtn.modelData.name)
+                        }
+                        onPressAndHold: {
+                            if (pendingTab !== "")
+                                root.manager.beginDrag(pendingTab)
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (!pressed || pressTabPos === null)
+                                return
+                            if (!root.manager.dragActive) {
+                                var dx = mouse.x - pressTabPos.x
+                                var dy = mouse.y - pressTabPos.y
+                                if (dx * dx + dy * dy > 64 && pendingTab !== "")
+                                    root.manager.beginDrag(pendingTab)
+                            } else {
+                                var p = viewPos(mouse.x, mouse.y)
+                                root.docksView.hoverMove(p.x, p.y)
+                            }
+                        }
+                        onReleased: function(mouse) {
+                            if (root.manager.dragActive) {
+                                var p = viewPos(mouse.x, mouse.y)
+                                var hit = root.docksView.hoverMove(p.x, p.y)
+                                if (hit !== null) {
+                                    if (hit.kind === "C")
+                                        root.manager.commitContainerDrop(hit.container, hit.edge)
+                                    else
+                                        root.manager.commitSectionDrop(hit.container, hit.path, hit.edge)
+                                } else {
+                                    root.manager.floatWidget(pendingTab !== "" ? pendingTab : tabBtn.modelData.name)
+                                    root.manager.cancelDrag()
+                                }
+                                root.docksView.clearHover()
+                            }
+                            endGesture()
+                        }
+                        onCanceled: {
+                            if (root.manager.dragActive) {
+                                root.manager.cancelDrag()
+                                root.docksView.clearHover()
+                            }
+                            endGesture()
+                        }
+                    }
                     implicitWidth: tabRow.implicitWidth + 12
                     implicitHeight: 30
                     contentItem: RowLayout {
@@ -247,20 +341,6 @@ Item {
                             onClicked: modelData.closed
                                 ? root.manager.setWidgetClosed(modelData.name, false)
                                 : root.manager.removeWidget(modelData.name)
-                            // Tabs drag like titles (hold still: buttons give no
-                            // press position, so only the hold path arms here).
-                            onPressAndHold: {
-                                Drag.source = tabBtn
-                                Drag.keys = ["lace-tab"]
-                                Drag.mimeData = { "text/plain": modelData.name }
-                                Drag.active = true
-                                root.manager.beginDrag(modelData.name)
-                            }
-                            onReleased: {
-                                Drag.active = false
-                                if (root.manager.dragActive)
-                                    root.manager.cancelDrag()
-                            }
                         }
                     }
                     background: Rectangle {
@@ -307,109 +387,6 @@ Item {
                     widgetClosed: !!modelData.closed
                 }
             }
-        }
-    }
-
-    // Drop zones (section level). Visible only while dragging an offered
-    // edge; the highlight follows `dragTargetKey`. Zones never intercept
-    // the mouse when idle (`visible: false` disables them).
-    function zoneVisible(edge) {
-        if (!manager.dragActive)
-            return false
-        return manager.dropEdges(containerIndex).split(",").includes(edge)
-    }
-    function zoneKey(edge) {
-        return "S:" + containerIndex + "/" + areaPath + "/" + edge
-    }
-    function zoneHighlight(edge) {
-        return manager.dragTargetKey === zoneKey(edge)
-    }
-
-    DropArea {
-        keys: ["lace-tab"]
-        anchors.fill: parent
-        z: 10
-        visible: zoneVisible("center")
-        onEntered: manager.overSectionDrop(containerIndex, areaPath, "center")
-        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "center")
-        Rectangle {
-            anchors.fill: parent
-            color: LaceTheme.color("overlay.overlay_color") || "transparent"
-            border.color: LaceTheme.color("overlay.frame_color") || "blue"
-            border.width: 2
-            visible: zoneHighlight("center")
-        }
-    }
-    DropArea {
-        keys: ["lace-tab"]
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        width: 56
-        z: 11
-        visible: zoneVisible("left")
-        onEntered: manager.overSectionDrop(containerIndex, areaPath, "left")
-        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "left")
-        Rectangle {
-            anchors.fill: parent
-            color: LaceTheme.color("overlay.overlay_color") || "transparent"
-            border.color: LaceTheme.color("overlay.frame_color") || "blue"
-            border.width: 2
-            visible: zoneHighlight("left")
-        }
-    }
-    DropArea {
-        keys: ["lace-tab"]
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        width: 56
-        z: 11
-        visible: zoneVisible("right")
-        onEntered: manager.overSectionDrop(containerIndex, areaPath, "right")
-        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "right")
-        Rectangle {
-            anchors.fill: parent
-            color: LaceTheme.color("overlay.overlay_color") || "transparent"
-            border.color: LaceTheme.color("overlay.frame_color") || "blue"
-            border.width: 2
-            visible: zoneHighlight("right")
-        }
-    }
-    DropArea {
-        keys: ["lace-tab"]
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        height: 56
-        z: 11
-        visible: zoneVisible("top")
-        onEntered: manager.overSectionDrop(containerIndex, areaPath, "top")
-        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "top")
-        Rectangle {
-            anchors.fill: parent
-            color: LaceTheme.color("overlay.overlay_color") || "transparent"
-            border.color: LaceTheme.color("overlay.frame_color") || "blue"
-            border.width: 2
-            visible: zoneHighlight("top")
-        }
-    }
-    DropArea {
-        keys: ["lace-tab"]
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: 56
-        z: 11
-        visible: zoneVisible("bottom")
-        onEntered: manager.overSectionDrop(containerIndex, areaPath, "bottom")
-        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "bottom")
-        Rectangle {
-            anchors.fill: parent
-            color: LaceTheme.color("overlay.overlay_color") || "transparent"
-            border.color: LaceTheme.color("overlay.frame_color") || "blue"
-            border.width: 2
-            visible: zoneHighlight("bottom")
         }
     }
 }

@@ -5,6 +5,8 @@ import QtQuick
 Item {
     id: builder
     required property var manager
+    // Owning DockManagerView (hit-testing + hover live here, not in areas).
+    required property var docksView
     visible: false
 
     property Component splitterComp: SplitterView {}
@@ -78,6 +80,7 @@ Item {
             counts.widgets += (node.widgets || []).length
             var area = areaComp.createObject(null, {
                 manager: builder.manager,
+                docksView: builder.docksView,
                 containerIndex: containerIndex,
                 areaPath: path,
                 area: node,

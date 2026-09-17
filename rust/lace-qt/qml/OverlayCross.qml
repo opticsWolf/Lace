@@ -3,9 +3,10 @@ import QtQuick
 import com.lace.dock 1.0
 
 // Container-level drop cross over the main view, shown while dragging.
-// Edges split the root directionally; the centre follows the solo-tabs /
-// multi-splits fallback. Uses the overlay_* tokens; the per-area zones in
-// AreaView handle section-level drops.
+// Pure visual: hover is computed geometrically by DockManagerView.hoverMove
+// (no system DnD involved), highlights follow `dragTargetKey`. Edges split
+// the root directionally; the centre follows the solo-tabs / multi-splits
+// fallback. The rubber band in DockManagerView shows the result rect.
 Item {
     id: cross
     required property var manager
@@ -33,91 +34,56 @@ Item {
         color: "transparent"
         border.color: frameColor()
         border.width: 2
-        visible: manager.dragActive
     }
 
-    DropArea {
-        keys: ["lace-tab"]
+    component ZoneBand: Rectangle {
+        property string zone: ""
+        color: fillColor()
+        border.color: frameColor()
+        border.width: 2
+        opacity: highlighted(zone) ? 0.65 : 0.22
+    }
+
+    ZoneBand {
+        zone: "left"
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: 72
-        onEntered: manager.overContainerDrop(mainIndex, "left")
-        onDropped: manager.commitContainerDrop(mainIndex, "left")
-        Rectangle {
-            anchors.fill: parent
-            color: fillColor()
-            border.color: frameColor()
-            border.width: 2
-            visible: highlighted("left")
-        }
     }
-    DropArea {
-        keys: ["lace-tab"]
+    ZoneBand {
+        zone: "right"
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: 72
-        onEntered: manager.overContainerDrop(mainIndex, "right")
-        onDropped: manager.commitContainerDrop(mainIndex, "right")
-        Rectangle {
-            anchors.fill: parent
-            color: fillColor()
-            border.color: frameColor()
-            border.width: 2
-            visible: highlighted("right")
-        }
     }
-    DropArea {
-        keys: ["lace-tab"]
+    ZoneBand {
+        zone: "top"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: 72
-        onEntered: manager.overContainerDrop(mainIndex, "top")
-        onDropped: manager.commitContainerDrop(mainIndex, "top")
-        Rectangle {
-            anchors.fill: parent
-            color: fillColor()
-            border.color: frameColor()
-            border.width: 2
-            visible: highlighted("top")
-        }
     }
-    DropArea {
-        keys: ["lace-tab"]
+    ZoneBand {
+        zone: "bottom"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         height: 72
-        onEntered: manager.overContainerDrop(mainIndex, "bottom")
-        onDropped: manager.commitContainerDrop(mainIndex, "bottom")
-        Rectangle {
-            anchors.fill: parent
-            color: fillColor()
-            border.color: frameColor()
-            border.width: 2
-            visible: highlighted("bottom")
-        }
     }
-    DropArea {
-        keys: ["lace-tab"]
+    Rectangle {
         anchors.centerIn: parent
         width: 200
         height: 140
-        onEntered: manager.overContainerDrop(mainIndex, "center")
-        onDropped: manager.commitContainerDrop(mainIndex, "center")
-        Rectangle {
-            anchors.fill: parent
-            color: fillColor()
-            border.color: frameColor()
-            border.width: 3
-            visible: highlighted("center")
-            Text {
-                anchors.centerIn: parent
-                text: qsTr("Drop to tab / split")
-                color: LaceTheme.color("overlay.arrow_color") || "white"
-            }
+        color: fillColor()
+        border.color: frameColor()
+        border.width: 3
+        opacity: highlighted("center") ? 0.65 : 0.22
+        Text {
+            anchors.centerIn: parent
+            text: qsTr("Drop to tab / split")
+            color: LaceTheme.color("overlay.arrow_color") || "white"
         }
     }
 }
