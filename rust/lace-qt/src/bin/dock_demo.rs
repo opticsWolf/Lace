@@ -9,6 +9,10 @@ use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QQmlEngine, QUrl};
 use std::pin::Pin;
 
 fn main() {
+    // Custom background/contentItem delegates (the whole dock chrome) are
+    // ignored under the native Windows style — Basic honors them everywhere.
+    // Must precede any QML load (the style locks at first Controls import).
+    cxx_qt_lib::QQuickStyle::set_style(&cxx_qt_lib::QString::from("Basic"));
     let mut app = QGuiApplication::new();
     let mut engine = QQmlApplicationEngine::new();
 

@@ -12,6 +12,10 @@ ApplicationWindow {
     visible: true
     title: qsTr("Lace — Rust dock demo")
 
+    background: Rectangle {
+        color: LaceTheme.color("core.canvas_bg") || "#202020"
+    }
+
     LaceManager {
         id: manager
     }

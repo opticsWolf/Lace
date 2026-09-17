@@ -209,3 +209,7 @@ __marimo__/
 # Rust / CXX-Qt build byproducts
 .qmlls.ini
 cxxqt-config.json
+
+# Local visual-smoke tooling captures (scripts are tracked, shots are not).
+dev_smoke/*.png
+dev_smoke/*.log

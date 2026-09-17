@@ -16,6 +16,10 @@ extern "C" {
 }
 
 fn main() {
+    // Custom background/contentItem delegates (the whole dock chrome) are
+    // ignored under the native Windows style — Basic honors them everywhere.
+    // Must precede any QML load (the style locks at first Controls import).
+    cxx_qt_lib::QQuickStyle::set_style(&cxx_qt_lib::QString::from("Basic"));
     // Reference the bridge so this bin links the same Qt world as the
     // other lace-qt targets (the whole-archive QML plugin members expect
     // the cxx-qt initializers and Qt libraries to be present).

@@ -59,7 +59,11 @@ Item {
             var container = doc.containers[c]
             if (container.is_main) {
                 view.mainIndex = c
-                builder.buildNode(mainArea, container.data.root_splitter, c, "", counts, view.nodeRegistry)
+                var rootItem = builder.buildNode(mainArea, container.data.root_splitter, c, "", counts, view.nodeRegistry)
+                // Plain Items don't lay out children: the root fills manually
+                // (nested items are positioned by the manual SplitterView).
+                if (rootItem)
+                    rootItem.anchors.fill = mainArea
             } else {
                 var win = builder.floatComp.createObject(null, {
                     manager: view.manager,

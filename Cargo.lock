@@ -356,6 +356,7 @@ dependencies = [
  "cxx-qt-build",
  "cxx-qt-lib",
  "lace-core",
+ "serde_json",
 ]
 
 [[package]]

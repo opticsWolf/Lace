@@ -37,8 +37,10 @@ Window {
         }
         nodeRegistry = []
         var counts = { areas: 0, widgets: 0, floats: 0 }
-        builder.buildNode(content, doc.containers[containerIndex].data.root_splitter,
+        var rootItem = builder.buildNode(content, doc.containers[containerIndex].data.root_splitter,
             containerIndex, "", counts, nodeRegistry)
+        if (rootItem)
+            rootItem.anchors.fill = content
         applyMax()
     }
 

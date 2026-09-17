@@ -29,11 +29,6 @@ Item {
         spacing: 6
 
         Label {
-            text: card.widgetName
-            font.bold: true
-            font.pointSize: 14
-        }
-        Label {
             text: qsTr("Closed — reopen to dock it back into the tab.")
             visible: card.widgetClosed
         }
@@ -48,6 +43,11 @@ Item {
                 ? (LaceTheme.color("core.success_color") || "lightgreen")
                 : (LaceTheme.color("panel.text_color")
                     || LaceTheme.color("core.text_color") || "white")
+            background: Rectangle {
+                color: LaceTheme.color("panel.input_bg")
+                    || LaceTheme.color("panel.bg_normal") || "transparent"
+                radius: 3
+            }
         }
         Button {
             text: card.widgetClosed ? qsTr("Reopen") : qsTr("Close")

@@ -438,6 +438,43 @@ pub fn set_current(
     }
 }
 
+/// Overwrite a splitter node's size weights (from a handle drag). Length
+/// must match the child count and every entry must be a positive number;
+/// silent by contract — the caller already shows the sizes.
+pub fn set_splitter_sizes(
+    doc: &mut LayoutDoc,
+    container_index: usize,
+    path: &[usize],
+    sizes: &[f64],
+) -> Result<(), LaceError> {
+    let root = doc
+        .containers
+        .get_mut(container_index)
+        .map(|c| &mut c.data.root_splitter)
+        .ok_or_else(|| op_error(format!("no container {container_index}")))?;
+    match get_node_mut(root, path) {
+        Some(TreeNode::Splitter {
+            sizes: current,
+            children,
+            ..
+        }) => {
+            if sizes.len() != children.len() {
+                return Err(op_error(format!(
+                    "sizes length {} != children {}",
+                    sizes.len(),
+                    children.len()
+                )));
+            }
+            if !sizes.iter().all(|s| s.is_finite() && *s > 0.0) {
+                return Err(op_error("splitter sizes must be positive numbers"));
+            }
+            *current = sizes.iter().map(|s| serde_json::json!(s)).collect();
+            Ok(())
+        }
+        _ => Err(op_error(format!("no splitter at path {path:?}"))),
+    }
+}
+
 /// Tear `name` out of its container into a new float. Returns the new id.
 pub fn float_widget(doc: &mut LayoutDoc, name: &str) -> Result<String, LaceError> {
     let mut carried: Option<crate::layout_doc::WidgetNode> = None;
@@ -963,6 +1000,24 @@ mod tests {
     fn assert_valid(doc: &mut LayoutDoc) {
         let roster: HashSet<String> = doc.widget_states.keys().cloned().collect();
         validate_doc(doc, doc.version, &roster).expect("op broke validation");
+    }
+
+    #[test]
+    fn splitter_sizes_round_trip() {
+        let mut doc = golden("docked_tabs");
+        // Root of the fixture is a splitter; overwrite then verify.
+        set_splitter_sizes(&mut doc, 0, &[], &[475.0, 216.0]).unwrap();
+        match &doc.containers[0].data.root_splitter {
+            TreeNode::Splitter { sizes, .. } => {
+                assert_eq!(sizes.len(), 2);
+                assert_eq!(sizes[0], serde_json::json!(475.0));
+            }
+            other => panic!("expected splitter, got {other:?}"),
+        }
+        assert_valid(&mut doc);
+        // Length mismatch and non-positive entries fail closed.
+        assert!(set_splitter_sizes(&mut doc, 0, &[], &[1.0]).is_err());
+        assert!(set_splitter_sizes(&mut doc, 0, &[], &[1.0, 0.0]).is_err());
     }
 
     #[test]

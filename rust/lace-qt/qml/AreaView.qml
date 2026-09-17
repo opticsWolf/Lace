@@ -13,6 +13,13 @@ Item {
     required property int containerIndex
     required property string areaPath
     required property var area
+    // Base share from the layout doc (see ContainerBuilder.nominalShares).
+    property double prefW: 100
+    property double prefH: 100
+    implicitWidth: prefW
+    implicitHeight: prefH
+    SplitView.fillWidth: true
+    SplitView.fillHeight: true
 
     property var widgets: area.widgets || []
     property string focusKey: containerIndex + "/" + areaPath
@@ -72,18 +79,63 @@ Item {
                 Button {
                     text: qsTr("Float")
                     flat: true
+                    implicitHeight: 24
                     enabled: root.currentName !== ""
+                    contentItem: Label {
+                        text: parent.text
+                        color: root.areaActive
+                            ? (LaceTheme.color("title_bar.text_active") || "white")
+                            : (LaceTheme.color("title_bar.text_normal") || "white")
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.hovered
+                            ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                            : "transparent"
+                        radius: 3
+                    }
                     onClicked: root.manager.floatWidget(root.currentName)
                 }
                 Button {
                     text: qsTr("Pin")
                     flat: true
+                    implicitHeight: 24
                     enabled: root.currentName !== ""
+                    contentItem: Label {
+                        text: parent.text
+                        color: root.areaActive
+                            ? (LaceTheme.color("title_bar.text_active") || "white")
+                            : (LaceTheme.color("title_bar.text_normal") || "white")
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.hovered
+                            ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                            : "transparent"
+                        radius: 3
+                    }
                     onClicked: root.manager.pinWidget(root.currentName, "left")
                 }
                 Button {
                     text: root.manager.maximizedArea === root.focusKey ? qsTr("[_]") : qsTr("[ ]")
                     flat: true
+                    implicitHeight: 24
+                    contentItem: Label {
+                        text: parent.text
+                        color: root.areaActive
+                            ? (LaceTheme.color("title_bar.text_active") || "white")
+                            : (LaceTheme.color("title_bar.text_normal") || "white")
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.hovered
+                            ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                            : "transparent"
+                        radius: 3
+                    }
                     onClicked: root.manager.toggleMaximize(root.focusKey)
                 }
             }
@@ -126,13 +178,19 @@ Item {
             id: bar
             Layout.fillWidth: true
             currentIndex: root.initialIndex
+            background: Rectangle {
+                color: LaceTheme.color("tab.bg_normal") || "transparent"
+            }
 
             Repeater {
                 model: root.widgets
                 TabButton {
                     required property var modelData
                     required property int index
+                    implicitWidth: tabRow.implicitWidth + 12
+                    implicitHeight: 30
                     contentItem: RowLayout {
+                        id: tabRow
                         spacing: 4
                         Label {
                             text: modelData.name + (modelData.closed ? " (closed)" : "")
@@ -147,6 +205,18 @@ Item {
                             flat: true
                             implicitWidth: 22
                             implicitHeight: 22
+                            contentItem: Label {
+                                text: parent.text
+                                color: LaceTheme.color("tab.close_btn_color") || "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            background: Rectangle {
+                                color: parent.hovered
+                                    ? (LaceTheme.color("tab.close_btn_bg_hover") || "grey")
+                                    : "transparent"
+                                radius: 3
+                            }
                             onClicked: root.manager.removeWidget(modelData.name)
                         }
                     }

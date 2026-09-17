@@ -77,6 +77,18 @@ pub mod ffi {
             name: &QString,
         ) -> bool;
 
+        /// Overwrite a splitter node's size weights after a handle drag.
+        /// Silent like `setCurrentTab`: the view already shows the sizes,
+        /// the document just catches up (so save/restore round-trips them).
+        #[qinvokable]
+        #[cxx_name = "setSplitterSizes"]
+        fn set_splitter_sizes(
+            self: Pin<&mut Self>,
+            container_index: i32,
+            area_path: &QString,
+            sizes_json: &QString,
+        ) -> bool;
+
         /// Tear `name` out into a new float. Returns the container id, or
         /// empty on failure (see `last_error`).
         #[qinvokable]
@@ -408,6 +420,40 @@ impl ffi::LaceManager {
             return self.as_mut().fail(e.to_string());
         }
         // Silent on purpose (see module docs).
+        self.as_mut().sync_silent()
+    }
+
+    fn set_splitter_sizes(
+        mut self: Pin<&mut Self>,
+        container_index: i32,
+        area_path: &QString,
+        sizes_json: &QString,
+    ) -> bool {
+        let path = match parse_path(String::from(area_path).as_str()) {
+            Some(path) => path,
+            None => return self.as_mut().fail(format!("bad area path `{area_path}`")),
+        };
+        let sizes: Vec<f64> = match serde_json::from_str(String::from(sizes_json).as_str()) {
+            Ok(sizes) => sizes,
+            Err(_) => {
+                return self
+                    .as_mut()
+                    .fail("splitter sizes must be a JSON number array".to_string())
+            }
+        };
+        let container_index = match usize::try_from(container_index) {
+            Ok(index) => index,
+            Err(_) => return self.as_mut().fail(format!("bad container index {container_index}")),
+        };
+        if let Err(e) = layout_ops::set_splitter_sizes(
+            &mut self.as_mut().rust_mut().doc,
+            container_index,
+            &path,
+            &sizes,
+        ) {
+            return self.as_mut().fail(e.to_string());
+        }
+        // Silent on purpose (see the bridge docs).
         self.as_mut().sync_silent()
     }
 
