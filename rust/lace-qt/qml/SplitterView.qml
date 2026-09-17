@@ -74,6 +74,10 @@ Item {
     function relayout() {
         if (boxes.length === 0)
             return
+        // Handles show only between visible boxes (maximize hides the
+        // rest): reset all, then enable exactly the positioned ones.
+        for (var hz = 0; hz < handles.length; ++hz)
+            handles[hz].visible = false
         var horiz = splitOrientation === Qt.Horizontal
         var span = horiz ? width : height
         var vis = visibleBoxes()
@@ -104,6 +108,7 @@ Item {
             }
             if (k < vis.length - 1 && handles[k]) {
                 var hh = handles[k]
+                hh.visible = true
                 if (horiz) {
                     hh.x = acc + px
                     hh.y = 0

@@ -75,17 +75,18 @@ Item {
                     if (dragging || root.currentName === "")
                         return
                     dragging = true
-                    // A real QML drag (keys + payload) so DropAreas fire;
-                    // the manager mirrors the session for the drop ops.
-                    titleMouse.Drag.source = titleMouse
-                    titleMouse.Drag.keys = ["lace-tab"]
-                    titleMouse.Drag.mimeData = { "text/plain": root.currentName }
-                    titleMouse.Drag.active = true
+                    // Bare Drag.* (NOT titleMouse.Drag.*): prefixed attached
+                    // access silently detaches the key list, so DropAreas
+                    // never match and drops land nowhere.
+                    Drag.source = titleMouse
+                    Drag.keys = ["lace-tab"]
+                    Drag.mimeData = { "text/plain": root.currentName }
+                    Drag.active = true
                     root.manager.beginDrag(root.currentName)
                 }
                 function stopDrag() {
                     dragging = false
-                    titleMouse.Drag.active = false
+                    Drag.active = false
                     if (root.manager.dragActive)
                         root.manager.cancelDrag()
                 }
@@ -209,6 +210,7 @@ Item {
             Repeater {
                 model: root.widgets
                 TabButton {
+                    id: tabBtn
                     required property var modelData
                     required property int index
                     implicitWidth: tabRow.implicitWidth + 12
@@ -245,6 +247,20 @@ Item {
                             onClicked: modelData.closed
                                 ? root.manager.setWidgetClosed(modelData.name, false)
                                 : root.manager.removeWidget(modelData.name)
+                            // Tabs drag like titles (hold still: buttons give no
+                            // press position, so only the hold path arms here).
+                            onPressAndHold: {
+                                Drag.source = tabBtn
+                                Drag.keys = ["lace-tab"]
+                                Drag.mimeData = { "text/plain": modelData.name }
+                                Drag.active = true
+                                root.manager.beginDrag(modelData.name)
+                            }
+                            onReleased: {
+                                Drag.active = false
+                                if (root.manager.dragActive)
+                                    root.manager.cancelDrag()
+                            }
                         }
                     }
                     background: Rectangle {
