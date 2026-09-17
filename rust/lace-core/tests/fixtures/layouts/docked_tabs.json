@@ -1,0 +1,87 @@
+{
+  "container_geometries": {},
+  "containers": [
+    {
+      "data": {
+        "floating": false,
+        "geometry": "",
+        "root_splitter": {
+          "children": [
+            {
+              "current": "Gamma",
+              "tabs": 3,
+              "type": "Area",
+              "widgets": [
+                {
+                  "closed": false,
+                  "name": "Alpha",
+                  "type": "Widget"
+                },
+                {
+                  "closed": false,
+                  "name": "Beta",
+                  "type": "Widget"
+                },
+                {
+                  "closed": false,
+                  "name": "Gamma",
+                  "type": "Widget"
+                }
+              ]
+            },
+            {
+              "current": "Delta",
+              "tabs": 1,
+              "type": "Area",
+              "widgets": [
+                {
+                  "closed": false,
+                  "name": "Delta",
+                  "type": "Widget"
+                }
+              ]
+            }
+          ],
+          "count": 2,
+          "orientation": "|",
+          "sizes": [
+            475,
+            216
+          ],
+          "type": "Splitter"
+        },
+        "type": "Container"
+      },
+      "id": "main",
+      "is_main": true
+    }
+  ],
+  "schema": 1,
+  "sidebars": {
+    "active_widget": null,
+    "overlay_sizes": {},
+    "pinned_widgets": {},
+    "settings": {
+      "animations_enabled": true,
+      "auto_show_on_hover": true,
+      "keep_open": false
+    },
+    "sidebar_areas": []
+  },
+  "type": "LaceDockingSystem",
+  "version": 0,
+  "widget_states": {
+    "Alpha": {
+      "closed": false
+    },
+    "Beta": {
+      "closed": false
+    },
+    "Delta": {
+      "closed": false
+    },
+    "Gamma": {
+      "closed": false
+    }
+  }
+}

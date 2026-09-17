@@ -10,6 +10,8 @@
 pub mod config;
 pub mod error;
 pub mod layout;
+pub mod layout_doc;
+pub mod persist;
 pub mod presets_generated;
 pub mod schema_generated;
 pub mod style;
@@ -23,4 +25,4 @@ pub use config::{
     TitleBarButton, TitleBarMode, ToggleViewActionMode, WidgetState,
 };
 pub use error::LaceError;
-pub use layout::{allowed_areas_for, split_share, ContainerNode, LayoutTree, LAYOUT_VERSION};
+pub use layout::{allowed_areas_for, split_share};

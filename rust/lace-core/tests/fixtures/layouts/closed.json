@@ -1,0 +1,63 @@
+{
+  "container_geometries": {},
+  "containers": [
+    {
+      "data": {
+        "floating": false,
+        "geometry": "",
+        "root_splitter": {
+          "children": [
+            {
+              "current": "Alpha",
+              "tabs": 2,
+              "type": "Area",
+              "widgets": [
+                {
+                  "closed": false,
+                  "name": "Alpha",
+                  "type": "Widget"
+                },
+                {
+                  "closed": true,
+                  "name": "Beta",
+                  "type": "Widget"
+                }
+              ]
+            }
+          ],
+          "count": 1,
+          "orientation": "-",
+          "sizes": [
+            1000
+          ],
+          "type": "Splitter"
+        },
+        "type": "Container"
+      },
+      "id": "main",
+      "is_main": true
+    }
+  ],
+  "schema": 1,
+  "sidebars": {
+    "active_widget": null,
+    "overlay_sizes": {},
+    "pinned_widgets": {},
+    "settings": {
+      "animations_enabled": true,
+      "auto_show_on_hover": true,
+      "keep_open": false
+    },
+    "sidebar_areas": []
+  },
+  "type": "LaceDockingSystem",
+  "version": 0,
+  "widget_states": {
+    "Alpha": {
+      "closed": false
+    },
+    "Beta": {
+      "closed": true
+    }
+  }
+}

@@ -1,15 +1,11 @@
-//! Layout math and the serializable layout tree.
+//! Layout math shared by every insertion path.
 //!
 //! Ports `split_share()` (`lace/util.py`) and `allowed_areas_for()`
-//! (`lace/floating_behaviour.py`) verbatim, plus a minimal serde tree whose
-//! full schema lands in Phase 2 against 0.7.x golden files.
+//! (`lace/floating_behaviour.py`) verbatim. The serializable document model
+//! and validation live in [`crate::layout_doc`]; atomic file storage in
+//! [`crate::persist`].
 
-use serde::{Deserialize, Serialize};
-
-use crate::config::{DockAreas, Orientation};
-
-/// Layout format version written by this crate.
-pub const LAYOUT_VERSION: u32 = 1;
+use crate::config::DockAreas;
 
 /// Even split of `target_size` across `n_total` panes, minus handle gutters.
 ///
@@ -43,32 +39,6 @@ pub fn allowed_areas_for(visible_area_count: usize, target_present: bool) -> Doc
     DockAreas::ALL
 }
 
-/// Serializable layout tree (skeleton — Phase 2 ports the full
-/// `layout_serializer` schema with 0.7.x golden-file compatibility).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LayoutTree {
-    pub version: u32,
-    pub root: ContainerNode,
-}
-
-impl LayoutTree {
-    pub fn new(root: ContainerNode) -> Self {
-        Self { version: LAYOUT_VERSION, root }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ContainerNode {
-    Empty,
-    Splitter {
-        orientation: Orientation,
-        children: Vec<ContainerNode>,
-    },
-    Area {
-        widgets: Vec<String>,
-    },
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,17 +68,20 @@ mod tests {
     }
 
     #[test]
-    fn layout_tree_json_roundtrip() {
-        let tree = LayoutTree::new(ContainerNode::Splitter {
-            orientation: Orientation::Horizontal,
-            children: vec![
-                ContainerNode::Area { widgets: vec!["alpha".into()] },
-                ContainerNode::Area { widgets: vec!["beta".into()] },
-            ],
-        });
-        let json = serde_json::to_string(&tree).unwrap();
-        let back: LayoutTree = serde_json::from_str(&json).unwrap();
-        assert_eq!(tree, back);
-        assert_eq!(back.version, LAYOUT_VERSION);
+    fn layout_doc_replaces_the_phase_0_skeleton() {
+        // The skeleton tree is gone; the 0.7.x document model lives in
+        // layout_doc and round-trips through real golden files.
+        let doc = crate::layout_doc::LayoutDoc {
+            system_type: crate::layout_doc::SYSTEM_TYPE.to_string(),
+            schema: crate::layout_doc::SCHEMA_VERSION,
+            version: 0,
+            containers: Vec::new(),
+            sidebars: Default::default(),
+            container_geometries: Default::default(),
+            widget_states: Default::default(),
+        };
+        let back: crate::layout_doc::LayoutDoc =
+            serde_json::from_str(&doc.render(false).unwrap()).unwrap();
+        assert_eq!(doc, back);
     }
 }

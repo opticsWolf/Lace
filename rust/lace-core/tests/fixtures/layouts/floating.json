@@ -1,0 +1,97 @@
+{
+  "container_geometries": {
+    "float-1": {
+      "height": 360,
+      "is_maximized": false,
+      "width": 480,
+      "x": 220,
+      "y": 180
+    }
+  },
+  "containers": [
+    {
+      "data": {
+        "floating": false,
+        "geometry": "",
+        "root_splitter": {
+          "children": [
+            {
+              "current": "Alpha",
+              "tabs": 1,
+              "type": "Area",
+              "widgets": [
+                {
+                  "closed": false,
+                  "name": "Alpha",
+                  "type": "Widget"
+                }
+              ]
+            }
+          ],
+          "count": 1,
+          "orientation": "-",
+          "sizes": [
+            1000
+          ],
+          "type": "Splitter"
+        },
+        "type": "Container"
+      },
+      "id": "main",
+      "is_main": true
+    },
+    {
+      "data": {
+        "floating": true,
+        "geometry": "01 d9 d0 cb 00 03 00 00 00 00 00 da 00 00 00 b2 00 00 02 bd 00 00 02 1d 00 00 00 dc 00 00 00 b4 00 00 02 bb 00 00 02 1b 00 00 00 00 00 00 00 00 03 20 00 00 00 dc 00 00 00 b4 00 00 02 bb 00 00 02 1b",
+        "root_splitter": {
+          "children": [
+            {
+              "current": "Beta",
+              "tabs": 1,
+              "type": "Area",
+              "widgets": [
+                {
+                  "closed": false,
+                  "name": "Beta",
+                  "type": "Widget"
+                }
+              ]
+            }
+          ],
+          "count": 1,
+          "orientation": "|",
+          "sizes": [
+            358
+          ],
+          "type": "Splitter"
+        },
+        "type": "Container"
+      },
+      "id": "float-1",
+      "is_main": false
+    }
+  ],
+  "schema": 1,
+  "sidebars": {
+    "active_widget": null,
+    "overlay_sizes": {},
+    "pinned_widgets": {},
+    "settings": {
+      "animations_enabled": true,
+      "auto_show_on_hover": true,
+      "keep_open": false
+    },
+    "sidebar_areas": []
+  },
+  "type": "LaceDockingSystem",
+  "version": 0,
+  "widget_states": {
+    "Alpha": {
+      "closed": false
+    },
+    "Beta": {
+      "closed": false
+    }
+  }
+}
