@@ -6,19 +6,21 @@
 //! It also compiles `cpp/widget_host.cpp` (the Phase-3 QWidget-coexistence
 //! spike) and links the Qt Widgets/Quick libraries it needs.
 
-use cxx_qt_build::{CxxQtBuilder, QmlModule};
+use cxx_qt_build::{CxxQtBuilder, QmlFile, QmlModule};
 
 fn main() {
     CxxQtBuilder::new_qml_module(
         QmlModule::new("com.lace.dock").qml_files([
-            "qml/Main.qml",
-            "qml/Shell.qml",
-            "qml/DockManagerView.qml",
-            "qml/ContainerBuilder.qml",
-            "qml/SplitterView.qml",
-            "qml/AreaView.qml",
-            "qml/WidgetCard.qml",
-            "qml/FloatingView.qml",
+            QmlFile::from("qml/Main.qml"),
+            QmlFile::from("qml/Shell.qml"),
+            QmlFile::from("qml/DockManagerView.qml"),
+            QmlFile::from("qml/ContainerBuilder.qml"),
+            QmlFile::from("qml/SplitterView.qml"),
+            QmlFile::from("qml/AreaView.qml"),
+            QmlFile::from("qml/WidgetCard.qml"),
+            QmlFile::from("qml/FloatingView.qml"),
+            QmlFile::from("qml/SidebarView.qml"),
+            QmlFile::from("qml/LaceTheme.qml").singleton(true),
         ]),
     )
     .files(["src/manager.rs"])

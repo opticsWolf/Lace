@@ -26,6 +26,9 @@ pub mod ffi {
         #[qproperty(QString, theme)]
         #[qproperty(QString, layout_json)]
         #[qproperty(QString, last_error)]
+        #[qproperty(QString, theme_name)]
+        #[qproperty(QString, theme_json)]
+        #[qproperty(QString, focused_area)]
         #[namespace = "lace"]
         type LaceManager = super::LaceManagerRust;
 
@@ -92,6 +95,31 @@ pub mod ffi {
         #[qinvokable]
         #[cxx_name = "seedDemo"]
         fn seed_demo(self: Pin<&mut Self>);
+
+        /// Switch the active preset (`themeJson` follows). Unknown names fail.
+        #[qinvokable]
+        #[cxx_name = "applyThemeName"]
+        fn apply_theme_name(self: Pin<&mut Self>, name: &QString) -> bool;
+
+        /// Preset catalogue for menus (`preset_keys`: `"default"` first).
+        #[qinvokable]
+        #[cxx_name = "presetCount"]
+        fn preset_count(&self) -> i32;
+
+        /// Empty when `index` is out of range.
+        #[qinvokable]
+        #[cxx_name = "presetNameAt"]
+        fn preset_name_at(&self, index: i32) -> QString;
+
+        /// Pin `name` to the auto-hide sidebar `area`.
+        #[qinvokable]
+        #[cxx_name = "pinWidget"]
+        fn pin_widget(self: Pin<&mut Self>, name: &QString, area: &QString) -> bool;
+
+        /// Return a pinned widget to the main container.
+        #[qinvokable]
+        #[cxx_name = "unpinWidget"]
+        fn unpin_widget(self: Pin<&mut Self>, name: &QString) -> bool;
     }
 }
 
@@ -107,18 +135,30 @@ pub struct LaceManagerRust {
     theme: QString,
     layout_json: QString,
     last_error: QString,
+    theme_name: QString,
+    theme_json: QString,
+    focused_area: QString,
     doc: LayoutDoc,
+}
+
+fn render_theme(name: &str) -> Result<QString, String> {
+    lace_core::style::render_merged_theme(name)
+        .map(|json| QString::from(json.as_str()))
 }
 
 impl Default for LaceManagerRust {
     fn default() -> Self {
         let doc = blank_doc(0);
         let layout_json = render(&doc).expect("blank doc renders");
+        let theme_json = render_theme("default").expect("default theme builds");
         LaceManagerRust {
             counter: 0,
             theme: QString::from(""),
             layout_json,
             last_error: QString::from(""),
+            theme_name: QString::from("default"),
+            theme_json,
+            focused_area: QString::from(""),
             doc,
         }
     }
@@ -300,6 +340,49 @@ impl ffi::LaceManager {
         layout_ops::dock_widget(doc, "Gamma", DockEdge::Center, None, false).expect("seed");
         layout_ops::dock_widget(doc, "Delta", DockEdge::Bottom, None, false).expect("seed");
         layout_ops::dock_widget(doc, "Epsilon", DockEdge::Float, None, false).expect("seed");
+        self.as_mut().set_focused_area(QString::from(""));
         self.sync_emit();
+    }
+
+    fn apply_theme_name(mut self: Pin<&mut Self>, name: &QString) -> bool {
+        let name = String::from(name);
+        let rendered = match render_theme(name.as_str()) {
+            Ok(rendered) => rendered,
+            Err(e) => return self.fail(e),
+        };
+        self.as_mut().set_theme_name(QString::from(name.as_str()));
+        self.as_mut().set_theme_json(rendered);
+        true
+    }
+
+    fn preset_count(&self) -> i32 {
+        lace_core::presets_generated::preset_keys().len() as i32
+    }
+
+    fn preset_name_at(&self, index: i32) -> QString {
+        usize::try_from(index)
+            .ok()
+            .and_then(|i| lace_core::presets_generated::preset_keys().get(i).copied())
+            .map(QString::from)
+            .unwrap_or_else(|| QString::from(""))
+    }
+
+    fn pin_widget(mut self: Pin<&mut Self>, name: &QString, area: &QString) -> bool {
+        let (name, area) = (String::from(name), String::from(area));
+        if let Err(e) =
+            layout_ops::pin_widget(&mut self.as_mut().rust_mut().doc, name.as_str(), area.as_str())
+        {
+            return self.fail(e.to_string());
+        }
+        self.sync_emit()
+    }
+
+    fn unpin_widget(mut self: Pin<&mut Self>, name: &QString) -> bool {
+        let name = String::from(name);
+        if let Err(e) = layout_ops::unpin_widget(&mut self.as_mut().rust_mut().doc, name.as_str())
+        {
+            return self.fail(e.to_string());
+        }
+        self.sync_emit()
     }
 }

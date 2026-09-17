@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 
+import com.lace.dock 1.0
+
 // A splitter node: children are created imperatively by ContainerBuilder and
 // picked up as SplitView items. `applySizes` restores proportions; all-equal
 // sizes (fresh splits) mean "distribute evenly" and are left alone.
@@ -8,6 +10,17 @@ SplitView {
     id: splitter
     property int splitOrientation: Qt.Horizontal
     orientation: splitOrientation
+
+    handle: Rectangle {
+        implicitWidth: LaceTheme.num("splitter.total_width") || 7
+        implicitHeight: LaceTheme.num("splitter.total_width") || 7
+        color: handleHover.hovered
+            ? (LaceTheme.color("splitter.handle_hover_color") || "grey")
+            : (LaceTheme.color("splitter.handle_color") || "darkgrey")
+        HoverHandler {
+            id: handleHover
+        }
+    }
 
     function applySizes(sizes) {
         if (sizes.length !== splitter.count || splitter.count === 0)

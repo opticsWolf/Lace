@@ -460,6 +460,37 @@ pub fn dock_floating(doc: &mut LayoutDoc, container_id: &str) -> Result<(), Lace
     Ok(())
 }
 
+/// Pin `name` to the auto-hide sidebar `area` (`"left"`, ...).
+///
+/// The widget leaves the dock tree (like floating, but into the sidebar
+/// roster instead of a new container); re-pinning moves it between areas.
+/// The roster entry is kept: pinned widgets stay registered, merely
+/// homeless until unpinned.
+pub fn pin_widget(doc: &mut LayoutDoc, name: &str, area: &str) -> Result<(), LaceError> {
+    if !doc.widget_states.contains_key(name) {
+        return Err(op_error(format!("no widget `{name}` to pin")));
+    }
+    for index in 0..doc.containers.len() {
+        if extract_widget(&mut doc.containers[index].data.root_splitter, name).is_some() {
+            prune_root(doc, index);
+        }
+    }
+    doc.sidebars.pinned_widgets.insert(name.to_string(), area.to_string());
+    if !doc.sidebars.sidebar_areas.iter().any(|a| a == area) {
+        doc.sidebars.sidebar_areas.push(area.to_string());
+    }
+    Ok(())
+}
+
+/// Return a pinned widget to the main container's first area.
+pub fn unpin_widget(doc: &mut LayoutDoc, name: &str) -> Result<(), LaceError> {
+    if doc.sidebars.pinned_widgets.remove(name).is_none() {
+        return Err(op_error(format!("no pinned widget `{name}`")));
+    }
+    let closed = doc.widget_states.get(name).map(|entry| entry.closed).unwrap_or(false);
+    dock_widget(doc, name, DockEdge::Center, None, closed)
+}
+
 /// A fresh, valid empty document (what a new manager would save).
 pub fn blank_doc(app_version: i64) -> LayoutDoc {
     LayoutDoc {
@@ -606,6 +637,26 @@ mod tests {
             float_widget(&mut doc, "Extra").unwrap();
             assert_valid(&mut doc);
         }
+    }
+
+    #[test]
+    fn pin_and_unpin_roundtrip() {
+        let mut doc = golden("docked_tabs");
+        pin_widget(&mut doc, "Gamma", "left").unwrap();
+        assert_eq!(doc.sidebars.pinned_widgets.get("Gamma").map(String::as_str), Some("left"));
+        assert!(doc.sidebars.sidebar_areas.contains(&"left".to_string()));
+        // Gamma left the tree but stays registered.
+        assert!(doc.widget_states.contains_key("Gamma"));
+        assert_valid(&mut doc);
+        // Re-pinning moves it between areas.
+        pin_widget(&mut doc, "Gamma", "right").unwrap();
+        assert_eq!(doc.sidebars.pinned_widgets.get("Gamma").map(String::as_str), Some("right"));
+        assert_valid(&mut doc);
+        unpin_widget(&mut doc, "Gamma").unwrap();
+        assert!(!doc.sidebars.pinned_widgets.contains_key("Gamma"));
+        assert_valid(&mut doc);
+        assert!(unpin_widget(&mut doc, "Gamma").is_err());
+        assert!(pin_widget(&mut doc, "Nobody", "left").is_err());
     }
 
     #[test]

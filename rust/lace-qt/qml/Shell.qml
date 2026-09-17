@@ -18,6 +18,11 @@ ApplicationWindow {
 
     property int tabCounter: 0
 
+    function refreshTheme() {
+        LaceTheme.update(manager.themeJson, manager.themeName)
+        themeBox.currentIndex = themeBox.indexOfValue(manager.themeName)
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -48,6 +53,16 @@ ApplicationWindow {
                     text: qsTr("Reset demo")
                     onClicked: manager.seedDemo()
                 }
+                ComboBox {
+                    id: themeBox
+                    Layout.preferredWidth: 220
+                    textRole: "label"
+                    valueRole: "key"
+                    model: ListModel {
+                        id: themeModel
+                    }
+                    onActivated: manager.applyThemeName(currentValue)
+                }
                 Button {
                     text: qsTr("Quit")
                     onClicked: Qt.quit()
@@ -61,26 +76,81 @@ ApplicationWindow {
             }
         }
 
-        DockManagerView {
-            id: dockView
-            manager: manager
+        RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            spacing: 0
+
+            SidebarView {
+                manager: manager
+                side: "left"
+                Layout.preferredWidth: 34
+                Layout.fillHeight: true
+            }
+
+            DockManagerView {
+                id: dockView
+                manager: manager
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+
+            SidebarView {
+                manager: manager
+                side: "right"
+                Layout.preferredWidth: 34
+                Layout.fillHeight: true
+            }
         }
     }
 
-    Component.onCompleted: manager.seedDemo()
-
-    // Headless self-test: seed (tabs + split + float), add a tab, remove
-    // it again — the verdict is the exit code (Qt.exit), because QML
-    // console output is not captured reliably on every platform.
-    function smokeCounts() {
-        return dockView.lastCounts
+    Connections {
+        target: manager
+        function onThemeJsonChanged() { root.refreshTheme() }
     }
+
+    Component.onCompleted: {
+        for (var i = 0; i < manager.presetCount(); ++i) {
+            var key = manager.presetNameAt(i)
+            var label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ")
+            themeModel.append({ label: label, key: key })
+        }
+        manager.seedDemo()
+        root.refreshTheme()
+    }
+
+    // Headless self-test: layout ops, then every preset through the theme
+    // verifier. The verdict is the exit code (Qt.exit), because QML console
+    // output is not captured reliably on every platform.
+    function verifyTheme(expectedName) {
+        if (LaceTheme.presetName !== expectedName)
+            return false
+        var tokens = [
+            "core.canvas_bg", "core.accent_color", "core.text_color", "core.tooltip_bg",
+            "panel.bg_normal", "panel.input_bg", "panel.border_width",
+            "tab.bg_normal", "tab.bg_hover", "tab.bg_active",
+            "tab.text_normal", "tab.text_active", "tab.indicator_color",
+            "tab.close_btn_color", "tab.font_family", "tab.indicator_position",
+            "title_bar.bg_normal", "title_bar.text_normal", "title_bar.button_color",
+            "title_bar.height", "title_bar.font_size",
+            "sidebar.bg_color", "sidebar.tab_bg_hover_start", "sidebar.indicator_color",
+            "sidebar.badge_bg", "sidebar.width", "sidebar.tab_flat_edge",
+            "sidepanel.bg_normal", "sidepanel.border_width",
+            "splitter.handle_color", "splitter.handle_hover_color", "splitter.handle_width",
+            "overlay.frame_color", "overlay.arrow_color"
+        ]
+        for (var t of tokens) {
+            if (LaceTheme.raw(t) === undefined)
+                return false
+        }
+        return true
+    }
+
     function smokeCheck(areas, widgets, floats) {
-        var c = smokeCounts()
+        var c = dockView.lastCounts
         return c.areas === areas && c.widgets === widgets && c.floats === floats
     }
+
     Timer {
         interval: 1500
         running: Qt.application.arguments.includes("--smoke")
@@ -93,6 +163,23 @@ ApplicationWindow {
             manager.removeWidget("SmokeTab")
             if (!smokeCheck(2, 5, 1))
                 Qt.exit(13)
+            manager.pinWidget("Gamma", "left")
+            if (!smokeCheck(2, 4, 1))
+                Qt.exit(14)
+            manager.unpinWidget("Gamma")
+            if (!smokeCheck(2, 5, 1))
+                Qt.exit(15)
+            if (manager.presetCount() !== 27)
+                Qt.exit(16)
+            for (var i = 0; i < manager.presetCount(); ++i) {
+                var key = manager.presetNameAt(i)
+                if (!manager.applyThemeName(key))
+                    Qt.exit(18)
+                if (!verifyTheme(key))
+                    Qt.exit(20 + (i % 100))
+            }
+            if (!manager.applyThemeName("default"))
+                Qt.exit(17)
             Qt.quit()
         }
     }
