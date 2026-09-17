@@ -72,8 +72,16 @@ jobs:
       - run: pip install maturin pytest PySide6
       - run: maturin build --release -m rust/lace-py/Cargo.toml -o dist-rs
       - run: pip install dist-rs/*.whl
-      - run: python -c "import _lace_rs; assert _lace_rs.split_share(900, 6, 2) == 447; print('lace-py ok', _lace_rs.__version__)"
+      - run: python -c "import _lace_rs, lace_rs; assert _lace_rs.split_share(900, 6, 2) == 447; assert len(lace_rs.available_themes()) == 27; print('lace-py ok', _lace_rs.__version__)"
       - name: python baseline (untouched package)
         run: pytest tests/test_enums.py tests/test_version_is_consistent.py -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: rust-core parity over live oracles
+        run: pytest tests/test_rs_parity.py -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: rust-theme-driven Qt panel smoke
+        run: python demos/demo_rs_theme_panel.py --smoke
         env:
           QT_QPA_PLATFORM: offscreen

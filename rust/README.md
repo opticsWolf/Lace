@@ -34,8 +34,10 @@ QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
   cargo run -p lace-qt --bin dock_demo -- --smoke        # Tier-0 dock shell
 QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
   cargo run -p lace-qt --bin widget_host -- --smoke      # QWidget beside QML
-./.venv/Scripts/maturin develop -m rust/lace-py/Cargo.toml  # build _lace_rs into .venv
-./.venv/Scripts/python.exe -c "import _lace_rs; print(_lace_rs.split_share(900, 6, 2))"
+./.venv/Scripts/maturin develop -m rust/lace-py/Cargo.toml  # build _lace_rs + lace_rs into .venv
+./.venv/Scripts/python.exe -c "import lace_rs; print(len(lace_rs.available_themes()))"
+QT_QPA_PLATFORM=offscreen ./.venv/Scripts/python.exe -m pytest tests/test_rs_parity.py -q  # live-oracle parity
+./.venv/Scripts/python.exe demos/demo_rs_theme_panel.py --smoke  # Rust themes drive Python Qt
 ```
 
 `dock_demo` also honors `LACE_QML_FILE=<path>` (iterate on `qml/Shell.qml`
