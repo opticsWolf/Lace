@@ -30,12 +30,36 @@ cargo test -p lace-core                                  # pure-Rust suite, no Q
 QMAKE=... cargo build -p lace-qt                         # bridges + QML module
 QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
   cargo run -p lace-qt --bin qml_minimal -- --smoke      # headless QML hello
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+  cargo run -p lace-qt --bin dock_demo -- --smoke        # Tier-0 dock shell
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+  cargo run -p lace-qt --bin widget_host -- --smoke      # QWidget beside QML
 ./.venv/Scripts/maturin develop -m rust/lace-py/Cargo.toml  # build _lace_rs into .venv
 ./.venv/Scripts/python.exe -c "import _lace_rs; print(_lace_rs.split_share(900, 6, 2))"
 ```
 
-`qml_minimal` also honors `LACE_QML_FILE=<path>` to load a QML file from
-disk instead of the embedded resource (iterate on QML without rebuilding).
+`dock_demo` also honors `LACE_QML_FILE=<path>` (iterate on `qml/Shell.qml`
+without rebuilding). Its `--smoke` is a real self-test — seed, add-tab,
+remove-tab with an exit-code verdict — because QML `console.log` is not
+captured reliably on every platform.
+
+## Shell architecture (Phase 3)
+
+Rust owns a `LayoutDoc`; QML renders the `LaceManager.layoutJson` snapshot
+(`Shell/DockManagerView/ContainerBuilder/SplitterView/AreaView/WidgetCard`,
+floating containers as plain `Window`s in `FloatingView`). Structural ops
+re-emit `layoutJsonChanged` (full rebuild); `setCurrentTab` only syncs the
+document silently so tab-local state (typed text) survives switches.
+
+Two hard-won rules live here:
+
+- No QML import cycles: `ContainerBuilder` creates `FloatingView`s, so a
+  `FloatingView` must never statically contain a `ContainerBuilder` (the
+  loader deadlocks with no error). It receives the builder as a property.
+- Build-script `-l` directives only reach targets with a dependency edge to
+  the lib: bins that merely `use cxx_qt_lib` miss them. Raw
+  `rustc-link-arg` paths (used for the widget-host Qt libs) reach every bin
+  unconditionally — same reason the `/WHOLEARCHIVE` args below work.
 
 > **Windows/MSVC linking note:** MSVC discards unreferenced static-archive
 > members (`/OPT:REF`), which would drop the static QML plugin, the type

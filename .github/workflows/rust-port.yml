@@ -23,7 +23,7 @@ jobs:
       - run: cargo test -p lace-core --locked
 
   qt:
-    name: lace-qt QML hello
+    name: lace-qt QML shell + demos
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -41,8 +41,18 @@ jobs:
           arch: ${{ matrix.arch }}
           modules: qtdeclarative qtshadertools qtsvg qtimageformats
       - run: cargo build -p lace-qt --locked
-      - name: headless QML smoke
+      - name: headless QML hello smoke
         run: cargo run -p lace-qt --bin qml_minimal -- --smoke
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+      - name: headless dock-shell smoke (tabs + split + float + op roundtrip)
+        run: cargo run -p lace-qt --bin dock_demo -- --smoke
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+      - name: headless QWidget-coexistence smoke
+        run: cargo run -p lace-qt --bin widget_host -- --smoke
         env:
           QT_QPA_PLATFORM: offscreen
           QT_QUICK_BACKEND: software

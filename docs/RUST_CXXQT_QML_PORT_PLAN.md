@@ -219,7 +219,9 @@ Cargo workspace, three crates, `py/` shim, maturin wired; CI matrix (win/linux �
 Serializer tree, `split_share`, insertion post-conditions, cache-invalidation semantics as pure fns; atomic write; perspectives. Golden roundtrips against 0.7.6 JSONs. Exit: layout save/restore Qt-free.
 
 **Phase 3 — `lace-qt` bridges + QML shell, native frames (2–3 wks).**
-`LaceManager/DockContainer/DockArea/DockWidget` QObjects; `Main/DockManager/DockContainer/DockArea` QML with `SplitView` + `TabBar`; **floating containers = plain OS-framed `Window`s (Tier 0)** so the DnD path is exercised end-to-end early. Include one `QWidget` hosted via `QQuickWidget`/`WidgetHost` (prove with `QTextEdit` + `QWebEngineView` now, not Phase 6). Exit: demo docks/tabs/splits/floats.
+`LaceManager` QObject (single bridge; containers/areas/widgets render from
+its `layoutJson` snapshot rather than as individual QObjects — paths/names
+suffice for identity until DnD needs more); `Main/DockManager/DockContainer/DockArea` QML with `SplitView` + `TabBar`; **floating containers = plain OS-framed `Window`s (Tier 0)** so the DnD path is exercised end-to-end early. Include one `QWidget` hosted via `QQuickWidget`/`WidgetHost` (prove with `QTextEdit` + `QWebEngineView` now, not Phase 6). Exit: demo docks/tabs/splits/floats.
 
 **Phase 4 — QML chrome parity (2–3 wks).**
 Tab/area chrome, sidebar, overlay cross, `LaceTheme` singleton, icons + tint cache, geometry tokens from `dock_paint`. Re-shoot theme screenshots. Exit: 27 themes render; visual diff accepted. Still Tier 0 frames.

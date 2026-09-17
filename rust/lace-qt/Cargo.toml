@@ -16,4 +16,5 @@ cxx-qt-lib = { version = "0.10", features = ["qt_gui", "qt_qml"] }
 lace-core = { path = "../lace-core" }
 
 [build-dependencies]
+cc = "1"
 cxx-qt-build = { version = "0.10", features = ["link_qt_object_files"] }
