@@ -6,21 +6,21 @@ Port plan: `docs/RUST_CXXQT_QML_PORT_PLAN.md`.
 
 - Rust stable (MSVC) + Visual Studio C++ tools — `cargo build` must link.
 - CMake + Ninja: `uv pip install cmake ninja` (done in `.venv`).
-- Qt 6.8.3 `msvc2022_64` via aqtinstall (outside the repo, no admin needed):
+- Qt 6.10.3 `msvc2022_64` via aqtinstall (outside the repo, no admin needed):
   ```powershell
-  .\.venv\Scripts\python.exe -m aqt install-qt windows desktop 6.8.3 `
+  .\.venv\Scripts\python.exe -m aqt install-qt windows desktop 6.10.3 `
       win64_msvc2022_64 -O C:\Users\Main\Qt `
       --archives qtbase qtdeclarative qtshadertools qtsvg qtimageformats
   ```
 - Tell CXX-Qt where Qt is (per shell, or set persistently):
   ```powershell
-  $env:QMAKE = "C:\Users\Main\Qt\6.8.3\msvc2022_64\bin\qmake.exe"
+  $env:QMAKE = "C:\Users\Main\Qt\6.10.3\msvc2022_64\bin\qmake.exe"
   ```
-  (Git Bash: `export QMAKE=/c/Users/Main/Qt/6.8.3/msvc2022_64/bin/qmake.exe`)
+  (Git Bash: `export QMAKE=/c/Users/Main/Qt/6.10.3/msvc2022_64/bin/qmake.exe`)
 - Put the Qt DLLs on `PATH` for *running* anything Qt-linked
   (`cargo run`, `cargo test`, the smoke check):
   ```powershell
-  $env:PATH = "C:\Users\Main\Qt\6.8.3\msvc2022_64\bin;$env:PATH"
+  $env:PATH = "C:\Users\Main\Qt\6.10.3\msvc2022_64\bin;$env:PATH"
   ```
 
 ## Commands (repo root)
