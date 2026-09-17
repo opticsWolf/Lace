@@ -12,7 +12,9 @@ fn main() {
     // Custom background/contentItem delegates (the whole dock chrome) are
     // ignored under the native Windows style — Basic honors them everywhere.
     // Must precede any QML load (the style locks at first Controls import).
-    cxx_qt_lib::QQuickStyle::set_style(&cxx_qt_lib::QString::from("Basic"));
+    // Override for experiments via LACE_QML_STYLE=Fusion|FluentWinUI3|...
+    let style = std::env::var("LACE_QML_STYLE").unwrap_or_else(|_| "Basic".to_string());
+    cxx_qt_lib::QQuickStyle::set_style(&cxx_qt_lib::QString::from(style.as_str()));
     let mut app = QGuiApplication::new();
     let mut engine = QQmlApplicationEngine::new();
 
