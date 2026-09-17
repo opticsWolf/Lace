@@ -25,6 +25,9 @@ Item {
     property var widgets: area.widgets || []
     property string focusKey: containerIndex + "/" + areaPath
     property bool areaActive: manager.focusedArea === focusKey
+    // True while the tab strip holds more tabs than fit: chevron buttons
+    // appear and the current tab is auto-scrolled into view.
+    property bool tabOverflow: false
     property int initialIndex: {
         var names = []
         for (var w of widgets)
@@ -225,6 +228,33 @@ Item {
             color: LaceTheme.color("tab.indicator_color") || "transparent"
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 0
+
+            Rectangle {
+                visible: root.tabOverflow
+                Layout.preferredWidth: visible ? 20 : 0
+                Layout.preferredHeight: 24
+                color: tabPrev.containsMouse
+                    ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                    : (LaceTheme.color("tab.bg_normal") || "#2d2d2d")
+                border.width: 1
+                border.color: LaceTheme.color("tab.indicator_color") || "transparent"
+                radius: 3
+                Label {
+                    anchors.centerIn: parent
+                    text: "<"
+                    color: LaceTheme.color("title_bar.text_normal") || "white"
+                }
+                MouseArea {
+                    id: tabPrev
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: bar.currentIndex = Math.max(0, bar.currentIndex - 1)
+                }
+            }
+
         TabBar {
             id: bar
             objectName: "areaTabs_" + root.areaPath
@@ -233,6 +263,50 @@ Item {
             background: Rectangle {
                 color: LaceTheme.color("tab.bg_normal") || "transparent"
             }
+            // The strip is a Flickable ListView under the hood: reach in
+            // (same technique as the big dock frameworks) to keep the
+            // current tab scrolled into view when tabs overflow.
+            function tabListView() {
+                for (var i = 0; i < children.length; ++i) {
+                    if (children[i].toString().indexOf("QQuickListView") === 0)
+                        return children[i]
+                }
+                return null
+            }
+            function refreshOverflow() {
+                var lv = tabListView()
+                root.tabOverflow = !!lv && lv.contentWidth > lv.width + 1
+            }
+            property int ensureTries: 0
+            function ensureTabVisible() {
+                var lv = tabListView()
+                if (!lv) {
+                    // The strip's internal ListView can lag behind bar
+                    // completion (model populates async): retry a few ticks.
+                    if (ensureTries < 10) {
+                        ensureTries++
+                        Qt.callLater(ensureTabVisible)
+                    }
+                    return
+                }
+                ensureTries = 0
+                // The template enforces a highlight range on selection
+                // changes and re-asserts it when the model repopulates,
+                // which fights manual positioning: take over scrolling
+                // entirely (no highlight is rendered anyway). Re-assert on
+                // every change; our deferred call runs last and wins.
+                lv.highlightRangeMode = ListView.NoHighlightRange
+                lv.preferredHighlightBegin = 0
+                lv.preferredHighlightEnd = lv.width
+                // Unclipped, tabs scrolled out of view paint over the
+                // flanking chevrons (paint order hides the left one).
+                lv.clip = true
+                lv.positionViewAtIndex(currentIndex, ListView.Contain)
+                refreshOverflow()
+            }
+            onWidthChanged: Qt.callLater(ensureTabVisible)
+            onCountChanged: Qt.callLater(ensureTabVisible)
+            Component.onCompleted: Qt.callLater(ensureTabVisible)
 
             Repeater {
                 model: root.widgets
@@ -240,6 +314,10 @@ Item {
                     id: tabBtn
                     required property var modelData
                     required property int index
+                    // Never let the strip compress tabs into unreadable
+                    // stubs: keep full implicit width so real overflow (and
+                    // the chevron + ensure-visible machinery) engages.
+                    width: implicitWidth
                     // Sensor overlay over the label (the × stays on top and
                     // clickable): pure tracker like the title strip — hover is
                     // geometric, the drop commits on release. Clicks forward
@@ -364,6 +442,31 @@ Item {
                 var w = root.widgets[currentIndex]
                 if (w)
                     root.manager.setCurrentTab(root.containerIndex, root.areaPath, w.name)
+                Qt.callLater(ensureTabVisible)
+            }
+        }
+
+            Rectangle {
+                visible: root.tabOverflow
+                Layout.preferredWidth: visible ? 20 : 0
+                Layout.preferredHeight: 24
+                color: tabNext.containsMouse
+                    ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                    : (LaceTheme.color("tab.bg_normal") || "#2d2d2d")
+                border.width: 1
+                border.color: LaceTheme.color("tab.indicator_color") || "transparent"
+                radius: 3
+                Label {
+                    anchors.centerIn: parent
+                    text: ">"
+                    color: LaceTheme.color("title_bar.text_normal") || "white"
+                }
+                MouseArea {
+                    id: tabNext
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: bar.currentIndex = Math.min(bar.count - 1, bar.currentIndex + 1)
+                }
             }
         }
 
