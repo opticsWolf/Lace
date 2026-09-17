@@ -93,12 +93,15 @@ Item {
 
     // Maximize visibility: everything hides except the chain holding the
     // maximized area. Keys outside `ownIndex` belong to another window.
+    // (Root paths are "" so registry keys end in "/" — strip it, or the
+    // prefix match below misses and a maximize hides the whole tree.)
     function maxVisible(nodeKey, maxKey) {
         if (maxKey === "")
             return true
-        return nodeKey === maxKey
-            || maxKey.indexOf(nodeKey + "/") === 0
-            || nodeKey.indexOf(maxKey + "/") === 0
+        var n = nodeKey.endsWith("/") ? nodeKey.slice(0, -1) : nodeKey
+        return n === maxKey
+            || maxKey.indexOf(n + "/") === 0
+            || n.indexOf(maxKey + "/") === 0
     }
 
     function applyMaximize(registry, maxKey, ownIndex) {

@@ -69,13 +69,12 @@ Item {
                 id: titleMouse
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton
-                onClicked: function(event) {
-                    root.manager.focusedArea = root.focusKey
-                    event.accepted = false
-                }
-                onPressAndHold: {
-                    if (root.currentName === "")
+                property var pressPos: null
+                property bool dragging: false
+                function startDrag() {
+                    if (dragging || root.currentName === "")
                         return
+                    dragging = true
                     // A real QML drag (keys + payload) so DropAreas fire;
                     // the manager mirrors the session for the drop ops.
                     titleMouse.Drag.source = titleMouse
@@ -84,11 +83,34 @@ Item {
                     titleMouse.Drag.active = true
                     root.manager.beginDrag(root.currentName)
                 }
-                onReleased: {
+                function stopDrag() {
+                    dragging = false
                     titleMouse.Drag.active = false
                     if (root.manager.dragActive)
                         root.manager.cancelDrag()
                 }
+                onClicked: function(event) {
+                    root.manager.focusedArea = root.focusKey
+                    event.accepted = false
+                }
+                onPressAndHold: titleMouse.startDrag()
+                onPressed: function(mouse) {
+                    pressPos = Qt.point(mouse.x, mouse.y)
+                    dragging = false
+                }
+                // Press-and-hold alone is hard to discover (and small moves
+                // cancel it): also arm once the pointer travels, like Qt
+                // Widgets drags do. Either path calls startDrag once.
+                onPositionChanged: function(mouse) {
+                    if (pressed && !dragging && pressPos) {
+                        var dx = mouse.x - pressPos.x
+                        var dy = mouse.y - pressPos.y
+                        if (dx * dx + dy * dy > 64)
+                            startDrag()
+                    }
+                }
+                onReleased: titleMouse.stopDrag()
+                onCanceled: titleMouse.stopDrag()
             }
             RowLayout {
                 anchors.fill: parent
@@ -219,7 +241,10 @@ Item {
                                     : "transparent"
                                 radius: 3
                             }
-                            onClicked: root.manager.removeWidget(modelData.name)
+                            // Closed tabs reopen via their × (the footer toggle is gone).
+                            onClicked: modelData.closed
+                                ? root.manager.setWidgetClosed(modelData.name, false)
+                                : root.manager.removeWidget(modelData.name)
                         }
                     }
                     background: Rectangle {

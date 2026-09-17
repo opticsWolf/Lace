@@ -98,8 +98,13 @@ ApplicationWindow {
             spacing: 0
 
             SidebarView {
+                id: leftBar
                 manager: manager
                 side: "left"
+                // Auto-hide: the strip collapses while nothing is pinned.
+                visible: pinnedCount > 0
+                // Above the dock view: the hover popup overflows the strip.
+                z: 50
                 Layout.preferredWidth: 34
                 Layout.fillHeight: true
             }
@@ -112,8 +117,11 @@ ApplicationWindow {
             }
 
             SidebarView {
+                id: rightBar
                 manager: manager
                 side: "right"
+                visible: pinnedCount > 0
+                z: 50
                 Layout.preferredWidth: 34
                 Layout.fillHeight: true
             }

@@ -29,7 +29,9 @@ Item {
         spacing: 6
 
         Label {
-            text: qsTr("Closed — reopen to dock it back into the tab.")
+            // Closed tabs reopen via their tab ×; this line just explains
+            // the state (the old footer Close/Reopen button is gone).
+            text: qsTr("Closed — click the tab × to dock it back in.")
             visible: card.widgetClosed
         }
         TextArea {
@@ -48,10 +50,6 @@ Item {
                     || LaceTheme.color("panel.bg_normal") || "transparent"
                 radius: 3
             }
-        }
-        Button {
-            text: card.widgetClosed ? qsTr("Reopen") : qsTr("Close")
-            onClicked: card.manager.setWidgetClosed(card.widgetName, !card.widgetClosed)
         }
     }
 
