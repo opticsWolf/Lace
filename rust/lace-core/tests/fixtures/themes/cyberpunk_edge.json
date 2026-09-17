@@ -1,0 +1,462 @@
+{
+  "core": {
+    "accent_color": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "border_color": [
+      110,
+      72,
+      148,
+      190
+    ],
+    "border_width": 1.5,
+    "canvas_bg": [
+      17,
+      13,
+      20,
+      255
+    ],
+    "corner_radius": 10,
+    "disabled_text_color": [
+      197,
+      152,
+      116,
+      255
+    ],
+    "error_color": [
+      255,
+      84,
+      84,
+      255
+    ],
+    "focus_border_color": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "info_color": [
+      186,
+      137,
+      255,
+      255
+    ],
+    "success_color": [
+      120,
+      224,
+      143,
+      255
+    ],
+    "text_color": [
+      242,
+      232,
+      224,
+      255
+    ],
+    "tooltip_bg": [
+      55,
+      42,
+      64,
+      255
+    ],
+    "tooltip_text": [
+      242,
+      232,
+      224,
+      255
+    ],
+    "warning_color": [
+      255,
+      196,
+      61,
+      255
+    ]
+  },
+  "overlay": {
+    "arrow_color": [
+      242,
+      232,
+      224,
+      255
+    ],
+    "background_color": [
+      31,
+      24,
+      36,
+      255
+    ],
+    "frame_color": [
+      255,
+      184,
+      77,
+      255
+    ],
+    "overlay_color": [
+      255,
+      154,
+      0,
+      64
+    ],
+    "shadow_color": [
+      0,
+      0,
+      0,
+      64
+    ]
+  },
+  "panel": {
+    "alternate_base": [
+      35,
+      28,
+      42,
+      255
+    ],
+    "bg_normal": [
+      31,
+      24,
+      36,
+      255
+    ],
+    "border_width": 1.5,
+    "button_bg": [
+      52,
+      40,
+      60,
+      255
+    ],
+    "color_dark": [
+      0,
+      0,
+      0,
+      255
+    ],
+    "color_light": [
+      71,
+      55,
+      82,
+      255
+    ],
+    "color_mid": [
+      18,
+      14,
+      21,
+      255
+    ],
+    "color_shadow": [
+      0,
+      0,
+      0,
+      72
+    ],
+    "content_margin": [
+      8,
+      2
+    ],
+    "corner_radius": 10,
+    "input_bg": [
+      20,
+      16,
+      24,
+      255
+    ],
+    "text_color": [
+      242,
+      232,
+      224,
+      255
+    ]
+  },
+  "sidebar": {
+    "badge_bg": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "badge_text": [
+      227,
+      205,
+      188,
+      255
+    ],
+    "bg_color": [
+      17,
+      13,
+      20,
+      255
+    ],
+    "indicator_color": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "indicator_width": 1.5,
+    "tab_bg_active": [
+      31,
+      24,
+      36,
+      255
+    ],
+    "tab_bg_hover_end": [
+      37,
+      29,
+      44,
+      255
+    ],
+    "tab_bg_hover_start": [
+      49,
+      37,
+      57,
+      255
+    ],
+    "tab_bg_normal": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "tab_border_active_color": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "tab_border_normal_color": [
+      110,
+      72,
+      148,
+      190
+    ],
+    "tab_border_width": 1.5,
+    "tab_flat_edge": "none",
+    "tab_text_active": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "tab_text_disabled": [
+      197,
+      152,
+      116,
+      255
+    ],
+    "tab_text_normal": [
+      227,
+      205,
+      188,
+      255
+    ]
+  },
+  "sidepanel": {
+    "bg_normal": [
+      31,
+      24,
+      36,
+      255
+    ],
+    "border_color": [
+      110,
+      72,
+      148,
+      190
+    ],
+    "border_width": 1.5,
+    "button_color": [
+      227,
+      205,
+      188,
+      255
+    ],
+    "button_disable_clr": [
+      70,
+      50,
+      85,
+      255
+    ],
+    "button_hover_bg": [
+      63,
+      48,
+      73,
+      255
+    ],
+    "corner_radius": 10,
+    "focus_border_color": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "shadow_color": [
+      0,
+      0,
+      0,
+      64
+    ],
+    "title_text_color": [
+      242,
+      232,
+      224,
+      255
+    ]
+  },
+  "splitter": {
+    "handle_color": [
+      17,
+      13,
+      20,
+      255
+    ],
+    "handle_hover_color": [
+      255,
+      154,
+      0,
+      255
+    ]
+  },
+  "tab": {
+    "bg_active": [
+      31,
+      24,
+      36,
+      255
+    ],
+    "bg_hover": [
+      49,
+      37,
+      57,
+      255
+    ],
+    "bg_normal": [
+      10,
+      7,
+      13,
+      255
+    ],
+    "border_active_color": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "border_normal_color": [
+      110,
+      72,
+      148,
+      190
+    ],
+    "close_btn_bg_disable": [
+      70,
+      50,
+      85,
+      255
+    ],
+    "close_btn_bg_hover": [
+      63,
+      48,
+      73,
+      255
+    ],
+    "close_btn_color": [
+      188,
+      186,
+      189,
+      255
+    ],
+    "corner_radius": 8,
+    "indicator_color": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "indicator_position": "bottom",
+    "indicator_width": 1.5,
+    "margin": 3,
+    "tab_dimming": true,
+    "text_active": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "text_normal": [
+      227,
+      205,
+      188,
+      255
+    ]
+  },
+  "title_bar": {
+    "active_edge_color": [
+      255,
+      184,
+      77,
+      255
+    ],
+    "bg_active": [
+      10,
+      7,
+      13,
+      255
+    ],
+    "bg_normal": [
+      10,
+      7,
+      13,
+      255
+    ],
+    "border_bottom": 1.5,
+    "border_color": [
+      110,
+      72,
+      148,
+      190
+    ],
+    "button_color": [
+      227,
+      205,
+      188,
+      255
+    ],
+    "button_disable_clr": [
+      70,
+      50,
+      85,
+      255
+    ],
+    "button_hover_bg": [
+      41,
+      28,
+      53,
+      255
+    ],
+    "button_spacing": 6,
+    "focus_border_color": [
+      255,
+      154,
+      0,
+      255
+    ],
+    "height": 32,
+    "margin": 0,
+    "padding_left": 0,
+    "padding_right": 8,
+    "text_active": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "text_normal": [
+      227,
+      205,
+      188,
+      255
+    ]
+  }
+}

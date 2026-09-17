@@ -1,0 +1,130 @@
+[
+  [
+    "Basics",
+    [
+      [
+        "Default",
+        "default"
+      ],
+      [
+        "Dark",
+        "dark"
+      ],
+      [
+        "Light",
+        "light"
+      ],
+      [
+        "Neutral",
+        "neutral"
+      ],
+      [
+        "Midnight",
+        "midnight"
+      ],
+      [
+        "Warm",
+        "warm"
+      ]
+    ]
+  ],
+  [
+    "Editor Classics",
+    [
+      [
+        "Dracula",
+        "dracula"
+      ],
+      [
+        "Monokai",
+        "monokai"
+      ],
+      [
+        "Nordic",
+        "nordic"
+      ],
+      [
+        "Catppuccin",
+        "catppuccin"
+      ],
+      [
+        "Tokyo Night",
+        "tokyo_night"
+      ],
+      [
+        "Solarized Dark",
+        "solarized_dark"
+      ],
+      [
+        "Solarized Light",
+        "solarized_light"
+      ]
+    ]
+  ],
+  [
+    "Neon",
+    [
+      [
+        "Cyberpunk Neon",
+        "cyberpunk_neon"
+      ],
+      [
+        "Neon Dusk",
+        "neon_dusk"
+      ]
+    ]
+  ],
+  [
+    "Edge Treatments",
+    [
+      [
+        "Cyberpunk Edge",
+        "cyberpunk_edge"
+      ],
+      [
+        "Cyberpunk Edge Neutral",
+        "cyberpunk_edge_neutral"
+      ],
+      [
+        "Cyberpunk Edge Light",
+        "cyberpunk_edge_light"
+      ],
+      [
+        "Violet Haze",
+        "violet_haze"
+      ],
+      [
+        "Violet Haze Neutral",
+        "violet_haze_neutral"
+      ],
+      [
+        "Violet Haze Light",
+        "violet_haze_light"
+      ],
+      [
+        "Midnight Haze",
+        "midnight_haze"
+      ],
+      [
+        "Midnight Haze Neutral",
+        "midnight_haze_neutral"
+      ],
+      [
+        "Midnight Haze Light",
+        "midnight_haze_light"
+      ],
+      [
+        "Slate Amber Dark",
+        "slate_amber_dark"
+      ],
+      [
+        "Slate Amber",
+        "slate_amber"
+      ],
+      [
+        "Slate Amber Light",
+        "slate_amber_light"
+      ]
+    ]
+  ]
+]

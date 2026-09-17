@@ -1,0 +1,84 @@
+{
+  "accent_color": [
+    0,
+    120,
+    212,
+    255
+  ],
+  "border_below_title": false,
+  "border_color": [
+    24,
+    24,
+    24,
+    0
+  ],
+  "border_width": 1.5,
+  "canvas_bg": [
+    24,
+    24,
+    24,
+    255
+  ],
+  "corner_radius": 4,
+  "disabled_text_color": [
+    128,
+    128,
+    128,
+    255
+  ],
+  "error_color": [
+    241,
+    76,
+    76,
+    255
+  ],
+  "focus_border_color": [
+    24,
+    24,
+    24,
+    0
+  ],
+  "font_family": "Segoe UI",
+  "font_italic": false,
+  "font_size": 10,
+  "font_underline": false,
+  "font_weight": "normal",
+  "info_color": [
+    55,
+    148,
+    255,
+    255
+  ],
+  "margin": 0,
+  "padding": 0,
+  "success_color": [
+    78,
+    201,
+    112,
+    255
+  ],
+  "text_color": [
+    204,
+    204,
+    204,
+    255
+  ],
+  "tooltip_bg": [
+    54,
+    54,
+    54,
+    255
+  ],
+  "tooltip_text": [
+    204,
+    204,
+    204,
+    255
+  ],
+  "warning_color": [
+    230,
+    167,
+    0,
+    255
+  ]
+}

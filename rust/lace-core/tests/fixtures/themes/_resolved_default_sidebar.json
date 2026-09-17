@@ -1,0 +1,108 @@
+{
+  "badge_bg": [
+    0,
+    120,
+    212,
+    255
+  ],
+  "badge_font_family": "Segoe UI",
+  "badge_font_size": 8,
+  "badge_font_weight": "bold",
+  "badge_position": "top_right",
+  "badge_radius": 6,
+  "badge_text": [
+    179,
+    179,
+    179,
+    255
+  ],
+  "bg_color": [
+    24,
+    24,
+    24,
+    255
+  ],
+  "border_color": null,
+  "border_width": 1.0,
+  "corner_radius": 0,
+  "indicator_color": [
+    0,
+    120,
+    212,
+    255
+  ],
+  "indicator_position": "right",
+  "indicator_width": 3.0,
+  "margin": 0,
+  "padding": 0,
+  "tab_active_font_weight": "normal",
+  "tab_bg_active": [
+    31,
+    31,
+    31,
+    255
+  ],
+  "tab_bg_hover_end": [
+    44,
+    44,
+    44,
+    255
+  ],
+  "tab_bg_hover_start": [
+    55,
+    55,
+    55,
+    255
+  ],
+  "tab_bg_normal": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "tab_border_active_color": [
+    0,
+    120,
+    212,
+    255
+  ],
+  "tab_border_closed": false,
+  "tab_border_hover_color": null,
+  "tab_border_normal_color": [
+    24,
+    24,
+    24,
+    0
+  ],
+  "tab_border_width": 0.0,
+  "tab_corner_radius": null,
+  "tab_flat_edge": "all",
+  "tab_font_family": "Segoe UI",
+  "tab_font_italic": false,
+  "tab_font_size": 10,
+  "tab_font_underline": false,
+  "tab_font_weight": "normal",
+  "tab_icon_gap": 8,
+  "tab_icon_size": 16,
+  "tab_margin": 2,
+  "tab_padding": 8,
+  "tab_text_active": [
+    255,
+    255,
+    255,
+    255
+  ],
+  "tab_text_disabled": [
+    128,
+    128,
+    128,
+    255
+  ],
+  "tab_text_normal": [
+    179,
+    179,
+    179,
+    255
+  ],
+  "width": 30
+}

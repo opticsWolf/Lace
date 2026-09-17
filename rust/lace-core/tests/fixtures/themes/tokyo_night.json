@@ -1,0 +1,441 @@
+{
+  "core": {
+    "accent_color": [
+      122,
+      162,
+      247,
+      255
+    ],
+    "border_color": [
+      26,
+      27,
+      38,
+      255
+    ],
+    "canvas_bg": [
+      26,
+      27,
+      38,
+      255
+    ],
+    "disabled_text_color": [
+      60,
+      91,
+      224,
+      255
+    ],
+    "error_color": [
+      247,
+      118,
+      142,
+      255
+    ],
+    "focus_border_color": [
+      82,
+      122,
+      182,
+      255
+    ],
+    "info_color": [
+      125,
+      207,
+      255,
+      255
+    ],
+    "success_color": [
+      158,
+      206,
+      106,
+      255
+    ],
+    "text_color": [
+      192,
+      202,
+      245,
+      255
+    ],
+    "tooltip_bg": [
+      53,
+      59,
+      88,
+      255
+    ],
+    "tooltip_text": [
+      192,
+      202,
+      245,
+      255
+    ],
+    "warning_color": [
+      224,
+      175,
+      104,
+      255
+    ]
+  },
+  "overlay": {
+    "arrow_color": [
+      192,
+      202,
+      245,
+      255
+    ],
+    "background_color": [
+      36,
+      40,
+      59,
+      255
+    ],
+    "frame_color": [
+      194,
+      212,
+      251,
+      255
+    ],
+    "overlay_color": [
+      122,
+      162,
+      247,
+      64
+    ],
+    "shadow_color": [
+      0,
+      0,
+      0,
+      64
+    ]
+  },
+  "panel": {
+    "alternate_base": [
+      40,
+      44,
+      65,
+      255
+    ],
+    "bg_normal": [
+      36,
+      40,
+      59,
+      255
+    ],
+    "button_bg": [
+      51,
+      57,
+      84,
+      255
+    ],
+    "color_dark": [
+      13,
+      14,
+      21,
+      255
+    ],
+    "color_light": [
+      65,
+      72,
+      107,
+      255
+    ],
+    "color_mid": [
+      26,
+      29,
+      43,
+      255
+    ],
+    "color_shadow": [
+      0,
+      0,
+      0,
+      72
+    ],
+    "input_bg": [
+      28,
+      31,
+      46,
+      255
+    ],
+    "text_color": [
+      192,
+      202,
+      245,
+      255
+    ]
+  },
+  "sidebar": {
+    "badge_bg": [
+      122,
+      162,
+      247,
+      255
+    ],
+    "badge_text": [
+      148,
+      165,
+      238,
+      255
+    ],
+    "bg_color": [
+      26,
+      27,
+      38,
+      255
+    ],
+    "indicator_color": [
+      122,
+      162,
+      247,
+      255
+    ],
+    "tab_bg_active": [
+      36,
+      40,
+      59,
+      255
+    ],
+    "tab_bg_hover_end": [
+      42,
+      44,
+      62,
+      255
+    ],
+    "tab_bg_hover_start": [
+      51,
+      53,
+      74,
+      255
+    ],
+    "tab_bg_normal": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "tab_border_active_color": [
+      122,
+      162,
+      247,
+      255
+    ],
+    "tab_border_normal_color": [
+      26,
+      27,
+      38,
+      255
+    ],
+    "tab_text_active": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "tab_text_disabled": [
+      60,
+      91,
+      224,
+      255
+    ],
+    "tab_text_normal": [
+      148,
+      165,
+      238,
+      255
+    ]
+  },
+  "sidepanel": {
+    "bg_normal": [
+      36,
+      40,
+      59,
+      255
+    ],
+    "border_color": [
+      26,
+      27,
+      38,
+      255
+    ],
+    "border_width": 1.0,
+    "button_color": [
+      148,
+      165,
+      238,
+      255
+    ],
+    "button_disable_clr": [
+      63,
+      67,
+      103,
+      255
+    ],
+    "button_hover_bg": [
+      59,
+      66,
+      97,
+      255
+    ],
+    "focus_border_color": [
+      82,
+      122,
+      182,
+      255
+    ],
+    "shadow_color": [
+      0,
+      0,
+      0,
+      64
+    ],
+    "title_text_color": [
+      192,
+      202,
+      245,
+      255
+    ]
+  },
+  "splitter": {
+    "handle_color": [
+      26,
+      27,
+      38,
+      255
+    ],
+    "handle_hover_color": [
+      122,
+      162,
+      247,
+      255
+    ]
+  },
+  "tab": {
+    "bg_active": [
+      36,
+      40,
+      59,
+      255
+    ],
+    "bg_hover": [
+      51,
+      53,
+      74,
+      255
+    ],
+    "bg_normal": [
+      24,
+      27,
+      40,
+      255
+    ],
+    "border_active_color": [
+      122,
+      162,
+      247,
+      255
+    ],
+    "border_normal_color": [
+      26,
+      27,
+      38,
+      255
+    ],
+    "close_btn_bg_disable": [
+      63,
+      67,
+      103,
+      255
+    ],
+    "close_btn_bg_hover": [
+      59,
+      66,
+      97,
+      255
+    ],
+    "close_btn_color": [
+      189,
+      190,
+      196,
+      255
+    ],
+    "indicator_color": [
+      122,
+      162,
+      247,
+      255
+    ],
+    "indicator_position": "none",
+    "tab_dimming": false,
+    "text_active": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "text_normal": [
+      148,
+      165,
+      238,
+      255
+    ]
+  },
+  "title_bar": {
+    "active_edge_color": [
+      194,
+      212,
+      251,
+      255
+    ],
+    "bg_active": [
+      24,
+      27,
+      40,
+      255
+    ],
+    "bg_normal": [
+      24,
+      27,
+      40,
+      255
+    ],
+    "border_color": [
+      26,
+      27,
+      38,
+      255
+    ],
+    "button_color": [
+      148,
+      165,
+      238,
+      255
+    ],
+    "button_disable_clr": [
+      63,
+      67,
+      103,
+      255
+    ],
+    "button_hover_bg": [
+      47,
+      53,
+      78,
+      255
+    ],
+    "focus_border_color": [
+      82,
+      122,
+      182,
+      255
+    ],
+    "text_active": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "text_normal": [
+      148,
+      165,
+      238,
+      255
+    ]
+  }
+}

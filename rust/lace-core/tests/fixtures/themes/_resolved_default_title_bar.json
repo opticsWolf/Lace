@@ -1,0 +1,83 @@
+{
+  "active_edge_color": [
+    33,
+    159,
+    255,
+    255
+  ],
+  "active_edge_width": 2,
+  "bg_active": [
+    46,
+    46,
+    46,
+    255
+  ],
+  "bg_normal": [
+    46,
+    46,
+    46,
+    255
+  ],
+  "border_bottom": 0.0,
+  "border_color": [
+    24,
+    24,
+    24,
+    0
+  ],
+  "border_width": 0.0,
+  "button_color": [
+    179,
+    179,
+    179,
+    255
+  ],
+  "button_corner_radius": 3,
+  "button_disable_clr": [
+    79,
+    71,
+    71,
+    255
+  ],
+  "button_expand_vertical": false,
+  "button_hover_bg": [
+    77,
+    77,
+    77,
+    255
+  ],
+  "button_icon_size": 16,
+  "button_padding": 2,
+  "button_size": 17,
+  "button_spacing": 4,
+  "corner_radius": 0,
+  "focus_border_color": [
+    24,
+    24,
+    24,
+    0
+  ],
+  "font_family": "Segoe UI",
+  "font_italic": false,
+  "font_size": 13,
+  "font_underline": false,
+  "font_weight": "normal",
+  "height": 30,
+  "margin": 0.0,
+  "padding": 4,
+  "padding_left": 0,
+  "padding_right": 6,
+  "padding_top": 0,
+  "text_active": [
+    255,
+    255,
+    255,
+    255
+  ],
+  "text_normal": [
+    179,
+    179,
+    179,
+    255
+  ]
+}

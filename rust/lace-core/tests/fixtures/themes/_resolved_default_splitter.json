@@ -1,0 +1,17 @@
+{
+  "handle_color": [
+    24,
+    24,
+    24,
+    255
+  ],
+  "handle_hover_color": [
+    0,
+    120,
+    212,
+    255
+  ],
+  "handle_margin": 0,
+  "handle_width": 3,
+  "total_width": 7
+}
