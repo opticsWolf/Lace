@@ -40,17 +40,52 @@ Item {
             item.children[i].destroy()
     }
 
-    function destroyFloats() {
-        for (var w of floats) {
-            w.close()
-            w.destroy()
+    // Reconcile float windows with the document by container id: windows
+    // whose container survives are kept (no flicker, no close storms) and
+    // asked to refresh their own tree; removed ones are torn down with the
+    // guard set so their onClosing does NOT dock anything back.
+    // (Unconditional destroy used to close every float on every rebuild —
+    // the close handler then docked each float back, so floats could never
+    // survive a structural op and lastError filled with stale failures.)
+    function syncFloats() {
+        var wanted = {}
+        for (var c = 0; c < doc.containers.length; ++c) {
+            if (!doc.containers[c].is_main)
+                wanted[doc.containers[c].id || ("float-" + c)] = c
         }
-        floats = []
+        var keep = []
+        for (var w of floats) {
+            if (w && wanted[w.cid] !== undefined) {
+                keep.push(w)
+                delete wanted[w.cid]
+            } else if (w) {
+                w.teardown = true
+                w.close()
+                w.destroy()
+            }
+        }
+        floats = keep
+        for (var cid in wanted) {
+            var win = builder.floatComp.createObject(null, {
+                manager: view.manager,
+                doc: view.doc,
+                containerIndex: wanted[cid],
+                builder: builder,
+                cid: cid
+            })
+            if (win)
+                floats.push(win)
+        }
+        floats = floats
+        for (var k of floats) {
+            if (k.refreshContent)
+                k.refreshContent()
+        }
+        return floats.length
     }
 
     function rebuild() {
         clearChildren(mainArea)
-        destroyFloats()
         view.nodeRegistry = []
         if (!doc || !doc.containers)
             return
@@ -64,18 +99,9 @@ Item {
                 // (nested items are positioned by the manual SplitterView).
                 if (rootItem)
                     rootItem.anchors.fill = mainArea
-            } else {
-                var win = builder.floatComp.createObject(null, {
-                    manager: view.manager,
-                    doc: view.doc,
-                    containerIndex: c,
-                    builder: builder,
-                    cid: container.id || ("float-" + c)
-                })
-                floats.push(win)
-                counts.floats++
             }
         }
+        counts.floats = syncFloats()
         console.log("lace dock: areas=" + counts.areas
             + " widgets=" + counts.widgets + " floats=" + counts.floats)
         view.lastCounts = counts

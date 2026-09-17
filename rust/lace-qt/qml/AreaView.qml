@@ -63,6 +63,33 @@ Item {
             color: root.areaActive
                 ? (LaceTheme.color("title_bar.bg_active") || "grey")
                 : (LaceTheme.color("title_bar.bg_normal") || "darkgrey")
+            // Drag sensor FIRST (bottom of z-order): the action buttons above
+            // must receive their presses; empty strip areas fall through here.
+            MouseArea {
+                id: titleMouse
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton
+                onClicked: function(event) {
+                    root.manager.focusedArea = root.focusKey
+                    event.accepted = false
+                }
+                onPressAndHold: {
+                    if (root.currentName === "")
+                        return
+                    // A real QML drag (keys + payload) so DropAreas fire;
+                    // the manager mirrors the session for the drop ops.
+                    titleMouse.Drag.source = titleMouse
+                    titleMouse.Drag.keys = ["lace-tab"]
+                    titleMouse.Drag.mimeData = { "text/plain": root.currentName }
+                    titleMouse.Drag.active = true
+                    root.manager.beginDrag(root.currentName)
+                }
+                onReleased: {
+                    titleMouse.Drag.active = false
+                    if (root.manager.dragActive)
+                        root.manager.cancelDrag()
+                }
+            }
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 8
@@ -137,31 +164,6 @@ Item {
                         radius: 3
                     }
                     onClicked: root.manager.toggleMaximize(root.focusKey)
-                }
-            }
-            MouseArea {
-                id: titleMouse
-                anchors.fill: parent
-                acceptedButtons: Qt.LeftButton
-                onClicked: function(event) {
-                    root.manager.focusedArea = root.focusKey
-                    event.accepted = false
-                }
-                onPressAndHold: {
-                    if (root.currentName === "")
-                        return
-                    // A real QML drag (keys + payload) so DropAreas fire;
-                    // the manager mirrors the session for the drop ops.
-                    titleMouse.Drag.source = titleMouse
-                    titleMouse.Drag.keys = ["lace-tab"]
-                    titleMouse.Drag.mimeData = { "text/plain": root.currentName }
-                    titleMouse.Drag.active = true
-                    root.manager.beginDrag(root.currentName)
-                }
-                onReleased: {
-                    titleMouse.Drag.active = false
-                    if (root.manager.dragActive)
-                        root.manager.cancelDrag()
                 }
             }
         }

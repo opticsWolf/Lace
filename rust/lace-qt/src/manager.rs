@@ -283,6 +283,9 @@ impl ffi::LaceManager {
         match render(&self.as_mut().rust_mut().doc) {
             Ok(rendered) => {
                 self.as_mut().set_layout_json(rendered);
+                // A success clears any earlier failure message (the status
+                // label would otherwise show stale errors forever).
+                self.as_mut().set_last_error(QString::from(""));
                 true
             }
             Err(e) => self.as_mut().fail(e),
@@ -294,6 +297,7 @@ impl ffi::LaceManager {
         match render(&self.as_mut().rust_mut().doc) {
             Ok(rendered) => {
                 self.as_mut().rust_mut().layout_json = rendered;
+                self.as_mut().set_last_error(QString::from(""));
                 true
             }
             Err(e) => self.as_mut().fail(e),

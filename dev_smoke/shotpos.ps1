@@ -1,6 +1,7 @@
 # Move/size a process window, bring to front, capture its rect.
 param([string]$Proc = "dock_demo", [string]$Out = "shot.png",
-      [int]$X = 40, [int]$Y = 40, [int]$W = 1380, [int]$H = 860)
+      [int]$X = 40, [int]$Y = 40, [int]$W = 1380, [int]$H = 860,
+      [string]$Title = "")
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 Add-Type @"
 using System;
@@ -29,8 +30,10 @@ $cb = { param($h, $l)
         if ($pids -contains $wpid) {
             $sb = New-Object Text.StringBuilder 256
             if ([WP]::GetWindowText($h, $sb, 256) -gt 0) {
-                $script:hwnd = $h
-                return $false
+                if ($Title -eq "" -or $sb.ToString().Contains($Title)) {
+                    $script:hwnd = $h
+                    return $false
+                }
             }
         }
     }
