@@ -262,7 +262,7 @@ fn insert_at(
 ) -> Result<(), LaceError> {
     if edge == DockEdge::Center {
         match area_fields_mut(root, path) {
-            Some(mut area) => {
+            Some(area) => {
                 area.widgets.push(node);
                 *area.tabs = serde_json::json!(area.widgets.len() as u64);
                 *area.current = serde_json::json!(name);
@@ -351,6 +351,7 @@ fn float_new(doc: &mut LayoutDoc, name: &str, closed: bool) -> Result<(), LaceEr
         id: Some(id.clone()),
         is_main: false,
         data: ContainerData {
+            node_type: "Container".to_string(),
             floating: true,
             geometry: PLACEHOLDER_GEOMETRY.to_string(),
             root_splitter: new_area(name, closed),

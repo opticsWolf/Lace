@@ -16,3 +16,4 @@ license = { text = "Apache-2.0" }
 module-name = "_lace_rs"
 bindings = "pyo3"
 features = ["pyo3/extension-module"]
+python-source = "python"

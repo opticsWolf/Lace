@@ -198,6 +198,8 @@ pub struct ContainerEntry {
 /// space separators); validation only requires it to decode non-empty.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContainerData {
+    #[serde(rename = "type", default = "container_type")]
+    pub node_type: String,
     #[serde(default)]
     pub floating: bool,
     #[serde(default)]
@@ -206,9 +208,14 @@ pub struct ContainerData {
     pub root_splitter: TreeNode,
 }
 
+fn container_type() -> String {
+    "Container".to_string()
+}
+
 impl Default for ContainerData {
     fn default() -> Self {
         ContainerData {
+            node_type: container_type(),
             floating: false,
             geometry: String::new(),
             root_splitter: TreeNode::Unknown,
@@ -609,6 +616,7 @@ mod tests {
                 id: Some("main".to_string()),
                 is_main: true,
                 data: ContainerData {
+                    node_type: "Container".to_string(),
                     floating: false,
                     geometry: String::new(),
                     root_splitter: TreeNode::Area {
