@@ -81,13 +81,35 @@ Item {
                     enabled: root.currentName !== ""
                     onClicked: root.manager.pinWidget(root.currentName, "left")
                 }
+                Button {
+                    text: root.manager.maximizedArea === root.focusKey ? qsTr("[_]") : qsTr("[ ]")
+                    flat: true
+                    onClicked: root.manager.toggleMaximize(root.focusKey)
+                }
             }
             MouseArea {
+                id: titleMouse
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton
                 onClicked: function(event) {
                     root.manager.focusedArea = root.focusKey
                     event.accepted = false
+                }
+                onPressAndHold: {
+                    if (root.currentName === "")
+                        return
+                    // A real QML drag (keys + payload) so DropAreas fire;
+                    // the manager mirrors the session for the drop ops.
+                    titleMouse.Drag.source = titleMouse
+                    titleMouse.Drag.keys = ["lace-tab"]
+                    titleMouse.Drag.mimeData = { "text/plain": root.currentName }
+                    titleMouse.Drag.active = true
+                    root.manager.beginDrag(root.currentName)
+                }
+                onReleased: {
+                    titleMouse.Drag.active = false
+                    if (root.manager.dragActive)
+                        root.manager.cancelDrag()
                 }
             }
         }
@@ -172,6 +194,109 @@ Item {
                     widgetClosed: !!modelData.closed
                 }
             }
+        }
+    }
+
+    // Drop zones (section level). Visible only while dragging an offered
+    // edge; the highlight follows `dragTargetKey`. Zones never intercept
+    // the mouse when idle (`visible: false` disables them).
+    function zoneVisible(edge) {
+        if (!manager.dragActive)
+            return false
+        return manager.dropEdges(containerIndex).split(",").includes(edge)
+    }
+    function zoneKey(edge) {
+        return "S:" + containerIndex + "/" + areaPath + "/" + edge
+    }
+    function zoneHighlight(edge) {
+        return manager.dragTargetKey === zoneKey(edge)
+    }
+
+    DropArea {
+        keys: ["lace-tab"]
+        anchors.fill: parent
+        z: 10
+        visible: zoneVisible("center")
+        onEntered: manager.overSectionDrop(containerIndex, areaPath, "center")
+        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "center")
+        Rectangle {
+            anchors.fill: parent
+            color: LaceTheme.color("overlay.overlay_color") || "transparent"
+            border.color: LaceTheme.color("overlay.frame_color") || "blue"
+            border.width: 2
+            visible: zoneHighlight("center")
+        }
+    }
+    DropArea {
+        keys: ["lace-tab"]
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 56
+        z: 11
+        visible: zoneVisible("left")
+        onEntered: manager.overSectionDrop(containerIndex, areaPath, "left")
+        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "left")
+        Rectangle {
+            anchors.fill: parent
+            color: LaceTheme.color("overlay.overlay_color") || "transparent"
+            border.color: LaceTheme.color("overlay.frame_color") || "blue"
+            border.width: 2
+            visible: zoneHighlight("left")
+        }
+    }
+    DropArea {
+        keys: ["lace-tab"]
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 56
+        z: 11
+        visible: zoneVisible("right")
+        onEntered: manager.overSectionDrop(containerIndex, areaPath, "right")
+        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "right")
+        Rectangle {
+            anchors.fill: parent
+            color: LaceTheme.color("overlay.overlay_color") || "transparent"
+            border.color: LaceTheme.color("overlay.frame_color") || "blue"
+            border.width: 2
+            visible: zoneHighlight("right")
+        }
+    }
+    DropArea {
+        keys: ["lace-tab"]
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 56
+        z: 11
+        visible: zoneVisible("top")
+        onEntered: manager.overSectionDrop(containerIndex, areaPath, "top")
+        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "top")
+        Rectangle {
+            anchors.fill: parent
+            color: LaceTheme.color("overlay.overlay_color") || "transparent"
+            border.color: LaceTheme.color("overlay.frame_color") || "blue"
+            border.width: 2
+            visible: zoneHighlight("top")
+        }
+    }
+    DropArea {
+        keys: ["lace-tab"]
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 56
+        z: 11
+        visible: zoneVisible("bottom")
+        onEntered: manager.overSectionDrop(containerIndex, areaPath, "bottom")
+        onDropped: manager.commitSectionDrop(containerIndex, areaPath, "bottom")
+        Rectangle {
+            anchors.fill: parent
+            color: LaceTheme.color("overlay.overlay_color") || "transparent"
+            border.color: LaceTheme.color("overlay.frame_color") || "blue"
+            border.width: 2
+            visible: zoneHighlight("bottom")
         }
     }
 }

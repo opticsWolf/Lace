@@ -18,7 +18,7 @@ use std::collections::HashSet;
 
 use crate::error::LaceError;
 use crate::layout_doc::{
-    ContainerData, ContainerEntry, LayoutDoc, SCHEMA_VERSION, SYSTEM_TYPE, TreeNode, validate_doc,
+    ContainerData, ContainerEntry, LayoutDoc, SCHEMA_VERSION, SYSTEM_TYPE, TreeNode,
 };
 
 /// Placeholder Qt geometry blob for floats with no window yet.
@@ -947,6 +947,7 @@ pub fn blank_doc(app_version: i64) -> LayoutDoc {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout_doc::validate_doc;
     use crate::layout_doc::LayoutDoc;
 
     fn golden(name: &str) -> LayoutDoc {

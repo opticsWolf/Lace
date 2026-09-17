@@ -20,6 +20,7 @@ fn main() {
             QmlFile::from("qml/WidgetCard.qml"),
             QmlFile::from("qml/FloatingView.qml"),
             QmlFile::from("qml/SidebarView.qml"),
+            QmlFile::from("qml/OverlayCross.qml"),
             QmlFile::from("qml/LaceTheme.qml").singleton(true),
         ]),
     )

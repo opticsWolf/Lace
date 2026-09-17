@@ -9,6 +9,7 @@ import com.lace.dock 1.0
 SplitView {
     id: splitter
     property int splitOrientation: Qt.Horizontal
+    property string nodePath: ""
     orientation: splitOrientation
 
     handle: Rectangle {

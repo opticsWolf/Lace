@@ -12,6 +12,7 @@ Item {
     required property string side
 
     property var pinned: []
+    property var closedMap: ({})
 
     function refresh() {
         try {
@@ -24,8 +25,14 @@ Item {
             }
             names.sort()
             pinned = names
+            var closed = {}
+            var roster = doc.widget_states || {}
+            for (var key in roster)
+                closed[key] = !!roster[key].closed
+            closedMap = closed
         } catch (e) {
             pinned = []
+            closedMap = ({})
         }
     }
 
@@ -71,6 +78,17 @@ Item {
                         : "transparent"
                     border.color: LaceTheme.color("sidebar.tab_border_normal_color") || "transparent"
                     border.width: LaceTheme.num("sidebar.tab_border_width") || 0
+                    // Badge dot for closed widgets (badge_bg token).
+                    Rectangle {
+                        width: 8
+                        height: 8
+                        radius: 4
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 4
+                        color: LaceTheme.color("sidebar.badge_bg") || "red"
+                        visible: !!strip.closedMap[modelData]
+                    }
                 }
                 onClicked: strip.manager.unpinWidget(modelData)
             }

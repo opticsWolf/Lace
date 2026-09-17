@@ -11,6 +11,9 @@ Item {
     property var floats: []
     // Last rebuild tally, for the headless smoke self-test.
     property var lastCounts: ({ areas: 0, widgets: 0, floats: 0 })
+    // Node registry for maximize + the main container's index.
+    property var nodeRegistry: []
+    property int mainIndex: 0
 
     ContainerBuilder {
         id: builder
@@ -48,13 +51,15 @@ Item {
     function rebuild() {
         clearChildren(mainArea)
         destroyFloats()
+        view.nodeRegistry = []
         if (!doc || !doc.containers)
             return
         var counts = { areas: 0, widgets: 0, floats: 0 }
         for (var c = 0; c < doc.containers.length; ++c) {
             var container = doc.containers[c]
             if (container.is_main) {
-                builder.buildNode(mainArea, container.data.root_splitter, c, "", counts)
+                view.mainIndex = c
+                builder.buildNode(mainArea, container.data.root_splitter, c, "", counts, view.nodeRegistry)
             } else {
                 var win = builder.floatComp.createObject(null, {
                     manager: view.manager,
@@ -70,6 +75,12 @@ Item {
         console.log("lace dock: areas=" + counts.areas
             + " widgets=" + counts.widgets + " floats=" + counts.floats)
         view.lastCounts = counts
+        builder.applyMaximize(view.nodeRegistry, manager.maximizedArea, view.mainIndex)
+    }
+
+    OverlayCross {
+        manager: view.manager
+        mainIndex: view.mainIndex
     }
 
     Component.onCompleted: refresh()
@@ -77,5 +88,8 @@ Item {
     Connections {
         target: view.manager
         function onLayoutJsonChanged() { view.refresh() }
+        function onMaximizedAreaChanged() {
+            builder.applyMaximize(view.nodeRegistry, view.manager.maximizedArea, view.mainIndex)
+        }
     }
 }

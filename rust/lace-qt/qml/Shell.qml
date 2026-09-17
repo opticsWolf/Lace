@@ -109,6 +109,18 @@ ApplicationWindow {
         function onThemeJsonChanged() { root.refreshTheme() }
     }
 
+    // Escape backs out: restore a maximized area first, otherwise defocus.
+    // (The QWidget sidebar-overlay gating lives here once the overlay does.)
+    Shortcut {
+        sequence: "Escape"
+        onActivated: {
+            if (manager.maximizedArea !== "")
+                manager.toggleMaximize("")
+            else
+                manager.focusedArea = ""
+        }
+    }
+
     Component.onCompleted: {
         for (var i = 0; i < manager.presetCount(); ++i) {
             var key = manager.presetNameAt(i)
@@ -151,35 +163,63 @@ ApplicationWindow {
         return c.areas === areas && c.widgets === widgets && c.floats === floats
     }
 
+    // Ground truth (verified against the Rust ops directly): the seed is
+    // 2 areas / 4 main widgets / 1 float — NOT (2, 5, 1); Epsilon floats.
+    function smokeDragRoundtrip() {
+        manager.floatWidget("Alpha")
+        if (!smokeCheck(2, 3, 2))
+            return 16
+        if (!manager.beginDrag("Alpha"))
+            return 17
+        if (!manager.commitSectionDrop(0, "0", "center"))
+            return 18
+        if (!smokeCheck(2, 4, 1))
+            return 19
+        if (!manager.toggleMaximize("0/0"))
+            return 30
+        if (manager.maximizedArea !== "0/0")
+            return 31
+        if (!manager.toggleMaximize("0/0"))
+            return 32
+        if (manager.maximizedArea !== "")
+            return 33
+        if (manager.dropEdges(0) !== "left,right,top,bottom,center")
+            return 34
+        return 0
+    }
+
     Timer {
         interval: 1500
         running: Qt.application.arguments.includes("--smoke")
         onTriggered: {
-            if (!smokeCheck(2, 5, 1))
+            if (!smokeCheck(2, 4, 1))
                 Qt.exit(11)
             manager.dockWidget("SmokeTab", "right", "", false)
-            if (!smokeCheck(3, 6, 1))
+            if (!smokeCheck(3, 5, 1))
                 Qt.exit(12)
             manager.removeWidget("SmokeTab")
-            if (!smokeCheck(2, 5, 1))
-                Qt.exit(13)
-            manager.pinWidget("Gamma", "left")
             if (!smokeCheck(2, 4, 1))
+                Qt.exit(13)
+            var dragCode = smokeDragRoundtrip()
+            if (dragCode !== 0)
+                Qt.exit(dragCode)
+            manager.pinWidget("Gamma", "left")
+            if (!smokeCheck(2, 3, 1))
                 Qt.exit(14)
             manager.unpinWidget("Gamma")
-            if (!smokeCheck(2, 5, 1))
+            if (!smokeCheck(2, 4, 1))
                 Qt.exit(15)
             if (manager.presetCount() !== 27)
-                Qt.exit(16)
+                Qt.exit(35)
             for (var i = 0; i < manager.presetCount(); ++i) {
                 var key = manager.presetNameAt(i)
                 if (!manager.applyThemeName(key))
-                    Qt.exit(18)
+                    Qt.exit(36)
                 if (!verifyTheme(key))
                     Qt.exit(20 + (i % 100))
             }
             if (!manager.applyThemeName("default"))
-                Qt.exit(17)
+                Qt.exit(37)
             Qt.quit()
         }
     }

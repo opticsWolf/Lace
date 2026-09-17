@@ -43,6 +43,16 @@ without rebuilding). Its `--smoke` is a real self-test — seed, add-tab,
 remove-tab with an exit-code verdict — because QML `console.log` is not
 captured reliably on every platform.
 
+> **QML iteration rule:** `cxx-qt-build` does not re-embed changed QML
+> files on incremental builds (no `rcc`/`qmlcachegen` rerun — verified).
+> After editing anything under `rust/lace-qt/qml/`, run
+> `cargo clean -p lace-qt` before trusting a smoke run, or stale UI passes
+> silently. `LACE_QML_FILE` bypasses resources for the top file during
+> iteration. Related: QML properties keep their Rust `snake_case` names
+> unless the bridge sets `cxx_name` (all multi-word `LaceManager`
+> properties carry one) — `manager.layoutJson` is `undefined` otherwise,
+> with no error anywhere.
+
 ## Shell architecture (Phase 3)
 
 Rust owns a `LayoutDoc`; QML renders the `LaceManager.layoutJson` snapshot

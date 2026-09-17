@@ -21,6 +21,12 @@ Window {
         anchors.fill: parent
     }
 
+    property var nodeRegistry: []
+
+    function applyMax() {
+        builder.applyMaximize(nodeRegistry, manager.maximizedArea, containerIndex)
+    }
+
     Component.onCompleted: {
         var g = (doc.container_geometries || {})[cid]
         if (g) {
@@ -29,9 +35,16 @@ Window {
             win.width = g.width
             win.height = g.height
         }
+        nodeRegistry = []
         var counts = { areas: 0, widgets: 0, floats: 0 }
         builder.buildNode(content, doc.containers[containerIndex].data.root_splitter,
-            containerIndex, "", counts)
+            containerIndex, "", counts, nodeRegistry)
+        applyMax()
+    }
+
+    Connections {
+        target: manager
+        function onMaximizedAreaChanged() { applyMax() }
     }
 
     onClosing: function(close) {
