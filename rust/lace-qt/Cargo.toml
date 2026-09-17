@@ -1,0 +1,19 @@
+[package]
+name = "lace-qt"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "CXX-Qt QObject bridges exposing lace-core to QML. Qt only — never linked into the Python module."
+# Required so cargo applies this package's native-link directives
+# (generated C++ archive, static QML plugin) when linking bins,
+# examples and tests — same as upstream cxx-qt / cxx-qt-lib.
+links = "lace-qt"
+
+[dependencies]
+cxx = "1"
+cxx-qt = "0.10"
+cxx-qt-lib = { version = "0.10", features = ["qt_gui", "qt_qml"] }
+lace-core = { path = "../lace-core" }
+
+[build-dependencies]
+cxx-qt-build = { version = "0.10", features = ["link_qt_object_files"] }

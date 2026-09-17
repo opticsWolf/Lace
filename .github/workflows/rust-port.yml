@@ -1,0 +1,69 @@
+name: rust-port
+
+on:
+  push:
+    branches: [dev_rust]
+  pull_request:
+    branches: [dev_rust, main]
+  workflow_dispatch:
+
+env:
+  QT_VERSION: "6.8.3"
+
+jobs:
+  core:
+    name: lace-core (no Qt needed)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test -p lace-core --locked
+
+  qt:
+    name: lace-qt QML hello
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            arch: win64_msvc2022_64
+          - os: ubuntu-latest
+            arch: linux_gcc_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: jurplel/install-qt-action@v2
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: ${{ matrix.arch }}
+          modules: qtdeclarative qtshadertools qtsvg qtimageformats
+      - run: cargo build -p lace-qt --locked
+      - name: headless QML smoke
+        run: cargo run -p lace-qt --bin qml_minimal -- --smoke
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+
+  python-bindings:
+    name: lace-py maturin wheel
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install maturin pytest PySide6
+      - run: maturin build --release -m rust/lace-py/Cargo.toml -o dist-rs
+      - run: pip install dist-rs/*.whl
+      - run: python -c "import _lace_rs; assert _lace_rs.split_share(900, 6, 2) == 447; print('lace-py ok', _lace_rs.__version__)"
+      - name: python baseline (untouched package)
+        run: pytest tests/test_enums.py tests/test_version_is_consistent.py -q
+        env:
+          QT_QPA_PLATFORM: offscreen

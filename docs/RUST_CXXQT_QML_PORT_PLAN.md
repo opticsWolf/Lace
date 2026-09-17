@@ -85,7 +85,7 @@ Feature flags keep Qt out of pure-core builds and Python out of pure-Qt builds:
 | `dock_menu*.py` (468), `eliding_label.py` | QML `Menu` + `Text.elide` | Context menus bound to `MenuActionTarget` model. |
 | `frameless_window.py` (700), `frameless_titlebar.py` (318), `floating_dock_container_frameless.py` (1031), `qframelesswindow` dep | **Deferred to Phase 7** — see §4 | Tier 0/1/2 frameless strategy. None of this blocks the critical path. |
 | `dock_signals.py`, `dock_styled.py`, `dock_theme_bridge.py`, `util.py`, `_trace.py` | Deleted / folded | Event bus → Qt signals on QObjects; palette bridge → gone (QML binds theme); trace → `tracing` + `RUST_LOG`. |
-| `demos/` (3 files) | `examples/qml_minimal` + `py/demos/demo_qml.py` | Rust/QML demo canonical; Python demo hosts same QML. |
+| `demos/` (3 files) | `qml_minimal` bin + `py/demos/demo_qml.py` | Rust/QML demo canonical; Python demo hosts same QML. |
 | `tests/` (8.7k), `dev_smoke/` | cargo tests + `tests/test_rs_parity.py` + QML `TestCase` | See §6. |
 
 **Not ported** (deleted by design): `qframelesswindow`, QSS/stylesheet path (replaced by QML theme JSON + component overrides), `WA_WState_ExplicitShowHide` workarounds, DWM dark-frame code (QWK `dark-mode` attribute does it), `WinIdChange` auto-heal (Quick owns the surface).
@@ -210,7 +210,7 @@ Rule carried from v0.7 plan: **every phase adds a test that fails before and pas
 ## 8. Phased delivery — frameless last, infrastructure first
 
 **Phase 0 — Workspace + toolchain + hello (0.5–1 wk).**
-Cargo workspace, three crates, `py/` shim, maturin wired; CI matrix (win/linux × cargo + maturin + pytest); `examples/qml_minimal` (one `DockWidget`-style QObject in QML via `QQmlApplicationEngine`); `maturin develop` + `import _lace_rs` green. Exit: all three runners green on Windows.
+Cargo workspace, three crates, `py/` shim, maturin wired; CI matrix (win/linux × cargo + maturin + pytest); `qml_minimal` bin (one `DockWidget`-style QObject in QML via `QQmlApplicationEngine`); `maturin develop` + `import _lace_rs` green. Exit: all three runners green on Windows.
 
 **Phase 1 — `lace-core::theme` + `::config` (1–2 wks).**
 `enums.py` → bitflags; theme engine + presets + `ThemeJson`. Parity harness: 27 themes × focused/unfocused vs Python `build_theme()`. Exit: zero Qt dependency, cargo tests green.

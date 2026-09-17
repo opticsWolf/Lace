@@ -1,0 +1,3 @@
+[workspace]
+members = ["rust/lace-core", "rust/lace-qt", "rust/lace-py"]
+resolver = "2"

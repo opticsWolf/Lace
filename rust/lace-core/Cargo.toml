@@ -1,0 +1,13 @@
+[package]
+name = "lace-core"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Pure-Rust core of the Lace docking system: config enums, layout math, serializer. No Qt, no Python."
+rust-version = "1.77"
+
+[dependencies]
+bitflags = { version = "2", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"

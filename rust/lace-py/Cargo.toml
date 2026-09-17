@@ -1,0 +1,14 @@
+[package]
+name = "lace-py"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Thin PyO3 bindings over lace-core, built by maturin as _lace_rs. No Qt linked here by design."
+
+[lib]
+name = "_lace_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+lace-core = { path = "../lace-core" }
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py310"] }
