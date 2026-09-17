@@ -13,6 +13,9 @@ Item {
     required property int mainIndex
     required property rect hoverRect
     required property string activeEdge
+    // Edges the current container offers (disallowed icons hide, so the
+    // cross never offers a drop the preview would refuse).
+    required property var allowedEdges
 
     anchors.fill: parent
     z: 20
@@ -40,6 +43,7 @@ Item {
 
     component RimBand: Rectangle {
         property string zone: ""
+        visible: cross.allowedEdges.indexOf(zone) >= 0
         color: fillColor()
         border.color: frameColor()
         border.width: 2
@@ -47,24 +51,28 @@ Item {
     }
 
     RimBand {
+        zone: "left"
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: 72
     }
     RimBand {
+        zone: "right"
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: 72
     }
     RimBand {
+        zone: "top"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: 72
     }
     RimBand {
+        zone: "bottom"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -82,6 +90,7 @@ Item {
         component CrossIcon: Rectangle {
             property string edge: ""
             property string glyph: ""
+            visible: cross.allowedEdges.indexOf(edge) >= 0
             width: 40
             height: 40
             radius: 6
