@@ -282,6 +282,40 @@ fn insert_at(
             DockEdge::Bottom => ("|", false),
             _ => unreachable!("center/float handled above"),
         };
+        let fresh = || TreeNode::Area {
+            tabs: serde_json::json!(1),
+            current: serde_json::json!(name),
+            widgets: vec![node.clone()],
+            locked_name: None,
+        };
+        // Same-orientation parent: insert beside the target and split only
+        // the target's share (siblings keep their sizes). Anything else
+        // wraps the target in a new even splitter.
+        if !path.is_empty() {
+            let target_index = *path.last().unwrap();
+            if let Some(TreeNode::Splitter {
+                orientation: parent_orientation,
+                count,
+                sizes,
+                children,
+            }) = get_node_mut(root, &path[..path.len() - 1])
+            {
+                if parent_orientation == orientation && target_index < children.len() {
+                    let old_size = sizes
+                        .get(target_index)
+                        .and_then(|s| s.as_f64())
+                        .unwrap_or(1.0);
+                    let share = old_size / 2.0;
+                    let insert_at_index = if before { target_index } else { target_index + 1 };
+                    children.insert(insert_at_index, fresh());
+                    sizes.insert(insert_at_index, serde_json::json!(share));
+                    // The target slid to target_index+1 on before-inserts.
+                    sizes[target_index + usize::from(before)] = serde_json::json!(share);
+                    *count = serde_json::json!(children.len() as u64);
+                    return Ok(());
+                }
+            }
+        }
         let old = match get_node_mut(root, path) {
             Some(slot) => std::mem::replace(slot, TreeNode::Unknown),
             None => return Err(op_error(format!("no area at path {path:?}"))),
@@ -295,13 +329,7 @@ fn insert_at(
                 locked_name: None,
             }
         } else {
-            let fresh = TreeNode::Area {
-                tabs: serde_json::json!(1),
-                current: serde_json::json!(name),
-                widgets: vec![node],
-                locked_name: None,
-            };
-            let (first, second) = if before { (fresh, old) } else { (old, fresh) };
+            let (first, second) = if before { (fresh(), old) } else { (old, fresh()) };
             TreeNode::Splitter {
                 orientation: orientation.to_string(),
                 count: serde_json::json!(2),
@@ -1018,6 +1046,50 @@ mod tests {
         // Length mismatch and non-positive entries fail closed.
         assert!(set_splitter_sizes(&mut doc, 0, &[], &[1.0]).is_err());
         assert!(set_splitter_sizes(&mut doc, 0, &[], &[1.0, 0.0]).is_err());
+    }
+
+    #[test]
+    fn same_orientation_drop_inserts_beside_target() {
+        // Ports the section-split rule: a matching-orientation parent
+        // absorbs the drop next to the target (no new splitter level) and
+        // only the target's share divides; siblings keep their sizes.
+        let mut doc = golden("docked_tabs");
+        // Fixture root is vertical with two areas; drop below area 0.
+        dock_widget(&mut doc, "Echo", DockEdge::Bottom, Some((0, vec![0])), false).unwrap();
+        match &doc.containers[0].data.root_splitter {
+            TreeNode::Splitter {
+                orientation,
+                sizes,
+                children,
+                ..
+            } => {
+                assert_eq!(orientation, "|");
+                assert_eq!(children.len(), 3);
+                assert_eq!(sizes.len(), 3);
+                // Target's old share halved between itself and Echo.
+                assert_eq!(sizes[0], sizes[1]);
+            }
+            other => panic!("expected a flat splitter, got {other:?}"),
+        }
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn cross_orientation_drop_still_wraps() {
+        // A horizontal drop into a vertical parent wraps (unchanged).
+        let mut doc = golden("docked_tabs");
+        dock_widget(&mut doc, "Echo", DockEdge::Right, Some((0, vec![0])), false).unwrap();
+        match &doc.containers[0].data.root_splitter {
+            TreeNode::Splitter { children, .. } => {
+                assert_eq!(children.len(), 2);
+                assert!(matches!(
+                    children[0],
+                    TreeNode::Splitter { .. }
+                ));
+            }
+            other => panic!("expected root splitter, got {other:?}"),
+        }
+        assert_valid(&mut doc);
     }
 
     #[test]

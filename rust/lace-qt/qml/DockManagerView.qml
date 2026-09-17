@@ -320,6 +320,7 @@ Item {
         hoverRect: view.hoverAreaRect
         activeEdge: view.currentHit ? view.currentHit.edge : ""
         allowedEdges: view.dragActive ? allowedEdges(mainIndex) : ["left", "right", "top", "bottom", "center"]
+        containerMode: view.currentHit ? view.currentHit.kind === "C" : false
     }
 
     // Rubber band: the exact rect a release would dock into.
