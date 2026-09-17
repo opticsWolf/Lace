@@ -83,36 +83,61 @@ Item {
     function hitTest(vx, vy) {
         if (vx < 0 || vy < 0 || vx > width || vy > height)
             return null
-        var rim = 72
         var edges = allowedEdges(mainIndex)
         var at = function(edge) { return edges.indexOf(edge) >= 0 }
-        if (vx < rim && at("left"))
-            return { kind: "C", container: mainIndex, path: "", edge: "left" }
-        if (vx > width - rim && at("right"))
-            return { kind: "C", container: mainIndex, path: "", edge: "right" }
-        if (vy < rim && at("top"))
-            return { kind: "C", container: mainIndex, path: "", edge: "top" }
-        if (vy > height - rim && at("bottom"))
-            return { kind: "C", container: mainIndex, path: "", edge: "bottom" }
+        // Icon geometry mirrors OverlayCross exactly (icon 52px, spread
+        // margin 12, compact box 168): the icons ARE the precise targets.
+        var inIcon = function(x, y, r) {
+            return x >= r.x - 4 && y >= r.y - 4
+                && x <= r.x + r.width + 4 && y <= r.y + r.height + 4
+        }
+        var spreadRect = function(edge) {
+            if (edge === "left") return Qt.rect(12, (height - 52) / 2, 52, 52)
+            if (edge === "right") return Qt.rect(width - 64, (height - 52) / 2, 52, 52)
+            if (edge === "top") return Qt.rect((width - 52) / 2, 12, 52, 52)
+            return Qt.rect((width - 52) / 2, height - 64, 52, 52)
+        }
+        var boxIconRect = function(r, edge) {
+            var cx = r.x + r.width / 2, cy = r.y + r.height / 2
+            if (edge === "left") return Qt.rect(cx - 84, cy - 26, 52, 52)
+            if (edge === "right") return Qt.rect(cx + 32, cy - 26, 52, 52)
+            if (edge === "top") return Qt.rect(cx - 26, cy - 84, 52, 52)
+            if (edge === "bottom") return Qt.rect(cx - 26, cy + 32, 52, 52)
+            return Qt.rect(cx - 26, cy - 26, 52, 52)
+        }
+        // 1. Container icons pinned to the view edges.
+        var iconic = ["left", "right", "top", "bottom"]
+        for (var i = 0; i < iconic.length; ++i) {
+            var edge = iconic[i]
+            if (at(edge) && inIcon(vx, vy, spreadRect(edge)))
+                return { kind: "C", container: mainIndex, path: "", edge: edge }
+        }
+        // 2. The area under the cursor: its cross icons first, then bands.
         var band = 56
         var areas = mainAreaRects()
         for (var a of areas) {
             var r = a.rect
             if (vx < r.x || vy < r.y || vx > r.x + r.width || vy > r.y + r.height)
                 continue
+            var iconEdges = ["left", "right", "top", "bottom", "center"]
+            for (var k = 0; k < iconEdges.length; ++k) {
+                var iedge = iconEdges[k]
+                if (edges.indexOf(iedge) >= 0 && inIcon(vx, vy, boxIconRect(r, iedge)))
+                    return { kind: "S", container: a.container, path: a.path, edge: iedge }
+            }
             var lx = vx - r.x, ty = vy - r.y
             var rx = r.x + r.width - vx, by = r.y + r.height - vy
             var m = Math.min(lx, ty, rx, by)
-            var edge = "center"
+            var bedge = "center"
             if (m < band) {
-                if (m === lx) edge = "left"
-                else if (m === ty) edge = "top"
-                else if (m === rx) edge = "right"
-                else edge = "bottom"
+                if (m === lx) bedge = "left"
+                else if (m === ty) bedge = "top"
+                else if (m === rx) bedge = "right"
+                else bedge = "bottom"
             }
-            if (edges.indexOf(edge) < 0)
+            if (edges.indexOf(bedge) < 0)
                 return null
-            return { kind: "S", container: a.container, path: a.path, edge: edge }
+            return { kind: "S", container: a.container, path: a.path, edge: bedge }
         }
         if (at("center"))
             return { kind: "C", container: mainIndex, path: "", edge: "center" }
@@ -320,7 +345,7 @@ Item {
         hoverRect: view.hoverAreaRect
         activeEdge: view.currentHit ? view.currentHit.edge : ""
         allowedEdges: view.dragActive ? allowedEdges(mainIndex) : ["left", "right", "top", "bottom", "center"]
-        containerMode: view.currentHit ? view.currentHit.kind === "C" : false
+        showBox: view.currentHit ? view.currentHit.kind === "S" : false
     }
 
     // Rubber band: the exact rect a release would dock into.
