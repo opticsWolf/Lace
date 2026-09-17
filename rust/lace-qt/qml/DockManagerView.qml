@@ -32,6 +32,10 @@ Item {
     // runs, hoverMove keeps this on the exact rect the widget would take.
     property rect dropPreview: Qt.rect(0, 0, 0, 0)
     property bool dropPreviewValid: false
+    // Dragged widget name (drives the follow ghost) + current hit.
+    property string dragName: ""
+    property var currentHit: null
+    property rect hoverAreaRect: Qt.rect(0, 0, 0, 0)
 
     function zoneKey(kind, container, path, edge) {
         return kind === "C"
@@ -143,19 +147,26 @@ Item {
     }
 
     // Called by the title/tab sensors while a move-drag runs. Updates the
-    // manager hover (drives zone highlights) and the result preview.
+    // manager hover (drives zone highlights), the result preview, the
+    // cross anchor and the follow ghost.
     function hoverMove(vx, vy) {
+        moveGhost(vx, vy)
         var hit = hitTest(vx, vy)
+        currentHit = hit
         if (!hit) {
+            hoverAreaRect = Qt.rect(0, 0, width, height)
             manager.clearDragTarget()
             dropPreviewValid = false
             return null
         }
         var ok
-        if (hit.kind === "C")
+        if (hit.kind === "C") {
+            hoverAreaRect = Qt.rect(0, 0, width, height)
             ok = manager.overContainerDrop(hit.container, hit.edge)
-        else
+        } else {
+            hoverAreaRect = areaRectOf(hit.container, hit.path)
             ok = manager.overSectionDrop(hit.container, hit.path, hit.edge)
+        }
         if (!ok) {
             dropPreviewValid = false
             return null
@@ -165,9 +176,59 @@ Item {
         return hit
     }
 
+    function areaRectOf(container, path) {
+        var areas = mainAreaRects()
+        for (var a of areas) {
+            if (a.container === container && a.path === path)
+                return a.rect
+        }
+        return Qt.rect(0, 0, width, height)
+    }
+
+    // Follow ghost: a small live rendering of the dragged widget under
+    // the cursor (global coords = hosting window origin + view point).
+    function moveGhost(vx, vy) {
+        if (dragName === "" || !ghost.visible)
+            return
+        var host = view.Window.window
+        if (!host)
+            return
+        ghost.x = Math.round(host.x + vx - ghost.width / 2)
+        ghost.y = Math.round(host.y + vy - 24)
+    }
+
     function clearHover() {
         manager.clearDragTarget()
         dropPreviewValid = false
+        dragName = ""
+        currentHit = null
+    }
+
+    // Follow ghost: live rendering of the dragged widget under the cursor.
+    // A tool window (no taskbar entry, no activation) driven by hoverMove.
+    Window {
+        id: ghost
+        flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        visible: view.manager.dragActive && view.dragName !== ""
+        width: 340
+        height: 220
+        opacity: 0.92
+        color: "transparent"
+        Rectangle {
+            anchors.fill: parent
+            color: LaceTheme.color("panel.bg_normal") || "#2a2a2a"
+            border.color: LaceTheme.color("overlay.frame_color") || "blue"
+            border.width: 2
+            radius: LaceTheme.num("core.corner_radius") || 0
+        }
+        WidgetCard {
+            anchors.fill: parent
+            anchors.margins: 8
+            manager: view.manager
+            widgetName: view.dragName
+            widgetClosed: false
+            enabled: false
+        }
     }
 
     function refresh() {
@@ -256,6 +317,8 @@ Item {
     OverlayCross {
         manager: view.manager
         mainIndex: view.mainIndex
+        hoverRect: view.hoverAreaRect
+        activeEdge: view.currentHit ? view.currentHit.edge : ""
     }
 
     // Rubber band: the exact rect a release would dock into.

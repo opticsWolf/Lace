@@ -95,18 +95,19 @@ Item {
                 }
                 onDoubleClicked: root.manager.toggleMaximize(root.focusKey)
                 // Hold arms the manager session; motion past 8px does too.
-                onPressAndHold: {
-                    if (pendingName !== "")
-                        root.manager.beginDrag(pendingName)
+                function armDrag() {
+                    if (pendingName !== "" && root.manager.beginDrag(pendingName))
+                        root.docksView.dragName = pendingName
                 }
+                onPressAndHold: titleMouse.armDrag()
                 onPositionChanged: function(mouse) {
                     if (!pressed || pressPos === null)
                         return
                     if (!root.manager.dragActive) {
                         var dx = mouse.x - pressPos.x
                         var dy = mouse.y - pressPos.y
-                        if (dx * dx + dy * dy > 64 && pendingName !== "")
-                            root.manager.beginDrag(pendingName)
+                        if (dx * dx + dy * dy > 64)
+                            titleMouse.armDrag()
                     } else {
                         var p = viewPos(mouse.x, mouse.y)
                         root.docksView.hoverMove(p.x, p.y)
@@ -265,18 +266,19 @@ Item {
                             bar.currentIndex = tabBtn.index
                             root.manager.setCurrentTab(root.containerIndex, root.areaPath, tabBtn.modelData.name)
                         }
-                        onPressAndHold: {
-                            if (pendingTab !== "")
-                                root.manager.beginDrag(pendingTab)
+                        function armTabDrag() {
+                            if (pendingTab !== "" && root.manager.beginDrag(pendingTab))
+                                root.docksView.dragName = pendingTab
                         }
+                        onPressAndHold: armTabDrag()
                         onPositionChanged: function(mouse) {
                             if (!pressed || pressTabPos === null)
                                 return
                             if (!root.manager.dragActive) {
                                 var dx = mouse.x - pressTabPos.x
                                 var dy = mouse.y - pressTabPos.y
-                                if (dx * dx + dy * dy > 64 && pendingTab !== "")
-                                    root.manager.beginDrag(pendingTab)
+                                if (dx * dx + dy * dy > 64)
+                                    armTabDrag()
                             } else {
                                 var p = viewPos(mouse.x, mouse.y)
                                 root.docksView.hoverMove(p.x, p.y)
