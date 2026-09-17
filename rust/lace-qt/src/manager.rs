@@ -782,13 +782,24 @@ impl ffi::LaceManager {
         let doc = &mut self.as_mut().rust_mut().doc;
         *doc = blank_doc(0);
         // Failures are impossible on a blank doc with default targets.
+        // Top-left tab stack: editors, lists, table.
         layout_ops::dock_widget(doc, "Outline", DockEdge::Center, None, false).expect("seed");
         layout_ops::dock_widget(doc, "Editor", DockEdge::Center, None, false).expect("seed");
         layout_ops::dock_widget(doc, "Notes", DockEdge::Center, None, false).expect("seed");
         layout_ops::dock_widget(doc, "Terminal", DockEdge::Center, None, false).expect("seed");
+        layout_ops::dock_widget(doc, "Files", DockEdge::Center, None, false).expect("seed");
+        layout_ops::dock_widget(doc, "Search", DockEdge::Center, None, false).expect("seed");
+        layout_ops::dock_widget(doc, "Table", DockEdge::Center, None, false).expect("seed");
+        // Top-right tab stack: form, canvas, palette, calendar.
         layout_ops::dock_widget(doc, "Properties", DockEdge::Right, None, false).expect("seed");
-        // Full-width bottom: split the root itself.
+        for name in ["Plots", "Palette", "Calendar"] {
+            layout_ops::dock_widget(doc, name, DockEdge::Center, Some((0, vec![1])), false)
+                .expect("seed");
+        }
+        // Full-width bottom: split the root itself, then tab the console in.
         layout_ops::dock_widget(doc, "Output", DockEdge::Bottom, Some((0, vec![])), false)
+            .expect("seed");
+        layout_ops::dock_widget(doc, "Console", DockEdge::Center, Some((0, vec![1])), false)
             .expect("seed");
         layout_ops::dock_widget(doc, "Toolbox", DockEdge::Float, None, false).expect("seed");
         self.as_mut().set_focused_area(QString::from(""));

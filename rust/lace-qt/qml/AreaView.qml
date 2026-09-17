@@ -227,6 +227,7 @@ Item {
 
         TabBar {
             id: bar
+            objectName: "areaTabs_" + root.areaPath
             Layout.fillWidth: true
             currentIndex: root.initialIndex
             background: Rectangle {
