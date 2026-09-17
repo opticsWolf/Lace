@@ -11,6 +11,7 @@ pub mod config;
 pub mod error;
 pub mod layout;
 pub mod layout_doc;
+pub mod layout_ops;
 pub mod persist;
 pub mod presets_generated;
 pub mod schema_generated;
