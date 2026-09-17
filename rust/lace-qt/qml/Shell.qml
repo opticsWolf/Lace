@@ -10,7 +10,7 @@ ApplicationWindow {
     width: 1280
     height: 800
     visible: true
-    title: qsTr("Lace dock demo — Tier 0 native frames")
+    title: qsTr("Lace — Rust dock demo")
 
     LaceManager {
         id: manager
@@ -52,6 +52,18 @@ ApplicationWindow {
                 Button {
                     text: qsTr("Reset demo")
                     onClicked: manager.seedDemo()
+                }
+                Button {
+                    text: qsTr("Showcase")
+                    onClicked: manager.seedShowcase()
+                }
+                Button {
+                    text: qsTr("Save")
+                    onClicked: manager.saveDemoLayout()
+                }
+                Button {
+                    text: qsTr("Load")
+                    onClicked: manager.loadDemoLayout()
                 }
                 ComboBox {
                     id: themeBox
@@ -127,7 +139,12 @@ ApplicationWindow {
             var label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ")
             themeModel.append({ label: label, key: key })
         }
-        manager.seedDemo()
+        // Interactive runs open the showcase; the headless smoke seeds the
+        // small layout its counters assert.
+        if (Qt.application.arguments.includes("--smoke"))
+            manager.seedDemo()
+        else
+            manager.seedShowcase()
         root.refreshTheme()
     }
 

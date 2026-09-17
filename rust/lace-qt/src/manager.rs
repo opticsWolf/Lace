@@ -99,6 +99,21 @@ pub mod ffi {
         #[cxx_name = "seedDemo"]
         fn seed_demo(self: Pin<&mut Self>);
 
+        /// Build the showcase layout (editors, outline, output + toolbox).
+        #[qinvokable]
+        #[cxx_name = "seedShowcase"]
+        fn seed_showcase(self: Pin<&mut Self>);
+
+        /// Save the current layout to the demo slot (temp dir).
+        #[qinvokable]
+        #[cxx_name = "saveDemoLayout"]
+        fn save_demo_layout(self: Pin<&mut Self>) -> bool;
+
+        /// Load the demo slot back (validates first; keeps current on failure).
+        #[qinvokable]
+        #[cxx_name = "loadDemoLayout"]
+        fn load_demo_layout(self: Pin<&mut Self>) -> bool;
+
         /// Switch the active preset (`themeJson` follows). Unknown names fail.
         #[qinvokable]
         #[cxx_name = "applyThemeName"]
@@ -701,5 +716,73 @@ impl ffi::LaceManager {
         }
         self.as_mut().set_maximized_area(QString::from(key.as_str()));
         true
+    }
+
+    fn seed_showcase(mut self: Pin<&mut Self>) {
+        let doc = &mut self.as_mut().rust_mut().doc;
+        *doc = blank_doc(0);
+        // Failures are impossible on a blank doc with default targets.
+        layout_ops::dock_widget(doc, "Outline", DockEdge::Center, None, false).expect("seed");
+        layout_ops::dock_widget(doc, "Editor", DockEdge::Center, None, false).expect("seed");
+        layout_ops::dock_widget(doc, "Notes", DockEdge::Center, None, false).expect("seed");
+        layout_ops::dock_widget(doc, "Terminal", DockEdge::Center, None, false).expect("seed");
+        layout_ops::dock_widget(doc, "Properties", DockEdge::Right, None, false).expect("seed");
+        // Full-width bottom: split the root itself.
+        layout_ops::dock_widget(doc, "Output", DockEdge::Bottom, Some((0, vec![])), false)
+            .expect("seed");
+        layout_ops::dock_widget(doc, "Toolbox", DockEdge::Float, None, false).expect("seed");
+        self.as_mut().set_focused_area(QString::from(""));
+        self.as_mut().sync_emit();
+    }
+
+    fn demo_slot() -> std::path::PathBuf {
+        std::env::temp_dir().join("lace_demo_layout.json")
+    }
+
+    fn save_demo_layout(mut self: Pin<&mut Self>) -> bool {
+        let path = Self::demo_slot();
+        let dir = match path.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => return self.as_mut().fail("no parent for demo slot".to_string()),
+        };
+        let persist = lace_core::persist::PersistDir::new(dir);
+        let name = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(name) => name.to_string(),
+            None => return self.as_mut().fail("bad demo slot name".to_string()),
+        };
+        let doc = &self.as_mut().rust_mut().doc;
+        // Clone under the borrow: persist takes its time on disk.
+        let doc = doc.clone();
+        match persist.save_layout(name.as_str(), &doc, true) {
+            Ok(()) => true,
+            Err(e) => self.as_mut().fail(e.to_string()),
+        }
+    }
+
+    fn load_demo_layout(mut self: Pin<&mut Self>) -> bool {
+        let path = Self::demo_slot();
+        let dir = match path.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => return self.as_mut().fail("no parent for demo slot".to_string()),
+        };
+        let persist = lace_core::persist::PersistDir::new(dir);
+        let name = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(name) => name.to_string(),
+            None => return self.as_mut().fail("bad demo slot name".to_string()),
+        };
+        let mut doc = match persist.load_layout(name.as_str()) {
+            Ok(doc) => doc,
+            Err(e) => return self.as_mut().fail(e.to_string()),
+        };
+        // Accept the file's own roster and version; schema/tag still enforced.
+        let roster: std::collections::HashSet<String> =
+            doc.widget_states.keys().cloned().collect();
+        let app_version = doc.version;
+        if let Err(e) = lace_core::layout_doc::validate_doc(&mut doc, app_version, &roster) {
+            return self.as_mut().fail(e.to_string());
+        }
+        self.as_mut().rust_mut().doc = doc;
+        self.as_mut().note_reshaped();
+        self.as_mut().sync_emit()
     }
 }
