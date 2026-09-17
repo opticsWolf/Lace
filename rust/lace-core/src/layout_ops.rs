@@ -57,6 +57,17 @@ pub struct AreaFields<'a> {
     pub locked_name: &'a mut Option<String>,
 }
 
+
+/// Whole-valued shares stay integers in the doc (parity readers use
+/// `as_i64`); genuine fractions keep their decimals.
+fn json_share(value: f64) -> serde_json::Value {
+    if value.fract() == 0.0 && value >= i64::MIN as f64 && value <= i64::MAX as f64 {
+        serde_json::json!(value as i64)
+    } else {
+        serde_json::json!(value)
+    }
+}
+
 fn op_error(detail: impl Into<String>) -> LaceError {
     LaceError::InvalidLayout(detail.into())
 }
@@ -200,16 +211,28 @@ fn prune(node: TreeNode) -> Option<TreeNode> {
         TreeNode::Area { .. } => Some(node),
         TreeNode::Unknown => Some(TreeNode::Unknown),
         TreeNode::Splitter { orientation, count: _, sizes, children } => {
-            let kept: Vec<TreeNode> = children.into_iter().filter_map(prune).collect();
+            let mut kept = Vec::new();
+            let mut kept_sizes: Vec<f64> = Vec::new();
+            for (index, child) in children.into_iter().enumerate() {
+                if let Some(survivor) = prune(child) {
+                    kept.push(survivor);
+                    kept_sizes.push(sizes.get(index).and_then(|s| s.as_f64()).unwrap_or(1.0));
+                }
+            }
             match kept.len() {
                 0 => None,
                 1 => Some(kept.into_iter().next().expect("exactly one")),
                 n => {
-                    let sizes = if sizes.len() == n {
-                        sizes
-                    } else {
-                        vec![serde_json::json!(1); n]
-                    };
+                    // A pruned branch frees its share: scale the survivors
+                    // up so their ratios (and the level total) survive the
+                    // removal instead of collapsing to an even split.
+                    let total: f64 = sizes.iter().filter_map(|s| s.as_f64()).sum();
+                    let kept_sum: f64 = kept_sizes.iter().sum();
+                    let factor = if kept_sum > 0.0 { total / kept_sum } else { 1.0 };
+                    let sizes = kept_sizes
+                        .iter()
+                        .map(|s| json_share(s * factor))
+                        .collect();
                     Some(TreeNode::Splitter {
                         orientation,
                         count: serde_json::json!(n as u64),
@@ -308,9 +331,9 @@ fn insert_at(
                     let share = old_size / 2.0;
                     let insert_at_index = if before { target_index } else { target_index + 1 };
                     children.insert(insert_at_index, fresh());
-                    sizes.insert(insert_at_index, serde_json::json!(share));
+                    sizes.insert(insert_at_index, json_share(share));
                     // The target slid to target_index+1 on before-inserts.
-                    sizes[target_index + usize::from(before)] = serde_json::json!(share);
+                    sizes[target_index + usize::from(before)] = json_share(share);
                     *count = serde_json::json!(children.len() as u64);
                     return Ok(());
                 }
@@ -740,8 +763,14 @@ fn split_root(
         TreeNode::Splitter { orientation: o, count: _, mut sizes, mut children }
             if o == orientation =>
         {
-            let total: i64 = sizes.iter().filter_map(|s| s.as_i64()).sum();
-            let share = serde_json::json!((total / (children.len() as i64 + 1)).max(1));
+            // Same orientation: the newcomer docks at the root end and the
+            // existing children keep their sizes untouched (their ratios
+            // survive the drop); it takes the average share so it blends
+            // in. Re-evening everything here would destroy proportions the
+            // user arranged with the splitter handles.
+            let sum: f64 = sizes.iter().filter_map(|s| s.as_f64()).sum();
+            let n = children.len().max(1) as f64;
+            let share = json_share(sum / n);
             if before {
                 children.insert(0, area);
                 sizes.insert(0, share);
@@ -1070,6 +1099,84 @@ mod tests {
                 assert_eq!(sizes[0], sizes[1]);
             }
             other => panic!("expected a flat splitter, got {other:?}"),
+        }
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn lift_last_tab_preserves_sibling_ratios() {
+        // Lifting a widget out must not re-even the source level: the
+        // survivors absorb the freed share proportionally.
+        let mut doc = golden("docked_tabs");
+        // Fixture root is vertical, sizes [475, 216]; Delta owns area 1.
+        move_widget(&mut doc, "Delta", DockEdge::Center, (0, vec![0])).unwrap();
+        match &doc.containers[0].data.root_splitter {
+            TreeNode::Area { widgets, .. } => {
+                // Root collapsed to the single surviving area; nothing to
+                // re-even, and the moved tab appended + current.
+                let names: Vec<&str> =
+                    widgets.iter().map(|w| w.name.as_deref().unwrap()).collect();
+                assert!(names.contains(&"Delta"));
+            }
+            other => panic!("expected a collapsed area, got {other:?}"),
+        }
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn prune_scales_survivors_not_even() {
+        // Three areas [300, 200, 100]: emptying the middle one leaves
+        // [450, 150] (ratios 3:1 kept), not [1, 1].
+        let mut doc = blank_doc(0);
+        dock_widget(&mut doc, "A", DockEdge::Center, None, false).unwrap();
+        dock_widget(&mut doc, "B", DockEdge::Bottom, Some((0, vec![])), false).unwrap();
+        dock_widget(&mut doc, "C", DockEdge::Bottom, Some((0, vec![1])), false).unwrap();
+        if let TreeNode::Splitter { sizes, .. } = &mut doc.containers[0].data.root_splitter {
+            *sizes = vec![
+                serde_json::json!(300),
+                serde_json::json!(200),
+                serde_json::json!(100),
+            ];
+        } else {
+            panic!("expected three-deep root");
+        }
+        move_widget(&mut doc, "B", DockEdge::Center, (0, vec![0])).unwrap();
+        match &doc.containers[0].data.root_splitter {
+            TreeNode::Splitter { sizes, children, .. } => {
+                assert_eq!(children.len(), 2);
+                assert_eq!(sizes.len(), 2);
+                let ratio = sizes[0].as_f64().unwrap() / sizes[1].as_f64().unwrap();
+                assert!((ratio - 3.0).abs() < 1e-9, "sizes={sizes:?}");
+            }
+            other => panic!("expected root splitter, got {other:?}"),
+        }
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn container_drop_keeps_sibling_sizes() {
+        // Ports the container-drop rule: a rim drop with a matching root
+        // orientation docks at the root end; existing sizes are untouched
+        // and the newcomer takes the average share.
+        let mut doc = golden("docked_tabs");
+        // Fixture root is vertical, sizes [475, 216]; lifting Alpha
+        // leaves both areas standing.
+        drop_container_edge(&mut doc, "Alpha", 0, DockEdge::Bottom).unwrap();
+        match &doc.containers[0].data.root_splitter {
+            TreeNode::Splitter {
+                orientation,
+                sizes,
+                children,
+                ..
+            } => {
+                assert_eq!(orientation, "|");
+                assert_eq!(children.len(), 3);
+                assert_eq!(sizes.len(), 3);
+                assert_eq!(sizes[0].as_f64().unwrap(), 475.0);
+                assert_eq!(sizes[1].as_f64().unwrap(), 216.0);
+                assert_eq!(sizes[2].as_f64().unwrap(), 345.5);
+            }
+            other => panic!("expected root splitter, got {other:?}"),
         }
         assert_valid(&mut doc);
     }
