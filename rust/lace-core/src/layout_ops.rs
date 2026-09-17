@@ -250,6 +250,69 @@ fn prune_root(doc: &mut LayoutDoc, container_index: usize) {
     doc.containers[container_index].data.root_splitter = prune(root).unwrap_or(TreeNode::Unknown);
 }
 
+/// Insert an existing node at `edge` of `path` (shared by fresh docks
+/// and drag moves). `Center` appends the tab and makes it current; any
+/// other edge wraps the target in a new even splitter.
+fn insert_at(
+    root: &mut TreeNode,
+    node: crate::layout_doc::WidgetNode,
+    name: &str,
+    edge: DockEdge,
+    path: &[usize],
+) -> Result<(), LaceError> {
+    if edge == DockEdge::Center {
+        match area_fields_mut(root, path) {
+            Some(mut area) => {
+                area.widgets.push(node);
+                *area.tabs = serde_json::json!(area.widgets.len() as u64);
+                *area.current = serde_json::json!(name);
+                Ok(())
+            }
+            None => {
+                // No area there (fresh main container): plant one.
+                *root = new_area(name, node.closed.as_bool().unwrap_or(false));
+                Ok(())
+            }
+        }
+    } else {
+        let (orientation, before) = match edge {
+            DockEdge::Left => ("-", true),
+            DockEdge::Right => ("-", false),
+            DockEdge::Top => ("|", true),
+            DockEdge::Bottom => ("|", false),
+            _ => unreachable!("center/float handled above"),
+        };
+        let old = match get_node_mut(root, path) {
+            Some(slot) => std::mem::replace(slot, TreeNode::Unknown),
+            None => return Err(op_error(format!("no area at path {path:?}"))),
+        };
+        let old = if matches!(old, TreeNode::Unknown) {
+            // Splitting thin air: the new area takes the slot alone.
+            TreeNode::Area {
+                tabs: serde_json::json!(1),
+                current: serde_json::json!(name),
+                widgets: vec![node],
+                locked_name: None,
+            }
+        } else {
+            let fresh = TreeNode::Area {
+                tabs: serde_json::json!(1),
+                current: serde_json::json!(name),
+                widgets: vec![node],
+                locked_name: None,
+            };
+            let (first, second) = if before { (fresh, old) } else { (old, fresh) };
+            TreeNode::Splitter {
+                orientation: orientation.to_string(),
+                count: serde_json::json!(2),
+                sizes: vec![serde_json::json!(1), serde_json::json!(1)],
+                children: vec![first, second],
+            }
+        };
+        *get_node_mut(root, path).expect("path resolved above") = old;
+        Ok(())
+    }
+}
 /// Dock `name` at `edge` of `target` (`None` = first area of the main
 /// container). `Float` opens a new floating container instead.
 pub fn dock_widget(
@@ -274,45 +337,7 @@ pub fn dock_widget(
         return Err(op_error(format!("no container {container_index}")));
     }
     let root = &mut doc.containers[container_index].data.root_splitter;
-    if edge == DockEdge::Center {
-        match area_fields_mut(root, &path) {
-            Some(mut area) => {
-                area.widgets.push(widget_node(name, closed));
-                *area.tabs = serde_json::json!(area.widgets.len() as u64);
-                *area.current = serde_json::json!(name);
-            }
-            None => {
-                // No area there (fresh main container): plant one.
-                *root = new_area(name, closed);
-            }
-        }
-    } else {
-        let (orientation, before) = match edge {
-            DockEdge::Left => ("-", true),
-            DockEdge::Right => ("-", false),
-            DockEdge::Top => ("|", true),
-            DockEdge::Bottom => ("|", false),
-            _ => unreachable!("center/float handled above"),
-        };
-        let old = match get_node_mut(root, &path) {
-            Some(slot) => std::mem::replace(slot, TreeNode::Unknown),
-            None => return Err(op_error(format!("no area at path {path:?}"))),
-        };
-        let old = if matches!(old, TreeNode::Unknown) {
-            // Splitting thin air: the new area takes the slot alone.
-            new_area(name, closed)
-        } else {
-            let fresh = new_area(name, closed);
-            let (first, second) = if before { (fresh, old) } else { (old, fresh) };
-            TreeNode::Splitter {
-                orientation: orientation.to_string(),
-                count: serde_json::json!(2),
-                sizes: vec![serde_json::json!(1), serde_json::json!(1)],
-                children: vec![first, second],
-            }
-        };
-        *get_node_mut(root, &path).expect("path resolved above") = old;
-    }
+    insert_at(root, widget_node(name, closed), name, edge, &path)?;
     doc.widget_states.insert(
         name.to_string(),
         crate::layout_doc::WidgetStateEntry { closed },
@@ -491,6 +516,417 @@ pub fn unpin_widget(doc: &mut LayoutDoc, name: &str) -> Result<(), LaceError> {
     dock_widget(doc, name, DockEdge::Center, None, closed)
 }
 
+/// Take a widget node out of every container tree (pruning as it goes).
+/// Used only where placement afterwards is infallible (`float_widget`);
+/// moves use the atomic clone-insert-remove pattern below instead.
+fn take_node(doc: &mut LayoutDoc, name: &str) -> Result<crate::layout_doc::WidgetNode, LaceError> {
+    let mut carried = None;
+    for index in 0..doc.containers.len() {
+        if let Some(node) = extract_widget(&mut doc.containers[index].data.root_splitter, name) {
+            carried = Some(node);
+            prune_root(doc, index);
+        }
+    }
+    carried.ok_or_else(|| op_error(format!("no widget `{name}` to move")))
+}
+
+/// First location of a widget node: `(container, path)` depth-first.
+fn find_widget(doc: &LayoutDoc, name: &str) -> Option<(usize, Vec<usize>)> {
+    for (ci, container) in doc.containers.iter().enumerate() {
+        let mut stack = vec![(Vec::new(), &container.data.root_splitter)];
+        while let Some((path, node)) = stack.pop() {
+            match node {
+                TreeNode::Splitter { children, .. } => {
+                    for (i, child) in children.iter().enumerate().rev() {
+                        let mut p = path.clone();
+                        p.push(i);
+                        stack.push((p, child));
+                    }
+                }
+                TreeNode::Area { widgets, .. } => {
+                    if widgets.iter().any(|w| w.node_type == "Widget" && w.name.as_deref() == Some(name)) {
+                        return Some((ci, path));
+                    }
+                }
+                TreeNode::Unknown => {}
+            }
+        }
+    }
+    None
+}
+
+/// Clone the named node where it lives (no mutation).
+fn clone_widget_at(doc: &LayoutDoc, container: usize, path: &[usize], name: &str) -> Option<crate::layout_doc::WidgetNode> {
+    let root = &doc.containers.get(container)?.data.root_splitter;
+    match get_node(root, path)? {
+        TreeNode::Area { widgets, .. } => widgets
+            .iter()
+            .find(|w| w.node_type == "Widget" && w.name.as_deref() == Some(name))
+            .cloned(),
+        _ => None,
+    }
+}
+
+/// Remove the named node at an exact spot, pruning afterwards.
+fn remove_at(doc: &mut LayoutDoc, container: usize, path: &[usize], name: &str) -> bool {
+    let root = match doc.containers.get_mut(container) {
+        Some(c) => &mut c.data.root_splitter,
+        None => return false,
+    };
+    let removed = match get_node_mut(root, path) {
+        Some(TreeNode::Area { widgets, .. }) => {
+            match widgets.iter().position(|w| w.node_type == "Widget" && w.name.as_deref() == Some(name)) {
+                Some(index) => {
+                    widgets.remove(index);
+                    true
+                }
+                None => false,
+            }
+        }
+        _ => false,
+    };
+    if removed {
+        prune_root(doc, container);
+    }
+    removed
+}
+
+/// A widget lifted out of the tree, ready to re-place. Lifting first and
+/// resolving the target afterwards keeps every move atomic: the clone
+/// survives whatever pruning the removal triggers.
+struct Carried {
+    node: crate::layout_doc::WidgetNode,
+    closed: bool,
+}
+
+fn lift(doc: &mut LayoutDoc, name: &str) -> Result<Carried, LaceError> {
+    let (source_ci, source_path) =
+        find_widget(doc, name).ok_or_else(|| op_error(format!("no widget `{name}` to move")))?;
+    let node = clone_widget_at(doc, source_ci, &source_path, name).expect("just found");
+    let closed = node.closed.as_bool().unwrap_or(false);
+    remove_at(doc, source_ci, &source_path, name);
+    Ok(Carried { node, closed })
+}
+
+fn sync_roster_closed(doc: &mut LayoutDoc, name: &str, closed: bool) {
+    if let Some(entry) = doc.widget_states.get_mut(name) {
+        entry.closed = closed;
+    }
+}
+
+/// Move an existing widget to `edge` of `target`, keeping its node (closed
+/// flag, lock) intact. Section-level: centre tabs in (appended, current),
+/// edges split — the same placement fresh docks use.
+///
+/// Atomic: a bad target fails with the tree untouched; when lifting the
+/// widget collapses its old home, the root takes the drop instead.
+pub fn move_widget(
+    doc: &mut LayoutDoc,
+    name: &str,
+    edge: DockEdge,
+    target: (usize, Vec<usize>),
+) -> Result<(), LaceError> {
+    let (container_index, path) = &target;
+    let root = doc
+        .containers
+        .get(*container_index)
+        .map(|c| &c.data.root_splitter)
+        .ok_or_else(|| op_error(format!("no container {container_index}")))?;
+    // Validate before lifting: a genuinely bad target fails untouched.
+    if get_node(root, path).is_none() {
+        return Err(op_error(format!("no area at path {path:?}")));
+    }
+    let carried = lift(doc, name)?;
+    // The lift may have collapsed the target away (last tab out of its own
+    // area); the root then takes the drop instead.
+    let root = &mut doc.containers[*container_index].data.root_splitter;
+    let path = if get_node(root, path).is_some() { path.clone() } else { Vec::new() };
+    insert_at(root, carried.node, name, edge, &path)?;
+    sync_roster_closed(doc, name, carried.closed);
+    Ok(())
+}
+
+/// Split a container root around a fresh area, preserving existing sizes
+/// with a fair share appended (or prepended). Wraps non-matching roots in
+/// a new even splitter.
+fn split_root(
+    doc: &mut LayoutDoc,
+    container: usize,
+    node: crate::layout_doc::WidgetNode,
+    name: &str,
+    orientation: &str,
+    before: bool,
+) -> Result<(), LaceError> {
+    let root = doc
+        .containers
+        .get_mut(container)
+        .map(|c| &mut c.data.root_splitter)
+        .ok_or_else(|| op_error(format!("no container {container}")))?;
+    let area = TreeNode::Area {
+        tabs: serde_json::json!(1),
+        current: serde_json::json!(name),
+        widgets: vec![node],
+        locked_name: None,
+    };
+    let old = std::mem::replace(root, TreeNode::Unknown);
+    let rebuilt = match old {
+        TreeNode::Unknown => area,
+        TreeNode::Splitter { orientation: o, count: _, mut sizes, mut children }
+            if o == orientation =>
+        {
+            let total: i64 = sizes.iter().filter_map(|s| s.as_i64()).sum();
+            let share = serde_json::json!((total / (children.len() as i64 + 1)).max(1));
+            if before {
+                children.insert(0, area);
+                sizes.insert(0, share);
+            } else {
+                children.push(area);
+                sizes.push(share);
+            }
+            let count = serde_json::json!(children.len() as u64);
+            TreeNode::Splitter { orientation: o, count, sizes, children }
+        }
+        other => {
+            let (first, second) = if before { (area, other) } else { (other, area) };
+            TreeNode::Splitter {
+                orientation: orientation.to_string(),
+                count: serde_json::json!(2),
+                sizes: vec![serde_json::json!(1), serde_json::json!(1)],
+                children: vec![first, second],
+            }
+        }
+    };
+    *root = rebuilt;
+    Ok(())
+}
+
+/// Move an existing widget to the container level. Solo containers tab the
+/// widget into their single area; multi-area containers take the deliberate
+/// bottom-style root split (mirrors `_drop_into_container`).
+pub fn move_container_center(doc: &mut LayoutDoc, name: &str, container: usize) -> Result<(), LaceError> {
+    if container >= doc.containers.len() {
+        return Err(op_error(format!("no container {container}")));
+    }
+    let carried = lift(doc, name)?;
+    // Recomputed after the lift, so collapse cannot strand the paths.
+    let areas: Vec<Vec<usize>> = area_paths(doc)
+        .into_iter()
+        .filter(|(ci, _)| *ci == container)
+        .map(|(_, path)| path)
+        .collect();
+    let placed = match areas.len() {
+        0 => {
+            doc.containers[container].data.root_splitter = TreeNode::Area {
+                tabs: serde_json::json!(1),
+                current: serde_json::json!(name),
+                widgets: vec![carried.node],
+                locked_name: None,
+            };
+            Ok(())
+        }
+        1 => {
+            let root = &mut doc.containers[container].data.root_splitter;
+            insert_at(root, carried.node, name, DockEdge::Center, &areas[0])
+        }
+        _ => split_root(doc, container, carried.node, name, "|", false),
+    };
+    placed?;
+    sync_roster_closed(doc, name, carried.closed);
+    Ok(())
+}
+
+/// Move an existing widget to a container edge (root split). `Center`
+/// delegates to [`move_container_center`].
+pub fn drop_container_edge(
+    doc: &mut LayoutDoc,
+    name: &str,
+    container: usize,
+    edge: DockEdge,
+) -> Result<(), LaceError> {
+    if container >= doc.containers.len() {
+        return Err(op_error(format!("no container {container}")));
+    }
+    let carried = lift(doc, name)?;
+    let placed = match edge {
+        DockEdge::Center => {
+            // Recomputed after the lift, so collapse cannot strand paths.
+            let areas: Vec<Vec<usize>> = area_paths(doc)
+                .into_iter()
+                .filter(|(ci, _)| *ci == container)
+                .map(|(_, path)| path)
+                .collect();
+            match areas.len() {
+                0 => {
+                    doc.containers[container].data.root_splitter = TreeNode::Area {
+                        tabs: serde_json::json!(1),
+                        current: serde_json::json!(name),
+                        widgets: vec![carried.node],
+                        locked_name: None,
+                    };
+                    Ok(())
+                }
+                1 => {
+                    let root = &mut doc.containers[container].data.root_splitter;
+                    insert_at(root, carried.node, name, DockEdge::Center, &areas[0])
+                }
+                _ => split_root(doc, container, carried.node, name, "|", false),
+            }
+        }
+        DockEdge::Left => split_root(doc, container, carried.node, name, "-", true),
+        DockEdge::Right => split_root(doc, container, carried.node, name, "-", false),
+        DockEdge::Top => split_root(doc, container, carried.node, name, "|", true),
+        DockEdge::Bottom => split_root(doc, container, carried.node, name, "|", false),
+        DockEdge::Float => {
+            // A cross has no float zone; tab into the container's first
+            // area (planting one when the lift emptied it).
+            let areas: Vec<Vec<usize>> = area_paths(doc)
+                .into_iter()
+                .filter(|(ci, _)| *ci == container)
+                .map(|(_, path)| path)
+                .collect();
+            match areas.into_iter().next() {
+                Some(path) => {
+                    let root = &mut doc.containers[container].data.root_splitter;
+                    insert_at(root, carried.node, name, DockEdge::Center, &path)
+                }
+                None => {
+                    doc.containers[container].data.root_splitter = TreeNode::Area {
+                        tabs: serde_json::json!(1),
+                        current: serde_json::json!(name),
+                        widgets: vec![carried.node],
+                        locked_name: None,
+                    };
+                    Ok(())
+                }
+            }
+        }
+    };
+    placed?;
+    sync_roster_closed(doc, name, carried.closed);
+    Ok(())
+}
+
+/// Zones a container offers: a solo area takes the centre indicator only
+/// (otherwise the cross hides everything, centre included); several areas
+/// offer the full set. Mirrors `allowed_areas_for` at document level.
+pub fn drop_edges(doc: &LayoutDoc, container: usize) -> Vec<DockEdge> {
+    use DockEdge::*;
+    let full = vec![Left, Right, Top, Bottom, Center];
+    let areas = area_paths(doc).into_iter().filter(|(ci, _)| *ci == container).count();
+    if doc.containers.get(container).is_none() || areas == 0 {
+        return Vec::new();
+    }
+    if areas == 1 {
+        return vec![Center];
+    }
+    full
+}
+
+// ---------------------------------------------------------------------------
+// Drag session: the state machine behind press-drag-drop.
+// ---------------------------------------------------------------------------
+
+/// Where a dragged widget hovers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DropTarget {
+    /// An area's zone (`edge` of `path` in `container`).
+    Section { container: usize, path: Vec<usize>, edge: DockEdge },
+    /// The container cross centre (solo tabs in, multi takes the fallback).
+    ContainerCenter { container: usize },
+    /// The container cross edge (root split).
+    ContainerEdge { container: usize, edge: DockEdge },
+}
+
+/// Idle → dragging → over → committed/cancelled. The payload is a widget
+/// name; targets resolve against the live document at commit time, so a
+/// layout that changed mid-drag fails closed instead of mis-docking.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DragSession {
+    payload: Option<String>,
+    over: Option<DropTarget>,
+}
+
+impl DragSession {
+    pub fn is_active(&self) -> bool {
+        self.payload.is_some()
+    }
+
+    pub fn payload(&self) -> Option<&str> {
+        self.payload.as_deref()
+    }
+
+    pub fn over(&self) -> Option<&DropTarget> {
+        self.over.as_ref()
+    }
+
+    pub fn begin(&mut self, name: &str) {
+        self.payload = Some(name.to_string());
+        self.over = None;
+    }
+
+    pub fn hover(&mut self, target: DropTarget) {
+        if self.is_active() {
+            self.over = Some(target);
+        }
+    }
+
+    pub fn cancel(&mut self) {
+        self.payload = None;
+        self.over = None;
+    }
+
+    /// Move the payload to the hovered target. The session ends either way.
+    pub fn commit(&mut self, doc: &mut LayoutDoc) -> Result<(), LaceError> {
+        let result = match (self.payload.take(), self.over.take()) {
+            (Some(name), Some(target)) => match target {
+                DropTarget::Section { container, path, edge } => {
+                    move_widget(doc, &name, edge, (container, path))
+                }
+                DropTarget::ContainerCenter { container } => {
+                    move_container_center(doc, &name, container)
+                }
+                DropTarget::ContainerEdge { container, edge } => {
+                    drop_container_edge(doc, &name, container, edge)
+                }
+            },
+            (Some(_), None) => Err(op_error("drop had no target")),
+            (None, _) => Err(op_error("drop had no payload")),
+        };
+        self.payload = None;
+        self.over = None;
+        result
+    }
+}
+
+/// Drop non-main containers that hold no widget nodes (and their geometry
+/// copies). Dragging the last widget out of a float would otherwise leave
+/// an empty window behind. Returns the removed ids.
+pub fn gc_empty_floats(doc: &mut LayoutDoc) -> Vec<String> {
+    fn has_widget(node: &TreeNode) -> bool {
+        match node {
+            TreeNode::Area { widgets, .. } => {
+                widgets.iter().any(|w| w.node_type == "Widget" && w.name.is_some())
+            }
+            TreeNode::Splitter { children, .. } => children.iter().any(has_widget),
+            TreeNode::Unknown => false,
+        }
+    }
+    let mut removed = Vec::new();
+    let mut kept = Vec::with_capacity(doc.containers.len());
+    for container in doc.containers.drain(..) {
+        if !container.is_main && !has_widget(&container.data.root_splitter) {
+            if let Some(id) = container.id.clone() {
+                doc.container_geometries.remove(&id);
+                removed.push(id);
+            }
+        } else {
+            kept.push(container);
+        }
+    }
+    doc.containers = kept;
+    removed
+}
+
 /// A fresh, valid empty document (what a new manager would save).
 pub fn blank_doc(app_version: i64) -> LayoutDoc {
     LayoutDoc {
@@ -657,6 +1093,208 @@ mod tests {
         assert_valid(&mut doc);
         assert!(unpin_widget(&mut doc, "Gamma").is_err());
         assert!(pin_widget(&mut doc, "Nobody", "left").is_err());
+    }
+
+    #[test]
+    fn center_is_its_own_edge_never_a_split() {
+        // Port of test_center_is_not_silently_treated_as_bottom: centre
+        // tabs; it must never alias to a vertical-append split.
+        assert_eq!(DockEdge::parse("center"), Some(DockEdge::Center));
+        assert_eq!(DockEdge::parse("centre"), Some(DockEdge::Center));
+        assert_ne!(DockEdge::parse("center"), Some(DockEdge::Bottom));
+        assert_eq!(DockEdge::parse("sideways"), None);
+    }
+
+    #[test]
+    fn center_move_tabs_appended_and_current() {
+        // Ports test_dropped_tabs_are_appended_not_prepended +
+        // test_the_dropped_widget_becomes_current.
+        let mut doc = golden("docked_tabs");
+        let target = area_paths(&doc).into_iter().find(|(_, p)| p == &[0]).unwrap();
+        move_widget(&mut doc, "Delta", DockEdge::Center, target.clone()).unwrap();
+        // Delta's old area emptied, so the root collapsed to one tabbed area.
+        match &doc.containers[target.0].data.root_splitter {
+            TreeNode::Area { widgets, current, .. } => {
+                let names: Vec<&str> =
+                    widgets.iter().map(|w| w.name.as_deref().unwrap()).collect();
+                assert_eq!(names, vec!["Alpha", "Beta", "Gamma", "Delta"]);
+                assert_eq!(*current, serde_json::json!("Delta"));
+            }
+            other => panic!("expected a collapsed area, got {other:?}"),
+        }
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn solo_container_center_tabs() {
+        // Ports test_dropping_on_centre_of_a_solo_container_tabs.
+        let mut doc = blank_doc(0);
+        dock_widget(&mut doc, "Alpha", DockEdge::Center, None, false).unwrap();
+        dock_widget(&mut doc, "Beta", DockEdge::Float, None, false).unwrap();
+        assert_eq!(drop_edges(&doc, 0), vec![DockEdge::Center]);
+        move_container_center(&mut doc, "Beta", 0).unwrap();
+        assert_eq!(area_paths(&doc).iter().filter(|(ci, _)| *ci == 0).count(), 1);
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn multi_container_center_takes_the_fallback_split() {
+        // Ports test_multi_area_centre_drop_still_splits: ambiguous centre
+        // divides instead of tabbing.
+        let mut doc = golden("docked_tabs");
+        let before: Vec<i64> = match &doc.containers[0].data.root_splitter {
+            TreeNode::Splitter { sizes, .. } => {
+                sizes.iter().map(|s| s.as_i64().unwrap()).collect()
+            }
+            _ => panic!("golden root splits"),
+        };
+        move_container_center(&mut doc, "Gamma", 0).unwrap();
+        match &doc.containers[0].data.root_splitter {
+            TreeNode::Splitter { orientation, sizes, children, .. } => {
+                assert_eq!(orientation, "|");
+                assert_eq!(children.len(), 3);
+                assert_eq!(sizes.len(), 3);
+                let kept: Vec<i64> = sizes[..2].iter().map(|s| s.as_i64().unwrap()).collect();
+                assert_eq!(kept, before, "existing proportions survive the append");
+            }
+            _ => panic!("fallback must split the root"),
+        }
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn container_edge_splits_root_directionally() {
+        let mut doc = golden("docked_tabs");
+        drop_container_edge(&mut doc, "Delta", 0, DockEdge::Left).unwrap();
+        match &doc.containers[0].data.root_splitter {
+            TreeNode::Splitter { orientation, children, .. } => {
+                assert_eq!(orientation, "-");
+                assert_eq!(children.len(), 2);
+            }
+            _ => panic!("edge drop must wrap the root"),
+        }
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn drop_edges_offer_center_only_to_solo_areas() {
+        // Ports test_a_solo_area_offers_the_centre_indicator +
+        // test_a_multi_area_container_still_offers_everything.
+        let mut solo = blank_doc(0);
+        dock_widget(&mut solo, "Alpha", DockEdge::Center, None, false).unwrap();
+        assert_eq!(drop_edges(&solo, 0), vec![DockEdge::Center]);
+        let multi = golden("docked_tabs");
+        assert_eq!(
+            drop_edges(&multi, 0),
+            vec![
+                DockEdge::Left,
+                DockEdge::Right,
+                DockEdge::Top,
+                DockEdge::Bottom,
+                DockEdge::Center
+            ]
+        );
+        assert!(drop_edges(&multi, 9).is_empty());
+    }
+
+    #[test]
+    fn drag_session_moves_through_commit() {
+        let mut doc = golden("docked_tabs");
+        let mut session = DragSession::default();
+        assert!(!session.is_active());
+        session.begin("Gamma");
+        assert_eq!(session.payload(), Some("Gamma"));
+        let target = area_paths(&doc).into_iter().find(|(_, p)| p == &[1]).unwrap();
+        session.hover(DropTarget::Section {
+            container: target.0,
+            path: target.1.clone(),
+            edge: DockEdge::Center,
+        });
+        session.commit(&mut doc).unwrap();
+        assert!(!session.is_active());
+        let root = &doc.containers[target.0].data.root_splitter;
+        let mut probe = root.clone();
+        let area = area_fields_mut(&mut probe, &target.1).unwrap();
+        assert!(area.widgets.iter().any(|w| w.name.as_deref() == Some("Gamma")));
+        assert_valid(&mut doc);
+    }
+
+    #[test]
+    fn drag_session_fails_closed_and_ends() {
+        let mut doc = golden("docked_tabs");
+        let mut session = DragSession::default();
+        session.begin("Gamma");
+        assert!(session.commit(&mut doc).is_err(), "targetless drop must fail");
+        assert!(!session.is_active(), "failed commit still ends the session");
+        // Stale payload: the widget left mid-drag.
+        session.begin("Nobody");
+        session.hover(DropTarget::ContainerCenter { container: 0 });
+        assert!(session.commit(&mut doc).is_err());
+        assert_valid(&mut doc);
+        // Hovering idle records nothing.
+        session.hover(DropTarget::ContainerCenter { container: 0 });
+        assert!(!session.is_active());
+        session.begin("Gamma");
+        session.cancel();
+        assert!(!session.is_active());
+    }
+
+    #[test]
+    fn every_zone_commits_where_previewed() {
+        // Port of test_the_drop_uses_the_same_policy_as_the_preview: each
+        // offered zone must accept a drop through the session.
+        for edge in [DockEdge::Left, DockEdge::Right, DockEdge::Top, DockEdge::Bottom, DockEdge::Center] {
+            let mut doc = golden("docked_tabs");
+            let target = area_paths(&doc)[0].clone();
+            let mut session = DragSession::default();
+            session.begin("Delta");
+            session.hover(DropTarget::Section {
+                container: target.0,
+                path: target.1,
+                edge,
+            });
+            session.commit(&mut doc).unwrap_or_else(|e| panic!("{edge:?} zone refused: {e}"));
+            assert_valid(&mut doc);
+        }
+    }
+
+    #[test]
+    fn float_drag_dock_roundtrip() {
+        // Phase-5 exit, core half: float → drag → dock restores the tabs.
+        let mut doc = golden("docked_tabs");
+        let id = float_widget(&mut doc, "Gamma").unwrap();
+        assert_valid(&mut doc);
+        let target = area_paths(&doc).into_iter().find(|(_, p)| p == &[0]).unwrap();
+        let mut session = DragSession::default();
+        session.begin("Gamma");
+        session.hover(DropTarget::Section {
+            container: target.0,
+            path: target.1.clone(),
+            edge: DockEdge::Center,
+        });
+        session.commit(&mut doc).unwrap();
+        dock_floating(&mut doc, &id).unwrap_or(()); // already empty; must not fail the roundtrip
+        assert_valid(&mut doc);
+        let names: Vec<String> = {
+            let mut out = Vec::new();
+            let mut path = Vec::new();
+            node_widgets(&doc.containers[0].data.root_splitter, &mut out, &mut path);
+            out.into_iter().map(|(_, n)| n).collect()
+        };
+        assert!(names.contains(&"Gamma".to_string()));
+    }
+
+    #[test]
+    fn empty_floats_are_collected() {
+        let mut doc = golden("floating");
+        let floats_before = doc.containers.iter().filter(|c| !c.is_main).count();
+        assert_eq!(floats_before, 1);
+        let target = area_paths(&doc).into_iter().find(|(ci, _)| doc.containers[*ci].is_main).unwrap();
+        move_widget(&mut doc, "Beta", DockEdge::Center, target).unwrap();
+        let removed = gc_empty_floats(&mut doc);
+        assert_eq!(removed.len(), 1);
+        assert!(doc.containers.iter().all(|c| c.is_main));
+        assert_valid(&mut doc);
     }
 
     #[test]
