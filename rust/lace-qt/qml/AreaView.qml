@@ -51,6 +51,23 @@ Item {
     property int chromeSize: LaceTheme.num("title_bar.button_icon_size") || 16
     property string tabCloseTint: LaceTheme.hex("tab.close_btn_color") || "#C8CDD7"
     property int tabCloseSize: LaceTheme.num("tab.close_btn_icon_size") || 14
+    // QSS box math, verbatim from the style schemas: a title-bar button is
+    // button_size + 2*button_padding + 3 (17/2 -> a 24x24 box with an even
+    // 20px content rect so the 16px icon centers exactly); the tab close is
+    // close_btn_size + 2*close_btn_padding + 3 for the same 24x24 box.
+    property int chromeBox: (LaceTheme.num("title_bar.button_size") || 17) + 2 * (LaceTheme.num("title_bar.button_padding") || 2) + 3
+    property int tabCloseBox: (LaceTheme.num("tab.close_btn_size") || 17) + 2 * (LaceTheme.num("tab.close_btn_padding") || 2) + 3
+    // Tab metrics (DockWidgetTab._create_layout): spacing = round(fm.height/4)
+    // with a 2*spacing left pad, a spacing title/close gap and a 4/3*spacing
+    // right pad; active-tab bold only when the theme asks for it.
+    property int tabGap: Math.max(2, Math.round(tabFm.height / 4))
+    property bool tabBaseBold: (LaceTheme.str("tab.font_weight") || "normal") === "bold"
+    property bool tabActiveBold: (LaceTheme.str("tab.active_font_weight") || "normal") === "bold"
+    FontMetrics {
+        id: tabFm
+        font.family: LaceTheme.str("tab.font_family") || "Segoe UI"
+        font.pointSize: LaceTheme.num("tab.font_size") || 10
+    }
     property int initialIndex: {
         var names = []
         for (var w of widgets)
@@ -97,7 +114,7 @@ Item {
         // Button visibility follows the DockFlags mask (manager.dockFlags).
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
+            Layout.preferredHeight: LaceTheme.num("title_bar.height") || 30
             color: root.areaActive
                 ? (LaceTheme.color("title_bar.bg_active") || "grey")
                 : (LaceTheme.color("title_bar.bg_normal") || "darkgrey")
@@ -173,15 +190,15 @@ Item {
             }
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 4
-                anchors.rightMargin: 4
-                spacing: 2
+                anchors.leftMargin: LaceTheme.num("title_bar.padding_left") || 0
+                anchors.rightMargin: LaceTheme.num("title_bar.padding_right") || 6
+                spacing: LaceTheme.num("title_bar.button_spacing") || 4
                 Button {
                     id: menuBtn
                     flat: true
                     visible: root.hasFlag(root.flagAreaTabsMenu)
-                    implicitHeight: 24
-                    implicitWidth: 26
+                    implicitHeight: root.chromeBox
+                    implicitWidth: root.chromeBox
                     ToolTip.text: qsTr("Tabs menu")
                     ToolTip.visible: hovered
                     ToolTip.delay: 500
@@ -410,25 +427,44 @@ Item {
                             endGesture()
                         }
                     }
-                    implicitWidth: tabRow.implicitWidth + 12
                     implicitHeight: 30
                     contentItem: RowLayout {
                         id: tabRow
-                        spacing: 4
+                        spacing: 0
+                        // Fixed spacers, not margins: like the QSpacerItems in
+                        // DockWidgetTab they hold their width even while the
+                        // close button is hidden.
+                        Item {
+                            Layout.preferredWidth: 2 * root.tabGap
+                            Layout.fillHeight: true
+                        }
                         Label {
                             text: modelData.name + (modelData.closed ? " (closed)" : "")
                             color: parent.parent.checked
                                 ? (LaceTheme.color("tab.text_active") || "white")
                                 : (LaceTheme.color("tab.text_normal") || "white")
                             elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.family: tabFm.font.family
+                            font.pointSize: tabFm.font.pointSize
+                            font.bold: root.tabBaseBold || (tabBtn.index === bar.currentIndex && root.tabActiveBold)
+                            font.italic: LaceTheme.flag("tab.font_italic") || false
+                            font.underline: LaceTheme.flag("tab.font_underline") || false
                             Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+                        Item {
+                            Layout.preferredWidth: root.tabGap
+                            Layout.fillHeight: true
                         }
                         Button {
                             flat: true
                             visible: root.hasFlag(root.flagShowTabClose)
                                 && (!root.hasFlag(root.flagActiveTabClose) || tabBtn.index === bar.currentIndex)
-                            implicitWidth: 22
-                            implicitHeight: 22
+                            implicitWidth: root.tabCloseBox
+                            implicitHeight: root.tabCloseBox
+                            Layout.alignment: Qt.AlignVCenter
                             contentItem: ChromeIcon {
                                 root_icon_manager: root.manager
                                 iconName: "close_tab"
@@ -445,6 +481,10 @@ Item {
                             onClicked: modelData.closed
                                 ? root.manager.setWidgetClosed(modelData.name, false)
                                 : root.manager.removeWidget(modelData.name)
+                        }
+                        Item {
+                            Layout.preferredWidth: Math.round(4 * root.tabGap / 3)
+                            Layout.fillHeight: true
                         }
                     }
                     background: Rectangle {
@@ -495,8 +535,8 @@ Item {
                 flat: true
                 visible: root.hasFlag(root.flagAreaPin)
                 enabled: root.currentName !== "" && root.hasFlag(root.flagPinnableTabs)
-                implicitHeight: 24
-                implicitWidth: 26
+                implicitHeight: root.chromeBox
+                implicitWidth: root.chromeBox
                 ToolTip.text: qsTr("Pin to sidebar")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
@@ -518,8 +558,8 @@ Item {
                 flat: true
                 visible: root.hasFlag(root.flagAreaUndock) && root.containerIndex === 0
                 enabled: root.currentName !== "" && root.hasFlag(root.flagFloatableTabs)
-                implicitHeight: 24
-                implicitWidth: 26
+                implicitHeight: root.chromeBox
+                implicitWidth: root.chromeBox
                 ToolTip.text: qsTr("Float")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
@@ -540,7 +580,8 @@ Item {
             Button {
                 flat: true
                 visible: root.hasFlag(root.flagAreaMaximize)
-                implicitHeight: 24
+                implicitHeight: root.chromeBox
+                implicitWidth: root.chromeBox
                 ToolTip.text: root.manager.maximizedArea === root.focusKey ? qsTr("Restore") : qsTr("Maximize")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
@@ -562,8 +603,8 @@ Item {
                 flat: true
                 visible: root.hasFlag(root.flagAreaClose)
                 enabled: root.currentName !== ""
-                implicitHeight: 24
-                implicitWidth: 26
+                implicitHeight: root.chromeBox
+                implicitWidth: root.chromeBox
                 ToolTip.text: root.hasFlag(root.flagAreaCloseClosesTab) ? qsTr("Close tab") : qsTr("Close group")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
