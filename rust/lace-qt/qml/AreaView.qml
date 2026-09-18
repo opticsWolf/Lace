@@ -48,9 +48,13 @@ Item {
     // manager.iconSvg(); the "||" fallbacks match the provider default.
     property string chromeTint: LaceTheme.hex("title_bar.button_color") || "#C8CDD7"
     property string chromeDisabled: LaceTheme.hex("title_bar.button_disable_clr") || "#C8CDD7"
-    property int chromeSize: LaceTheme.num("title_bar.button_icon_size") || 16
+    // Presentation bump: +4 over the token so the glyphs read at modern
+    // density (20px in the 24px title-bar boxes, 18px in the 24px tab
+    // close). Tokens and parity fixtures stay untouched, so themes still
+    // drive the base size.
+    property int chromeSize: (LaceTheme.num("title_bar.button_icon_size") || 16) + 4
     property string tabCloseTint: LaceTheme.hex("tab.close_btn_color") || "#C8CDD7"
-    property int tabCloseSize: LaceTheme.num("tab.close_btn_icon_size") || 14
+    property int tabCloseSize: (LaceTheme.num("tab.close_btn_icon_size") || 14) + 4
     // QSS box math, verbatim from the style schemas: a title-bar button is
     // button_size + 2*button_padding + 3 (17/2 -> a 24x24 box with an even
     // 20px content rect so the 16px icon centers exactly); the tab close is
