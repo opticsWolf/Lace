@@ -467,6 +467,40 @@ pub fn set_closed(doc: &mut LayoutDoc, name: &str, closed: bool) -> bool {
     found
 }
 
+/// Close every tab in one area (the title-bar close button with
+/// `dock_area_close_button_closes_tab` cleared). Closed tabs keep their
+/// slots, so the area survives with reopen affordances. Returns how many
+/// widgets were closed; unknown containers/areas are an error.
+pub fn close_area(
+    doc: &mut LayoutDoc,
+    container_index: usize,
+    path: &[usize],
+) -> Result<usize, LaceError> {
+    let root = doc
+        .containers
+        .get_mut(container_index)
+        .map(|c| &mut c.data.root_splitter)
+        .ok_or_else(|| op_error(format!("no container {container_index}")))?;
+    let area = match get_node_mut(root, path) {
+        Some(TreeNode::Area { widgets, .. }) => widgets,
+        _ => return Err(op_error(format!("no area at path {path:?}"))),
+    };
+    let mut closed = 0;
+    for w in area.iter_mut() {
+        if w.node_type != "Widget" {
+            continue;
+        }
+        if let Some(name) = w.name.clone() {
+            w.closed = serde_json::json!(true);
+            if let Some(entry) = doc.widget_states.get_mut(&name) {
+                entry.closed = true;
+            }
+            closed += 1;
+        }
+    }
+    Ok(closed)
+}
+
 /// Point an area's current tab at `name` (stored verbatim, like the Qt
 /// dynamic property).
 pub fn set_current(
@@ -1541,5 +1575,33 @@ mod tests {
         assert!(float_widget(&mut doc, "Nobody").is_err());
         assert!(dock_floating(&mut doc, "float-9").is_err());
         assert!(dock_floating(&mut doc, "main").is_err());
+        assert!(close_area(&mut doc, 9, &[]).is_err());
+        assert!(close_area(&mut doc, 0, &[7]).is_err());
+    }
+
+    #[test]
+    fn close_area_closes_every_tab() {
+        let mut doc = golden("docked_tabs");
+        let target = area_paths(&doc)
+            .into_iter()
+            .find(|(ci, _)| doc.containers[*ci].is_main)
+            .unwrap();
+        let names: Vec<String> = {
+            let mut out = Vec::new();
+            let mut path = Vec::new();
+            node_widgets(&doc.containers[target.0].data.root_splitter, &mut out, &mut path);
+            out.into_iter()
+                .filter(|(p, _)| p == &target.1)
+                .map(|(_, n)| n)
+                .collect()
+        };
+        assert!(!names.is_empty());
+        let closed = close_area(&mut doc, target.0, &target.1).unwrap();
+        assert_eq!(closed, names.len());
+        for name in &names {
+            assert!(doc.widget_states.get(name.as_str()).expect("known widget").closed,
+                "{name} should be closed");
+        }
+        assert_valid(&mut doc);
     }
 }

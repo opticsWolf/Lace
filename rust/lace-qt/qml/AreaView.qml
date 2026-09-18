@@ -4,8 +4,9 @@ import QtQuick.Layouts
 
 import com.lace.dock 1.0
 
-// One dock area: a themed frame, a title strip (focus-aware, with float/pin
-// actions) and a TabBar over a StackLayout. Tab switches sync the document
+// One dock area: a themed frame, a single-row header (tabs menu, tab
+// strip, pin / undock / maximize / close — no title text, the strip is
+// just a container) over a StackLayout. Tab switches sync the document
 // silently (no rebuild); closes, reopen toggles and pins re-emit (rebuild).
 Item {
     id: root
@@ -28,6 +29,20 @@ Item {
     // True while the tab strip holds more tabs than fit: chevron buttons
     // appear and the current tab is auto-scrolled into view.
     property bool tabOverflow: false
+    // DockFlags bits (mirrors rust/lace-core/src/config.rs — pinned).
+    property int flagAlwaysShowTabs: 4
+    property int flagShowTabClose: 8
+    property int flagActiveTabClose: 16
+    property int flagAreaClose: 32
+    property int flagAreaCloseClosesTab: 64
+    property int flagAreaUndock: 128
+    property int flagAreaPin: 256
+    property int flagAreaMaximize: 512
+    property int flagAreaTabsMenu: 2048
+    property int flagMiddleClose: 4096
+    property int flagFloatableTabs: 8192
+    property int flagPinnableTabs: 16384
+    function hasFlag(f) { return (manager.dockFlags & f) !== 0 }
     property int initialIndex: {
         var names = []
         for (var w of widgets)
@@ -60,27 +75,35 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // Title strip: focused areas take the active background.
+        // Active-tab indicator strip: top, bottom, or absent for "none".
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: LaceTheme.num("tab.indicator_width") || 0
+            visible: (LaceTheme.str("tab.indicator_position") || "bottom") === "top"
+            color: LaceTheme.color("tab.indicator_color") || "transparent"
+        }
+
+        // Single-row header: the strip is just a container — tabs menu,
+        // scroll chevrons, the tab strip itself, then pin / undock /
+        // maximize / close. No title text (Python DockAreaTitleBar parity).
+        // Button visibility follows the DockFlags mask (manager.dockFlags).
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 30
             color: root.areaActive
                 ? (LaceTheme.color("title_bar.bg_active") || "grey")
                 : (LaceTheme.color("title_bar.bg_normal") || "darkgrey")
-            // Drag sensor FIRST (bottom of z-order): the action buttons above
-            // must receive their presses; empty strip areas fall through here.
-            // Pure mouse tracker: arming the attached Drag object starts a
-            // session no DropArea ever enters, so hover is computed
-            // geometrically (docksView.hoverMove) and the drop commits the
-            // proven move ops on release. Nothing structural happens
-            // mid-gesture, so this sensor always survives to the release.
+            // Drag sensor FIRST (bottom of z-order): the buttons and tabs
+            // above receive their presses; empty strip gaps fall through
+            // here. Pure mouse tracker: hover is computed geometrically
+            // (docksView.hoverMove) and the drop commits the proven move
+            // ops on release.
             MouseArea {
                 id: titleMouse
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton
                 property string pendingName: ""
                 property var pressPos: null
-                // View coordinates of the current pointer position.
                 function viewPos(mx, my) {
                     return titleMouse.mapToItem(root.docksView, mx, my)
                 }
@@ -97,7 +120,6 @@ Item {
                     event.accepted = false
                 }
                 onDoubleClicked: root.manager.toggleMaximize(root.focusKey)
-                // Hold arms the manager session; motion past 8px does too.
                 function armDrag() {
                     if (pendingName !== "" && root.manager.beginDrag(pendingName))
                         root.docksView.dragName = pendingName
@@ -126,7 +148,6 @@ Item {
                             else
                                 root.manager.commitSectionDrop(hit.container, hit.path, hit.edge)
                         } else {
-                            // Released outside any target: float in place.
                             root.manager.floatWidget(pendingName !== "" ? pendingName : root.currentName)
                             root.manager.cancelDrag()
                         }
@@ -144,22 +165,19 @@ Item {
             }
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 8
+                anchors.leftMargin: 4
                 anchors.rightMargin: 4
-                spacing: 4
-                Label {
-                    text: root.currentName
-                    color: root.areaActive
-                        ? (LaceTheme.color("title_bar.text_active") || "white")
-                        : (LaceTheme.color("title_bar.text_normal") || "white")
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
+                spacing: 2
                 Button {
-                    text: qsTr("Float")
+                    id: menuBtn
+                    text: "\u25BE"
                     flat: true
+                    visible: root.hasFlag(root.flagAreaTabsMenu)
                     implicitHeight: 24
-                    enabled: root.currentName !== ""
+                    implicitWidth: 26
+                    ToolTip.text: qsTr("Tabs menu")
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 500
                     contentItem: Label {
                         text: parent.text
                         color: root.areaActive
@@ -174,66 +192,58 @@ Item {
                             : "transparent"
                         radius: 3
                     }
-                    onClicked: root.manager.floatWidget(root.currentName)
+                    onClicked: tabsMenu.open()
+                    Popup {
+                        id: tabsMenu
+                        x: 0
+                        y: parent.height + 2
+                        width: 220
+                        modal: true
+                        dim: false
+                        focus: true
+                        background: Rectangle {
+                            color: LaceTheme.color("panel.bg_normal") || "#1e1e1e"
+                            border.color: LaceTheme.color("core.border_color") || "#555"
+                            border.width: 1
+                            radius: 4
+                        }
+                        contentItem: ColumnLayout {
+                            spacing: 0
+                            Repeater {
+                                model: root.widgets
+                                delegate: Item {
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 26
+                                    Label {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 6
+                                        text: modelData.name + (modelData.closed ? " (closed)" : "")
+                                        color: index === bar.currentIndex
+                                            ? (LaceTheme.color("tab.indicator_color") || "white")
+                                            : (LaceTheme.color("tab.text_normal") || "white")
+                                        font.bold: index === bar.currentIndex
+                                        elide: Text.ElideRight
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: {
+                                            bar.currentIndex = index
+                                            root.manager.setCurrentTab(root.containerIndex, root.areaPath, modelData.name)
+                                            tabsMenu.close()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                Button {
-                    text: qsTr("Pin")
-                    flat: true
-                    implicitHeight: 24
-                    enabled: root.currentName !== ""
-                    contentItem: Label {
-                        text: parent.text
-                        color: root.areaActive
-                            ? (LaceTheme.color("title_bar.text_active") || "white")
-                            : (LaceTheme.color("title_bar.text_normal") || "white")
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    background: Rectangle {
-                        color: parent.hovered
-                            ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
-                            : "transparent"
-                        radius: 3
-                    }
-                    onClicked: root.manager.pinWidget(root.currentName, "left")
-                }
-                Button {
-                    text: root.manager.maximizedArea === root.focusKey ? qsTr("[_]") : qsTr("[ ]")
-                    flat: true
-                    implicitHeight: 24
-                    contentItem: Label {
-                        text: parent.text
-                        color: root.areaActive
-                            ? (LaceTheme.color("title_bar.text_active") || "white")
-                            : (LaceTheme.color("title_bar.text_normal") || "white")
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    background: Rectangle {
-                        color: parent.hovered
-                            ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
-                            : "transparent"
-                        radius: 3
-                    }
-                    onClicked: root.manager.toggleMaximize(root.focusKey)
-                }
-            }
-        }
-
-        // Active-tab indicator strip: top, bottom, or absent for "none".
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: LaceTheme.num("tab.indicator_width") || 0
-            visible: (LaceTheme.str("tab.indicator_position") || "bottom") === "top"
-            color: LaceTheme.color("tab.indicator_color") || "transparent"
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 0
-
             Rectangle {
-                visible: root.tabOverflow
+                visible: root.tabOverflow && bar.visible
                 Layout.preferredWidth: visible ? 20 : 0
                 Layout.preferredHeight: 24
                 color: tabPrev.containsMouse
@@ -259,6 +269,7 @@ Item {
             id: bar
             objectName: "areaTabs_" + root.areaPath
             Layout.fillWidth: true
+            visible: root.widgets.length > 1 || root.hasFlag(root.flagAlwaysShowTabs)
             currentIndex: root.initialIndex
             background: Rectangle {
                 color: LaceTheme.color("tab.bg_normal") || "transparent"
@@ -275,7 +286,7 @@ Item {
             }
             function refreshOverflow() {
                 var lv = tabListView()
-                root.tabOverflow = !!lv && lv.contentWidth > lv.width + 1
+                root.tabOverflow = !!lv && lv.width > 0 && lv.contentWidth > lv.width + 1
             }
             property int ensureTries: 0
             function ensureTabVisible() {
@@ -326,8 +337,7 @@ Item {
                         id: tabSensor
                         anchors.fill: parent
                         anchors.rightMargin: 26
-                        acceptedButtons: Qt.LeftButton
-                        hoverEnabled: false
+                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                         property string pendingTab: ""
                         property var pressTabPos: null
                         function viewPos(mx, my) {
@@ -338,10 +348,17 @@ Item {
                             pressTabPos = null
                         }
                         onPressed: function(mouse) {
+                            if (mouse.button !== Qt.LeftButton)
+                                return
                             pendingTab = tabBtn.modelData.name
                             pressTabPos = Qt.point(mouse.x, mouse.y)
                         }
-                        onClicked: {
+                        onClicked: function(mouse) {
+                            if (mouse.button === Qt.MiddleButton) {
+                                if (root.hasFlag(root.flagMiddleClose))
+                                    root.manager.setWidgetClosed(tabBtn.modelData.name, true)
+                                return
+                            }
                             bar.currentIndex = tabBtn.index
                             root.manager.setCurrentTab(root.containerIndex, root.areaPath, tabBtn.modelData.name)
                         }
@@ -404,6 +421,8 @@ Item {
                         Button {
                             text: "×"
                             flat: true
+                            visible: root.hasFlag(root.flagShowTabClose)
+                                && (!root.hasFlag(root.flagActiveTabClose) || tabBtn.index === bar.currentIndex)
                             implicitWidth: 22
                             implicitHeight: 22
                             contentItem: Label {
@@ -447,7 +466,7 @@ Item {
         }
 
             Rectangle {
-                visible: root.tabOverflow
+                visible: root.tabOverflow && bar.visible
                 Layout.preferredWidth: visible ? 20 : 0
                 Layout.preferredHeight: 24
                 color: tabNext.containsMouse
@@ -467,6 +486,116 @@ Item {
                     hoverEnabled: true
                     onClicked: bar.currentIndex = Math.min(bar.count - 1, bar.currentIndex + 1)
                 }
+            }
+            Button {
+                text: "\u25C9"
+                flat: true
+                visible: root.hasFlag(root.flagAreaPin)
+                enabled: root.currentName !== "" && root.hasFlag(root.flagPinnableTabs)
+                implicitHeight: 24
+                implicitWidth: 26
+                ToolTip.text: qsTr("Pin to sidebar")
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                contentItem: Label {
+                    text: parent.text
+                    color: root.areaActive
+                        ? (LaceTheme.color("title_bar.text_active") || "white")
+                        : (LaceTheme.color("title_bar.text_normal") || "white")
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    color: parent.hovered
+                        ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                        : "transparent"
+                    radius: 3
+                }
+                onClicked: root.manager.pinWidget(root.currentName, "left")
+            }
+            Button {
+                text: "\u25A1"
+                flat: true
+                visible: root.hasFlag(root.flagAreaUndock) && root.containerIndex === 0
+                enabled: root.currentName !== "" && root.hasFlag(root.flagFloatableTabs)
+                implicitHeight: 24
+                implicitWidth: 26
+                ToolTip.text: qsTr("Float")
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                contentItem: Label {
+                    text: parent.text
+                    color: root.areaActive
+                        ? (LaceTheme.color("title_bar.text_active") || "white")
+                        : (LaceTheme.color("title_bar.text_normal") || "white")
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    color: parent.hovered
+                        ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                        : "transparent"
+                    radius: 3
+                }
+                onClicked: root.manager.floatWidget(root.currentName)
+            }
+            Button {
+                text: root.manager.maximizedArea === root.focusKey ? qsTr("[_]") : qsTr("[ ]")
+                flat: true
+                visible: root.hasFlag(root.flagAreaMaximize)
+                implicitHeight: 24
+                ToolTip.text: root.manager.maximizedArea === root.focusKey ? qsTr("Restore") : qsTr("Maximize")
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                contentItem: Label {
+                    text: parent.text
+                    color: root.areaActive
+                        ? (LaceTheme.color("title_bar.text_active") || "white")
+                        : (LaceTheme.color("title_bar.text_normal") || "white")
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    color: parent.hovered
+                        ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                        : "transparent"
+                    radius: 3
+                }
+                onClicked: root.manager.toggleMaximize(root.focusKey)
+            }
+            Button {
+                text: "\u00D7"
+                flat: true
+                visible: root.hasFlag(root.flagAreaClose)
+                enabled: root.currentName !== ""
+                implicitHeight: 24
+                implicitWidth: 26
+                ToolTip.text: root.hasFlag(root.flagAreaCloseClosesTab) ? qsTr("Close tab") : qsTr("Close group")
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                contentItem: Label {
+                    text: parent.text
+                    color: root.areaActive
+                        ? (LaceTheme.color("title_bar.text_active") || "white")
+                        : (LaceTheme.color("title_bar.text_normal") || "white")
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    color: parent.hovered
+                        ? (LaceTheme.color("title_bar.button_hover_bg") || "grey")
+                        : "transparent"
+                    radius: 3
+                }
+                onClicked: {
+                    if (root.hasFlag(root.flagAreaCloseClosesTab)) {
+                        if (root.currentName !== "")
+                            root.manager.setWidgetClosed(root.currentName, true)
+                    } else {
+                        root.manager.closeArea(root.containerIndex, root.areaPath)
+                    }
+                }
+            }
             }
         }
 

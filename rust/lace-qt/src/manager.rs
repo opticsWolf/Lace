@@ -32,6 +32,9 @@ pub mod ffi {
         #[qproperty(bool, drag_active, cxx_name = "dragActive")]
         #[qproperty(QString, drag_target_key, cxx_name = "dragTargetKey")]
         #[qproperty(QString, maximized_area, cxx_name = "maximizedArea")]
+        /// `DockFlags` bitmask driving chrome visibility (buttons, tab
+        /// close affordances, tabs menu). Initialized to `default_config`.
+        #[qproperty(i32, dock_flags, cxx_name = "dockFlags")]
         #[namespace = "lace"]
         type LaceManager = super::LaceManagerRust;
 
@@ -145,6 +148,17 @@ pub mod ffi {
         #[qinvokable]
         #[cxx_name = "pinWidget"]
         fn pin_widget(self: Pin<&mut Self>, name: &QString, area: &QString) -> bool;
+
+        /// Close every tab in one area (the title-bar close button with
+        /// `dock_area_close_button_closes_tab` cleared). Closed tabs keep
+        /// their slots with reopen affordances.
+        #[qinvokable]
+        #[cxx_name = "closeArea"]
+        fn close_area(
+            self: Pin<&mut Self>,
+            container_index: i32,
+            area_path: &QString,
+        ) -> bool;
         /// Return a pinned widget to the main container.
         #[qinvokable]
         #[cxx_name = "unpinWidget"]
@@ -232,6 +246,7 @@ pub struct LaceManagerRust {
     drag_active: bool,
     drag_target_key: QString,
     maximized_area: QString,
+    dock_flags: i32,
     doc: LayoutDoc,
     drag: DragSession,
 }
@@ -256,6 +271,7 @@ impl Default for LaceManagerRust {
             drag_active: false,
             drag_target_key: QString::from(""),
             maximized_area: QString::from(""),
+            dock_flags: lace_core::config::DockFlags::DEFAULT_CONFIG.bits() as i32,
             doc,
             drag: DragSession::default(),
         }
@@ -402,6 +418,29 @@ impl ffi::LaceManager {
         let name = String::from(name);
         if !layout_ops::set_closed(&mut self.as_mut().rust_mut().doc, name.as_str(), closed) {
             return self.as_mut().fail(format!("no widget `{name}`"));
+        }
+        self.as_mut().sync_emit()
+    }
+
+    fn close_area(
+        mut self: Pin<&mut Self>,
+        container_index: i32,
+        area_path: &QString,
+    ) -> bool {
+        let path = match parse_path(String::from(area_path).as_str()) {
+            Some(path) => path,
+            None => return self.as_mut().fail(format!("bad area path `{area_path}`")),
+        };
+        let container_index = match usize::try_from(container_index) {
+            Ok(index) => index,
+            Err(_) => return self.as_mut().fail(format!("bad container index {container_index}")),
+        };
+        if let Err(e) = layout_ops::close_area(
+            &mut self.as_mut().rust_mut().doc,
+            container_index,
+            &path,
+        ) {
+            return self.as_mut().fail(e.to_string());
         }
         self.as_mut().sync_emit()
     }
