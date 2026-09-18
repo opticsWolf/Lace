@@ -38,6 +38,20 @@ QtObject {
         return Qt.rgba(v[0] / 255, v[1] / 255, v[2] / 255, v[3] / 255)
     }
 
+    // "#rrggbb" for a color token (alpha dropped, like QColor.name()).
+    // For manager.iconSvg(), which tints bundled SVGs; undefined when the
+    // token is missing so callers can fall back to a default tint.
+    function hex(path) {
+        var v = raw(path)
+        if (!v || v.length !== 4)
+            return undefined
+        function h(n) {
+            var s = Math.round(n).toString(16)
+            return s.length === 1 ? "0" + s : s
+        }
+        return "#" + h(v[0]) + h(v[1]) + h(v[2])
+    }
+
     function num(path) {
         var v = raw(path)
         return (typeof v === "number") ? v : undefined

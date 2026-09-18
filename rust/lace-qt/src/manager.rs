@@ -144,6 +144,13 @@ pub mod ffi {
         #[cxx_name = "presetNameAt"]
         fn preset_name_at(&self, index: i32) -> QString;
 
+        /// Tinted data-URL for a bundled theme icon ("pin", "close", ...),
+        /// for QML `Image.source`. `color` is an already-resolved `#rrggbb`
+        /// tint (see `LaceTheme.hex`); empty when the name is unknown.
+        #[qinvokable]
+        #[cxx_name = "iconSvg"]
+        fn icon_svg(&self, name: &QString, color: &QString) -> QString;
+
         /// Pin `name` to the auto-hide sidebar `area`.
         #[qinvokable]
         #[cxx_name = "pinWidget"]
@@ -584,6 +591,12 @@ impl ffi::LaceManager {
             .ok()
             .and_then(|i| lace_core::presets_generated::preset_keys().get(i).copied())
             .map(QString::from)
+            .unwrap_or_else(|| QString::from(""))
+    }
+
+    fn icon_svg(&self, name: &QString, color: &QString) -> QString {
+        lace_core::icons::icon_data_url(String::from(name).as_str(), String::from(color).as_str())
+            .map(|url| QString::from(url.as_str()))
             .unwrap_or_else(|| QString::from(""))
     }
 

@@ -9,6 +9,7 @@
 
 pub mod config;
 pub mod error;
+pub mod icons;
 pub mod layout;
 pub mod layout_doc;
 pub mod layout_ops;

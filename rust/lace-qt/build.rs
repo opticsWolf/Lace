@@ -17,6 +17,7 @@ fn main() {
             QmlFile::from("qml/ContainerBuilder.qml"),
             QmlFile::from("qml/SplitterView.qml"),
             QmlFile::from("qml/AreaView.qml"),
+            QmlFile::from("qml/ChromeIcon.qml"),
             QmlFile::from("qml/WidgetCard.qml"),
             QmlFile::from("qml/FloatingView.qml"),
             QmlFile::from("qml/SidebarView.qml"),

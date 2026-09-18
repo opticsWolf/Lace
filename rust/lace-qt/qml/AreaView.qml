@@ -43,6 +43,14 @@ Item {
     property int flagFloatableTabs: 8192
     property int flagPinnableTabs: 16384
     function hasFlag(f) { return (manager.dockFlags & f) !== 0 }
+    // Resolved chrome tints (Python: title-bar `button_color` /
+    // `button_disable_clr`, tab `close_btn_color`). Hex strings for
+    // manager.iconSvg(); the "||" fallbacks match the provider default.
+    property string chromeTint: LaceTheme.hex("title_bar.button_color") || "#C8CDD7"
+    property string chromeDisabled: LaceTheme.hex("title_bar.button_disable_clr") || "#C8CDD7"
+    property int chromeSize: LaceTheme.num("title_bar.button_icon_size") || 16
+    property string tabCloseTint: LaceTheme.hex("tab.close_btn_color") || "#C8CDD7"
+    property int tabCloseSize: LaceTheme.num("tab.close_btn_icon_size") || 14
     property int initialIndex: {
         var names = []
         for (var w of widgets)
@@ -170,7 +178,6 @@ Item {
                 spacing: 2
                 Button {
                     id: menuBtn
-                    text: "\u25BE"
                     flat: true
                     visible: root.hasFlag(root.flagAreaTabsMenu)
                     implicitHeight: 24
@@ -178,13 +185,11 @@ Item {
                     ToolTip.text: qsTr("Tabs menu")
                     ToolTip.visible: hovered
                     ToolTip.delay: 500
-                    contentItem: Label {
-                        text: parent.text
-                        color: root.areaActive
-                            ? (LaceTheme.color("title_bar.text_active") || "white")
-                            : (LaceTheme.color("title_bar.text_normal") || "white")
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
+                    contentItem: ChromeIcon {
+                        root_icon_manager: root.manager
+                        iconName: "tabs_menu"
+                        tint: root.chromeTint
+                        iconSize: root.chromeSize
                     }
                     background: Rectangle {
                         color: parent.hovered
@@ -419,17 +424,16 @@ Item {
                             Layout.fillWidth: true
                         }
                         Button {
-                            text: "×"
                             flat: true
                             visible: root.hasFlag(root.flagShowTabClose)
                                 && (!root.hasFlag(root.flagActiveTabClose) || tabBtn.index === bar.currentIndex)
                             implicitWidth: 22
                             implicitHeight: 22
-                            contentItem: Label {
-                                text: parent.text
-                                color: LaceTheme.color("tab.close_btn_color") || "white"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
+                            contentItem: ChromeIcon {
+                                root_icon_manager: root.manager
+                                iconName: "close_tab"
+                                tint: root.tabCloseTint
+                                iconSize: root.tabCloseSize
                             }
                             background: Rectangle {
                                 color: parent.hovered
@@ -488,7 +492,6 @@ Item {
                 }
             }
             Button {
-                text: "\u25C9"
                 flat: true
                 visible: root.hasFlag(root.flagAreaPin)
                 enabled: root.currentName !== "" && root.hasFlag(root.flagPinnableTabs)
@@ -497,13 +500,11 @@ Item {
                 ToolTip.text: qsTr("Pin to sidebar")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
-                contentItem: Label {
-                    text: parent.text
-                    color: root.areaActive
-                        ? (LaceTheme.color("title_bar.text_active") || "white")
-                        : (LaceTheme.color("title_bar.text_normal") || "white")
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+                contentItem: ChromeIcon {
+                    root_icon_manager: root.manager
+                    iconName: "pin"
+                    tint: parent.enabled ? root.chromeTint : root.chromeDisabled
+                    iconSize: root.chromeSize
                 }
                 background: Rectangle {
                     color: parent.hovered
@@ -514,7 +515,6 @@ Item {
                 onClicked: root.manager.pinWidget(root.currentName, "left")
             }
             Button {
-                text: "\u25A1"
                 flat: true
                 visible: root.hasFlag(root.flagAreaUndock) && root.containerIndex === 0
                 enabled: root.currentName !== "" && root.hasFlag(root.flagFloatableTabs)
@@ -523,13 +523,11 @@ Item {
                 ToolTip.text: qsTr("Float")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
-                contentItem: Label {
-                    text: parent.text
-                    color: root.areaActive
-                        ? (LaceTheme.color("title_bar.text_active") || "white")
-                        : (LaceTheme.color("title_bar.text_normal") || "white")
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+                contentItem: ChromeIcon {
+                    root_icon_manager: root.manager
+                    iconName: "float"
+                    tint: parent.enabled ? root.chromeTint : root.chromeDisabled
+                    iconSize: root.chromeSize
                 }
                 background: Rectangle {
                     color: parent.hovered
@@ -540,20 +538,17 @@ Item {
                 onClicked: root.manager.floatWidget(root.currentName)
             }
             Button {
-                text: root.manager.maximizedArea === root.focusKey ? qsTr("[_]") : qsTr("[ ]")
                 flat: true
                 visible: root.hasFlag(root.flagAreaMaximize)
                 implicitHeight: 24
                 ToolTip.text: root.manager.maximizedArea === root.focusKey ? qsTr("Restore") : qsTr("Maximize")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
-                contentItem: Label {
-                    text: parent.text
-                    color: root.areaActive
-                        ? (LaceTheme.color("title_bar.text_active") || "white")
-                        : (LaceTheme.color("title_bar.text_normal") || "white")
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+                contentItem: ChromeIcon {
+                    root_icon_manager: root.manager
+                    iconName: root.manager.maximizedArea === root.focusKey ? "restore" : "maximize"
+                    tint: root.chromeTint
+                    iconSize: root.chromeSize
                 }
                 background: Rectangle {
                     color: parent.hovered
@@ -564,7 +559,6 @@ Item {
                 onClicked: root.manager.toggleMaximize(root.focusKey)
             }
             Button {
-                text: "\u00D7"
                 flat: true
                 visible: root.hasFlag(root.flagAreaClose)
                 enabled: root.currentName !== ""
@@ -573,13 +567,11 @@ Item {
                 ToolTip.text: root.hasFlag(root.flagAreaCloseClosesTab) ? qsTr("Close tab") : qsTr("Close group")
                 ToolTip.visible: hovered
                 ToolTip.delay: 500
-                contentItem: Label {
-                    text: parent.text
-                    color: root.areaActive
-                        ? (LaceTheme.color("title_bar.text_active") || "white")
-                        : (LaceTheme.color("title_bar.text_normal") || "white")
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+                contentItem: ChromeIcon {
+                    root_icon_manager: root.manager
+                    iconName: "close"
+                    tint: parent.enabled ? root.chromeTint : root.chromeDisabled
+                    iconSize: root.chromeSize
                 }
                 background: Rectangle {
                     color: parent.hovered
