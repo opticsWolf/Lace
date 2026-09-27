@@ -34,6 +34,8 @@ Role = QPalette.ColorRole
 GROOVE = 4.0
 #: Track colour: text mixed over the window by this much.
 TRACK_MIX = 0.16
+#: Disabled fill: accent share mixed over the track.
+DISABLED_TINT = 0.45
 #: Busy progress: segment length (share of the track) and one sweep, seconds.
 BUSY_SPAN, BUSY_PERIOD = 0.3, 1.6
 
@@ -43,12 +45,19 @@ def _enabled(opt) -> bool:
 
 
 def _track(opt):
-    return P.mix(P.color(opt, Role.Window), P.color(opt, Role.Text), TRACK_MIX)
+    # Held to the disabled floor in every state, so a disabled track never
+    # reads stronger than an enabled one.
+    track = P.mix(P.color(opt, Role.Window), P.color(opt, Role.Text), TRACK_MIX)
+    return P.legible(opt, track, P.DISABLED_RATIO)
 
 
 def _fill(opt):
     acc = P.accent(opt)
-    return acc if _enabled(opt) else P.mix(P.color(opt, Role.Window), acc, 0.4)
+    if _enabled(opt):
+        return acc
+    # A muted accent tinted from the track it sits on, held apart from it.
+    track = _track(opt)
+    return P.legible(opt, P.mix(track, acc, DISABLED_TINT), P.DISABLED_RATIO, surface=track)
 
 
 # ---------------------------------------------------------------------------
