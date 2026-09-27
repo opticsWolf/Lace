@@ -14,16 +14,30 @@ sidebar pin/unpin, the schema button block, DragDetector, and an 8-theme switch.
 Drag-DROP and tear-off are NOT covered (need a real cursor); verify those by
 running the app.
 """
+import argparse
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
+parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+parser.add_argument(
+    "--jobs", default="auto",
+    help="checks to run at once: a number, or 'auto' for the CPU count (default)")
+parser.add_argument(
+    "--themes", default="auto",
+    choices=("quick", "regular", "full", "all", "auto"),
+    help="theme stage for checks that iterate themes (see tests/theme_sets.py)")
+args = parser.parse_args()
+jobs = (os.cpu_count() or 1) if args.jobs == "auto" else max(1, int(args.jobs))
+
 env = os.environ.copy()
 env["QT_QPA_PLATFORM"] = "offscreen"
 env["PYTHONPATH"] = ROOT
+env["LACE_TEST_THEMES"] = args.themes
 
 CHECKS = [
     "smoke_m1.py",          # color core: QColor-native storage, generation cache
@@ -82,13 +96,23 @@ if unlisted:
     print("Add them to CHECKS, or to NEEDS_DISPLAY with a reason.")
     sys.exit(1)
 
+def run(name):
+    # Each check is its own process (QApplication is a singleton), so a thread
+    # per check only waits on a child; output is captured and printed below
+    # in CHECKS order so parallel runs read the same as serial ones.
+    return subprocess.run([sys.executable, os.path.join(HERE, name)],
+                          env=env, cwd=ROOT, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
+
+
 failed = []
-for name in CHECKS:
-    print(f"\n=== {name} ===", flush=True)
-    result = subprocess.run([sys.executable, os.path.join(HERE, name)],
-                            env=env, cwd=ROOT)
-    if result.returncode != 0:
-        failed.append(name)
+with ThreadPoolExecutor(max_workers=jobs) as pool:
+    for name, result in zip(CHECKS, pool.map(run, CHECKS)):
+        print(f"\n=== {name} ===", flush=True)
+        sys.stdout.write(result.stdout)
+        sys.stdout.write(result.stderr)
+        if result.returncode != 0:
+            failed.append(name)
 
 if failed:
     print(f"\nFAILED: {', '.join(failed)}")
