@@ -198,8 +198,13 @@ def frame(style, opt, p, w):
     None for a dock widget's own content (a text edit, a view): the card
     around it is already its frame, and a second ring inside reads as a bevel.
     """
-    if w is not None and (w.property("dockWidgetContent") or getattr(w, "_lace_frame_cap", None)):
-        return True     # no ring, or the area's FrameCap draws it above the viewport
+    if w is not None and w.property("dockWidgetContent"):
+        return True     # the card is its frame
+    cap = getattr(w, "_lace_frame_cap", None) if w is not None else None
+    if cap is not None:
+        if cap.isVisible():
+            return True     # the area's FrameCap draws the outline above the viewport
+        cap.queue_sync()    # framed since the cap last looked: draw here meanwhile
     with P.Painting(p):
         line = P.legible(opt, P.stroke(opt, P.color(opt, Role.Window), style.outline_strength),
                           style.border_ratio)

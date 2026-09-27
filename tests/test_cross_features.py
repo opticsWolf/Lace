@@ -360,3 +360,38 @@ def test_dock_content_is_rounded_only_when_inset(lace_app, theme, rounded):
     finally:
         win.close()
         get_dock_style_manager().apply_theme_dict(build_theme(spec_for("dark")))
+
+
+def test_frame_cap_is_hidden_when_idle_and_masked_when_shown(lace_app):
+    """A cap only exists on screen where it paints: hidden on an unframed
+    scroll area, masked to corners and edges on a framed one, so updates in
+    the middle of the viewport never repaint it. Framing the area later
+    brings the cap up."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
+    from lace.style import _frame_cap
+
+    host = QWidget()
+    lay = QVBoxLayout(host)
+    framed, bare = QTextEdit(), QTextEdit()
+    bare.setFrameShape(QFrame.Shape.NoFrame)
+    lay.addWidget(framed)
+    lay.addWidget(bare)
+    host.resize(240, 300)
+    host.show()
+    QApplication.processEvents()
+    try:
+        cap, idle = _frame_cap.cap_of(framed), _frame_cap.cap_of(bare)
+        assert cap.isVisible() and not idle.isVisible()
+        mask = cap.mask()
+        centre = framed.rect().center()
+        assert not mask.contains(centre)
+        assert mask.contains(QPoint(0, 0)) and mask.contains(QPoint(0, centre.y()))
+
+        bare.setFrameShape(QFrame.Shape.StyledPanel)
+        bare.update()
+        for _ in range(3):
+            QApplication.processEvents()
+        assert idle.isVisible()
+    finally:
+        host.close()

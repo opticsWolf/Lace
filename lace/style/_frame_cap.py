@@ -15,10 +15,17 @@ that paints over the arc. :class:`FrameCap` is a transparent overlay above
 the viewport and scroll bars: it paints the backdrop over the corners outside
 the rounded frame, antialiased, then strokes the outline. This is the same
 technique the dock card uses for ``corner_clip="cap"``.
+
+The overlay costs nothing where it has no work: it stays hidden on scroll
+areas without a frame (and on flush dock content), and where it is shown it
+is masked to the corners and edge strips it paints, so typing or scrolling
+in the viewport never repaints it.
 """
 
-from PySide6.QtCore import QEvent, QObject, QRectF, Qt
-from PySide6.QtGui import QPainter, QPainterPath
+from math import ceil
+
+from PySide6.QtCore import QEvent, QObject, QRect, QRectF, Qt, QTimer
+from PySide6.QtGui import QPainter, QPainterPath, QRegion
 from PySide6.QtWidgets import QAbstractScrollArea, QFrame, QStyle, QStyleOptionFrame, QWidget
 
 from lace.dock_paint import corner_cap_path, paint_corner_cap
@@ -51,6 +58,12 @@ def cap_of(w: QWidget):
     return getattr(w, ATTR, None) if w is not None else None
 
 
+#: Area events after which the cap re-checks its mode, geometry and mask:
+#: a theme switch (palette, style), dock content tagged or margins changed.
+_SYNC_EVENTS = (QEvent.Type.Show, QEvent.Type.Resize, QEvent.Type.DynamicPropertyChange,
+                QEvent.Type.PaletteChange, QEvent.Type.StyleChange)
+
+
 class FrameCap(QWidget):
     """Overlay that caps a scroll area's corners and draws its frame."""
 
@@ -63,9 +76,12 @@ class FrameCap(QWidget):
         self._style = style
         self._key = None
         self._cap = QPainterPath()
+        self._mask_key = None
+        self._sync_queued = False
         setattr(area, ATTR, self)
         area.installEventFilter(self)
-        self.restack()
+        self.hide()
+        self.sync()
 
     def detach(self) -> None:
         self._area.removeEventFilter(self)
@@ -74,15 +90,66 @@ class FrameCap(QWidget):
         self.setParent(None)
         self.deleteLater()
 
-    def restack(self) -> None:
-        self.setGeometry(self._area.rect())
+    def sync(self) -> None:
+        """Show the cap only when it has work; keep it covering the area, on
+        top, and masked to what it paints."""
+        self._sync_queued = False
+        mode = self._mode()
+        radius = float(self._style.control_radius)
+        if mode is None or (mode == "cap" and radius <= 0):
+            if self.isVisible():
+                self.hide()
+            return
+        if self.geometry() != self._area.rect():
+            self.setGeometry(self._area.rect())
+        self._fit_mask(mode, radius)
         self.raise_()
+        self.show()
         self.update()
+
+    def _fit_mask(self, mode=None, radius=None) -> None:
+        mode = self._mode() if mode is None else mode
+        if mode is None:
+            return
+        radius = float(self._style.control_radius) if radius is None else radius
+        key = (self.size(), radius, mode, self._area.frameWidth())
+        if key != self._mask_key:
+            self._mask_key = key
+            self.setMask(self._mask(mode, radius))
+
+    def queue_sync(self) -> None:
+        """Re-check on the next event pass (safe from inside a paint)."""
+        if not self._sync_queued:
+            self._sync_queued = True
+            QTimer.singleShot(0, self, self.sync)
+
+    def _mask(self, mode: str, radius: float) -> QRegion:
+        """The corner squares, plus the edge strips the outline runs along."""
+        r = self.rect()
+        fw = self._area.frameWidth()
+        s = fw + ceil(radius) + 1
+        region = QRegion()
+        for x, y in ((r.left(), r.top()), (r.right() - s + 1, r.top()),
+                     (r.left(), r.bottom() - s + 1), (r.right() - s + 1, r.bottom() - s + 1)):
+            region = region.united(QRect(x, y, s, s))
+        if mode == "frame":
+            e = max(1, fw) + 1
+            for strip in (QRect(r.left(), r.top(), r.width(), e),
+                          QRect(r.left(), r.bottom() - e + 1, r.width(), e),
+                          QRect(r.left(), r.top(), e, r.height()),
+                          QRect(r.right() - e + 1, r.top(), e, r.height())):
+                region = region.united(strip)
+        return region
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         t = event.type()
-        if t in (QEvent.Type.Resize, QEvent.Type.Show):
-            self.restack()
+        if t == QEvent.Type.Resize and self.isVisible():
+            # Follow the area at once; showing and hiding waits for the next
+            # pass, so an app-wide palette change never re-enters from here.
+            self.setGeometry(self._area.rect())
+            self._fit_mask()
+        elif t in _SYNC_EVENTS:
+            self.queue_sync()
         elif t == QEvent.Type.ChildAdded and event.child() is not self:
             # A viewport or scroll bar added later would stack above the cap.
             self.raise_()
@@ -120,6 +187,7 @@ class FrameCap(QWidget):
     def paintEvent(self, event) -> None:
         mode = self._mode()
         if mode is None:
+            self.queue_sync()
             return
         from lace.dock_chrome import backdrop_color, has_native_child
         p = QPainter(self)
