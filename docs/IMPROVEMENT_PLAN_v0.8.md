@@ -657,6 +657,19 @@ a perfectly sharp diagonal read 3 px. Edges are now measured as the 10–90 % ri
 
 Still to do for 4a exit: the Weave zoom check by hand. `smoke_lace_style.py` lands with 4b.
 
+**Limit raised to 2.5 (4b-2).** Under the 10–90 % measure a perfectly sharp edge reads 1 on the
+pixel grid and 2 off it, so vector glyphs with diagonals average 1.8–2.2 and sat right on the old
+2.0 limit (the spin chevrons read 2.21). A stretched 1x pixmap reads 3.5 and up; 2.5 splits the
+two. With 4b-2 the combo and spin arrows read 1.8–2.2 (Fusion: 4.6–5.8) and no glyph is xfail.
+
+## 4b status
+
+- **4b-1 Buttons** — done. `PE_PanelButtonCommand` carries every Fusion button face (push, tool,
+  non-editable combo), so one override covers them; keyboard focus rings the face.
+- **4b-2 Inputs** — done. Line edits, combo and spin boxes as one rounded field with vector
+  chevrons inside; Fusion's spin/combo sub-control rects are kept.
+- **4b-3 Range**, **4b-4 Containers** — to do.
+
 ## Exit criteria
 - 4a: zoom metrics pass, no reflow, scrollbar modes verified, Weave zoom checked by hand
 - each 4b family: flat and contrast checks green over `QUICK`, no reflow, its gallery images

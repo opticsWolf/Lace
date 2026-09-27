@@ -20,7 +20,8 @@ if str(ROOT) not in sys.path:
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPalette
 from PySide6.QtWidgets import (
-    QApplication, QPushButton, QToolButton, QStyle, QStyleFactory, QStyleOption, QStyleOptionButton,
+    QApplication, QComboBox, QLineEdit, QPushButton, QSpinBox, QToolButton, QStyle,
+    QStyleOptionComboBox, QStyleOptionSpinBox, QStyleFactory, QStyleOption, QStyleOptionButton,
     QStyleOptionFocusRect, QStyleOptionFrame, QStyleOptionMenuItem, QStyleOptionSlider,
     QStyleOptionToolButton,
 )
@@ -139,6 +140,58 @@ def _tool(auto_raise=False, split=False):
     return draw
 
 
+def _line_edit(style, p, cell, pal, flags, disabled):
+    opt = _base(QStyleOptionFrame(), _centred(cell, cell.width() - 10, 24), pal, flags, disabled)
+    opt.lineWidth = style.pixelMetric(QStyle.PixelMetric.PM_DefaultFrameWidth)
+    style.drawPrimitive(PE.PE_PanelLineEdit, opt, p, _widget(QLineEdit))
+    p.setPen(pal.color(QPalette.ColorGroup.Disabled if disabled else QPalette.ColorGroup.Active,
+                       QPalette.ColorRole.Text))
+    p.drawText(opt.rect.adjusted(6, 0, 0, 0), Qt.AlignmentFlag.AlignVCenter, "Text")
+
+
+def _combo(editable=False):
+    def draw(style, p, cell, pal, flags, disabled):
+        opt = _base(QStyleOptionComboBox(), _centred(cell, cell.width() - 10, 24), pal, flags, disabled)
+        opt.editable, opt.frame, opt.currentText = editable, True, "Item"
+        opt.subControls = QStyle.SubControl.SC_All
+        if flags & (S.State_MouseOver | S.State_Sunken):
+            opt.activeSubControls = QStyle.SubControl.SC_ComboBoxArrow
+        w = _widget(QComboBox)
+        style.drawComplexControl(QStyle.ComplexControl.CC_ComboBox, opt, p, w)
+        if editable:
+            edit = style.subControlRect(QStyle.ComplexControl.CC_ComboBox, opt,
+                                        QStyle.SubControl.SC_ComboBoxEditField, w)
+            p.setPen(pal.color(QPalette.ColorGroup.Active, QPalette.ColorRole.Text))
+            p.drawText(edit.adjusted(2, 0, 0, 0), Qt.AlignmentFlag.AlignVCenter, "Edit")
+        else:
+            style.drawControl(QStyle.ControlElement.CE_ComboBoxLabel, opt, p, w)
+    return draw
+
+
+def _spin(symbols=None):
+    def draw(style, p, cell, pal, flags, disabled):
+        from PySide6.QtWidgets import QAbstractSpinBox
+        # Fusion's spin-box rects are widget-local: draw at the origin.
+        at = _centred(cell, cell.width() - 10, 24)
+        p.translate(at.topLeft())
+        opt = _base(QStyleOptionSpinBox(), QRect(0, 0, at.width(), at.height()), pal, flags, disabled)
+        opt.frame = True
+        opt.subControls = QStyle.SubControl.SC_All
+        opt.stepEnabled = (QAbstractSpinBox.StepEnabledFlag.StepUpEnabled
+                           | QAbstractSpinBox.StepEnabledFlag.StepDownEnabled)
+        if symbols is not None:
+            opt.buttonSymbols = symbols
+        if flags & (S.State_MouseOver | S.State_Sunken):
+            opt.activeSubControls = QStyle.SubControl.SC_SpinBoxUp
+        w = _widget(QSpinBox)
+        style.drawComplexControl(QStyle.ComplexControl.CC_SpinBox, opt, p, w)
+        edit = style.subControlRect(QStyle.ComplexControl.CC_SpinBox, opt,
+                                    QStyle.SubControl.SC_SpinBoxEditField, w)
+        p.setPen(pal.color(QPalette.ColorGroup.Active, QPalette.ColorRole.Text))
+        p.drawText(edit.adjusted(2, 0, 0, 0), Qt.AlignmentFlag.AlignVCenter, "42")
+    return draw
+
+
 def _menu_check(opt):
     opt.checkType = QStyleOptionMenuItem.CheckType.NonExclusive
     opt.checked = bool(opt.state & S.State_On)
@@ -152,6 +205,10 @@ ROWS: List[Tuple[str, Callable]] = [
     ("tool button", _tool()),
     ("tool auto-raise", _tool(auto_raise=True)),
     ("tool split", _tool(split=True)),
+    ("line edit", _line_edit),
+    ("combo box", _combo()),
+    ("combo editable", _combo(editable=True)),
+    ("spin box", _spin()),
     ("check box", _primitive(PE.PE_IndicatorCheckBox, QStyleOptionButton)),
     ("partial check", _primitive(PE.PE_IndicatorCheckBox, QStyleOptionButton,
                                  extra=lambda o: setattr(o, "state", o.state | S.State_NoChange))),

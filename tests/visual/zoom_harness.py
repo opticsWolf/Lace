@@ -35,8 +35,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-#: Largest acceptable mean edge width at 4x, in device pixels.
-SHARP_LIMIT = 2.0
+#: Largest acceptable mean edge width at 4x, in device pixels. A perfectly
+#: sharp edge reads 1 on the pixel grid and 2 off it (one partly covered
+#: pixel inside the 10-90 % rise), so vector glyphs with diagonals average
+#: 1.8-2.2; a 1x pixmap stretched 4x reads 3.5 and up. 2.5 splits the two.
+SHARP_LIMIT = 2.5
 
 #: A ramp must change intensity by this much in total to count as an edge.
 _EDGE_MIN = 48

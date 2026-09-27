@@ -16,9 +16,8 @@ GLYPHS = (
     "radio_indicator", "hscrollbar", "vscrollbar", "slider_handle",
     "tree_branch_open", "tree_branch_shut", "menu_submenu_arrow",
 )
-#: Still painted from Fusion's pixmap cache inside its complex controls, which
-#: LaceStyle redraws in 4b-2; remove entries as that lands.
-NOT_YET_SHARP = {"combo_arrow", "spin_arrows", "dspin_arrows"}
+#: Glyphs still painted from a cached pixmap; empty since 4b-2.
+NOT_YET_SHARP: set = set()
 
 _cache = {}
 
