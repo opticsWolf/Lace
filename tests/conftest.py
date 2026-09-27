@@ -21,6 +21,28 @@ if str(ROOT) not in sys.path:
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--themes", default=None,
+        choices=("quick", "regular", "full", "all", "auto"),
+        help="theme stage for theme-parametrised tests (see tests/theme_sets.py)")
+
+
+def pytest_configure(config):
+    stage = config.getoption("--themes")
+    if stage:
+        # Environment, so xdist workers and subprocesses see the same stage.
+        os.environ["LACE_TEST_THEMES"] = stage
+
+
+def pytest_generate_tests(metafunc):
+    """Parametrise any test taking ``theme_key`` over the selected set."""
+    if "theme_key" in metafunc.fixturenames:
+        from tests.theme_sets import from_env
+        keys = from_env()
+        metafunc.parametrize("theme_key", keys, ids=keys)
+
+
 @pytest.fixture(scope="session")
 def qapp():
     """Session-wide offscreen QApplication (Qt requires exactly one)."""

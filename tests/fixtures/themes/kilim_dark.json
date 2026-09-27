@@ -1,0 +1,19 @@
+{
+    "name": "kilim_dark",
+    "_source": "Kilim ffa75d9 2026-09-16: crates/kilim-core/src/kilim_themes.rs + python/kilim/qt_themes.py (KILIM_GEOMETRY); regenerate with tests/fixtures/themes/regen_kilim.py",
+    "base": "#141414",
+    "accent": "#0078d4",
+    "text": "#cccccc",
+    "surface": "#1e1e1e",
+    "border": "#2d2d2d",
+    "focus_border_color": "#0078d4",
+    "is_light": false,
+    "corner_radius": 4,
+    "tab_radius": 4,
+    "border_width": 1.5,
+    "title_margin": 0.5,
+    "content_margin": 0.5,
+    "tab_dimming": true,
+    "title_mode": "darker",
+    "hover_mode": "darker"
+}
