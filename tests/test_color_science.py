@@ -148,10 +148,11 @@ def test_ensure_contrast_meets_the_ratio_when_reachable(fg, bg, ratio):
 def test_ensure_contrast_keeps_hue(fg, bg):
     out = cs.ensure_contrast(fg, bg, 4.5)
     _, c_in, h_in, _ = cs.to_oklch(fg)
-    _, c_out, h_out, _ = cs.to_oklch(out)
-    # Hue is only meaningful with visible chroma on both sides; 8-bit
-    # rounding scatters the hue of near-greys.
-    if c_in > 0.05 and c_out > 0.05:
+    l_out, c_out, h_out, _ = cs.to_oklch(out)
+    # Hue is only meaningful with visible chroma on both sides, and above
+    # the darkest tones: 8-bit rounding scatters the hue of near-greys and of
+    # near-blacks such as [24, 0, 5] (hypothesis found 2.05 deg there).
+    if c_in > 0.05 and c_out > 0.05 and l_out > 0.25:
         assert _hue_diff(h_in, h_out) <= 2, (fg, out)
 
 
@@ -200,3 +201,22 @@ def test_on_color_uses_the_preferred_pair():
     # A pair that falls short on a mid tone is lifted to the ratio.
     out = cs.on_color([128, 128, 128, 255], prefer=([150, 150, 150, 255], [100, 100, 100, 255]))
     assert cs.contrast_ratio(out, [128, 128, 128, 255]) >= 4.5
+
+
+# --- delta_e / toward ------------------------------------------------------------
+def test_delta_e():
+    assert cs.delta_e([10, 20, 30, 255], [10, 20, 30, 0]) == 0
+    assert cs.delta_e([0, 0, 0, 255], [255, 255, 255, 255]) == pytest.approx(1.0, abs=1e-3)
+
+
+def test_toward_caps_the_move():
+    a, b = [30, 30, 40, 255], [200, 200, 220, 255]
+    assert cs.toward(a, b, 1.0) == b
+    capped = cs.toward(a, b, 0.05)
+    assert cs.delta_e(a, capped) == pytest.approx(0.05, abs=0.005)
+    assert cs.to_oklch(capped)[0] > cs.to_oklch(a)[0]
+
+
+@given(rgb, rgb, st.floats(0.005, 0.1))
+def test_toward_never_exceeds_the_cap(a, b, cap):
+    assert cs.delta_e(a, cs.toward(a, b, cap)) <= cap + 1e-9

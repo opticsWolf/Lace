@@ -141,6 +141,32 @@ def is_dark(rgba: Sequence[int]) -> bool:
     return to_oklch(rgba)[0] < DARK_L
 
 
+def delta_e(a: Sequence[int], b: Sequence[int]) -> float:
+    """Perceptual distance: Euclidean in OKLab (alpha ignored). ~0.02 is just noticeable."""
+    La, aa, ba, _ = to_oklab(a)
+    Lb, ab, bb, _ = to_oklab(b)
+    return math.dist((La, aa, ba), (Lb, ab, bb))
+
+
+def toward(orig: Sequence[int], target: Sequence[int], max_de: float) -> RGBA:
+    """``target``, or as far from ``orig`` toward it as ``max_de`` allows (OKLab)."""
+    d = delta_e(orig, target)
+    if d <= max_de:
+        return list(_rgb(target))
+    # Linear in OKLab, but 8-bit rounding can land past the cap (near black
+    # a whole step is ~0.04), so search on the rounded result.
+    lo, hi = 0.0, max_de / d
+    if delta_e(orig, mix(orig, target, hi)) <= max_de:
+        return mix(orig, target, hi)
+    for _ in range(20):
+        mid = (lo + hi) / 2
+        if delta_e(orig, mix(orig, target, mid)) <= max_de:
+            lo = mid
+        else:
+            hi = mid
+    return mix(orig, target, lo)
+
+
 # ---------------------------------------------------------------------------
 # Operations
 # ---------------------------------------------------------------------------
@@ -217,5 +243,6 @@ def on_color(bg: Sequence[int], *, prefer: Optional[Sequence[Sequence[int]]] = N
 
 __all__ = [
     "DARK_L", "to_oklab", "to_oklch", "from_oklch", "relative_luminance",
-    "contrast_ratio", "is_dark", "step", "mix", "ensure_contrast", "on_color",
+    "contrast_ratio", "is_dark", "delta_e", "toward", "step", "mix", "ensure_contrast",
+    "on_color",
 ]

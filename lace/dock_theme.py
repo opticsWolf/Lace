@@ -95,7 +95,11 @@ class DockPanelStyleSchema:
     color_mid: Optional[List[int]] = None       # Mid role - mid-tone border
     color_dark: Optional[List[int]] = None      # Dark role - shadow edge
     color_shadow: Optional[List[int]] = None    # Shadow role - drop shadow
-    
+
+    # Selection (Highlight / HighlightedText roles), set by ThemeSpec.selection
+    highlight: Optional[List[int]] = None
+    highlighted_text: Optional[List[int]] = None
+
     # Geometry
     border_width: float = 2.0
     corner_radius: int = 8
@@ -384,7 +388,16 @@ class ThemeSpec:
     surface: Optional[Union[QColor, List[int]]] = None
     border: Optional[Union[QColor, List[int]]] = None
     focus_border_color: Optional[Union[QColor, List[int]]] = None
-    is_light: bool = False
+    #: None decides from the base colour (OKLCH lightness below 0.6 is dark).
+    is_light: Optional[bool] = None
+    #: WCAG floor for text and UI tokens: "low" | "normal" | "high".
+    #: Colours that already pass are left alone.
+    contrast: str = "normal"
+    #: How far derived surfaces step off each other: "flat" | "subtle" | "raised".
+    depth: str = "subtle"
+    #: Selected items: "solid" accent fill, or "tint", an accent wash that
+    #: keeps the normal text colour.
+    selection: str = "solid"
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
     #: Explicit tab/title-bar background. Overrides the derived value, which
     #: is a fixed 0.06 lightness step off the panel and so cannot be widened
@@ -493,6 +506,31 @@ class ThemeSpec:
     tooltip_text: Optional[Union[QColor, List[int]]] = None
 
 
+from lace import color_science as _cs
+from lace.theme_contrast import enforce as _enforce
+
+_CONTRAST_LEVELS = ("low", "normal", "high")
+_DEPTH_LEVELS = ("flat", "subtle", "raised")
+
+#: OKLCH lightness steps per derived surface, by depth (flat, subtle, raised).
+#: "subtle" is calibrated to the median step 0.7.6 produced over every preset,
+#: so the default look is kept while the per-theme spread (HLS steps grew and
+#: shrank with the base colour) goes away.
+_DEPTH: Dict[str, Tuple[float, float, float]] = {
+    "panel":   (0.03, 0.05, 0.08),    # off base, when no surface is given
+    "border":  (0.04, 0.06, 0.09),    # neutral border off the panel/base
+    "title":   (0.03, 0.05, 0.07),    # off panel, sign from title_mode
+    "tooltip": (0.05, 0.08, 0.11),    # off panel
+    "hover":   (0.06, 0.09, 0.12),    # toward contrast; x0.7 for hover_mode="darker"
+    "input":   (0.02, 0.035, 0.05),   # recessed off panel
+    "alt":     (0.03, 0.05, 0.07),    # zebra rows off input
+    "button":  (0.04, 0.07, 0.10),    # off panel
+    "light":   (0.09, 0.13, 0.17),    # Fusion bevel highlight
+    "mid":     (0.03, 0.045, 0.06),   # Fusion mid tone
+    "dark":    (0.08, 0.11, 0.14),    # Fusion shadow edge
+}
+
+
 def _as_rgba(col: Union[QColor, List[int]]) -> List[int]:
     """Normalise a QColor or list to an ``[r, g, b, a]`` list for the colour math."""
     if isinstance(col, QColor):
@@ -502,8 +540,21 @@ def _as_rgba(col: Union[QColor, List[int]]) -> List[int]:
 
 def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """Build a complete dock theme from a :class:`ThemeSpec` (public API)."""
-    return _build_theme(
-        _as_rgba(spec.base), _as_rgba(spec.accent), _as_rgba(spec.text),
+    return _build_theme(**_spec_kwargs(spec))
+
+
+def explicit_tokens(spec: ThemeSpec) -> set:
+    """``"CATEGORY.token"`` names whose colour the spec set itself.
+
+    For drift reports: these may only move slightly (theme_contrast).
+    """
+    names: set = set()
+    _build_theme(**_spec_kwargs(spec), _explicit_out=names)
+    return names
+
+
+def _spec_kwargs(spec: ThemeSpec) -> Dict[str, Any]:
+    return dict(base=_as_rgba(spec.base), accent=_as_rgba(spec.accent), text=_as_rgba(spec.text),
         is_light=spec.is_light, title_mode=spec.title_mode, hover_mode=spec.hover_mode,
         surface=_as_rgba(spec.surface) if spec.surface is not None else None,
         border=_as_rgba(spec.border) if spec.border is not None else None,
@@ -550,6 +601,9 @@ def build_theme(spec: ThemeSpec) -> Dict[DockStyleCategory, Dict[str, Any]]:
         sidebar_indicator_position=spec.sidebar_indicator_position,
         tooltip_bg=_as_rgba(spec.tooltip_bg) if spec.tooltip_bg is not None else None,
         tooltip_text=_as_rgba(spec.tooltip_text) if spec.tooltip_text is not None else None,
+        contrast=spec.contrast,
+        depth=spec.depth,
+        selection=spec.selection,
     )
 
 
@@ -557,7 +611,7 @@ def _build_theme(
     base: list, 
     accent: list, 
     text: list, 
-    is_light: bool = False,
+    is_light: Optional[bool] = False,
     title_mode: str = "darker", # "lighter" or "darker" relative to panel
     hover_mode: str = "lighter",    # "lighter" or "darker" relative to panel
     surface: Optional[list] = None,
@@ -605,6 +659,10 @@ def _build_theme(
     sidebar_indicator_position: Optional[str] = None,
     tooltip_bg: Optional[list] = None,
     tooltip_text: Optional[list] = None,
+    contrast: str = "normal",
+    depth: str = "subtle",
+    selection: str = "solid",
+    _explicit_out: Optional[set] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
     Build a complete dock theme from 3 to 5 primary colors plus status tokens.
@@ -613,73 +671,118 @@ def _build_theme(
         base:     Darkest background color [R, G, B, A]
         accent:   Primary accent/highlight color [R, G, B, A]
         text:     Primary text color [R, G, B, A]
-        is_light: If True, adjustments go darker instead of lighter
+        is_light: If True, adjustments go darker instead of lighter; None
+                  decides from the base colour's lightness
+        contrast: "low" | "normal" | "high" -- the WCAG floors text and UI
+                  tokens are lifted to (lace.theme_contrast)
+        depth:    "flat" | "subtle" | "raised" -- how far derived surfaces
+                  step off each other
+        selection: "solid" (accent fill) | "tint" (accent wash over the input)
         surface:  Optional inner content area background [R, G, B, A]
         border:   Optional structural border/divider color [R, G, B, A]
     """
+    if contrast not in _CONTRAST_LEVELS:
+        raise ValueError(f"contrast must be one of {_CONTRAST_LEVELS}, got {contrast!r}")
+    if depth not in _DEPTH_LEVELS:
+        raise ValueError(f"depth must be one of {_DEPTH_LEVELS}, got {depth!r}")
+    if selection not in ("solid", "tint"):
+        raise ValueError(f"selection must be 'solid' or 'tint', got {selection!r}")
+
+    # Every seed list the spec supplied. The contrast pass may nudge these
+    # only slightly (theme_contrast.EXPLICIT_MAX_DE); derived colours are free.
+    explicit_ids = frozenset(id(c) for c in (
+        base, accent, text, surface, border, focus_border_color, title_bg,
+        tooltip_bg, tooltip_text, success_color, warning_color, error_color, info_color,
+        title_border_color, title_border_focus_color, tab_border_color,
+        tab_border_active_color, tab_border_unfocused_color, sidebar_tab_bg_normal,
+        sidebar_tab_bg_hover_start, sidebar_tab_bg_hover_end, sidebar_tab_bg_active,
+        sidebar_tab_border_color, sidebar_tab_border_active_color,
+        sidebar_tab_border_hover_color,
+    ) if c is not None)
+
+    # Unset, light or dark follows the base colour's perceptual lightness.
+    if is_light is None:
+        is_light = not _cs.is_dark(base)
     # Direction multiplier: light themes darken, dark themes lighten
     d = -1 if is_light else 1
-    
-    if title_mode == "darker":
-        t_mode = -1.0
-    else:
-        t_mode = 1.0
-    
-    # hover_amount: "darker" mode yields a balanced subtle hover (8%), "lighter" mode yields clear tactile hover (12%)
-    hover_amt = 0.08 if hover_mode == "darker" else 0.12
-    
-    # === DERIVED BACKGROUNDS ===
-    _panel      = surface if surface is not None else _adjust_color(base, l_off=d * 0.10)
-    _border     = border if border is not None else _adjust_color(base, l_off=-0.02)
-    
+    t_mode = -1.0 if title_mode == "darker" else 1.0
+    # "darker" hovers are the quieter of the two.
+    hover_scale = 0.7 if hover_mode == "darker" else 1.0
+
+    level = _DEPTH_LEVELS.index(depth)
+
+    def dl(name: str) -> float:
+        return _DEPTH[name][level]
+
+    def step(col, dL):
+        return _cs.step(col, dL)
+
+    def away(col, dL):
+        """Step off ``col`` toward contrast with itself (lighter if dark)."""
+        return _cs.step(col, dL, toward="contrast")
+
+    # === DERIVED BACKGROUNDS (OKLCH lightness steps, see _DEPTH) ===
+    _panel      = surface if surface is not None else step(base, d * dl("panel"))
+
     # Neutral border derived from surface or base depending on light/dark theme
     _ref_col        = _panel if surface is not None else base
-    _neutral_border = border if border is not None else _adjust_color(_ref_col, l_off=(-0.12 if is_light else 0.08))
-    _focus_border   = focus_border_color if focus_border_color is not None else (border if border is not None else _adjust_color(accent, l_off=0.15))
-    
-    # Title bar / header background: step darker (-0.06) or lighter (+0.06) relative to panel without double-inverting via d
-    _title_bg   = title_bg if title_bg is not None else _adjust_color(_panel, l_off= t_mode * 0.06)
+    _neutral_border = border if border is not None else step(_ref_col, d * dl("border"))
+    _focus_border   = focus_border_color if focus_border_color is not None else (border if border is not None else step(accent, d * 0.07))
+
+    # Title bar / header background: a step darker or lighter than the panel,
+    # by title_mode, independent of the theme's direction.
+    _title_bg   = title_bg if title_bg is not None else step(_panel, t_mode * dl("title"))
 
     # Tooltip surface: a clearly-distinct step off the panel so the popup pops
     # against any surface (lighter on dark themes, darker on light themes);
     # text defaults to the full-strength seed text color.
-    _tooltip_bg   = tooltip_bg if tooltip_bg is not None else _adjust_color(_panel, l_off=d * 0.09)
+    _tooltip_bg   = tooltip_bg if tooltip_bg is not None else step(_panel, d * dl("tooltip"))
     _tooltip_text = tooltip_text if tooltip_text is not None else text
-    
+
     # Interactive hovers: always step in the direction of high contrast (lighter on dark containers, darker on light containers)
-    _hover      = _contrasting_hover(base, amount=hover_amt)
-    _hover_end  = _contrasting_hover(base, amount=max(0.04, hover_amt * 0.65))
-    _btn_hover  = _contrasting_hover(base, amount=hover_amt)
+    hover_dl    = dl("hover") * hover_scale
+    _hover      = away(base, hover_dl)
+    _hover_end  = away(base, max(0.03, hover_dl * 0.65))
 
     # Button hover fill, resolved *relative to the container it sits on* so it always contrasts reliably.
-    _btn_hover_title = _contrasting_hover(_title_bg, amount=hover_amt)
-    _btn_hover_panel = _contrasting_hover(_panel, amount=hover_amt)
+    _btn_hover_title = away(_title_bg, hover_dl)
+    _btn_hover_panel = away(_panel, hover_dl)
 
-    # Input widget backgrounds (for QLineEdit, QTextEdit, tables, etc.)
-    _input_bg       = _adjust_color(_panel, l_off=-d * 0.04)  # Slightly darker than panel
-    _alternate_base = _adjust_color(_input_bg, l_off=d * 0.06)  # Visible contrast for zebra rows
-    
+    # Input widget backgrounds (for QLineEdit, QTextEdit, tables, etc.): recessed
+    _input_bg       = step(_panel, -d * dl("input"))
+    _alternate_base = step(_input_bg, d * dl("alt"))  # zebra rows
+
     # Button face background
-    _button_bg = _adjust_color(_panel, l_off=d * 0.08)
-    
+    _button_bg = step(_panel, d * dl("button"))
+
     # 3D structural colors (for widget borders, scrollbars, frames)
-    _color_light  = _adjust_color(_panel, l_off=d * 0.15)   # Highlight edge
-    _color_mid    = _adjust_color(_panel, l_off=-d * 0.05)  # Mid-tone border
-    _color_dark   = _adjust_color(_panel, l_off=-d * 0.12)  # Shadow edge
+    _color_light  = step(_panel, d * dl("light"))   # Highlight edge
+    _color_mid    = step(_panel, -d * dl("mid"))    # Mid-tone border
+    _color_dark   = step(_panel, -d * dl("dark"))   # Shadow edge
     _color_shadow = [0, 0, 0, 72 if not is_light else 48]   # Drop shadow
-    
-    # === DERIVED TEXT ===
-    _text_muted    = _adjust_color(text, l_off=-d * 0.10)
-    _text_disabled = _adjust_color(text, l_off=-d * 0.30)
-    _text_active   = _adjust_color(text, l_off=d * 0.20)
-    
-    # === BUTTON DISABLED (tinted with theme color) ===
-    # Push base towards mid-gray while preserving hue tint
-    _btn_disabled = _adjust_color(base, l_off=d * 0.20, s_off=0.05)
-    
+
+    # === DERIVED TEXT (toward the background, or away for "active") ===
+    _text_muted    = step(text, -d * 0.09)
+    _text_disabled = step(text, -d * 0.26)
+    _text_active   = step(text, d * 0.15)
+
+    # === BUTTON DISABLED: a glyph colour between base and text ===
+    _btn_disabled = step(base, d * 0.20)
+
     # === ACCENT VARIANTS ===
-    _accent_bright = _adjust_color(accent, l_off=0.15)
-    _accent_dim    = _adjust_color(accent, a_off=-0.75)
+    # The bright accent steps *toward contrast with the canvas*, so on a light
+    # theme it darkens and stays visible instead of washing out.
+    _accent_bright = step(accent, d * 0.07)
+    _accent_dim    = accent[:3] + [round(accent[3] * 0.25) if len(accent) > 3 else 64]
+
+    # === SELECTION ===
+    if selection == "solid":
+        _highlight = accent
+        _highlighted_text = _cs.on_color(accent, prefer=(_text_active, base))
+    else:
+        tint = accent[:3] + [72]
+        _highlight = _cs._composite(tint, _input_bg)
+        _highlighted_text = text
     
     # === STATUS COLORS ===
     _success = success_color if success_color is not None else ([78, 201, 112, 255] if not is_light else [34, 134, 58, 255])
@@ -782,6 +885,16 @@ def _build_theme(
     if sidebar_indicator_position is not None:
         theme[DockStyleCategory.SIDEBAR]["indicator_position"] = sidebar_indicator_position
 
+    theme[DockStyleCategory.PANEL]["highlight"] = _highlight
+    theme[DockStyleCategory.PANEL]["highlighted_text"] = list(_highlighted_text)
+
+    if _explicit_out is not None:
+        _explicit_out.update(f"{cat.name}.{key}" for cat, values in theme.items()
+                             for key, v in values.items() if id(v) in explicit_ids)
+
+    # Lift whatever still misses its floor; shared lists carry each fix to
+    # every token that uses the colour.
+    _enforce(theme, contrast=contrast, depth=depth, explicit_ids=explicit_ids)
     return theme
 
 
@@ -1067,6 +1180,7 @@ class DockThemeColors:
     color_shadow:     QColor
     disabled_text:    QColor
     placeholder_text: QColor
+    highlight:        QColor
     highlighted_text: QColor
     success_color:    QColor
     warning_color:    QColor
@@ -1096,41 +1210,22 @@ def _resolve_uncached(sm) -> DockThemeColors:
     accent = to_qcolor(sm.get(DockStyleCategory.CORE, "accent_color", [0, 120, 212]))
     border = to_qcolor(sm.get(DockStyleCategory.CORE, "border_color", [45, 45, 45]))
     
-    input_bg_raw = sm.get(DockStyleCategory.PANEL, "input_bg")
-    if input_bg_raw:
-        input_bg = to_qcolor(input_bg_raw)
-    else:
-        input_bg = QColor(panel_bg).darker(115)
-    
-    alternate_base_raw = sm.get(DockStyleCategory.PANEL, "alternate_base")
-    if alternate_base_raw:
-        alternate_base = to_qcolor(alternate_base_raw)
-    else:
-        alternate_base = QColor(input_bg).lighter(112)
-    
-    button_bg_raw = sm.get(DockStyleCategory.PANEL, "button_bg")
-    if button_bg_raw:
-        button_bg = to_qcolor(button_bg_raw)
-    else:
-        button_bg = QColor(panel_bg).lighter(120)
-    
-    color_light_raw = sm.get(DockStyleCategory.PANEL, "color_light")
-    if color_light_raw:
-        color_light = to_qcolor(color_light_raw)
-    else:
-        color_light = QColor(panel_bg).lighter(140)
-    
-    color_mid_raw = sm.get(DockStyleCategory.PANEL, "color_mid")
-    if color_mid_raw:
-        color_mid = to_qcolor(color_mid_raw)
-    else:
-        color_mid = QColor(panel_bg).darker(115)
-    
-    color_dark_raw = sm.get(DockStyleCategory.PANEL, "color_dark")
-    if color_dark_raw:
-        color_dark = to_qcolor(color_dark_raw)
-    else:
-        color_dark = QColor(panel_bg).darker(130)
+    # Fallbacks for partial themes: the same OKLCH steps the builder uses at
+    # depth="subtle", signed by the panel's own lightness.
+    d = 1 if _cs.is_dark(qcolor_to_list(panel_bg)) else -1
+
+    def token_or_step(key, off, dL):
+        raw = sm.get(DockStyleCategory.PANEL, key)
+        if raw:
+            return to_qcolor(raw)
+        return to_qcolor(_cs.step(qcolor_to_list(off), dL))
+
+    input_bg = token_or_step("input_bg", panel_bg, -d * _DEPTH["input"][1])
+    alternate_base = token_or_step("alternate_base", input_bg, d * _DEPTH["alt"][1])
+    button_bg = token_or_step("button_bg", panel_bg, d * _DEPTH["button"][1])
+    color_light = token_or_step("color_light", panel_bg, d * _DEPTH["light"][1])
+    color_mid = token_or_step("color_mid", panel_bg, -d * _DEPTH["mid"][1])
+    color_dark = token_or_step("color_dark", panel_bg, -d * _DEPTH["dark"][1])
     
     color_shadow_raw = sm.get(DockStyleCategory.PANEL, "color_shadow")
     if color_shadow_raw:
@@ -1144,7 +1239,11 @@ def _resolve_uncached(sm) -> DockThemeColors:
     placeholder_text = QColor(text_color)
     placeholder_text.setAlpha(max(0, text_color.alpha() // 2))
 
-    highlighted_text = _get_contrasting_text_color(accent)
+    highlight_raw = sm.get(DockStyleCategory.PANEL, "highlight")
+    highlight = to_qcolor(highlight_raw) if highlight_raw else QColor(accent)
+    highlighted_raw = sm.get(DockStyleCategory.PANEL, "highlighted_text")
+    highlighted_text = (to_qcolor(highlighted_raw) if highlighted_raw
+                        else to_qcolor(_cs.on_color(qcolor_to_list(highlight))))
     success = to_qcolor(sm.get(DockStyleCategory.CORE, "success_color", [78, 201, 112]))
     warning = to_qcolor(sm.get(DockStyleCategory.CORE, "warning_color", [230, 167, 0]))
     error = to_qcolor(sm.get(DockStyleCategory.CORE, "error_color", [241, 76, 76]))
@@ -1159,7 +1258,7 @@ def _resolve_uncached(sm) -> DockThemeColors:
         button_bg=button_bg, color_light=color_light, color_mid=color_mid,
         color_dark=color_dark, color_shadow=color_shadow,
         disabled_text=disabled_text, placeholder_text=placeholder_text,
-        highlighted_text=highlighted_text, success_color=success,
+        highlight=highlight, highlighted_text=highlighted_text, success_color=success,
         warning_color=warning, error_color=error, info_color=info,
         tooltip_bg=tooltip_bg, tooltip_text=tooltip_text
     )
@@ -1167,7 +1266,7 @@ def _resolve_uncached(sm) -> DockThemeColors:
 
 def _apply_shared_roles(pal: QPalette, c: DockThemeColors):
     """Applies palette roles that are identical across all dock contexts."""
-    pal.setColor(QPalette.ColorRole.Highlight, c.accent_color)
+    pal.setColor(QPalette.ColorRole.Highlight, c.highlight)
     pal.setColor(QPalette.ColorRole.HighlightedText, c.highlighted_text)
     if hasattr(QPalette.ColorRole, "Link"):
         pal.setColor(QPalette.ColorRole.Link, c.accent_color)

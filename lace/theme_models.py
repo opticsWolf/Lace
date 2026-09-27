@@ -41,7 +41,7 @@ Load and apply::
 
 import json
 from pathlib import Path
-from typing import Annotated, Any, Dict, List, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import AfterValidator, BaseModel, ConfigDict
 
@@ -106,7 +106,11 @@ class ThemeJson(BaseModel):
     focus_border_color: Optional[Color] = None
 
     # --- Generation behaviour ----------------------------------------------
-    is_light: bool = False
+    # None decides from the base colour.
+    is_light: Optional[bool] = None
+    contrast: Literal["low", "normal", "high"] = "normal"
+    depth: Literal["flat", "subtle", "raised"] = "subtle"
+    selection: Literal["solid", "tint"] = "solid"
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
     hover_mode: str = "lighter"  # "darker" | "lighter" relative to panel
 
@@ -202,6 +206,9 @@ class ThemeJson(BaseModel):
             if self.focus_border_color is not None
             else None,
             is_light=self.is_light,
+            contrast=self.contrast,
+            depth=self.depth,
+            selection=self.selection,
             title_mode=self.title_mode,
             hover_mode=self.hover_mode,
             success_color=rgba(self.success_color) if self.success_color is not None else None,

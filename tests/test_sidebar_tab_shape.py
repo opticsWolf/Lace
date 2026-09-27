@@ -717,7 +717,11 @@ def test_slate_amber_matches_cyberpunk_edge_in_its_own_colours(qapp):
     sidebar = manager.get_all(DockStyleCategory.SIDEBAR)   # still slate_amber
     active = sidebar["tab_border_active_color"]
     hover = sidebar["tab_border_hover_color"]
-    assert active.getRgb() == (186, 98, 0, 255) == sidebar["indicator_color"].getRgb(), \
+    from lace import color_science as cs
+    from lace.theme_contrast import EXPLICIT_MAX_DE
+    # The spec's amber, nudged at most slightly toward its contrast floor.
+    assert cs.delta_e(list(active.getRgb()), [186, 98, 0, 255]) <= EXPLICIT_MAX_DE + 0.005
+    assert active.getRgb() == sidebar["indicator_color"].getRgb(), \
         "the ring is not this theme's amber"
     assert not sidebar["tab_border_normal_color"].alpha(), "an inactive tab is ringed"
     assert hover.getRgb()[:3] == active.getRgb()[:3], "the hover ring is off-amber"

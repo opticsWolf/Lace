@@ -199,7 +199,22 @@ def test_tooltip_tokens_derived_and_overridable():
     )
     custom_core = build_theme(custom)[DockStyleCategory.CORE]
     assert custom_core["tooltip_bg"] == [10, 20, 30, 255]
-    assert custom_core["tooltip_text"] == [1, 2, 3, 255]
+    # [1, 2, 3] on [10, 20, 30] is unreadable: an explicit colour that misses
+    # its contrast floor is nudged -- at most EXPLICIT_MAX_DE -- toward it.
+    from lace import color_science as cs
+    from lace.theme_contrast import EXPLICIT_MAX_DE
+    moved = custom_core["tooltip_text"]
+    assert 0 < cs.delta_e(moved, [1, 2, 3, 255]) <= EXPLICIT_MAX_DE + 0.005
+    assert cs.contrast_ratio(moved, [10, 20, 30, 255]) > cs.contrast_ratio([1, 2, 3], [10, 20, 30])
+
+    # A readable override is left exactly as given.
+    readable = ThemeSpec(
+        base=[20, 23, 30, 255], accent=[45, 85, 170, 255], text=[200, 205, 215, 255],
+        tooltip_bg=[60, 64, 72, 255], tooltip_text=[250, 250, 250, 255],
+    )
+    readable_core = build_theme(readable)[DockStyleCategory.CORE]
+    assert readable_core["tooltip_bg"] == [60, 64, 72, 255]
+    assert readable_core["tooltip_text"] == [250, 250, 250, 255]
 
 
 def test_highlighted_text_contrasts_with_accent(qapp):
@@ -235,13 +250,14 @@ def test_tab_close_btn_color_blends_text_with_tab_bg():
     assert lo <= close.lightness() <= hi
     assert close != active_text
     assert close != panel
-    # exact 70/30 blend (per channel)
+    # 70/30 blend (per channel, +-1 for rounding in the OKLCH steps)
     expected = [
         round(active_text.red() * 0.7 + panel.red() * 0.3),
         round(active_text.green() * 0.7 + panel.green() * 0.3),
         round(active_text.blue() * 0.7 + panel.blue() * 0.3),
     ]
-    assert [close.red(), close.green(), close.blue()] == expected
+    got = [close.red(), close.green(), close.blue()]
+    assert all(abs(a - b) <= 1 for a, b in zip(got, expected)), (got, expected)
 
 
 def test_tab_close_icon_tinted_with_close_btn_color(qapp):

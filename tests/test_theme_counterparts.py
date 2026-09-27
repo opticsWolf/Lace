@@ -277,7 +277,10 @@ def test_slate_amber_ships_as_three_tiers():
     assert lums[1] > 0.6
     assert lums[2] > 0.9, "slate_amber_light is not brighter than slate_amber"
 
-    assert THEME_SPECS["slate_amber_dark"].is_light is False
+    # Unset: decided from the base, which is dark.
+    from lace import color_science as cs
+    assert not THEME_SPECS["slate_amber_dark"].is_light
+    assert cs.is_dark(list(THEME_SPECS["slate_amber_dark"].base))
     assert THEME_SPECS["slate_amber"].is_light is True
     assert THEME_SPECS["slate_amber_light"].is_light is True
 
