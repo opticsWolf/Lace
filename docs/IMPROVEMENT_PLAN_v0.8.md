@@ -445,6 +445,15 @@ Module is at 100 % line coverage; nothing outside tests imports it yet.
    steps (`_DEPTH` in `dock_theme.py`). Derived surfaces then have to clear a lightness
    separation floor from their parent (`SEPARATION_TARGETS`: surface .012 / .02 / .035, hover
    .03 / .04 / .06), which is what lifts the crushed title bars on the darkest themes.
+
+   *Canvas touch rule* (`TOUCH_PAIRS`, `TOUCH_TARGETS`): a derived title bar or input also
+   keeps ΔL 0.008 / 0.012 / 0.02 off the canvas, since it touches it in dock gaps and at card
+   edges (midnight's input sat at ΔL 0.001). It only moves *further from its own panel*, never
+   flips across the panel or the canvas, and colours the theme sets itself are left alone; with
+   no room, it is reported as unreachable. 16 of 36 presets move, each by ΔE ≤ 0.027.
+   A stricter version (a WCAG 1.10:1 floor on every touching pair, surfaces allowed to cross the
+   panel, borders up to ΔE 0.12) was tried and reverted: it separated everything, but flipped
+   title bars and inputs to the wrong side of the panel on too many themes.
 4. **`contrast` keyword.** After derivation, text tokens pass through
    `ensure_contrast(token, surface, target)` against the surface they are drawn on (tab text
    against tab bg, title text against title bg, etc.), using the targets table above.
