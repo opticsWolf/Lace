@@ -220,3 +220,13 @@ def test_high_contrast_themes_under_lace_style(qapp, key):
         ratio = _ratio(pal.color(G.Active, text), pal.color(G.Active, surface))
         assert pair in capped or _meets(pal.color(G.Active, text), pal.color(G.Active, surface),
                                         CONTRAST_TARGETS["text"]["high"]), (text, round(ratio, 2))
+
+
+def test_default_theme_is_the_sleek_reference():
+    """The default theme is the M2 reference: subtle depth, thin scrollbars,
+    capped corners -- explicitly, not by accident of whichever defaults."""
+    from lace.dock_theme import BASE_DOCK_DEFAULTS, ThemeSpec
+    spec = ThemeSpec(base=[0, 0, 0], accent=[0, 0, 255], text=[255, 255, 255])
+    assert (spec.depth, spec.scrollbar, spec.corner_clip) == ("subtle", "thin", "cap")
+    core = BASE_DOCK_DEFAULTS[next(c for c in BASE_DOCK_DEFAULTS if c.name == "CORE")]
+    assert (core["scrollbar"], core["corner_clip"]) == ("thin", "cap")

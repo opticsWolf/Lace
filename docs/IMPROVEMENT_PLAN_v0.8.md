@@ -1037,6 +1037,33 @@ Done, except the S7 checklist by hand.
 - Interactive: S1–S4 existing checklists re-run (no behavioural regressions from the overlay
   and style changes) plus S5 (style) and a new S6 (corners)
 
+## Status
+Done on the engineering side; the visual review (M2) and S1–S7 are for the user.
+- **Gate:** 1582 unit tests pass (2 skipped, 1 xfail), with a `--themes all` sweep of 1896,
+  visual tests (82), smoke and lint all green. CI on macOS had failed on a combo size hint: LaceStyle's
+  scroll extent reached `QComboBox`. It is now limited to scroll bars and scroll areas.
+- **Cross-feature** (`tests/test_cross_features.py`). The checks found three real bugs:
+  - The item-view check on a `tint` selection used the Window colour as its surface (dracula 2.77:1).
+    Primitives now judge legibility on Highlight when the item is selected.
+  - The engine had no text-on-`button_bg` / `input_bg` pairs, so high contrast left
+    button and field text short. Both pairs are now in `CONTRAST_PAIRS`.
+  - `audit.suggest()` fixed one surface per token. It now groups misses by token.
+  Explicit preset colours that cannot move far enough are reported as *capped*, never silently.
+- **Default theme** is the sleek reference: subtle depth, thin scrollbars and `cap` corners,
+  pinned by a test.
+- **Audit over ALL:** no hard failures. The capped and warning items are all the presets' own
+  colours: focus rings under 3:1 on dark, midnight, warm, monokai, nordic, catppuccin
+  and solarized, accents under 3:1 on the `*_neutral` members and slate_amber, and dracula's
+  tooltip at 6.48:1 at high contrast. Retuning these is a review decision.
+- **Performance** (`dev_smoke/perf_bench.py`, best of 5, vs the 0.7.6 worktree):
+  - Theme switch: 25.0 → 27.0 ms per theme (+8 %). Before the palette cache it was +47 %.
+    `build_dock_palette` is now built once per colour snapshot.
+  - Resize: 13.7 → 13.8 ms per frame (+1 %).
+  - LaceStyle's colour derivations are memoised, so OKLCH runs once per colour, not per paint.
+- **Screenshots:** `screenshots/m2_0.8/` (FULL set) and `screenshots/compare_grid.png` /
+  `compare_grid_float.png` (`dev_smoke/compare_grid.py`).
+- **Deferred icon items:** not done. They carry over to 0.8.x.
+
 ---
 
 # Phase 7 — Docs, screenshots, release 0.8.0
