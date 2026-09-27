@@ -17,7 +17,7 @@ the bottom are what :class:`lace.lace_style.LaceStyle` dispatches on.
 
 from PySide6.QtCore import QRect, QRectF, Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QAbstractItemView, QStyle
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QPushButton, QStyle, QToolButton
 
 from lace.style import _paint as P
 
@@ -157,6 +157,8 @@ def focus_rect(style, opt, p, w):
     """
     if not opt.state & State.State_KeyboardFocusChange:
         return True
+    if isinstance(w, (QPushButton, QToolButton, QComboBox)):
+        return True   # focus shows on the face (see _buttons)
     if isinstance(w, QAbstractItemView) or (w is not None and isinstance(w.parent(), QAbstractItemView)):
         return True
     with P.Painting(p):

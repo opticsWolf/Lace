@@ -20,8 +20,9 @@ if str(ROOT) not in sys.path:
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPalette
 from PySide6.QtWidgets import (
-    QApplication, QStyle, QStyleFactory, QStyleOption, QStyleOptionButton,
+    QApplication, QPushButton, QToolButton, QStyle, QStyleFactory, QStyleOption, QStyleOptionButton,
     QStyleOptionFocusRect, QStyleOptionFrame, QStyleOptionMenuItem, QStyleOptionSlider,
+    QStyleOptionToolButton,
 )
 
 S = QStyle.StateFlag
@@ -37,7 +38,7 @@ STATES: Tuple[Tuple[str, "QStyle.State"], ...] = (
     ("disabled", S.State_None),
 )
 
-CELL = (64, 40)
+CELL = (76, 40)
 LABEL_W = 120
 
 
@@ -45,6 +46,8 @@ def _base(opt: QStyleOption, rect: QRect, palette: QPalette, flags, disabled: bo
     opt.rect = rect
     opt.palette = palette
     opt.state = flags | S.State_Active | (S.State_None if disabled else S.State_Enabled)
+    if flags & S.State_HasFocus:
+        opt.state |= S.State_KeyboardFocusChange
     return opt
 
 
@@ -90,6 +93,52 @@ def _scrollbar(orientation, mode=None):
     return draw
 
 
+_widgets = {}
+
+
+def _widget(cls):
+    """A stand-in widget of ``cls``: styles key some decisions off the widget type."""
+    if cls not in _widgets:
+        _widgets[cls] = cls()
+    return _widgets[cls]
+
+
+def _push(features=None, text="Button"):
+    def draw(style, p, cell, pal, flags, disabled):
+        opt = _base(QStyleOptionButton(), _centred(cell, cell.width() - 10, 26), pal, flags, disabled)
+        opt.text = text
+        opt.fontMetrics = p.fontMetrics()
+        if not flags & S.State_Sunken and not flags & S.State_On:
+            opt.state |= S.State_Raised
+        if features is not None:
+            opt.features = features
+        style.drawControl(QStyle.ControlElement.CE_PushButton, opt, p, _widget(QPushButton))
+    return draw
+
+
+def _tool(auto_raise=False, split=False):
+    def draw(style, p, cell, pal, flags, disabled):
+        opt = _base(QStyleOptionToolButton(), _centred(cell, 44 if split else 30, 26), pal, flags, disabled)
+        opt.text = "T"
+        opt.fontMetrics = p.fontMetrics()
+        opt.toolButtonStyle = Qt.ToolButtonStyle.ToolButtonTextOnly
+        opt.subControls = QStyle.SubControl.SC_ToolButton
+        if auto_raise:
+            opt.state |= S.State_AutoRaise
+        else:
+            opt.state |= S.State_Raised
+        if split:
+            opt.subControls |= QStyle.SubControl.SC_ToolButtonMenu
+            opt.features = QStyleOptionToolButton.ToolButtonFeature.MenuButtonPopup
+        if flags & (S.State_Sunken | S.State_MouseOver):
+            opt.activeSubControls = QStyle.SubControl.SC_ToolButton
+        w = _widget(QToolButton)
+        w.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup if split
+                       else QToolButton.ToolButtonPopupMode.DelayedPopup)
+        style.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, opt, p, w)
+    return draw
+
+
 def _menu_check(opt):
     opt.checkType = QStyleOptionMenuItem.CheckType.NonExclusive
     opt.checked = bool(opt.state & S.State_On)
@@ -97,6 +146,12 @@ def _menu_check(opt):
 
 #: (label, draw(style, painter, cell, palette, flags, disabled))
 ROWS: List[Tuple[str, Callable]] = [
+    ("push button", _push()),
+    ("default button", _push(QStyleOptionButton.ButtonFeature.DefaultButton, "OK")),
+    ("flat button", _push(QStyleOptionButton.ButtonFeature.Flat, "Flat")),
+    ("tool button", _tool()),
+    ("tool auto-raise", _tool(auto_raise=True)),
+    ("tool split", _tool(split=True)),
     ("check box", _primitive(PE.PE_IndicatorCheckBox, QStyleOptionButton)),
     ("partial check", _primitive(PE.PE_IndicatorCheckBox, QStyleOptionButton,
                                  extra=lambda o: setattr(o, "state", o.state | S.State_NoChange))),

@@ -27,7 +27,7 @@ from typing import Callable, Dict, Optional
 
 from PySide6.QtWidgets import QProxyStyle, QStyle, QStyleFactory
 
-from lace.style import _primitives
+from lace.style import _buttons, _primitives
 from lace.theme_contrast import CONTRAST_TARGETS
 
 SCROLLBAR_MODES = ("thin", "expanding", "fusion")
@@ -48,8 +48,8 @@ class LaceStyle(QProxyStyle):
     """Flat, rounded, vector-drawn Fusion. See the module docstring."""
 
     #: element -> draw(style, option, painter, widget) -> bool (True = painted)
-    PRIMITIVES: Dict = _merge(_primitives.PRIMITIVES)
-    CONTROLS: Dict = {}
+    PRIMITIVES: Dict = _merge(_primitives.PRIMITIVES, _buttons.PRIMITIVES)
+    CONTROLS: Dict = _merge(_buttons.CONTROLS)
     COMPLEX: Dict = _merge(_primitives.COMPLEX)
     SUBCONTROL_RECTS: Dict = _merge(_primitives.SUBCONTROL_RECTS)
 
