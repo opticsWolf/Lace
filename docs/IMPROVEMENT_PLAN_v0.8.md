@@ -701,7 +701,12 @@ two. With 4b-2 the combo and spin arrows read 1.8–2.2 (Fusion: 4.6–5.8) and 
 - 4a: zoom metrics pass, no reflow, scrollbar modes verified, Weave zoom checked by hand
 - each 4b family: flat and contrast checks green over `QUICK`, no reflow, its gallery images
   reviewed, its part of S5 signed off
-- end of Phase 4: flat and contrast checks green over `REGULAR` for all families together
+- end of Phase 4: flat and contrast checks green over `REGULAR` for all families together —
+  **done**: `tests/test_lace_style_sweep.py` (every family's surface flat in normal / hover /
+  pressed; outlines, focus outline, selected-tab underline, check mark and disabled text against
+  their targets at all three contrast levels) passes over `REGULAR`, 803 style tests in all.
+  Disabled outlines keep `min(own target, 1.5)`, so a disabled field stays at the border target
+  rather than outdoing an enabled one.
 
 ---
 
