@@ -55,13 +55,13 @@ class LaceStyle(QProxyStyle):
     COMPLEX: Dict = _merge(_primitives.COMPLEX, _inputs.COMPLEX, _range.COMPLEX)
     SUBCONTROL_RECTS: Dict = _merge(_primitives.SUBCONTROL_RECTS)
 
-    def __init__(self, control_radius: int = 4, scrollbar: str = "thin",
+    def __init__(self, control_radius: int = 4, scrollbar: str = "expanding",
                  contrast: str = "normal", focus_width: float = 2.0,
                  outline_strength: float = 0.22):
         # QProxyStyle takes ownership of the base style.
         super().__init__(QStyleFactory.create("Fusion"))
         self.control_radius = 4
-        self.scrollbar = "thin"
+        self.scrollbar = "expanding"
         self.contrast = "normal"
         self.focus_width = 2.0
         self.outline_strength = 0.22

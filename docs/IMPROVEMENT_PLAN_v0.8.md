@@ -1049,7 +1049,7 @@ Done on the engineering side; the visual review (M2) and S1–S7 are for the use
     button and field text short. Both pairs are now in `CONTRAST_PAIRS`.
   - `audit.suggest()` fixed one surface per token. It now groups misses by token.
   Explicit preset colours that cannot move far enough are reported as *capped*, never silently.
-- **Default theme** is the sleek reference: subtle depth, thin scrollbars and `cap` corners,
+- **Default theme** is the sleek reference: subtle depth, `expanding` scrollbars (changed from `thin` after review) and `cap` corners,
   pinned by a test.
 - **Audit over ALL:** no hard failures. The capped and warning items are all the presets' own
   colours: focus rings under 3:1 on dark, midnight, warm, monokai, nordic, catppuccin

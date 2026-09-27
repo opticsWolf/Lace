@@ -142,7 +142,7 @@ class DockThemeBridge(QObject):
         sm = get_dock_style_manager()
         style.set_tokens(
             control_radius=sm.get(DockStyleCategory.CORE, "control_radius", 4),
-            scrollbar=sm.get(DockStyleCategory.CORE, "scrollbar", "thin"),
+            scrollbar=sm.get(DockStyleCategory.CORE, "scrollbar", "expanding"),
             contrast=sm.get(DockStyleCategory.CORE, "contrast", "normal"),
             focus_width=sm.get(DockStyleCategory.CORE, "focus_width", 2.0),
             outline_strength=sm.get(DockStyleCategory.CORE, "outline_strength", 0.22),

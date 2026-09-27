@@ -390,7 +390,7 @@ themes) steer the derivation. Every keyword has a default, so 0.7 themes load un
 | `contrast` | `low`, **`normal`**, `high` | WCAG floor for text and UI tokens, see §10 |
 | `depth` | `flat`, **`subtle`**, `raised` | how far derived surfaces (panel, title, hover, input, button, …) step off each other |
 | `selection` | **`solid`**, `tint` | selected items: an accent fill, or an accent wash that keeps the normal text colour |
-| `scrollbar` | **`thin`**, `expanding`, `fusion` | LaceStyle scroll bars: a slim overlay handle, one that widens on hover, or Fusion's |
+| `scrollbar` | `thin`, **`expanding`**, `fusion` | LaceStyle scroll bars: a slim overlay handle, one that widens on hover, or Fusion's |
 | `corner_clip` | **`cap`**, `inset`, `none` | how dock content meets the card's rounded corners, see §11 |
 | `control_radius` | **4** | corner radius of every LaceStyle control; 0 is square |
 | `focus_width` | **2.0** | pen width of LaceStyle's keyboard focus ring; 0 hides it |
@@ -398,7 +398,7 @@ themes) steer the derivation. Every keyword has a default, so 0.7 themes load un
 | `is_light` | **None** | None decides from the base (OKLCH lightness below 0.6 is dark) |
 
 `subtle` is calibrated to the median step 0.7.6 produced over every preset, so the default look
-is kept. The default theme is the "sleek" reference: `subtle`, `thin` and `cap`.
+is kept. The default theme is the "sleek" reference: `subtle`, `expanding` and `cap`.
 
 Derivation happens once per theme apply. `build_dock_palette()` is built once per colour snapshot,
 and LaceStyle memoises its colour mixes, so painting does no colour science.

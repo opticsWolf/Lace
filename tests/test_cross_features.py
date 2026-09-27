@@ -226,13 +226,13 @@ def test_high_contrast_themes_under_lace_style(qapp, key):
 
 
 def test_default_theme_is_the_sleek_reference():
-    """The default theme is the M2 reference: subtle depth, thin scrollbars,
+    """The default theme is the M2 reference: subtle depth, expanding scrollbars,
     capped corners -- explicitly, not by accident of whichever defaults."""
     from lace.dock_theme import BASE_DOCK_DEFAULTS, ThemeSpec
     spec = ThemeSpec(base=[0, 0, 0], accent=[0, 0, 255], text=[255, 255, 255])
-    assert (spec.depth, spec.scrollbar, spec.corner_clip) == ("subtle", "thin", "cap")
+    assert (spec.depth, spec.scrollbar, spec.corner_clip) == ("subtle", "expanding", "cap")
     core = BASE_DOCK_DEFAULTS[next(c for c in BASE_DOCK_DEFAULTS if c.name == "CORE")]
-    assert (core["scrollbar"], core["corner_clip"]) == ("thin", "cap")
+    assert (core["scrollbar"], core["corner_clip"]) == ("expanding", "cap")
 
 
 def test_dock_content_frame_draws_no_inner_ring(lace_app):

@@ -72,7 +72,7 @@ class DockCoreStyleSchema(_FontFields):
     #: Corner radius of every standard control; 0 = square.
     control_radius: int = 4
     #: Scrollbar look: "thin" | "expanding" | "fusion".
-    scrollbar: str = "thin"
+    scrollbar: str = "expanding"
     #: How content meets a dock area's rounded corners: "cap" | "inset" | "none".
     corner_clip: str = "cap"
     #: Pen width of the keyboard focus ring; 0 hides it.
@@ -414,7 +414,7 @@ class ThemeSpec:
     #: keeps the normal text colour.
     selection: str = "solid"
     #: LaceStyle scrollbars: "thin" | "expanding" | "fusion".
-    scrollbar: str = "thin"
+    scrollbar: str = "expanding"
     #: How dock content meets the card's rounded corners: "cap" paints the
     #: backdrop over them, "inset" keeps content clear, "none" leaves it.
     corner_clip: str = "cap"
@@ -696,7 +696,7 @@ def _build_theme(
     contrast: str = "normal",
     depth: str = "subtle",
     selection: str = "solid",
-    scrollbar: str = "thin",
+    scrollbar: str = "expanding",
     corner_clip: str = "cap",
     control_radius: int = 4,
     focus_width: float = 2.0,

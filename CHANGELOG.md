@@ -57,6 +57,9 @@ unchanged; every new keyword has a default that keeps the 0.7.6 look.
     far as its floor needs;
   - 42 tokens stop short of their floor (capped or unreachable). These are
     reported, not failed.
+- LaceStyle scroll bars default to `expanding`: a 4 px handle that widens
+  to the full 10 px track on hover. Set `scrollbar="thin"` or `"fusion"` in
+  a theme for the other looks.
 - The title bar and input fields step off the canvas where they would
   otherwise vanish into it.
 - `ThemeJson.is_light` is now optional (`None` decides from the base), and

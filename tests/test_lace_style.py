@@ -130,7 +130,7 @@ def test_fusion_scrollbar_mode_is_pixel_identical(qapp, themed, orientation):
 
 
 def test_thin_scrollbar_has_no_step_buttons(qapp):
-    style = LaceStyle()
+    style = LaceStyle(scrollbar="thin")
     opt = QStyleOptionSlider()
     opt.rect = QRect(0, 0, 8, 200)
     opt.orientation = Qt.Orientation.Vertical

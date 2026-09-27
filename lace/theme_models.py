@@ -111,7 +111,7 @@ class ThemeJson(BaseModel):
     contrast: Literal["low", "normal", "high"] = "normal"
     depth: Literal["flat", "subtle", "raised"] = "subtle"
     selection: Literal["solid", "tint"] = "solid"
-    scrollbar: Literal["thin", "expanding", "fusion"] = "thin"
+    scrollbar: Literal["thin", "expanding", "fusion"] = "expanding"
     corner_clip: Literal["cap", "inset", "none"] = "cap"
     control_radius: int = 4
     focus_width: float = 2.0

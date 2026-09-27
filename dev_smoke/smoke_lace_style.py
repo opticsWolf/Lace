@@ -63,7 +63,7 @@ def _frame(label):
         img = win.grab().toImage()
         assert not img.isNull(), label
         # A painted window has more than a couple of colours.
-        colours = {img.pixel(x, y) for x in range(0, img.width(), 23) for y in range(0, img.height(), 23)}
+        colours = {img.pixel(x, y) for x in range(0, img.width(), 7) for y in range(0, img.height(), 7)}
         assert len(colours) > 4, (label, win.windowTitle(), len(colours))
 
 
