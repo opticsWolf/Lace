@@ -25,8 +25,8 @@ Warnings cover the rest: an accent too close to the base, a focus ring that
 vanishes on the panel, colours clipped to fit sRGB while being derived.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, NamedTuple, Optional, Sequence
+from dataclasses import dataclass, field, replace
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from lace import color_science as cs
 from lace.dock_theme import ThemeSpec, build_theme, explicit_tokens
@@ -136,7 +136,6 @@ def audit(spec: ThemeSpec, *, contrast: Optional[str] = None, depth: Optional[st
     ``clipped``: colour names that lost chroma to fit sRGB while being
     derived (``Palette.clipped``), reported as warnings.
     """
-    from dataclasses import replace
     contrast = contrast or spec.contrast
     depth = depth or spec.depth
     spec = replace(spec, contrast=contrast, depth=depth)
@@ -171,6 +170,42 @@ def audit(spec: ThemeSpec, *, contrast: Optional[str] = None, depth: Optional[st
     return report
 
 
+#: How close (ΔE, OKLab) a spec colour must be to a suggestion's old value to
+#: be taken as its source. The engine may have nudged it that far.
+FIX_MATCH_DE = 0.08
+
+
+def apply_fix(spec: ThemeSpec, suggestion: Suggestion) -> Optional[Tuple[ThemeSpec, str]]:
+    """``spec`` with ``suggestion`` applied to the spec colour it came from,
+    and that field's name; None when no spec colour carries it.
+
+    The source is found by colour, not by name: every spec colour near the
+    suggestion's old value is tried, nearest first, and the first one whose
+    change clears the miss without adding a new one wins.
+    """
+    from lace.theme_kit.family import _COLOUR_FIELDS
+    before = audit(spec)
+    count = len(before.failures) + len(before.capped)
+    candidates = []
+    for name in _COLOUR_FIELDS:
+        value = getattr(spec, name)
+        if value is None:
+            continue
+        rgba = spec_color(value)
+        de = cs.delta_e(rgba, suggestion.old)
+        if de <= FIX_MATCH_DE:
+            candidates.append((de, name, rgba))
+    for _, name, rgba in sorted(candidates):
+        new = list(suggestion.new[:3]) + [rgba[3] if len(rgba) > 3 else 255]
+        fixed = replace(spec, **{name: new})
+        after = audit(fixed)
+        misses = after.failures + after.capped
+        if (len(misses) < count
+                and all(m.token != suggestion.token for m in misses)):
+            return fixed, name
+    return None
+
+
 def spec_color(value) -> List[int]:
     from lace.theme_kit.derive import to_rgba
     return to_rgba(value)
@@ -183,5 +218,5 @@ def _category(theme, name: str) -> Dict:
     return {}
 
 
-__all__ = ["AuditReport", "Miss", "Suggestion", "Warning", "audit"]
+__all__ = ["AuditReport", "Miss", "Suggestion", "Warning", "apply_fix", "audit"]
 

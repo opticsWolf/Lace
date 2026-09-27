@@ -102,3 +102,21 @@ python -m lace.theme_kit chassis --preset neon_dusk  # closest chassis + overrid
 `audit` exits 1 when any floor is missed, including by the theme's own colours. Pass
 `--allow-capped` to forgive those. The exit code lets the command gate CI for a project's
 theme files.
+
+## Theme Studio
+
+```bash
+python -m lace.theme_kit studio                       # start from two seeds
+python -m lace.theme_kit studio --preset slate_amber  # or from a preset / JSON file
+```
+
+The Studio has:
+- seed colour pickers, the keyword drop-downs, a chassis picker and a neutral-tint slider
+- a live dock layout (two areas, tabs, a sidebar, a floating window) and the control gallery
+  with a 100–400 % zoom
+- the audit, where *Fix* applies a suggestion to the colour it came from
+- the family strip, where clicking a member opens it
+- JSON export, a `ThemeSpec` literal on the clipboard, and a diff against the starting theme
+
+Lace's style manager is process-wide. From inside a Lace app, open the Studio with
+`lace.theme_kit.studio.launch()`: it runs in its own process, so the app's theme is untouched.

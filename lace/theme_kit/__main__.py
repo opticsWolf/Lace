@@ -15,6 +15,7 @@
     python -m lace.theme_kit audit --preset slate_amber
     python -m lace.theme_kit family my_theme.json --out-dir themes/
     python -m lace.theme_kit chassis --preset violet_haze
+    python -m lace.theme_kit studio --preset slate_amber
 
 ``audit`` exits 1 when a floor is missed (the theme's own colours included;
 ``--allow-capped`` forgives those), so it can gate CI on a project's themes.
@@ -101,6 +102,12 @@ def cmd_chassis(a) -> int:
     return 0
 
 
+def cmd_studio(a) -> int:
+    from lace.theme_kit.studio import run
+    spec, name = _load(a.file, a.preset) if (a.file or a.preset) else (None, "my_theme")
+    return run(spec, name, screenshot=a.screenshot, tab=a.tab, zoom=a.zoom)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m lace.theme_kit", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -140,6 +147,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     c = sub.add_parser("chassis", help="list chassis, or find a theme's")
     _source(c)
     c.set_defaults(run=cmd_chassis)
+
+    s = sub.add_parser("studio", help="build a theme by eye in the Theme Studio")
+    _source(s)
+    s.add_argument("--screenshot", help="save the window to this PNG and quit")
+    s.add_argument("--tab", type=int, default=0, help="preview tab: 0 layout, 1 controls")
+    s.add_argument("--zoom", type=int, default=100, help="control gallery zoom, 100-400")
+    s.set_defaults(run=cmd_studio)
 
     a = ap.parse_args(argv)
     return a.run(a)

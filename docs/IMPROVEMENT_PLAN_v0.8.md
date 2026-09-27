@@ -974,6 +974,35 @@ app when launched from inside one.
 The checklist is signed off; a theme made in the Studio loads unchanged in the demo and through
 `load_theme_json()` in another app.
 
+## Status
+
+Done, except the S7 checklist by hand.
+
+- **Isolation.** Lace's `DockStyleManager` is process-wide, and `DockManager` installs an
+  app-wide bridge, so no in-process preview can leave a host's Lace widgets alone. From a host
+  app, `studio.launch()` opens the Studio in a process of its own. Inside the Studio, its own
+  panels carry a pinned copy of the app palette (every role set, so the resolve mask holds) and
+  only the preview follows the theme.
+- **Model.** `StudioModel` holds seeds, keywords, chassis and overrides, neutral tint, the
+  palette extras a loaded theme set, and the applied fixes. Loading a preset and changing
+  nothing gives the preset back token for token.
+- **Click to fix.** `theme_kit.apply_fix(spec, suggestion)` finds the spec colour a suggestion
+  came from by colour (ΔE ≤ 0.08, nearest first). It keeps the first one whose change clears the
+  miss without adding one. A derived failure has no such colour, and the Studio says so.
+- **Gallery.** It moved to `lace/style/gallery.py`, so the packaged Studio can show it;
+  `tests/visual/gallery.py` keeps the command line. `render(..., scale=)` zooms through the
+  painter transform, as a `QGraphicsView` does.
+- **CLI.** `python -m lace.theme_kit studio [file | --preset NAME] [--screenshot PNG --tab N
+  --zoom Z]`.
+- **Tests.** `tests/test_theme_studio.py`:
+  - model round trip on five presets
+  - fix and seed behaviour
+  - an offscreen run through every keyword and chassis, fixed to a strict pass, then exported
+    and reloaded
+  - the Studio's panels keep their palette
+  - `launch()` leaves the host's palette, tooltip palette and manager generation unchanged
+  - the CLI screenshot run
+
 ---
 
 # Phase 6 — Integration & preset retune
