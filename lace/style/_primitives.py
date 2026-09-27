@@ -193,7 +193,13 @@ def focus_rect(style, opt, p, w):
 
 
 def frame(style, opt, p, w):
-    """A plain 1 px rounded outline (``QFrame::StyledPanel`` and friends)."""
+    """A plain 1 px rounded outline (``QFrame::StyledPanel`` and friends).
+
+    None for a dock widget's own content (a text edit, a view): the card
+    around it is already its frame, and a second ring inside reads as a bevel.
+    """
+    if w is not None and w.property("dockWidgetContent"):
+        return True
     with P.Painting(p):
         line = P.legible(opt, P.stroke(opt, P.color(opt, Role.Window), style.outline_strength),
                           style.border_ratio)

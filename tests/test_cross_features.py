@@ -230,3 +230,27 @@ def test_default_theme_is_the_sleek_reference():
     assert (spec.depth, spec.scrollbar, spec.corner_clip) == ("subtle", "thin", "cap")
     core = BASE_DOCK_DEFAULTS[next(c for c in BASE_DOCK_DEFAULTS if c.name == "CORE")]
     assert (core["scrollbar"], core["corner_clip"]) == ("thin", "cap")
+
+
+def test_dock_content_frame_draws_no_inner_ring(lace_app):
+    """A text edit as a dock widget's content has no outline of its own: the
+    card is its frame. The same frame outside a dock widget keeps its outline."""
+    from PySide6.QtGui import QColor, QImage
+    from PySide6.QtWidgets import QStyleOptionFrame
+
+    def edge(widget):
+        opt = QStyleOptionFrame()
+        opt.initFrom(widget)
+        opt.rect = QRect(0, 0, 40, 30)
+        img = QImage(40, 30, QImage.Format.Format_ARGB32)
+        img.fill(QColor(0, 0, 0, 0))
+        from PySide6.QtGui import QPainter
+        p = QPainter(img)
+        lace_app.drawPrimitive(QStyle.PrimitiveElement.PE_Frame, opt, p, widget)
+        p.end()
+        return img.pixelColor(0, 15).alpha()
+
+    plain, content = QTextEdit(), QTextEdit()
+    content.setProperty("dockWidgetContent", True)
+    assert edge(plain) > 0
+    assert edge(content) == 0
