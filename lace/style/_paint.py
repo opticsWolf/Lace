@@ -92,9 +92,10 @@ def on(c: QColor, opt: QStyleOption) -> QColor:
     return _qcolor(cs.on_color(_rgba(c), prefer=prefer, ratio=3.0))
 
 
-def stroke(opt: QStyleOption, fill: QColor) -> QColor:
-    """The 1 px outline of a control whose face is ``fill``: text mixed over it."""
-    return mix(fill, color(opt, Role.Text), STROKE_MIX)
+def stroke(opt: QStyleOption, fill: QColor, strength: float = STROKE_MIX) -> QColor:
+    """The 1 px outline of a control whose face is ``fill``: text mixed over it
+    by ``strength`` (the theme's ``outline_strength``)."""
+    return mix(fill, color(opt, Role.Text), strength)
 
 
 def legible(opt: QStyleOption, c: QColor, ratio: float, surface=None) -> QColor:
@@ -156,11 +157,13 @@ def rounded(painter: QPainter, rect: QRectF, radius: float, fill=None, line=None
 
 
 def focus_ring(painter: QPainter, rect: QRectF, radius: float, opt: QStyleOption,
-               ratio: float = 3.0) -> None:
-    """The 2 px accent ring drawn just outside a control's stroke."""
-    grow = FOCUS_WIDTH / 2
+               ratio: float = 3.0, width: float = FOCUS_WIDTH) -> None:
+    """The accent ring (``width`` px) drawn just outside a control's stroke."""
+    if width <= 0:
+        return
+    grow = width / 2
     r = QRectF(rect).adjusted(-grow, -grow, grow, grow)
-    rounded(painter, r, radius + grow, line=legible(opt, accent(opt), ratio), width=FOCUS_WIDTH)
+    rounded(painter, r, radius + grow, line=legible(opt, accent(opt), ratio), width=width)
 
 
 def _pen(c: QColor, width: float = GLYPH_PEN) -> QPen:
@@ -189,6 +192,27 @@ def chevron(painter: QPainter, rect, direction: str, c: QColor, size: float = 0.
         path.lineTo(QPointF(*pt))
     painter.setPen(_pen(c))
     painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.drawPath(path)
+
+
+def triangle(painter: QPainter, rect, direction: str, c: QColor, size: float = 0.0) -> None:
+    """A filled triangle centred in ``rect``, pointing ``up|down|left|right``."""
+    r = QRectF(rect)
+    s = size or min(r.width(), r.height()) * 0.5
+    cx, cy = r.center().x(), r.center().y()
+    h, q = s / 2, s / 4
+    pts = {
+        "down":  ((cx - h, cy - q), (cx + h, cy - q), (cx, cy + q)),
+        "up":    ((cx - h, cy + q), (cx + h, cy + q), (cx, cy - q)),
+        "right": ((cx - q, cy - h), (cx - q, cy + h), (cx + q, cy)),
+        "left":  ((cx + q, cy - h), (cx + q, cy + h), (cx - q, cy)),
+    }[direction]
+    path = QPainterPath(QPointF(*pts[0]))
+    for pt in pts[1:]:
+        path.lineTo(QPointF(*pt))
+    path.closeSubpath()
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(c)
     painter.drawPath(path)
 
 

@@ -79,8 +79,12 @@ def _outline(style, opt, base):
     """Outline of an unchecked indicator: accent on hover, else the stroke,
     either lifted to the ``ui`` contrast target against the window."""
     hovered = opt.state & State.State_MouseOver and opt.state & State.State_Enabled
-    line = P.accent(opt) if hovered else P.stroke(opt, base)
+    line = P.accent(opt) if hovered else P.stroke(opt, base, style.outline_strength)
     return P.legible(opt, line, style.ui_ratio)
+
+
+#: Accent share of a partially checked box's fill (over Base).
+PARTIAL_WASH = 0.28
 
 
 def check_box(style, opt, p, w):
@@ -89,14 +93,16 @@ def check_box(style, opt, p, w):
     partial = bool(opt.state & State.State_NoChange)
     radius = max(2.0, r.width() * 0.22)
     with P.Painting(p):
-        if on or partial:
+        if on:
             fill = P.state_fill(opt, P.accent(opt))
             P.rounded(p, r, radius, fill=fill, line=fill)
-            glyph = P.on(fill, opt)
-            if on:
-                P.check_mark(p, r, glyph)
-            else:
-                P.dash(p, r, glyph)
+            P.check_mark(p, r, P.on(fill, opt))
+        elif partial:
+            # Between off and on: an accent wash, accent outline and dash.
+            acc = P.accent(opt)
+            wash = P.state_fill(opt, P.mix(P.color(opt, Role.Base), acc, PARTIAL_WASH))
+            P.rounded(p, r, radius, fill=wash, line=P.legible(opt, acc, style.ui_ratio))
+            P.dash(p, r, P.legible(opt, acc, style.ui_ratio, surface=wash))
         else:
             base = P.state_fill(opt, P.color(opt, Role.Base))
             P.rounded(p, r, radius, fill=base, line=_outline(style, opt, base))
@@ -155,14 +161,15 @@ def focus_rect(style, opt, p, w):
         return True
     with P.Painting(p):
         r = P.half_pixel(QRectF(opt.rect).adjusted(1, 1, -1, -1))
-        P.focus_ring(p, r, style.control_radius, opt, style.ui_ratio)
+        P.focus_ring(p, r, style.control_radius, opt, style.ui_ratio, style.focus_width)
     return True
 
 
 def frame(style, opt, p, w):
     """A plain 1 px rounded outline (``QFrame::StyledPanel`` and friends)."""
     with P.Painting(p):
-        line = P.legible(opt, P.stroke(opt, P.color(opt, Role.Window)), style.border_ratio)
+        line = P.legible(opt, P.stroke(opt, P.color(opt, Role.Window), style.outline_strength),
+                          style.border_ratio)
         P.rounded(p, P.half_pixel(opt.rect), style.control_radius, line=line)
     return True
 
@@ -175,7 +182,7 @@ def frame_line_edit(style, opt, p, w):
         if focused:
             line = P.legible(opt, P.accent(opt), style.ui_ratio)
         else:
-            line = P.legible(opt, P.stroke(opt, base), style.border_ratio)
+            line = P.legible(opt, P.stroke(opt, base, style.outline_strength), style.border_ratio)
         P.rounded(p, P.half_pixel(opt.rect), style.control_radius, line=line)
     return True
 
@@ -193,49 +200,95 @@ def _horizontal(opt) -> bool:
     return opt.orientation == Qt.Orientation.Horizontal
 
 
+def _has_buttons(style) -> bool:
+    """``expanding`` bars keep step buttons (arrows show when expanded); ``thin`` has none."""
+    return style.scrollbar == "expanding"
+
+
 def scrollbar_rect(style, opt, sc, w):
-    """Sub-control rects of a thin bar: no step buttons, the groove is the bar."""
+    """Sub-control rects: ``thin`` has no step buttons, the groove is the bar;
+    ``expanding`` reserves a square button at each end."""
     r = QRect(opt.rect)
     horizontal = _horizontal(opt)
-    length = r.width() if horizontal else r.height()
-    if sc in (SC.SC_ScrollBarAddLine, SC.SC_ScrollBarSubLine):
-        return QRect()
+    thick = r.height() if horizontal else r.width()
+    btn = thick if _has_buttons(style) else 0
+    length = (r.width() if horizontal else r.height()) - 2 * btn
+    if horizontal:
+        sub = QRect(r.x(), r.y(), btn, r.height())
+        add = QRect(r.right() - btn + 1, r.y(), btn, r.height())
+        groove = QRect(r.x() + btn, r.y(), length, r.height())
+    else:
+        sub = QRect(r.x(), r.y(), r.width(), btn)
+        add = QRect(r.x(), r.bottom() - btn + 1, r.width(), btn)
+        groove = QRect(r.x(), r.y() + btn, r.width(), length)
+    if sc == SC.SC_ScrollBarSubLine:
+        return sub if btn else QRect()
+    if sc == SC.SC_ScrollBarAddLine:
+        return add if btn else QRect()
     if sc == SC.SC_ScrollBarGroove:
-        return r
+        return groove
     span = opt.maximum - opt.minimum
     min_len = style.pixelMetric(QStyle.PixelMetric.PM_ScrollBarSliderMin, opt, w)
     if span <= 0:
         handle_len = length
     else:
         handle_len = max(min_len, int(length * opt.pageStep / (span + opt.pageStep)))
-    handle_len = min(handle_len, length)
+    handle_len = max(0, min(handle_len, length))
     pos = QStyle.sliderPositionFromValue(opt.minimum, opt.maximum, opt.sliderPosition,
-                                         length - handle_len, opt.upsideDown)
+                                         max(0, length - handle_len), opt.upsideDown)
+    g = groove
     if horizontal:
-        handle = QRect(r.x() + pos, r.y(), handle_len, r.height())
-        before = QRect(r.x(), r.y(), pos, r.height())
-        after = QRect(handle.right() + 1, r.y(), r.right() - handle.right(), r.height())
+        handle = QRect(g.x() + pos, g.y(), handle_len, g.height())
+        before = QRect(g.x(), g.y(), pos, g.height())
+        after = QRect(handle.right() + 1, g.y(), g.right() - handle.right(), g.height())
     else:
-        handle = QRect(r.x(), r.y() + pos, r.width(), handle_len)
-        before = QRect(r.x(), r.y(), r.width(), pos)
-        after = QRect(r.x(), handle.bottom() + 1, r.width(), r.bottom() - handle.bottom())
+        handle = QRect(g.x(), g.y() + pos, g.width(), handle_len)
+        before = QRect(g.x(), g.y(), g.width(), pos)
+        after = QRect(g.x(), handle.bottom() + 1, g.width(), g.bottom() - handle.bottom())
     return {SC.SC_ScrollBarSlider: handle, SC.SC_ScrollBarSubPage: before,
             SC.SC_ScrollBarAddPage: after}.get(sc, QRect())
 
 
+def _step_arrows(style, opt, p, w, window, text, horizontal):
+    """Filled triangles in the step buttons of an expanded ``expanding`` bar."""
+    enabled = bool(opt.state & State.State_Enabled)
+    sunken = bool(opt.state & State.State_Sunken)
+    rtl = horizontal and opt.direction == Qt.LayoutDirection.RightToLeft
+    for sc, direction, at_end in (
+            (SC.SC_ScrollBarSubLine, "left" if horizontal else "up",
+             opt.sliderPosition <= opt.minimum),
+            (SC.SC_ScrollBarAddLine, "right" if horizontal else "down",
+             opt.sliderPosition >= opt.maximum)):
+        rect = QRectF(style.subControlRect(CC.CC_ScrollBar, opt, sc, w))
+        if rect.isEmpty():
+            continue
+        if rtl:
+            direction = {"left": "right", "right": "left"}[direction]
+        active = enabled and bool(opt.activeSubControls & sc)
+        if active:
+            face = rect.adjusted(1, 1, -1, -1)
+            fill = P.mix(window, text, 0.18 if sunken else 0.10)
+            P.rounded(p, face, min(face.width(), face.height()) / 2, fill=fill)
+        strength = 0.35 if (at_end or not enabled) else 0.85 if active else 0.62
+        P.triangle(p, rect, direction, P.mix(window, text, strength),
+                   size=min(rect.width(), rect.height()) * 0.5)
+
+
 def scrollbar(style, opt, p, w):
-    """Thin scrollbar: a rounded handle on a faint track, no step buttons."""
+    """Flat scrollbar: a rounded handle on a faint track. ``expanding`` bars
+    rest as a thin handle and grow, with step arrows, on hover."""
     horizontal = _horizontal(opt)
     window = P.color(opt, Role.Window)
     text = P.color(opt, Role.Text)
     hovered = bool(opt.state & State.State_MouseOver) and bool(opt.state & State.State_Enabled)
     on_handle = bool(opt.activeSubControls & SC.SC_ScrollBarSlider)
-    pressed = on_handle and bool(opt.state & State.State_Sunken)
+    pressed = bool(opt.state & State.State_Sunken) and bool(opt.activeSubControls)
+    expanded = hovered or pressed
 
     handle = QRectF(style.subControlRect(CC.CC_ScrollBar, opt, SC.SC_ScrollBarSlider, w))
     track = QRectF(opt.rect)
     thick = track.height() if horizontal else track.width()
-    if style.scrollbar == "expanding" and not (hovered or pressed):
+    if style.scrollbar == "expanding" and not expanded:
         thick = min(thick, EXPANDING_REST + 2)
         # At rest the handle hugs the far edge of the bar.
         if horizontal:
@@ -246,11 +299,13 @@ def scrollbar(style, opt, p, w):
             handle.setLeft(track.left())
 
     with P.Painting(p):
-        if hovered or pressed:
+        if expanded:
             P.rounded(p, track, 0, fill=P.mix(window, text, 0.05))
+            if _has_buttons(style):
+                _step_arrows(style, opt, p, w, window, text, horizontal)
         pad = 2.0 if thick >= 7 else 1.0
         h = handle.adjusted(pad, pad, -pad, -pad)
-        strength = 0.55 if pressed else 0.45 if (hovered and on_handle) else 0.32
+        strength = 0.55 if (pressed and on_handle) else 0.45 if (hovered and on_handle) else 0.32
         if not opt.state & State.State_Enabled:
             strength = 0.16
         fill = P.legible(opt, P.mix(window, text, strength), style.ui_ratio)

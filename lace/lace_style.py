@@ -54,21 +54,30 @@ class LaceStyle(QProxyStyle):
     SUBCONTROL_RECTS: Dict = _merge(_primitives.SUBCONTROL_RECTS)
 
     def __init__(self, control_radius: int = 4, scrollbar: str = "thin",
-                 contrast: str = "normal"):
+                 contrast: str = "normal", focus_width: float = 2.0,
+                 outline_strength: float = 0.22):
         # QProxyStyle takes ownership of the base style.
         super().__init__(QStyleFactory.create("Fusion"))
         self.control_radius = 4
         self.scrollbar = "thin"
         self.contrast = "normal"
-        self.set_tokens(control_radius=control_radius, scrollbar=scrollbar, contrast=contrast)
+        self.focus_width = 2.0
+        self.outline_strength = 0.22
+        self.set_tokens(control_radius=control_radius, scrollbar=scrollbar, contrast=contrast,
+                        focus_width=focus_width, outline_strength=outline_strength)
 
     # -- theme knobs -------------------------------------------------------------
     def set_tokens(self, control_radius: Optional[int] = None,
-                   scrollbar: Optional[str] = None, contrast: Optional[str] = None) -> None:
+                   scrollbar: Optional[str] = None, contrast: Optional[str] = None,
+                   focus_width: Optional[float] = None,
+                   outline_strength: Optional[float] = None) -> None:
         """Update the theme knobs; widgets repaint on their next paint event.
 
         ``contrast`` is the theme's level: it sets the ratio the non-text UI
         (indicator outlines, focus ring, scrollbar handle) is held to.
+        ``focus_width`` is the keyboard focus ring's pen width; 0 hides it.
+        ``outline_strength`` (0-1) is how much text colour is mixed over a
+        control's fill for its 1 px outline; the contrast floor still applies.
         """
         if control_radius is not None:
             self.control_radius = max(0, int(control_radius))
@@ -80,6 +89,10 @@ class LaceStyle(QProxyStyle):
             if contrast not in CONTRAST_LEVELS:
                 raise ValueError(f"contrast must be one of {CONTRAST_LEVELS}, got {contrast!r}")
             self.contrast = contrast
+        if focus_width is not None:
+            self.focus_width = max(0.0, float(focus_width))
+        if outline_strength is not None:
+            self.outline_strength = min(1.0, max(0.0, float(outline_strength)))
 
     @property
     def ui_ratio(self) -> float:

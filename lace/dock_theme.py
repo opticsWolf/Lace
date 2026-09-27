@@ -73,6 +73,10 @@ class DockCoreStyleSchema(_FontFields):
     control_radius: int = 4
     #: Scrollbar look: "thin" | "expanding" | "fusion".
     scrollbar: str = "thin"
+    #: Pen width of the keyboard focus ring; 0 hides it.
+    focus_width: float = 2.0
+    #: Share of text colour mixed over a control's fill for its outline (0-1).
+    outline_strength: float = 0.22
     #: The theme's contrast level ("low" | "normal" | "high"); sets the floor
     #: LaceStyle holds its non-text UI (outlines, focus ring) to.
     contrast: str = "normal"
@@ -411,6 +415,10 @@ class ThemeSpec:
     scrollbar: str = "thin"
     #: Corner radius of every LaceStyle control; 0 = square.
     control_radius: int = 4
+    #: Pen width of LaceStyle's keyboard focus ring; 0 hides it.
+    focus_width: float = 2.0
+    #: LaceStyle outline strength: text mixed over a control's fill (0-1).
+    outline_strength: float = 0.22
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
     #: Explicit tab/title-bar background. Overrides the derived value, which
     #: is a fixed 0.06 lightness step off the panel and so cannot be widened
@@ -622,6 +630,8 @@ def _spec_kwargs(spec: ThemeSpec) -> Dict[str, Any]:
         selection=spec.selection,
         scrollbar=spec.scrollbar,
         control_radius=spec.control_radius,
+        focus_width=spec.focus_width,
+        outline_strength=spec.outline_strength,
     )
 
 
@@ -682,6 +692,8 @@ def _build_theme(
     selection: str = "solid",
     scrollbar: str = "thin",
     control_radius: int = 4,
+    focus_width: float = 2.0,
+    outline_strength: float = 0.22,
     _explicit_out: Optional[set] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
@@ -846,7 +858,8 @@ def _build_theme(
 
     # LaceStyle knobs; DockThemeBridge hands them to LaceStyle.set_tokens.
     theme[DockStyleCategory.CORE].update(
-        contrast=contrast, scrollbar=scrollbar, control_radius=control_radius)
+        contrast=contrast, scrollbar=scrollbar, control_radius=control_radius,
+        focus_width=focus_width, outline_strength=outline_strength)
 
     if corner_radius is not None:
         theme[DockStyleCategory.CORE]["corner_radius"] = corner_radius

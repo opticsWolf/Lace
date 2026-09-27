@@ -69,8 +69,10 @@ def _branch(open_: bool):
     return _primitive(PE.PE_IndicatorBranch, size=(20, 20), extra=extra)
 
 
-def _scrollbar(orientation):
+def _scrollbar(orientation, mode=None):
     def draw(style, p, cell, pal, flags, disabled):
+        if mode is not None and hasattr(style, "set_tokens"):
+            style = type(style)(scrollbar=mode)
         opt = QStyleOptionSlider()
         extent = style.pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent)
         horizontal = orientation == Qt.Orientation.Horizontal
@@ -113,6 +115,7 @@ ROWS: List[Tuple[str, Callable]] = [
                               extra=lambda o: setattr(o, "state", o.state | S.State_KeyboardFocusChange))),
     ("scrollbar h", _scrollbar(Qt.Orientation.Horizontal)),
     ("scrollbar v", _scrollbar(Qt.Orientation.Vertical)),
+    ("expanding h", _scrollbar(Qt.Orientation.Horizontal, "expanding")),
 ]
 
 

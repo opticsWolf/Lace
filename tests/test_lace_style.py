@@ -146,6 +146,87 @@ def test_thin_scrollbar_has_no_step_buttons(qapp):
     assert after.bottom() == opt.rect.bottom()
 
 
+def test_expanding_scrollbar_has_square_step_buttons(qapp):
+    style = LaceStyle(scrollbar="expanding")
+    opt = QStyleOptionSlider()
+    opt.rect = QRect(0, 0, 10, 200)
+    opt.orientation = Qt.Orientation.Vertical
+    opt.minimum, opt.maximum, opt.pageStep, opt.sliderPosition = 0, 100, 20, 100
+    cc, sc = QStyle.ComplexControl.CC_ScrollBar, QStyle.SubControl
+    sub = style.subControlRect(cc, opt, sc.SC_ScrollBarSubLine)
+    add = style.subControlRect(cc, opt, sc.SC_ScrollBarAddLine)
+    groove = style.subControlRect(cc, opt, sc.SC_ScrollBarGroove)
+    handle = style.subControlRect(cc, opt, sc.SC_ScrollBarSlider)
+    assert sub == QRect(0, 0, 10, 10) and add == QRect(0, 190, 10, 10)
+    assert groove == QRect(0, 10, 10, 180)
+    assert groove.contains(handle) and handle.bottom() == groove.bottom()
+
+
+@pytest.mark.parametrize("mode", ["thin", "expanding"])
+def test_scrollbar_steps_work(qapp, mode):
+    """Clicking the bottom end steps (expanding) or pages (thin); never stuck."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    bar = QScrollBar(Qt.Orientation.Vertical)
+    bar.setStyle(LaceStyle(scrollbar=mode))
+    bar.setRange(0, 100)
+    bar.setPageStep(20)
+    bar.resize(bar.sizeHint().width(), 200)
+    QTest.mouseClick(bar, Qt.MouseButton.LeftButton, pos=QPoint(bar.width() // 2, 197))
+    assert bar.value() == (1 if mode == "expanding" else 20)
+
+
+def test_focus_width_token(qapp, themed):
+    from PySide6.QtWidgets import QStyleOptionFocusRect
+
+    def ring_rows(width):
+        img = QImage(60, 30, QImage.Format.Format_ARGB32_Premultiplied)
+        img.fill(0)
+        opt = QStyleOptionFocusRect()
+        opt.rect = QRect(8, 8, 44, 14)
+        opt.palette = themed
+        opt.state = S.State_Enabled | S.State_Active | S.State_KeyboardFocusChange
+        p = QPainter(img)
+        LaceStyle(focus_width=width).drawPrimitive(
+            QStyle.PrimitiveElement.PE_FrameFocusRect, opt, p, None)
+        p.end()
+        return sum(1 for y in range(15) if img.pixelColor(30, y).alpha() > 128)
+
+    assert ring_rows(0) == 0
+    assert ring_rows(1) < ring_rows(2) < ring_rows(4)
+
+
+def test_outline_strength_token(qapp, themed):
+    from lace.style import _paint
+    opt = _option(themed, S.State_Off)
+    base = _paint.color(opt, QPalette.ColorRole.Base)
+    text = _paint.color(opt, QPalette.ColorRole.Text)
+    weak = LaceStyle(outline_strength=0.1, contrast="low")
+    strong = LaceStyle(outline_strength=0.6, contrast="low")
+    from lace.style import _primitives
+    assert _ratio(_primitives._outline(strong, opt, base), base) > \
+        _ratio(_primitives._outline(weak, opt, base), base)
+    assert LaceStyle(outline_strength=5).outline_strength == 1.0
+    assert _ratio(text, base) > 1   # sanity: the palette is themed
+
+
+def test_partial_check_sits_between_off_and_on(qapp, themed):
+    """B look: the partial fill is an accent wash, not the solid accent."""
+    def centre_fill(state):
+        img = QImage(20, 20, QImage.Format.Format_ARGB32_Premultiplied)
+        img.fill(0)
+        opt = _option(themed, state)
+        opt.rect = QRect(2, 2, 16, 16)
+        p = QPainter(img)
+        LaceStyle().drawPrimitive(QStyle.PrimitiveElement.PE_IndicatorCheckBox, opt, p, None)
+        p.end()
+        return img.pixelColor(6, 6)   # inside the box, off the glyph
+
+    off, part, on = (centre_fill(s) for s in (S.State_Off, S.State_NoChange, S.State_On))
+    assert part != on and part != off
+    assert _ratio(part, off) < _ratio(on, off)
+
+
 def test_tokens_validate(qapp):
     style = LaceStyle()
     with pytest.raises(ValueError):
@@ -256,10 +337,11 @@ def test_bridge_pushes_theme_tokens(qapp):
     w = QWidget()
     bridge = DockThemeBridge(target=w)
     get_dock_style_manager().update(DockStyleCategory.CORE, scrollbar="expanding",
-                                    control_radius=0, contrast="high")
+                                    control_radius=0, contrast="high", focus_width=3.0)
     bridge.refresh_dock_palette()
-    assert (w.style().scrollbar, w.style().control_radius, w.style().contrast) == \
-        ("expanding", 0, "high")
+    st = w.style()
+    assert (st.scrollbar, st.control_radius, st.contrast, st.focus_width) == \
+        ("expanding", 0, "high", 3.0)
 
 
 def test_theme_spec_carries_style_knobs(qapp):
