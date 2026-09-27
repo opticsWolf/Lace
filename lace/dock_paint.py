@@ -127,6 +127,30 @@ def chrome_content_margin(border_width: float, radius: float) -> int:
     return ceil(max(border_width, corner))
 
 
+def corner_cap_path(rect: QRectF, keep: QPainterPath) -> QPainterPath:
+    """The part of ``rect`` outside ``keep``: the corners a rounded shape
+    leaves uncovered."""
+    cap = QPainterPath()
+    cap.addRect(rect)
+    return cap.subtracted(keep)
+
+
+def paint_corner_cap(p: QPainter, cap: QPainterPath, backdrop: QColor) -> None:
+    """Fill ``cap`` with ``backdrop``, antialiased.
+
+    Source composition *replaces* what the content painted there, so a
+    transparent backdrop (a translucent window) clears the corners instead of
+    leaving them untouched; an opaque one looks the same either way.
+    """
+    if cap.isEmpty():
+        return
+    p.save()
+    p.setRenderHint(QPainter.Antialiasing, True)
+    p.setCompositionMode(QPainter.CompositionMode_Source)
+    p.fillPath(cap, backdrop)
+    p.restore()
+
+
 def top_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
     """Path for a rect with only its two top corners rounded.
 

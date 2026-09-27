@@ -755,6 +755,38 @@ two. With 4b-2 the combo and spin arrows read 1.8–2.2 (Fusion: 4.6–5.8) and 
   `docs/frameless-webengine-findings.md`). If a native child can't be covered, that dock area falls
   back to `inset` automatically and logs it once.
 
+## Status
+
+Done, except the native-child check by hand.
+
+- **Two caps, both painted with Source composition** (`dock_paint.paint_corner_cap`), so a
+  transparent backdrop clears rather than leaves the corner:
+  - The dock area's `_ChromeBorderOverlay` caps everything outside the card's outer edge, then
+    strokes the outline. It sits above the title bar, which covers item 6 without extra code.
+  - Each `DockWidget` owns a `CornerCap` overlay in place of its old `QRegion` mask. It has the
+    same shape (the content's bottom arc: card radius less the border and the bottom margin) but
+    is antialiased. This also covers sidebar content, whose backdrop is the sidebar panel.
+- **Backdrop** comes from `backdrop_color(widget)`: the nearest ancestor's `chrome_fill()`, else
+  the nearest auto-filling ancestor or window, else transparent for a translucent window.
+  `ChromeFrame.chrome_backdrop()` wraps it.
+- **Modes:** `corner_clip` is on `ThemeSpec`, `ThemeJson` (`Literal`) and CORE.
+  - `inset` grows the DockWidget's left, right and bottom margins to
+    `chrome_content_margin - border`.
+  - `none` paints no cap.
+  - Content holding a native child window falls back to `inset`, logged once per widget.
+- **Floating windows are unchanged.** A chromeless float keeps its mask: in a translucent window
+  the float's own dock container paints the canvas into the corners, so dropping the mask would
+  square them off.
+- **Tests:**
+  - `tests/visual/test_corner_clip.py`: 6 themes plus `flush_r10`, × 4 content kinds (frame,
+    `QTextEdit`, a scroll area with both bars, a gridded `QTableView`), and the 32-case grid
+    (radius × border × cap/inset). The harness also counts any non-backdrop pixel outside the
+    outline, which catches child frame lines that magenta alone misses. The Phase 0 xfails are
+    gone.
+  - `tests/test_corner_modes.py`: overlays on top after `set_widget`, tab switch, restore and a
+    late child; no `setMask`; `cap` / `inset` / `none`; the native fallback.
+  - `dev_smoke/smoke_corner_clip.py` runs the three modes on the demo.
+
 ## Exit criteria
 Corner metrics pass; no masks on docked content; native-child fallback verified by hand.
 

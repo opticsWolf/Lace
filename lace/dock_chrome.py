@@ -14,7 +14,8 @@ from PySide6.QtCore import Qt, QEvent, QObject, QPoint, QRectF, QSize, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QAbstractButton, QFrame, QSizePolicy, QToolButton, QWidget
 
-from lace.dock_paint import ChromeTokens, paint_panel_bg, paint_panel_border
+from lace.dock_paint import (ChromeTokens, corner_cap_path, paint_corner_cap,
+                             paint_panel_bg, paint_panel_border)
 from lace.dock_theme import DEFAULT_ICON_SIZE
 from lace.util import start_drag_distance
 
@@ -369,18 +370,105 @@ def style_title_bar_buttons(
             btn.setIconSize(icon)
 
 
+#: How content meets a rounded card's corners (CORE ``corner_clip``):
+#: "cap" paints the backdrop over whatever sticks out past the arc; "inset"
+#: grows the margins so square content never reaches it; "none" does neither,
+#: for apps that round their own content.
+CORNER_CLIP_MODES = ("cap", "inset", "none")
+
+
+def backdrop_color(widget: QWidget) -> QColor:
+    """The colour showing behind ``widget``: what its nearest painting
+    ancestor fills with.
+
+    An ancestor that paints its own chrome says so through ``chrome_fill()``;
+    otherwise the first one that auto-fills, or the window. A translucent
+    window has nothing behind it, so the answer is transparent.
+    """
+    w = widget.parentWidget()
+    while w is not None:
+        fill = getattr(w, "chrome_fill", None)
+        c = fill() if fill is not None else None
+        if c is not None and c.alpha() == 255:
+            return QColor(c)
+        if w.isWindow() and w.testAttribute(Qt.WA_TranslucentBackground):
+            return QColor(0, 0, 0, 0)
+        if w.autoFillBackground() or w.isWindow():
+            return w.palette().color(w.backgroundRole())
+        w = w.parentWidget()
+    return QColor(0, 0, 0, 0)
+
+
+def has_native_child(widget: QWidget) -> bool:
+    """Whether ``widget`` holds a native child window, which no sibling
+    overlay can paint over (see docs/frameless-webengine-findings.md)."""
+    return any(w.testAttribute(Qt.WA_NativeWindow) and not w.isWindow()
+               for w in widget.findChildren(QWidget))
+
+
+class CornerCap(QWidget):
+    """Transparent overlay that paints the backdrop over a rounded shape's
+    corners, above every sibling: an antialiased stand-in for a clip mask.
+
+    ``shape()`` returns ``(cap_path, backdrop)`` in the overlay's coordinates,
+    or None for nothing to paint. The overlay covers its parent; the parent
+    keeps it on top with :meth:`restack`.
+    """
+
+    def __init__(self, parent: QWidget, shape):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self.setAutoFillBackground(False)
+        self._shape = shape
+
+    def restack(self) -> None:
+        self.setGeometry(self.parentWidget().rect())
+        self.raise_()
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        shape = self._shape()
+        if shape is not None:
+            paint_corner_cap(QPainter(self), *shape)
+
+
 class _ChromeBorderOverlay(QWidget):
-    """Transparent overlay widget that draws the card outline stroke on top of all child widgets
-    to ensure crisp, antialiased corner curves without child clipping or mask staircases."""
+    """Transparent overlay above every child of a :class:`ChromeFrame`: caps
+    the corners outside the rounded outline with the backdrop, then strokes
+    the outline, so children are cut to the card antialiased, with no mask."""
     def __init__(self, parent: 'ChromeFrame'):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WA_StyledBackground, False)
         self.setAutoFillBackground(False)
         self._parent = parent
+        self._cap_key = None
+        self._cap = QPainterPath()
+
+    def _cap_path(self) -> QPainterPath:
+        """The region outside the card's outer edge, cached per size and shape."""
+        c = self._parent._chrome
+        o = 0.0
+        if c.border_width > 0:
+            o = 0.5
+            side = self._parent.chrome_border_inset()
+            if c.border_below_title and self._parent.chrome_border_top() is not None:
+                # The three-sided outline hugs side_inset instead of the edge.
+                o = min(0.5, max(0.0, float(side or 0.0)))
+        key = (self.size(), c.radius, o)
+        if key != self._cap_key:
+            rect = QRectF(self.rect())
+            keep = QPainterPath()
+            r = max(0.0, c.radius - o)
+            keep.addRoundedRect(rect.adjusted(o, o, -o, -o), r, r)
+            self._cap_key, self._cap = key, corner_cap_path(rect, keep)
+        return self._cap
 
     def paintEvent(self, event) -> None:
         p = QPainter(self)
+        if self._parent._corner_clip == "cap" and self._parent._chrome.radius > 0:
+            paint_corner_cap(p, self._cap_path(), self._parent.chrome_backdrop())
         paint_panel_border(p, QRectF(self.rect()), self._parent._chrome,
                            self._parent._chrome_focused,
                            self._parent.chrome_border_top(),
@@ -406,7 +494,29 @@ class ChromeFrame(QFrame):
         self.setAutoFillBackground(False)
         self._chrome = ChromeTokens(bg=QColor(0, 0, 0, 0))
         self._chrome_focused = False
+        self._corner_clip = "cap"
         self._border_overlay = _ChromeBorderOverlay(self)
+
+    def set_corner_clip(self, mode: str) -> None:
+        """How children meet the rounded corners: one of CORNER_CLIP_MODES."""
+        if mode not in CORNER_CLIP_MODES:
+            raise ValueError(f"corner_clip must be one of {CORNER_CLIP_MODES}, not {mode!r}")
+        if mode != self._corner_clip:
+            self._corner_clip = mode
+            self._border_overlay.update()
+
+    def corner_clip(self) -> str:
+        return self._corner_clip
+
+    def chrome_fill(self) -> Optional[QColor]:
+        """The colour this frame paints behind its children."""
+        return self._chrome.bg
+
+    def chrome_backdrop(self) -> QColor:
+        """What shows behind the card, and so what caps its corners: the
+        parent's colour, resolved per paint so nesting and reparenting (a
+        float, a sidebar) follow."""
+        return backdrop_color(self)
 
     def set_chrome(self, chrome: ChromeTokens) -> None:
         """Apply new chrome tokens and inset the layout so children never

@@ -24,11 +24,17 @@ from lace.dock_theme import DockStyleCategory, resolve_dock_colors, build_dock_p
 from lace.enums import (DockWidgetFeature, WidgetState, ToggleViewActionMode,
                     InsertMode)
 from lace.util import find_parent, emit_top_level_event_for_widget
+from lace.dock_chrome import CornerCap, backdrop_color, has_native_child
+from lace.dock_paint import bottom_rounded_path, chrome_content_margin, corner_cap_path
 
 if TYPE_CHECKING:
     from lace import DockAreaWidget, DockManager, DockWidgetTab
 
 logger = logging.getLogger(__name__)
+
+#: Dock widgets already logged as falling back to ``inset`` (by id), so the
+#: message shows once per widget rather than on every theme change.
+_NATIVE_FALLBACK_LOGGED = set()
 
 
 class DockWidget(QFrame, DockStyled):
@@ -71,6 +77,14 @@ class DockWidget(QFrame, DockStyled):
         self._layout.setSpacing(0)
         self.setLayout(self._layout)
         self.setWindowTitle(title)
+
+        # Rounds the content's bottom corners: paints the backdrop over them,
+        # antialiased, instead of clipping the content with a mask.
+        self._bottom_radius = 0.0
+        self._corner_clip = "cap"
+        self._cap_key = None
+        self._cap = None
+        self._corner_cap = CornerCap(self, self._cap_shape)
         self.setObjectName(title)
 
         from lace.dock_widget_tab import DockWidgetTab
@@ -307,7 +321,7 @@ class DockWidget(QFrame, DockStyled):
 
         self._widget = widget
         self._widget.setProperty("dockWidgetContent", True)
-        self._update_bottom_mask()
+        self._restack_cap()
 
     def take_widget(self):
         self._scroll_area.takeWidget()
@@ -562,6 +576,12 @@ class DockWidget(QFrame, DockStyled):
                 bottom = top
             else:
                 left, top, right, bottom = values[:4]
+
+        # inset: square content stays clear of the card's bottom arcs.
+        self._corner_clip = self._resolve_corner_clip()
+        if self._corner_clip == "inset" and self._bottom_radius > 0.0:
+            need = max(0, chrome_content_margin(card_border, card_radius) - bw_int)
+            left, right, bottom = max(left, need), max(right, need), max(bottom, need)
         self._layout.setContentsMargins(left, top, right, bottom)
 
         # Force the panel palette onto the immediate content layer
@@ -574,11 +594,10 @@ class DockWidget(QFrame, DockStyled):
             self._widget.setPalette(pal)
 
         self.update()
-        self._update_bottom_mask()
+        self._restack_cap()
 
     def paintEvent(self, event) -> None:
         from PySide6.QtGui import QPainter
-        from lace.dock_paint import bottom_rounded_path
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
         bg = self.palette().color(QPalette.ColorRole.Window)
@@ -591,47 +610,55 @@ class DockWidget(QFrame, DockStyled):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        # Children (QScrollArea / user widget) are already resized at this point.
-        # Apply the mask synchronously — no timer needed.
-        self._apply_bottom_mask_sync()
+        self._restack_cap()
 
-    def _apply_bottom_mask_sync(self) -> None:
-        """Apply the bottom mask synchronously. Call from resizeEvent or refresh_style."""
-        if getattr(self, "_mask_applying", False):
-            return  # already applying in this event cycle
-        self._mask_applying = True
-        try:
-            self._apply_bottom_mask()
-        finally:
-            self._mask_applying = False
+    def childEvent(self, event) -> None:
+        super().childEvent(event)
+        # A child added later (set_widget, a toolbar) would stack above the cap.
+        cap = getattr(self, "_corner_cap", None)
+        if (cap is not None and event.type() == QEvent.ChildAdded
+                and event.child() is not cap):
+            cap.raise_()
 
-    def _update_bottom_mask(self) -> None:
-        """Thin wrapper for backwards compatibility with callers outside resizeEvent."""
+    def _restack_cap(self) -> None:
+        """Keep the corner cap covering this widget, above the content."""
+        cap = getattr(self, "_corner_cap", None)
+        if cap is not None:
+            cap.restack()
+
+    def _cap_shape(self):
+        """The content's bottom corners outside its rounded arc, with the
+        backdrop to paint there; None when there is nothing to cap.
+
+        The arc is the content's share of the card's: the card radius less
+        the border and this widget's bottom margin.
+        """
         target = self._scroll_area or self._widget
-        if not target:
-            return
-        self._apply_bottom_mask_sync()
+        if (self._corner_clip != "cap" or self._bottom_radius <= 0.0
+                or target is None or not target.isVisible()):
+            return None
+        radius = max(0.0, self._bottom_radius - self._layout.contentsMargins().bottom())
+        geo = target.geometry()
+        if radius <= 0.0 or geo.isEmpty():
+            return None
+        key = (geo, radius)
+        if key != self._cap_key:
+            rect = QRectF(geo)
+            self._cap_key = key
+            self._cap = corner_cap_path(rect, bottom_rounded_path(rect, radius))
+        return self._cap, backdrop_color(self)
 
-    def _apply_bottom_mask(self) -> None:
-        target = self._scroll_area or self._widget
-        if not target or not self.isVisible() or not target.isVisible():
-            return
-        radius = getattr(self, "_bottom_radius", 0.0)
-        m_bottom = self._layout.contentsMargins().bottom()
-        target_radius = max(0.0, radius - m_bottom) if radius > 0.0 else 0.0
-
-        current_cache = (target.rect().size(), target_radius)
-        if getattr(self, "_last_mask_cache", None) == current_cache:
-            return
-        self._last_mask_cache = current_cache
-
-        if target_radius > 0.0 and target.width() > 0 and target.height() > 0:
-            from PySide6.QtGui import QRegion
-            from lace.dock_paint import bottom_rounded_path
-            path = bottom_rounded_path(QRectF(target.rect()), target_radius)
-            target.setMask(QRegion(path.toFillPolygon().toPolygon()))
-        else:
-            target.clearMask()
+    def _resolve_corner_clip(self) -> str:
+        """The theme's ``corner_clip``, except that content holding a native
+        child window falls back to ``inset``: the cap can't paint over it."""
+        mode = self._style_mgr.get(DockStyleCategory.CORE, "corner_clip", "cap")
+        if mode == "cap" and self._widget is not None and has_native_child(self._widget):
+            if id(self) not in _NATIVE_FALLBACK_LOGGED:
+                _NATIVE_FALLBACK_LOGGED.add(id(self))
+                logger.info("%r holds a native child window; its corners use "
+                            "corner_clip='inset'", self)
+            mode = "inset"
+        return mode
 
     def on_style_changed(self, category: DockStyleCategory, changes: dict):
         """Callback triggered by DockStyleManager when the theme switches."""

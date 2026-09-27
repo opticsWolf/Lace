@@ -506,6 +506,7 @@ class DockAreaWidget(ChromeFrame, DockStyled):
             focus_border=focus_border,
             border_below_title=core.get("border_below_title", False),
         ))
+        self.set_corner_clip(core.get("corner_clip", "cap"))
 
         title_styles = self._style_mgr.get_all(DockStyleCategory.TITLE_BAR)
         title_margin = title_styles.get("margin")

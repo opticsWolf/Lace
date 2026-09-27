@@ -73,6 +73,8 @@ class DockCoreStyleSchema(_FontFields):
     control_radius: int = 4
     #: Scrollbar look: "thin" | "expanding" | "fusion".
     scrollbar: str = "thin"
+    #: How content meets a dock area's rounded corners: "cap" | "inset" | "none".
+    corner_clip: str = "cap"
     #: Pen width of the keyboard focus ring; 0 hides it.
     focus_width: float = 2.0
     #: Share of text colour mixed over a control's fill for its outline (0-1).
@@ -413,6 +415,9 @@ class ThemeSpec:
     selection: str = "solid"
     #: LaceStyle scrollbars: "thin" | "expanding" | "fusion".
     scrollbar: str = "thin"
+    #: How dock content meets the card's rounded corners: "cap" paints the
+    #: backdrop over them, "inset" keeps content clear, "none" leaves it.
+    corner_clip: str = "cap"
     #: Corner radius of every LaceStyle control; 0 = square.
     control_radius: int = 4
     #: Pen width of LaceStyle's keyboard focus ring; 0 hides it.
@@ -629,6 +634,7 @@ def _spec_kwargs(spec: ThemeSpec) -> Dict[str, Any]:
         depth=spec.depth,
         selection=spec.selection,
         scrollbar=spec.scrollbar,
+        corner_clip=spec.corner_clip,
         control_radius=spec.control_radius,
         focus_width=spec.focus_width,
         outline_strength=spec.outline_strength,
@@ -691,6 +697,7 @@ def _build_theme(
     depth: str = "subtle",
     selection: str = "solid",
     scrollbar: str = "thin",
+    corner_clip: str = "cap",
     control_radius: int = 4,
     focus_width: float = 2.0,
     outline_strength: float = 0.22,
@@ -859,7 +866,8 @@ def _build_theme(
     # LaceStyle knobs; DockThemeBridge hands them to LaceStyle.set_tokens.
     theme[DockStyleCategory.CORE].update(
         contrast=contrast, scrollbar=scrollbar, control_radius=control_radius,
-        focus_width=focus_width, outline_strength=outline_strength)
+        focus_width=focus_width, outline_strength=outline_strength,
+        corner_clip=corner_clip)
 
     if corner_radius is not None:
         theme[DockStyleCategory.CORE]["corner_radius"] = corner_radius

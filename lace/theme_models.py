@@ -112,6 +112,7 @@ class ThemeJson(BaseModel):
     depth: Literal["flat", "subtle", "raised"] = "subtle"
     selection: Literal["solid", "tint"] = "solid"
     scrollbar: Literal["thin", "expanding", "fusion"] = "thin"
+    corner_clip: Literal["cap", "inset", "none"] = "cap"
     control_radius: int = 4
     focus_width: float = 2.0
     outline_strength: float = 0.22
@@ -214,6 +215,7 @@ class ThemeJson(BaseModel):
             depth=self.depth,
             selection=self.selection,
             scrollbar=self.scrollbar,
+            corner_clip=self.corner_clip,
             control_radius=self.control_radius,
             focus_width=self.focus_width,
             outline_strength=self.outline_strength,
