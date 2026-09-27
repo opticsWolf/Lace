@@ -493,8 +493,14 @@ class DockWidgetTab(QFrame, DockStyled):
         # the expensive branch.  Everything that can change the result is in
         # this key, so an unchanged key means an identical icon.  The focus
         # tint belongs in it too: without that, the memo short-circuits the
-        # dimming refresh_focus_tint() just asked for.
-        icon_key = (self._custom_icon_name, self._default_icon_name, use_custom,
+        # dimming refresh_focus_tint() just asked for.  So do the directly-set
+        # icons and the window icon: keyed on the names alone, set_icon(QIcon)
+        # on a tab without names hit the memo and was silently dropped.
+        window_icon = (self._dock_widget.windowIcon().cacheKey()
+                       if self._dock_widget else 0)
+        icon_key = (self._custom_icon_name, self._default_icon_name,
+                    self._custom_icon.cacheKey(), self._default_icon.cacheKey(),
+                    window_icon, use_custom,
                     self.is_active_tab(), self.isEnabled(), icon_size,
                     tint.name() if isinstance(tint, QColor) else tint,
                     sm.generation)

@@ -211,3 +211,20 @@ def test_sidebar_icon_geometry_is_themed(qapp):
     assert (button._icon_size, button._icon_gap) == (24, 3)
 
     button.deleteLater()
+
+
+# --- Directly-set icons reach the tab ---------------------------------------
+
+def test_direct_qicon_is_not_swallowed_by_the_memo(tabbed):
+    """``set_icon(QIcon)`` on a tab with no icon *names* must apply.
+
+    The memo key held the names but not the icons themselves, so a tab that
+    had already resolved "no icon" matched the key again and dropped the new
+    one. Caught by dev_smoke/smoke_tab_icons.py.
+    """
+    _, _, first, _ = tabbed
+    tab = first.tab_widget() if hasattr(first, "tab_widget") else first._tab_widget
+    first.set_icon(_solid_icon("#ff0000"))
+    assert not tab.icon().isNull()
+    first.set_icon(_solid_icon("#00ff00"))
+    assert _dominant(tab.icon()) == "#00ff00"
