@@ -27,7 +27,7 @@ from typing import Callable, Dict, Optional
 
 from PySide6.QtWidgets import QProxyStyle, QStyle, QStyleFactory
 
-from lace.style import _buttons, _inputs, _primitives
+from lace.style import _buttons, _inputs, _primitives, _range
 from lace.theme_contrast import CONTRAST_TARGETS
 
 SCROLLBAR_MODES = ("thin", "expanding", "fusion")
@@ -49,8 +49,8 @@ class LaceStyle(QProxyStyle):
 
     #: element -> draw(style, option, painter, widget) -> bool (True = painted)
     PRIMITIVES: Dict = _merge(_primitives.PRIMITIVES, _buttons.PRIMITIVES, _inputs.PRIMITIVES)
-    CONTROLS: Dict = _merge(_buttons.CONTROLS)
-    COMPLEX: Dict = _merge(_primitives.COMPLEX, _inputs.COMPLEX)
+    CONTROLS: Dict = _merge(_buttons.CONTROLS, _range.CONTROLS)
+    COMPLEX: Dict = _merge(_primitives.COMPLEX, _inputs.COMPLEX, _range.COMPLEX)
     SUBCONTROL_RECTS: Dict = _merge(_primitives.SUBCONTROL_RECTS)
 
     def __init__(self, control_radius: int = 4, scrollbar: str = "thin",

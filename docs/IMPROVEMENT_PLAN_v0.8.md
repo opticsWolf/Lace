@@ -668,7 +668,11 @@ two. With 4b-2 the combo and spin arrows read 1.8–2.2 (Fusion: 4.6–5.8) and 
   non-editable combo), so one override covers them; keyboard focus rings the face.
 - **4b-2 Inputs** — done. Line edits, combo and spin boxes as one rounded field with vector
   chevrons inside; Fusion's spin/combo sub-control rects are kept.
-- **4b-3 Range**, **4b-4 Containers** — to do.
+- **4b-3 Range** — done (`lace/style/_range.py`). Slider groove, accent fill
+  and round handle; tick marks drawn flat. Progress track and fill rounded;
+  the busy segment animates only on a visible widget and rests mid-track
+  otherwise, so renders are deterministic. `CE_ProgressBarLabel` stays Fusion's.
+- **4b-4 Containers** — to do.
 
 ## Exit criteria
 - 4a: zoom metrics pass, no reflow, scrollbar modes verified, Weave zoom checked by hand

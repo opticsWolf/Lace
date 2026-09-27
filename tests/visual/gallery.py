@@ -192,6 +192,38 @@ def _spin(symbols=None):
     return draw
 
 
+def _slider(ticks=False):
+    def draw(style, p, cell, pal, flags, disabled):
+        from PySide6.QtWidgets import QSlider
+        at = _centred(cell, cell.width() - 10, 26 if ticks else 20)
+        p.translate(at.topLeft())
+        opt = _base(QStyleOptionSlider(), QRect(0, 0, at.width(), at.height()), pal, flags, disabled)
+        opt.orientation = Qt.Orientation.Horizontal
+        opt.state |= S.State_Horizontal
+        opt.minimum, opt.maximum, opt.pageStep, opt.singleStep = 0, 100, 25, 1
+        opt.sliderPosition = opt.sliderValue = 40
+        opt.subControls = (QStyle.SubControl.SC_SliderGroove | QStyle.SubControl.SC_SliderHandle
+                           | (QStyle.SubControl.SC_SliderTickmarks if ticks else QStyle.SubControl.SC_None))
+        if ticks:
+            opt.tickPosition, opt.tickInterval = QSlider.TickPosition.TicksBelow, 25
+        if flags & (S.State_MouseOver | S.State_Sunken):
+            opt.activeSubControls = QStyle.SubControl.SC_SliderHandle
+        style.drawComplexControl(QStyle.ComplexControl.CC_Slider, opt, p, _widget(QSlider))
+    return draw
+
+
+def _progress(busy=False):
+    def draw(style, p, cell, pal, flags, disabled):
+        from PySide6.QtWidgets import QStyleOptionProgressBar
+        opt = _base(QStyleOptionProgressBar(), _centred(cell, cell.width() - 10, 8), pal, flags, disabled)
+        opt.state |= S.State_Horizontal
+        opt.minimum, opt.maximum, opt.progress = (0, 0, 0) if busy else (0, 100, 60)
+        opt.textVisible = False
+        style.drawControl(QStyle.ControlElement.CE_ProgressBarGroove, opt, p, None)
+        style.drawControl(QStyle.ControlElement.CE_ProgressBarContents, opt, p, None)
+    return draw
+
+
 def _menu_check(opt):
     opt.checkType = QStyleOptionMenuItem.CheckType.NonExclusive
     opt.checked = bool(opt.state & S.State_On)
@@ -209,6 +241,10 @@ ROWS: List[Tuple[str, Callable]] = [
     ("combo box", _combo()),
     ("combo editable", _combo(editable=True)),
     ("spin box", _spin()),
+    ("slider", _slider()),
+    ("slider ticks", _slider(ticks=True)),
+    ("progress", _progress()),
+    ("progress busy", _progress(busy=True)),
     ("check box", _primitive(PE.PE_IndicatorCheckBox, QStyleOptionButton)),
     ("partial check", _primitive(PE.PE_IndicatorCheckBox, QStyleOptionButton,
                                  extra=lambda o: setattr(o, "state", o.state | S.State_NoChange))),
