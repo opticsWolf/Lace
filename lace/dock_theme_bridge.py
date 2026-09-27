@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional, Union
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QEvent, QObject, QTimer
 from PySide6.QtWidgets import QApplication, QToolTip, QWidget, QStyleFactory
 
 from lace.dock_style_manager import get_dock_style_manager
@@ -82,6 +82,8 @@ class DockThemeBridge(QObject):
 
         # Initial palette push.
         self.refresh_dock_palette()
+        if isinstance(self._target, QWidget):
+            self._target.installEventFilter(self)
 
     # ──────────────────────────────────────────────────────────────────────
     # Base style
@@ -116,12 +118,29 @@ class DockThemeBridge(QObject):
         logger.debug("Applied '%s' style to %s.", style_name or "LaceStyle",
                       type(self._target).__name__)
 
+    def _lace_style(self) -> Optional[LaceStyle]:
+        """The LaceStyle painting the target: the one this bridge installed,
+        or one the app set itself (``app.setStyle(LaceStyle())`` with a
+        DockManager, whose bridges install no style)."""
+        if isinstance(self._style, LaceStyle):
+            return self._style
+        style = self._target.style()
+        return style if isinstance(style, LaceStyle) else None
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        # A LaceStyle set after this bridge was made starts from its defaults;
+        # hand it the theme's knobs as soon as the target switches to it.
+        if obj is self._target and event.type() == QEvent.Type.StyleChange:
+            self._refresh_style_tokens()
+        return False
+
     def _refresh_style_tokens(self) -> None:
         """Push the theme's style knobs into LaceStyle (defaults when unset)."""
-        if not isinstance(self._style, LaceStyle):
+        style = self._lace_style()
+        if style is None:
             return
         sm = get_dock_style_manager()
-        self._style.set_tokens(
+        style.set_tokens(
             control_radius=sm.get(DockStyleCategory.CORE, "control_radius", 4),
             scrollbar=sm.get(DockStyleCategory.CORE, "scrollbar", "thin"),
             contrast=sm.get(DockStyleCategory.CORE, "contrast", "normal"),

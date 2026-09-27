@@ -463,7 +463,11 @@ bars, tabs, headers, menus, item views, tooltips, the tool box and scroll bars.
 `control_radius`. Their viewport is a square child that would paint over the arc. So LaceStyle's
 `polish()` adds a transparent overlay (`lace/style/_frame_cap.py`) that caps the corners with the
 backdrop and then draws the outline, the same way the dock card uses `cap`.
-- A dock widget's own content gets no outline, because the card already frames it.
+- A dock widget's own content gets no outline, because the card already frames it. When the
+  theme's `content_margin` insets it on every side, it is a box of its own and gets rounded
+  corners. When it sits flush, the card's corners round it.
+- `DockThemeBridge` forwards the theme's keywords to whatever LaceStyle paints its target,
+  including one the app set with `app.setStyle(LaceStyle())`, before or after the `DockManager`.
 - Combo box popup lists and areas holding a native child window are left square.
 
 ```python

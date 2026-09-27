@@ -293,3 +293,70 @@ def test_nested_scroll_area_gets_rounded_corners(lace_app):
     edit.setStyle(fusion)
     assert _frame_cap.cap_of(edit) is None
     host.close()
+
+
+@pytest.mark.parametrize("order", ["style_first", "manager_first"])
+def test_theme_tokens_reach_an_app_set_lace_style(qapp, order):
+    """The demo setup: the app sets LaceStyle itself and a DockManager's
+    bridges install none. The theme's knobs still reach the style, whether it
+    is set before or after the manager is made."""
+    from lace import DockManager
+
+    previous, palette = qapp.style().name(), QPalette(qapp.palette())
+    spec = replace(spec_for("violet_haze"), control_radius=9, scrollbar="expanding",
+                   focus_width=1.0)
+    win = QMainWindow()
+    style = LaceStyle()
+    if order == "style_first":
+        qapp.setStyle(style)
+    DockManager(win)
+    get_dock_style_manager().apply_theme_dict(build_theme(spec))
+    QApplication.processEvents()
+    if order == "manager_first":
+        qapp.setStyle(style)
+        QApplication.processEvents()
+    try:
+        assert (style.control_radius, style.scrollbar, style.focus_width) == (9, "expanding", 1.0)
+    finally:
+        win.close()
+        get_dock_style_manager().apply_theme_dict(build_theme(spec_for("dark")))
+        qapp.setStyle(previous)
+        qapp.setPalette(palette)
+        QApplication.processEvents()
+
+
+@pytest.mark.parametrize("theme, rounded", [("cyberpunk_neon", True), ("dark", False)])
+def test_dock_content_is_rounded_only_when_inset(lace_app, theme, rounded):
+    """A text edit set as a dock's content: inset by the content margin it is
+    a box of its own and its viewport corner shows the backdrop; flush with
+    the card (margin 0) it is left to the card."""
+    from lace import DockManager, DockWidget
+    from lace.dock_chrome import backdrop_color
+    from lace.enums import DockWidgetArea
+    from lace.style import _frame_cap
+
+    win = QMainWindow()
+    win.resize(320, 240)
+    dm = DockManager(win)
+    edit = QTextEdit()
+    dw = DockWidget("Edit", win)
+    dw.set_widget(edit)
+    dm.add_dock_widget(DockWidgetArea.center, dw)
+    get_dock_style_manager().apply_theme_dict(build_theme(spec_for(theme)))
+    win.show()
+    for _ in range(5):
+        QApplication.processEvents()
+    try:
+        assert lace_app.control_radius > 0
+        assert _frame_cap.cap_of(edit)._mode() == ("cap" if rounded else None)
+        img = win.grab().toImage()
+        corner = edit.mapTo(win, edit.contentsRect().topLeft())
+        fill = img.pixelColor(corner.x() + 10, corner.y() + 10)
+        got = img.pixelColor(corner)
+        if rounded:
+            assert got == backdrop_color(edit), (got.name(), fill.name())
+        else:
+            assert got == fill, (got.name(), fill.name())
+    finally:
+        win.close()
+        get_dock_style_manager().apply_theme_dict(build_theme(spec_for("dark")))
