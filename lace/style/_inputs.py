@@ -56,6 +56,10 @@ def _field(style, opt, p, rect, framed=True):
     return r
 
 
+#: Button rects within this many px of the field's edge are drawn up to it.
+EDGE_SNAP = 3.0
+
+
 def _button_tint(style, opt, p, field: QRectF, rect: QRectF, active: bool, pressed: bool):
     """Hover / press tint of a button area, clipped to the rounded field."""
     if not (active and _enabled(opt)):
@@ -65,9 +69,20 @@ def _button_tint(style, opt, p, field: QRectF, rect: QRectF, active: bool, press
     clip = QPainterPath()
     inner = field.adjusted(0.5, 0.5, -0.5, -0.5)
     clip.addRoundedRect(inner, max(0.0, style.control_radius - 0.5), max(0.0, style.control_radius - 0.5))
+    # Fusion insets button rects by the frame width: edges near the field's
+    # edge snap onto it, so the tint meets the outline.
+    r = QRectF(rect)
+    if r.left() - field.left() <= EDGE_SNAP:
+        r.setLeft(field.left())
+    if field.right() - r.right() <= EDGE_SNAP:
+        r.setRight(field.right())
+    if r.top() - field.top() <= EDGE_SNAP:
+        r.setTop(field.top())
+    if field.bottom() - r.bottom() <= EDGE_SNAP:
+        r.setBottom(field.bottom())
     p.save()
     p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
-    P.rounded(p, rect, 0, fill=tint)
+    P.rounded(p, r, 0, fill=tint)
     p.restore()
 
 
