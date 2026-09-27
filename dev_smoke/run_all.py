@@ -61,6 +61,7 @@ CHECKS = [
     "smoke_maximize.py",    # maximize/restore: siblings, splitter sizes, floating delegation
     "smoke_tab_icons.py",   # DockFlags.custom_tab_icons resolution through the provider
     "smoke_insertion_order.py",  # InsertionOrder placement of newly added widgets
+    "smoke_lace_style.py",  # LaceStyle: demo + showcase per theme, live tokens, no Qt warnings
 ]
 
 # Checks that cannot run headless, with the reason. Everything else in this

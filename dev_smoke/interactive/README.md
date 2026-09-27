@@ -26,6 +26,8 @@ Follow the steps outlined in the corresponding checklist:
 - `S2_drop_checklist.md` — Phase C (DropController extraction)
 - `S3_menus_checklist.md` — Phase D (Menu decoupling)
 - `S4_sidebar_checklist.md` — Phase E (SidebarManager controllers)
+- `S5_style_checklist.md` — 0.8 Phase 4 (LaceStyle); no trace log, run
+  against `style_showcase.py` and signed off in the checklist itself
 
 ### 3. Verify Diff
 After applying the refactor phase, re-run the exact same sequence to produce `after_S1.trace`:

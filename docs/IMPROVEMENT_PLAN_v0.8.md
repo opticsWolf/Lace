@@ -655,7 +655,8 @@ a perfectly sharp diagonal read 3 px. Edges are now measured as the 10–90 % ri
 | slider handle (Fusion vector, already sharp) | 1.57 / 1.28 | unchanged |
 | combo / spin arrows (4b-2) | 4.6–5.3 | unchanged, still xfail |
 
-Still to do for 4a exit: the Weave zoom check by hand. `smoke_lace_style.py` lands with 4b.
+Still to do for 4a exit: the Weave zoom check by hand (S5 section 8). `smoke_lace_style.py`
+landed with 4b.
 
 **Limit raised to 2.5 (4b-2).** Under the 10–90 % measure a perfectly sharp edge reads 1 on the
 pixel grid and 2 off it, so vector glyphs with diagonals average 1.8–2.2 and sat right on the old
@@ -683,8 +684,18 @@ two. With 4b-2 the combo and spin arrows read 1.8–2.2 (Fusion: 4.6–5.8) and 
   routes them through `PE_IndicatorCheckBox` / `PE_IndicatorRadioButton`.
   Menu bar items draw their own label, since Fusion's fill would cover the
   selection. Item views: flat Highlight, faint hover wash, square rows so
-  columns join. Tooltips: flat ToolTipBase with a line. Tool box tabs: rounded
-  Button faces.
+  columns join. Tooltips: flat ToolTipBase with a line, rounded by
+  `scaled_radius` (shared with check boxes) on one line's height; the tip
+  window is masked to the shape from the paint call, because PySide can't
+  fill `SH_ToolTip_Mask`'s return data. Tool box tabs: rounded Button faces.
+- **Smoke and S5** — `dev_smoke/smoke_lace_style.py` (in `run_all.py`) builds
+  the demo and `dev_smoke/interactive/style_showcase.py` (every family on live
+  widgets, plus a `--zoom` QGraphicsView), grabs a frame per theme of the
+  stage, switches the tokens live, opens a menu, a tooltip (checks its mask),
+  the busy progress and keyboard focus, and fails on any Qt warning. Offscreen
+  platform messages are listed with their reasons; native runs are clean.
+  `S5_style_checklist.md` covers the rest by hand — to be signed off, along
+  with the Weave zoom check.
 
 ## Exit criteria
 - 4a: zoom metrics pass, no reflow, scrollbar modes verified, Weave zoom checked by hand
