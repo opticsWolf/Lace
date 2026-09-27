@@ -115,3 +115,27 @@ def test_malformed_json_raises_json_decode_error(tmp_path):
 def test_missing_file_raises_file_not_found(tmp_path):
     with pytest.raises(FileNotFoundError):
         ThemeJson.load(tmp_path / "nope.json")
+
+
+# --- Schema coverage ---------------------------------------------------------
+
+def test_every_themespec_field_exists_in_the_json_schema():
+    """ThemeJson ignores unknown keys, so a ThemeSpec field it lacks is not an
+    error but a silent drop. title_border_focus_color was lost that way."""
+    from dataclasses import fields
+    from lace.dock_theme import ThemeSpec
+
+    missing = {f.name for f in fields(ThemeSpec)} - set(ThemeJson.model_fields)
+    assert not missing, f"ThemeSpec fields missing from ThemeJson: {sorted(missing)}"
+
+
+def test_fractional_title_margin_and_focus_rule_load(tmp_path):
+    """The stock presets use title_margin=0.5, which an int field rejected."""
+    theme = dict(VALID_THEME, title_margin=0.5, title_border_bottom=1.5,
+                 title_border_focus_color="#325ac6")
+    path = tmp_path / "t.json"
+    path.write_text(json.dumps(theme), encoding="utf-8")
+    built = deep_to_serializable(load_theme_json(path))
+    title = built[DockStyleCategory.TITLE_BAR]
+    assert title["margin"] == 0.5
+    assert title["focus_border_color"][:3] == [0x32, 0x5A, 0xC6]

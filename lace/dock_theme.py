@@ -401,7 +401,7 @@ class ThemeSpec:
     title_padding_left: Optional[int] = None
     title_padding_right: Optional[int] = None
     title_button_spacing: Optional[int] = None
-    title_margin: Optional[int] = None
+    title_margin: Optional[float] = None
     title_border_width: Optional[float] = None
     title_border_bottom: Optional[float] = None
     title_border_color: Optional[Union[QColor, List[int]]] = None
@@ -573,7 +573,7 @@ def _build_theme(
     title_padding_left: Optional[int] = None,
     title_padding_right: Optional[int] = None,
     title_button_spacing: Optional[int] = None,
-    title_margin: Optional[int] = None,
+    title_margin: Optional[float] = None,
     title_bg: Optional[list] = None,
     title_border_width: Optional[float] = None,
     title_border_bottom: Optional[float] = None,

@@ -127,12 +127,15 @@ class ThemeJson(BaseModel):
     title_padding_left: Optional[int] = None
     title_padding_right: Optional[int] = None
     title_button_spacing: Optional[int] = None
-    # int, not float — ThemeSpec.title_margin is int. Kept aligned so the JSON
-    # schema and the dataclass cannot drift apart.
-    title_margin: Optional[int] = None
+    # float: the stock presets (dark, light, neutral) set 0.5, which an int
+    # field rejected, so those themes could not be written out as JSON.
+    title_margin: Optional[float] = None
     title_border_width: Optional[float] = None
     title_border_bottom: Optional[float] = None
     title_border_color: Optional[Color] = None
+    # Was missing: extra="ignore" dropped it without a word, so a JSON theme
+    # lost its focused title-bar rule colour.
+    title_border_focus_color: Optional[Color] = None
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
     # Limit the area outline to left/right/bottom, ending at the title bar.
@@ -218,6 +221,9 @@ class ThemeJson(BaseModel):
             title_border_bottom=self.title_border_bottom,
             title_border_color=rgba(self.title_border_color)
             if self.title_border_color is not None
+            else None,
+            title_border_focus_color=rgba(self.title_border_focus_color)
+            if self.title_border_focus_color is not None
             else None,
             tab_radius=self.tab_radius,
             tab_margin=self.tab_margin,
