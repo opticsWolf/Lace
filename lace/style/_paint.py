@@ -42,6 +42,8 @@ PRESS_STEP = 0.08
 GLYPH_PEN = 1.5
 #: Width of the keyboard focus ring.
 FOCUS_WIDTH = 2.0
+#: Contrast floor of a disabled control's outline: muted, but its shape shows.
+DISABLED_RATIO = 1.5
 
 _ACCENT = getattr(Role, "Accent", None)
 
@@ -102,10 +104,11 @@ def legible(opt: QStyleOption, c: QColor, ratio: float, surface=None) -> QColor:
     """``c`` lifted to ``ratio`` against ``surface`` (default ``Window``).
 
     For the non-text UI a user has to find: indicator outlines, the focus ring,
-    the scrollbar handle. Disabled controls are exempt, as in WCAG.
+    the scrollbar handle. Disabled controls are exempt from the target, as in
+    WCAG, but keep ``DISABLED_RATIO`` so their shape stays visible.
     """
     if not opt.state & State.State_Enabled:
-        return c
+        ratio = min(ratio, DISABLED_RATIO)
     bg = surface if surface is not None else color(opt, Role.Window)
     return _qcolor(cs.ensure_contrast(_rgba(c), _rgba(bg), ratio))
 

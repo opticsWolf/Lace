@@ -270,6 +270,18 @@ def test_indicator_outline_meets_ui_target(qapp, theme_key, contrast, hover):
     assert _ratio(line, window) >= min(style.ui_ratio, best) - 0.01
 
 
+def test_disabled_indicator_outline_stays_visible(qapp, theme_key):
+    """Disabled indicators drop to the muted floor, not below it."""
+    from lace.style import _paint, _primitives
+    get_dock_style_manager().apply_theme_dict(load(theme_key))
+    palette = build_dock_palette(is_panel=False, colors=resolve_dock_colors())
+    opt = _option(palette, S.State_Off)
+    opt.state &= ~S.State_Enabled
+    base = _paint.color(opt, QPalette.ColorRole.Base)
+    line = _primitives._outline(LaceStyle(), opt, base)
+    assert _ratio(line, _paint.color(opt, QPalette.ColorRole.Window)) >= _paint.DISABLED_RATIO - 0.01
+
+
 def test_focus_ring_only_on_keyboard_focus(qapp, themed):
     style = LaceStyle()
 
