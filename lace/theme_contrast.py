@@ -308,7 +308,7 @@ def enforce(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
                  for r, tk, sf in CONTRAST_PAIRS
                  if _get(theme, tk) is fg and _get(theme, sf) is not None]
 
-        def failing(c):
+        def unreadable_on(c):
             return sum(cs.contrast_ratio(c, q) < t for t, q in rules)
 
         # A hair past each floor, so the audit's rounding can't read it short.
@@ -322,10 +322,10 @@ def enforce(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
         cands = [c for w in wants for c in options(fg, w, a)]
         # Among the allowed moves, the one closest to the target that passes
         # everywhere, else the one that fails fewest and gets furthest here.
-        best = min(cands, key=lambda c: (failing(c), cs.contrast_ratio(c, bg) < target,
-                                         cs.delta_e(c, fg) if failing(c) == 0
+        best = min(cands, key=lambda c: (unreadable_on(c), cs.contrast_ratio(c, bg) < target,
+                                         cs.delta_e(c, fg) if unreadable_on(c) == 0
                                          else -cs.contrast_ratio(c, bg)))
-        if (cs.contrast_ratio(best, bg) > now and failing(best) <= failing(fg)
+        if (cs.contrast_ratio(best, bg) > now and unreadable_on(best) <= unreadable_on(fg)
                 and _move(fg, best, fg_followers)):
             moved.append(".".join(token))
     return moved
