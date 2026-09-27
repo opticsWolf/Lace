@@ -1,6 +1,6 @@
 """Screenshots of the frameless demo across themes and UI states.
 
-Standard set (all 14 themes): for each theme a FRESH main window is built
+Standard set (--themes stage, default full; see tests/theme_sets.py): for each theme a FRESH main window is built
 and a RANDOMLY SELECTED dock widget is floated:
   main_<theme>.png   - main window (custom title bar, menu bar, splitters)
                        with a random widget floated out
@@ -11,30 +11,40 @@ Special states (screen grabs show real desktop layering/shadows):
   sidebar_<theme>.png   - right sidebar expanded (a widget pinned to it)
   hover_<theme>.png     - a dock area actively hovered (drop overlay + preview)
 """
-import sys, os, time, random, logging
+import sys, os, time, random, logging, argparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--themes", default="full",
+                    choices=("quick", "regular", "full", "all", "auto"))
+parser.add_argument("--out", default=None,
+                    help="output directory (default: screenshots/)")
+parser.add_argument("--standard-only", action="store_true",
+                    help="skip the screen-grab special states")
+args, qt_args = parser.parse_known_args()
+# Same widget floated on every run, so before/after sets compare like for like.
+random.seed(0)
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer, QPoint, Qt
 from PySide6.QtGui import QCursor
-app = QApplication(sys.argv)
+app = QApplication(sys.argv[:1] + qt_args)
 
 from demos.demo_app_custom_titlebar import DemoMainWindow
 from lace.floating_dock_container_frameless import (
     FramelessFloatingDockContainer)
-from lace.dock_style_manager import apply_dock_theme
+from lace.dock_style_manager import get_dock_style_manager
+from tests import theme_sets
 from lace.enums import DockWidgetArea, DockWidgetFeature
 
-THEMES = ["dark", "light", "midnight", "warm", "nordic", "monokai",
-          "neutral", "tokyo_night", "catppuccin", "dracula",
-          "solarized_dark", "solarized_light", "cyberpunk_neon", "default"]
-COMPOSITE_THEMES = ["cyberpunk_neon", "light"]
-SIDEBAR_THEMES = ["dark", "monokai"]
-HOVER_THEMES = ["cyberpunk_neon", "midnight"]
+THEMES = theme_sets.resolve(args.themes)
+COMPOSITE_THEMES = ["cyberpunk_neon", "kilim_light_neo"]
+SIDEBAR_THEMES = ["kilim_dark", "slate_amber"]
+HOVER_THEMES = ["cyberpunk_neon", "kilim_midnight"]
 
-OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                   "screenshots")
+OUT = args.out or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "screenshots")
 os.makedirs(OUT, exist_ok=True)
 
 def settle(ms=450):
@@ -43,7 +53,7 @@ def settle(ms=450):
         time.sleep(0.03)
 
 def set_theme(name):
-    apply_dock_theme(name)
+    get_dock_style_manager().apply_theme_dict(theme_sets.load(name))
     app.processEvents()
     settle(450)
 
@@ -97,6 +107,10 @@ for theme in THEMES:
     w.close()
     app.processEvents()
     settle(150)
+
+if args.standard_only:
+    print("DONE ->", OUT, flush=True)
+    sys.exit(0)
 
 # ═══ special states: one dedicated window ═════════════════════════════
 win = DemoMainWindow()

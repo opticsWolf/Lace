@@ -105,6 +105,9 @@ def run(name):
                           encoding="utf-8", errors="replace")
 
 
+# Child output is decoded as UTF-8; a cp1252 console cannot print all of it.
+sys.stdout.reconfigure(errors="replace")
+
 failed = []
 with ThreadPoolExecutor(max_workers=jobs) as pool:
     for name, result in zip(CHECKS, pool.map(run, CHECKS)):
