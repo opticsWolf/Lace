@@ -672,7 +672,19 @@ two. With 4b-2 the combo and spin arrows read 1.8–2.2 (Fusion: 4.6–5.8) and 
   and round handle; tick marks drawn flat. Progress track and fill rounded;
   the busy segment animates only on a visible widget and rests mid-track
   otherwise, so renders are deterministic. `CE_ProgressBarLabel` stays Fusion's.
-- **4b-4 Containers** — to do.
+- **4b-4 Containers** — done (`lace/style/_containers.py`). Tabs: bare at
+  rest, a hover wash, the selected tab filled with an accent underline on the
+  pane edge (all four shapes). Tab-widget and group-box frames reuse the
+  rounded `frame`; the tab-bar base is a 1 px line. Header sections are flat
+  Button fills with a separator and a vector sort chevron. Menus: a square
+  popup with a 1 px line, rounded Highlight on the selected item (Fusion's own
+  fill is suppressed by a transparent Highlight), flat separators; checks in
+  menus are bare ticks / dots, detected by the `QMenu` widget because Fusion
+  routes them through `PE_IndicatorCheckBox` / `PE_IndicatorRadioButton`.
+  Menu bar items draw their own label, since Fusion's fill would cover the
+  selection. Item views: flat Highlight, faint hover wash, square rows so
+  columns join. Tooltips: flat ToolTipBase with a line. Tool box tabs: rounded
+  Button faces.
 
 ## Exit criteria
 - 4a: zoom metrics pass, no reflow, scrollbar modes verified, Weave zoom checked by hand

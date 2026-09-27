@@ -224,6 +224,83 @@ def _progress(busy=False):
     return draw
 
 
+def _selected_on_hover(flags):
+    """Menus and item views select on hover: the hover and pressed columns show it."""
+    return flags | S.State_Selected if flags & S.State_MouseOver else flags
+
+
+def _tab(style, p, cell, pal, flags, disabled):
+    from PySide6.QtWidgets import QStyleOptionTab, QTabBar
+    at = _centred(cell, cell.width() - 10, 26)
+    # The "checked" column shows the selected tab.
+    if flags & S.State_On:
+        flags = (flags & ~S.State_On) | S.State_Selected
+    opt = _base(QStyleOptionTab(), at, pal, flags, disabled)
+    opt.shape, opt.text = QTabBar.Shape.RoundedNorth, "Tab"
+    base = QStyleOptionTab(opt)
+    style.drawPrimitive(PE.PE_FrameTabBarBase, base, p, None)
+    style.drawControl(QStyle.ControlElement.CE_TabBarTab, opt, p, None)
+
+
+def _header(style, p, cell, pal, flags, disabled):
+    from PySide6.QtWidgets import QStyleOptionHeader
+    opt = _base(QStyleOptionHeader(), _centred(cell, cell.width() - 10, 24), pal, flags, disabled)
+    opt.text, opt.orientation = "Name", Qt.Orientation.Horizontal
+    opt.sortIndicator = QStyleOptionHeader.SortIndicator.SortDown
+    style.drawControl(QStyle.ControlElement.CE_Header, opt, p, None)
+
+
+def _menu_item(style, p, cell, pal, flags, disabled):
+    opt = _base(QStyleOptionMenuItem(), _centred(cell, cell.width() - 4, 24), pal,
+                _selected_on_hover(flags), disabled)
+    style.drawPrimitive(PE.PE_PanelMenu, QStyleOptionMenuItem(opt), p, None)
+    opt.menuItemType = QStyleOptionMenuItem.MenuItemType.Normal
+    opt.text, opt.maxIconWidth, opt.font = "Open", 0, p.font()
+    if flags & S.State_On:
+        opt.checkType, opt.checked = QStyleOptionMenuItem.CheckType.NonExclusive, True
+    from PySide6.QtWidgets import QMenu
+    style.drawControl(QStyle.ControlElement.CE_MenuItem, opt, p, _widget(QMenu))
+
+
+def _menu_bar_item(style, p, cell, pal, flags, disabled):
+    opt = _base(QStyleOptionMenuItem(), _centred(cell, 44, 24), pal, _selected_on_hover(flags), disabled)
+    opt.menuItemType, opt.text = QStyleOptionMenuItem.MenuItemType.Normal, "File"
+    style.drawControl(QStyle.ControlElement.CE_MenuBarItem, opt, p, None)
+
+
+def _item_view(style, p, cell, pal, flags, disabled):
+    from PySide6.QtWidgets import QStyleOptionViewItem
+    opt = _base(QStyleOptionViewItem(), _centred(cell, cell.width() - 10, 22), pal, flags, disabled)
+    if flags & S.State_On:
+        opt.state |= S.State_Selected
+    opt.text = "Row"
+    opt.features = QStyleOptionViewItem.ViewItemFeature.HasDisplay
+    opt.displayAlignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+    style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, p, None)
+
+
+def _tooltip(style, p, cell, pal, flags, disabled):
+    opt = _base(QStyleOption(), _centred(cell, cell.width() - 16, 22), pal, flags, disabled)
+    style.drawPrimitive(PE.PE_PanelTipLabel, opt, p, None)
+    p.setPen(pal.color(QPalette.ColorGroup.Active, QPalette.ColorRole.ToolTipText))
+    p.drawText(opt.rect, Qt.AlignmentFlag.AlignCenter, "Tip")
+
+
+def _tool_box(style, p, cell, pal, flags, disabled):
+    from PySide6.QtWidgets import QStyleOptionToolBox
+    opt = _base(QStyleOptionToolBox(), _centred(cell, cell.width() - 10, 24), pal, flags, disabled)
+    opt.text = "Page"
+    style.drawControl(QStyle.ControlElement.CE_ToolBoxTab, opt, p, None)
+
+
+def _group_box(style, p, cell, pal, flags, disabled):
+    from PySide6.QtWidgets import QStyleOptionGroupBox
+    opt = _base(QStyleOptionGroupBox(), _centred(cell, cell.width() - 10, 34), pal, flags, disabled)
+    opt.text, opt.subControls = "Group", QStyle.SubControl.SC_GroupBoxFrame | QStyle.SubControl.SC_GroupBoxLabel
+    opt.textAlignment = Qt.AlignmentFlag.AlignLeft
+    style.drawComplexControl(QStyle.ComplexControl.CC_GroupBox, opt, p, None)
+
+
 def _menu_check(opt):
     opt.checkType = QStyleOptionMenuItem.CheckType.NonExclusive
     opt.checked = bool(opt.state & S.State_On)
@@ -245,6 +322,14 @@ ROWS: List[Tuple[str, Callable]] = [
     ("slider ticks", _slider(ticks=True)),
     ("progress", _progress()),
     ("progress busy", _progress(busy=True)),
+    ("tab", _tab),
+    ("group box", _group_box),
+    ("header", _header),
+    ("menu item", _menu_item),
+    ("menu bar item", _menu_bar_item),
+    ("item view", _item_view),
+    ("tooltip", _tooltip),
+    ("tool box", _tool_box),
     ("check box", _primitive(PE.PE_IndicatorCheckBox, QStyleOptionButton)),
     ("partial check", _primitive(PE.PE_IndicatorCheckBox, QStyleOptionButton,
                                  extra=lambda o: setattr(o, "state", o.state | S.State_NoChange))),

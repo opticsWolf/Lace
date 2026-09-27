@@ -17,7 +17,9 @@ the bottom are what :class:`lace.lace_style.LaceStyle` dispatches on.
 
 from PySide6.QtCore import QRect, QRectF, Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QPushButton, QStyle, QToolButton
+from PySide6.QtWidgets import (
+    QAbstractItemView, QComboBox, QPushButton, QMenu, QStyle, QToolButton,
+)
 
 from lace.style import _paint as P
 
@@ -88,6 +90,9 @@ PARTIAL_WASH = 0.28
 
 
 def check_box(style, opt, p, w):
+    if isinstance(w, QMenu):
+        # Fusion draws a menu item's check through here: menus get the bare tick.
+        return menu_check(style, opt, p, w) if opt.state & State.State_On else True
     r = _indicator_rect(opt)
     on = bool(opt.state & State.State_On)
     partial = bool(opt.state & State.State_NoChange)
@@ -110,6 +115,8 @@ def check_box(style, opt, p, w):
 
 
 def radio_button(style, opt, p, w):
+    if isinstance(w, QMenu):
+        return _menu_dot(opt, p) if opt.state & State.State_On else True
     r = _indicator_rect(opt)
     on = bool(opt.state & State.State_On)
     with P.Painting(p):
@@ -131,18 +138,26 @@ def menu_check(style, opt, p, w):
 
     Menus only ask for it on checked items, so like Fusion it ignores State_On.
     """
-    r = _indicator_rect(opt)
-    c = P.color(opt, Role.HighlightedText if opt.state & State.State_Selected else Role.Text)
+    exclusive = getattr(opt, "checkType", None) is not None and \
+        opt.checkType == opt.checkType.Exclusive
+    if exclusive:
+        return _menu_dot(opt, p)
     with P.Painting(p):
-        exclusive = getattr(opt, "checkType", None) is not None and \
-            opt.checkType == opt.checkType.Exclusive
-        if exclusive:
-            dot = QRectF(r)
-            inset = r.width() * 0.32
-            dot.adjust(inset, inset, -inset, -inset)
-            P.rounded(p, dot, dot.width() / 2, fill=c)
-        else:
-            P.check_mark(p, r, c)
+        P.check_mark(p, _indicator_rect(opt), _menu_ink(opt))
+    return True
+
+
+def _menu_ink(opt):
+    return P.color(opt, Role.HighlightedText if opt.state & State.State_Selected else Role.Text)
+
+
+def _menu_dot(opt, p):
+    r = _indicator_rect(opt)
+    dot = QRectF(r)
+    inset = r.width() * 0.32
+    dot.adjust(inset, inset, -inset, -inset)
+    with P.Painting(p):
+        P.rounded(p, dot, dot.width() / 2, fill=_menu_ink(opt))
     return True
 
 
