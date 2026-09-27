@@ -23,6 +23,7 @@ from PySide6.QtGui import QColor
 
 from lace.dock_custom_theme import THEME_SPECS
 from lace.dock_theme import DockStyleCategory, build_theme
+from lace.theme_contrast import separation
 
 
 #: parent -> its counterparts.
@@ -312,6 +313,9 @@ def test_slate_amber_light_keeps_the_parents_hover_direction():
     """
     assert THEME_SPECS["slate_amber_light"].hover_mode ==            THEME_SPECS["slate_amber"].hover_mode == "lighter"
 
+    # The strip itself moves darker (it sat at 1.02:1 on its canvas), which
+    # narrows the gap to the hover; the hover separation floor still holds.
     tab = build_theme(THEME_SPECS["slate_amber_light"])[DockStyleCategory.TAB]
-    strip, hover = list(tab["bg_normal"])[:3], list(tab["bg_hover"])[:3]
-    assert abs(sum(strip) - sum(hover)) / 3 > 25,         f"the hover barely separates from the strip: {strip} vs {hover}"
+    strip, hover = list(tab["bg_normal"]), list(tab["bg_hover"])
+    assert separation(hover, strip, "hover", "subtle") >= 1, \
+        f"the hover barely separates from the strip: {strip} vs {hover}"

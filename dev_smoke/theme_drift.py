@@ -28,12 +28,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication
 
 from lace import color_science as cs
-from lace.theme_contrast import CONTRAST_PAIRS, EXPLICIT_MAX_DE, audit
+from lace.theme_contrast import BORDER_MAX_DE, CONTRAST_PAIRS, EXPLICIT_MAX_DE, audit
 from tests.baselines.theme_tokens import SNAPSHOT, tokens
 from lace.dock_theme import explicit_tokens
 from tests.theme_sets import FIXTURES, load, resolve
 
-DERIVED_MAX_DE = 0.15
+DERIVED_MAX_DE = 0.16  # midnight's title bar must cross the panel: nothing darker than its canvas is visible
 TEXT_TOKENS = {".".join(p.token) for p in CONTRAST_PAIRS}
 
 
@@ -73,9 +73,10 @@ def drift(key, base, explicit):
     return rows
 
 
-def over_budget(kind, de):
+def over_budget(name, kind, de):
     if kind == "explicit":
-        return de > EXPLICIT_MAX_DE + 0.005
+        cap = BORDER_MAX_DE if "border" in name else EXPLICIT_MAX_DE
+        return de > cap + 0.005
     if kind == "derived":
         return de > DERIVED_MAX_DE
     return False
@@ -99,9 +100,12 @@ def main():
         found = audit(load(key))
         # An explicit colour stops at its cap even if that is short of the
         # floor: the author's choice wins over the rule. Reported, not failed.
-        capped = [m for m in found if m.token in explicit or m.unreachable]
-        misses = [m for m in found if not (m.token in explicit or m.unreachable)]
-        over = [r for r in rows if over_budget(r[1], r[2])]
+        # Borders are the exception: they exist only to separate, get the
+        # larger BORDER_MAX_DE, and one still short of its floor fails.
+        excused = lambda m: m.unreachable or (m.token in explicit and m.role != "border")
+        capped = [m for m in found if excused(m)]
+        misses = [m for m in found if not excused(m)]
+        over = [r for r in rows if over_budget(r[0], r[1], r[2])]
         bad += len(over) + len(misses)
         warned += len(capped)
         flag = "" if not (over or misses) else "  <-- " + ", ".join(

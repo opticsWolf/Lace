@@ -12,7 +12,9 @@ import pytest
 
 from lace import ThemeJson, load_theme_json
 from lace.dock_style_manager import get_dock_style_manager
+from lace.color_science import delta_e
 from lace.dock_theme import DockStyleCategory, deep_to_serializable
+from lace.theme_contrast import EXPLICIT_MAX_DE
 
 VALID_THEME = {
     "name": "PytestTheme",
@@ -67,7 +69,9 @@ def test_hex_colors_resolve_to_rgba(theme_file):
     core = theme_dict[DockStyleCategory.CORE]
     assert deep_to_serializable(core["accent_color"]) == [255, 0, 127, 255]
     assert deep_to_serializable(core["focus_border_color"]) == [0, 240, 255, 255]
-    assert deep_to_serializable(core["tooltip_bg"]) == [27, 36, 48, 255]
+    # Explicit, but too close to the panel: may drift within the cap.
+    assert delta_e(deep_to_serializable(core["tooltip_bg"]), [27, 36, 48, 255]) \
+        <= EXPLICIT_MAX_DE + 0.005
     assert deep_to_serializable(core["tooltip_text"]) == [225, 230, 240, 255]
 
 
@@ -82,7 +86,8 @@ def test_applying_json_theme_dict(qapp, theme_file):
     assert sm.get(DockStyleCategory.CORE, "accent_color").getRgb()[:3] == (255, 0, 127)
     assert sm.get(DockStyleCategory.TAB, "corner_radius") == 8
     assert sm.get(DockStyleCategory.PANEL, "content_margin") == [8.0, 2.0]
-    assert sm.get(DockStyleCategory.CORE, "tooltip_bg").getRgb()[:3] == (27, 36, 48)
+    assert delta_e(list(sm.get(DockStyleCategory.CORE, "tooltip_bg").getRgb()),
+                   [27, 36, 48, 255]) <= EXPLICIT_MAX_DE + 0.005
     assert sm.get(DockStyleCategory.CORE, "tooltip_text").getRgb()[:3] == (225, 230, 240)
 
 

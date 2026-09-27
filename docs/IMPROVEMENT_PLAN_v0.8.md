@@ -442,9 +442,15 @@ Module is at 100 % line coverage; nothing outside tests imports it yet.
    | bevel light / mid / dark | .09/.03/.08 | .13/.045/.11 | .17/.06/.14 |
 
    *As built:* calibrated against the Phase 0 snapshot so `subtle` matches the median 0.7.6
-   steps (`_DEPTH` in `dock_theme.py`). Derived surfaces then have to clear a lightness
-   separation floor from their parent (`SEPARATION_TARGETS`: surface .012 / .02 / .035, hover
-   .03 / .04 / .06), which is what lifts the crushed title bars on the darkest themes.
+   steps (`_DEPTH` in `dock_theme.py`). Every pair of surfaces that touch (panel/canvas,
+   title bar/panel, title bar/canvas, input/panel, input/canvas, button, tooltip, hovers) then
+   has to clear two floors: an OKLCH lightness gap (`SEPARATION_TARGETS`: surface .012 / .02 /
+   .035, hover .03 / .04 / .06) *and* a WCAG ratio (`SEPARATION_RATIOS`: surface 1.06 / 1.10 /
+   1.15, hover 1.08 / 1.12 / 1.18). The ratio is what matters near black: a fixed ΔL of 0.02
+   at L 0.15 is ~1.02:1 and invisible on a real screen (midnight's title bar and inputs sat at
+   1.001–1.012:1 on the canvas). When a surface sits between two others and the gap is too
+   narrow, it moves past the far one, so on the darkest presets the title bar and inputs end up
+   lighter than the panel.
 4. **`contrast` keyword.** After derivation, text tokens pass through
    `ensure_contrast(token, surface, target)` against the surface they are drawn on (tab text
    against tab bg, title text against title bg, etc.), using the targets table above.
@@ -465,8 +471,13 @@ unreadable as authored, e.g. `kilim_midnight_neo`):
   only when the move improves the contrast or separation rule the colour fails. A colour that
   already passes is untouched. One that stops at the cap short of its floor is reported as
   *capped*, not failed: the author's choice wins over the rule
-- **derived colours:** ΔE ≤ 0.15 (`DERIVED_MAX_DE`); the OKLCH steps replace HLS ones, so these
-  move more than the original 0.02 estimate
+- **explicit borders:** ΔE ≤ 0.12 (`BORDER_MAX_DE`); a border exists only to separate, and one
+  still short of its floor is a failure, not a warning. The card border is measured against
+  whichever of panel and canvas it contrasts with more (`EITHER_SURFACE`): a line on an edge is
+  visible when it stands off one side, and the two sides are kept apart by the separation rules
+- **derived colours:** ΔE ≤ 0.16 (`DERIVED_MAX_DE`); the OKLCH steps replace HLS ones, so these
+  move more than the original 0.02 estimate. 0.16 rather than 0.15 because midnight's title bar
+  has to cross from below its canvas (where nothing is visible) to above the panel
 - **text tokens:** move as far as their contrast floor needs; listed per token by `--detail`
 - a floor no colour reaches on the theme's own surface (a mid-tone title bar, or a shared
   colour drawn on two surfaces that need opposite ends) is flagged *unreachable* and reported
@@ -475,8 +486,8 @@ Enforcement (`lace/theme_contrast.py`, `enforce`) separates surfaces first, then
 foregrounds against the final surfaces. A colour list shared by several tokens is fixed against
 every surface it is drawn on.
 
-*Status at M1:* all 36 themes within budget; 36 capped or unreachable floors reported (mostly
-explicit borders and focus rings, and the Solarized text colours).
+*Status at M1:* all 36 themes within budget and every border and surface pair green; 26 capped
+or unreachable floors reported (explicit focus rings, and the Solarized text colours).
 
 ## Tests
 - **Unit, parallel:** every `REGULAR` theme × every `contrast` level meets every target in the
