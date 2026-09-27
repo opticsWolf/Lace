@@ -411,3 +411,22 @@ def test_paint_derives_colours_once(themed, monkeypatch):
         monkeypatch.setattr(cs, name, lambda *a, _r=real, _n=name, **k: calls.append(_n) or _r(*a, **k))
     render(style, themed)
     assert not calls, sorted(set(calls))
+
+
+@pytest.mark.parametrize("flat", [False, True])
+def test_group_box_frame_honours_flat(qapp, flat):
+    """A group box draws a rounded box; setFlat(True) draws only its top rule."""
+    from PySide6.QtWidgets import QStyleOptionFrame
+    style = LaceStyle()
+    opt = QStyleOptionFrame()
+    opt.rect = QRect(0, 0, 60, 40)
+    opt.palette = QPalette(qapp.palette())
+    if flat:
+        opt.features = QStyleOptionFrame.FrameFeature.Flat
+    img = QImage(60, 40, QImage.Format.Format_ARGB32)
+    img.fill(Qt.GlobalColor.transparent)
+    p = QPainter(img)
+    style.drawPrimitive(QStyle.PrimitiveElement.PE_FrameGroupBox, opt, p, None)
+    p.end()
+    assert img.pixelColor(30, 0).alpha() > 0                    # top edge / rule
+    assert (img.pixelColor(0, 20).alpha() > 0) != flat          # side only when boxed

@@ -20,7 +20,7 @@ so only the flat fill drawn here shows.
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainterPath, QPalette, QPen, QRegion
 from PySide6.QtWidgets import (
-    QStyle, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab, QTabBar,
+    QStyle, QStyleOptionFrame, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab, QTabBar,
 )
 
 from lace.style import _paint as P
@@ -315,10 +315,21 @@ def tool_box_tab(style, opt, p, w):
     return True
 
 
+def group_box_frame(style, opt, p, w):
+    """A group box's rounded frame, or for ``setFlat(True)`` only the rule
+    along its top edge, as Qt intends for a flat group box."""
+    features = getattr(opt, "features", None)
+    if features is None or not features & QStyleOptionFrame.FrameFeature.Flat:
+        return frame(style, opt, p, w)
+    r = opt.rect
+    _hline(p, r.left(), r.right() + 1, r.top(), _line(style, opt, P.color(opt, Role.Window)))
+    return True
+
+
 PRIMITIVES = {
     PE.PE_FrameTabWidget: frame,
     PE.PE_FrameTabBarBase: tab_bar_base,
-    PE.PE_FrameGroupBox: frame,
+    PE.PE_FrameGroupBox: group_box_frame,
     PE.PE_IndicatorHeaderArrow: header_arrow,
     PE.PE_PanelMenu: panel_menu,
     PE.PE_PanelItemViewItem: item_view_item,
