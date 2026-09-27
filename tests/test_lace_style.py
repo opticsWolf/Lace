@@ -285,7 +285,7 @@ def test_disabled_indicator_outline_stays_visible(qapp, theme_key):
 @pytest.mark.parametrize("radius", [0, 4, 20])
 def test_check_box_corners_follow_control_radius_capped(qapp, themed, radius):
     """0 is square, small radii pass through, large ones stop at the cap."""
-    from lace.style import _primitives
+    from lace.style import _paint
     palette = themed
     img = QImage(16, 16, QImage.Format.Format_ARGB32_Premultiplied)
     img.fill(0)
@@ -299,7 +299,7 @@ def test_check_box_corners_follow_control_radius_capped(qapp, themed, radius):
     else:
         assert corner < img.pixelColor(8, 0).alpha()
     # The cap keeps a large radius from turning the box into a circle.
-    assert img.pixelColor(0, 8).alpha() > 0 and _primitives.CHECK_RADIUS_MAX < 0.5
+    assert img.pixelColor(0, 8).alpha() > 0 and _paint.RADIUS_MAX < 0.5
 
 
 def test_focus_ring_only_on_keyboard_focus(qapp, themed):

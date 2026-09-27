@@ -132,6 +132,24 @@ def test_menu_checks_are_bare(qapp, element):
     assert on.pixelColor(1, 8).alpha() == 0 and on.pixelColor(8, 1).alpha() == 0
 
 
+@pytest.mark.parametrize("radius", [0, 4])
+def test_tooltip_window_takes_the_rounded_shape(qapp, radius):
+    """The tip window is masked to its corners; 0 keeps it square."""
+    from PySide6.QtWidgets import QStyleOption, QWidget
+    tip = QWidget(None, Qt.WindowType.ToolTip)
+    tip.resize(W, H)
+    opt = QStyleOption()
+    opt.initFrom(tip)
+    opt.palette = _palette()
+    img = QImage(W, H, QImage.Format.Format_ARGB32_Premultiplied)
+    p = QPainter(img)
+    LaceStyle(control_radius=radius).drawPrimitive(QStyle.PrimitiveElement.PE_PanelTipLabel, opt, p, tip)
+    p.end()
+    mask = tip.mask()
+    assert mask.contains(QRect(W // 2, H // 2, 1, 1).topLeft())
+    assert mask.contains(QRect(0, 0, 1, 1).topLeft()) == (radius == 0)
+
+
 def test_item_view_selection_is_flat_highlight(qapp):
     pal = _palette()
     opt = QStyleOptionViewItem()

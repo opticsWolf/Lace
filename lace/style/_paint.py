@@ -159,6 +159,20 @@ def rounded(painter: QPainter, rect: QRectF, radius: float, fill=None, line=None
     painter.drawRoundedRect(rect, radius, radius)
 
 
+#: ``scaled_radius``: share of the size at the reference ``control_radius``,
+#: in proportion to it otherwise, capped so small shapes never turn round.
+RADIUS_SHARE = 0.22
+RADIUS_REF = 4
+RADIUS_MAX = 0.30
+
+
+def scaled_radius(style, size: float) -> float:
+    """A corner radius that scales with ``size`` and follows ``control_radius``:
+    ``size * min(0.22 * control_radius / 4, 0.30)``; 0 stays square."""
+    share = RADIUS_SHARE * style.control_radius / RADIUS_REF
+    return size * min(share, RADIUS_MAX)
+
+
 def focus_ring(painter: QPainter, rect: QRectF, radius: float, opt: QStyleOption,
                ratio: float = 3.0, width: float = FOCUS_WIDTH) -> None:
     """The accent ring (``width`` px) drawn just outside a control's stroke."""

@@ -18,7 +18,7 @@ so only the flat fill drawn here shows.
 """
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPalette, QPen
+from PySide6.QtGui import QColor, QPainterPath, QPalette, QPen, QRegion
 from PySide6.QtWidgets import (
     QStyle, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab, QTabBar,
 )
@@ -36,6 +36,8 @@ Shape = QTabBar.Shape
 TAB_UNDERLINE = 2.0
 #: Hover wash of item-view rows and unselected tabs: text over the surface.
 HOVER_WASH = 0.06
+#: Tooltip padding above and below one line of text (QTipLabel's margin), px.
+TIP_PAD = 4
 
 
 def _enabled(opt) -> bool:
@@ -271,13 +273,36 @@ def item_view_item(style, opt, p, w):
     return True
 
 
+def tip_radius(style, opt) -> float:
+    """Tooltip corners: ``scaled_radius`` of one line's height, so a
+    multi-line tip keeps the same corners as a one-line one."""
+    line = opt.fontMetrics.height() + 2 * TIP_PAD
+    return P.scaled_radius(style, min(opt.rect.height(), line))
+
+
+def tip_mask(style, opt) -> QRegion:
+    """The tooltip window's shape: a top-level window can't be transparent at
+    its corners, so it is clipped to the rounded rect."""
+    radius = tip_radius(style, opt)
+    if radius < 1:
+        return QRegion(opt.rect)
+    path = QPainterPath()
+    path.addRoundedRect(QRectF(opt.rect), radius, radius)
+    return QRegion(path.toFillPolygon().toPolygon())
+
+
 def tooltip(style, opt, p, w):
+    # The tip window takes the rounded shape; PySide can't fill the
+    # SH_ToolTip_Mask return data, so the mask is set here, only on change.
+    if w is not None and w.isWindow() and opt.rect == w.rect():
+        region = tip_mask(style, opt)
+        if w.mask() != region:
+            w.setMask(region)
     fill = P.color(opt, Role.ToolTipBase)
-    p.save()
-    p.fillRect(opt.rect, fill)
-    p.setPen(QPen(_line(style, opt, fill), 1))
-    p.drawRect(opt.rect.adjusted(0, 0, -1, -1))
-    p.restore()
+    with P.Painting(p):
+        p.fillRect(opt.rect, fill)   # under the mask's stair-steps
+        P.rounded(p, P.half_pixel(opt.rect), tip_radius(style, opt),
+                  fill=fill, line=_line(style, opt, fill))
     return True
 
 
