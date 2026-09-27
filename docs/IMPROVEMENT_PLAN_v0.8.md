@@ -14,6 +14,49 @@ presets and JSON themes load unchanged, anything removed is recorded in the chan
 **Testing rule:** every phase adds at least one test that **fails on `f8f5358` and passes after**,
 plus the smoke and visual gates listed in its section
 
+
+## Phase 0 baseline (recorded 2026-09-27, 0.7.6 code, Python 3.13, PySide6 6.11, Windows 11)
+
+| Measure | Value |
+|---|---|
+| Unit tests | 643 passed, 24 xfailed (the two visual harnesses) |
+| Runtime | 18.6 s serial, 9.6 s with `-n auto`, same count |
+| Smoke checks | all 21 pass; 11.8 s serial, 1.8 s with `--jobs auto` |
+| Token snapshot | `tests/baselines/theme_tokens_0.7.6.json`, 36 themes, deterministic (zero drift on re-dump) |
+| Screenshots | `screenshots/m0_0.7.6/`, main + float for the 20 `FULL` themes |
+
+Zoom harness, mean edge width at 4x in device px (limit 2.0), kilim_dark / kilim_light_neo:
+
+| Glyph | kilim_dark | kilim_light_neo |
+|---|---|---|
+| combo arrow | 5.80 | 6.03 |
+| spin arrows | 6.44 | 5.62 |
+| double-spin arrows | 6.26 | 5.67 |
+| check indicator | 2.58 | 2.66 |
+| radio indicator | 3.76 | 2.80 |
+| scrollbar, horizontal | 5.16 | 4.31 |
+| scrollbar, vertical | 5.15 | 4.39 |
+| slider handle | 2.52 | 2.18 |
+| tree branch, open | 7.74 | 7.81 |
+| tree branch, closed | 7.73 | 7.85 |
+| menu submenu arrow | 7.15 | 4.82 |
+
+Pixmap-painted glyphs grow with the zoom (1.6-2.9 px at 1x); the check indicator and slider
+handle are vectors, but their gradient fills still widen the edges past the limit. All 22 are
+strict xfails.
+
+Corner harness (magenta content, bottom corners):
+
+| Case | Radius (outline / content) | Result |
+|---|---|---|
+| kilim_dark, slate_amber | 4 / 2 | clean |
+| kilim_midnight_neo, kilim_light_neo, cyberpunk_neon | 10 / 0 (content inset past the arc) | clean |
+| solarized_light | 4 / 4, flush | leak 1 px + 5 stair steps per corner, xfail |
+| flush_r10 (kilim_midnight_neo, `content_margin: 0`) | 10 / 8, near-flush | 3 stair steps per corner, xfail |
+
+`flush_r10` is synthetic: no preset combines a large radius with near-zero inset, and it is the
+case Phase 5 must get right. `ALL` is 36, not 37: the empty `default` preset is not counted.
+
 ---
 
 ## Goals
@@ -44,7 +87,7 @@ script, so they can't drift apart. Every tool takes `--themes {quick,regular,ful
 | 1 | `QUICK` | 5 | Local change: one control family, a bug fix, a refactor that doesn't change colours or geometry. Also the inner loop while developing | no — numeric checks only |
 | 2 | `REGULAR` | 11 | Change to anything shared: colour derivation, the palette, corner or dock geometry, the style's shared helpers. Also the gate at the end of every phase | no — numeric checks only |
 | 3 | `FULL` | 20 | Milestones M1–M3 | yes, at milestones only |
-| — | `ALL` | 37 | Token snapshot and drift report (numbers only, cheap) | never |
+| — | `ALL` | 36 | Token snapshot and drift report (numbers only, cheap) | never |
 
 `ALL` = 27 Lace presets + all 10 Kilim keys (5 palettes × classic and neo chassis).
 
@@ -167,7 +210,7 @@ one of them is still caught by the numbers, just not reviewed as a screenshot.
 
 | Milestone | When | Set | What runs |
 |---|---|---|---|
-| M0 | end of Phase 0 | `ALL` (numbers), `FULL` (images) | token snapshot of all 37; 0.7.6 screenshots of the 20 |
+| M0 | end of Phase 0 | `ALL` (numbers), `FULL` (images) | token snapshot of all 36; 0.7.6 screenshots of the 20 |
 | M1 | end of Phase 2 | `ALL` (numbers), `FULL` (images) | drift report and contrast table; screenshots reviewed |
 | M2 | end of Phase 6 (tracks merged) | `FULL` | full gate, screenshots, 0.7.6 vs 0.8 comparison grid |
 | M3 | release candidate | `FULL` | screenshots only, as a final visual pass |
@@ -289,14 +332,14 @@ as artifacts on failure). All four run concurrently; `build` needs all of them.
    `concurrent.futures.ProcessPoolExecutor` or plain `subprocess.Popen` batches. Output is buffered
    per check and printed in `CHECKS` order, so logs stay readable. The unlisted-script guard stays.
 4. **Theme sets.** `tests/theme_sets.py` with `QUICK` (5), `REGULAR` (11), `FULL` (20) and
-   `ALL` (37), plus `tests/select_theme_set.py` for `--themes auto`, plus
+   `ALL` (36), plus `tests/select_theme_set.py` for `--themes auto`, plus
    the ten `tests/fixtures/themes/kilim_*.json` files. Pytest gets a
    `--themes {quick,regular,full,all,auto}` option (default `auto`); `run_all.py` and
    `screenshot_themes.py` accept the same flag.
 5. **Token snapshot (M0).** `tests/baselines/theme_tokens_0.7.6.json`: every derived token of
    `ALL`, dumped via `deep_to_serializable(build_theme(spec))`. Phase 2's drift report measures
    against it. Each run compares the themes of its stage (5 or 11) against it; milestones compare
-   all 37.
+   all 36.
 6. **Screenshot baseline (M0).** `dev_smoke/screenshot_themes.py` reads its list from
    `theme_sets.py` instead of its own hard-coded 14. Save a 0.7.6 set for `FULL` once, as the
    before images for the milestone comparisons.
