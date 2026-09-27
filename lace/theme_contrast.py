@@ -106,6 +106,51 @@ SEPARATION_PAIRS: Tuple[Tuple[str, Tuple[str, str], Tuple[str, str]], ...] = (
     ("hover",   (SB, "tab_bg_hover_start"), (SB, "bg_color")),
 )
 
+#: (surface, far side, own parent): a derived surface that also touches the
+#: canvas (a title bar in a gap, an input at a card's edge). Kept apart from
+#: it by the same lightness floor, but only by moving *further from its own
+#: parent*: a recessed input gets a touch more recessed, a darker title bar a
+#: touch darker. Never flipped across the parent or the canvas; where that
+#: has no room (black, white, or the canvas on the parent's side), it stays
+#: and is reported as unreachable.
+TOUCH_PAIRS: Tuple[Tuple[Tuple[str, str], Tuple[str, str], Tuple[str, str]], ...] = (
+    ((TB, "bg_normal"), (C, "canvas_bg"), (P, "bg_normal")),
+    ((P, "input_bg"),   (C, "canvas_bg"), (P, "bg_normal")),
+)
+
+
+#: The canvas floor for TOUCH_PAIRS: smaller than the parent floor, so only
+#: surfaces that all but vanish into the canvas move (midnight's input at
+#: ΔL 0.001), not every theme that sits a little close.
+TOUCH_TARGETS: Dict[str, float] = {"flat": 0.008, "subtle": 0.012, "raised": 0.02}
+
+
+def _touch_fix(s, far, own, target):
+    """``s`` moved just past ``target`` from ``far``, away from ``own``; or None.
+
+    None when the move would cross ``far`` (it lies on the other side of
+    ``s`` from ``own``... i.e. between them is fine, beyond is a flip) or
+    rounds to no change at black or white.
+    """
+    Ls, Cs, hs, a = cs.to_oklch(s)
+    Lf, Lo = cs.to_oklch(far)[0], cs.to_oklch(own)[0]
+    sign = 1 if Ls > Lo else -1
+    # ``far`` must not sit clearly further along the way we move: getting
+    # past it would be a flip. Level with it (under the floor) is the case
+    # this rule exists for.
+    if (Lf - Ls) * sign > target:
+        return None
+    base = max(Ls, Lf) if sign > 0 else min(Ls, Lf)
+    aim = target + 0.004 - abs(base - Lf)
+    for _ in range(40):
+        want = cs.from_oklch(base + sign * max(aim, 0.0), Cs, hs, a)
+        if lightness_gap(want, far) >= target:
+            return want
+        aim += 0.004
+        if not 0.0 < base + sign * aim < 1.0:
+            return None
+    return None
+
 
 def _get(theme: Dict[Any, Dict[str, Any]], ref: Tuple[str, str]):
     for cat, values in theme.items():
@@ -177,6 +222,17 @@ def audit(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
         if gap < target - 1e-6:
             out.append(Finding("separation", role, ".".join(surface), ".".join(parent),
                                round(gap, 3), target))
+    target = TOUCH_TARGETS[depth]
+    for surface, far, own in TOUCH_PAIRS:
+        s, f, o = (_get(theme, r) for r in (surface, far, own))
+        if s is None or f is None or o is None:
+            continue
+        s, f, o = (_opaque(_rgba(v), canvas) for v in (s, f, o))
+        gap = lightness_gap(s, f)
+        if gap < target - 1e-6:
+            out.append(Finding("separation", "surface", ".".join(surface), ".".join(far),
+                               round(gap, 3), target,
+                               unreachable=_touch_fix(s, f, o, target) is None))
     return out
 
 
@@ -226,7 +282,8 @@ def enforce(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
     # moved foreground drags along equal foreground-only colours, never a
     # surface that happens to share its value (and vice versa).
     surfaces = {id(_get(theme, ref)) for pairs in (
-        [(p.surface,) for p in CONTRAST_PAIRS], [(s, par) for _, s, par in SEPARATION_PAIRS])
+        [(p.surface,) for p in CONTRAST_PAIRS], [(s, par) for _, s, par in SEPARATION_PAIRS],
+        [(s, f) for s, f, _ in TOUCH_PAIRS])
         for refs in pairs for ref in refs}
     foregrounds = {id(_get(theme, p.token)) for p in CONTRAST_PAIRS}
     colours = _colour_lists(theme)
@@ -247,6 +304,19 @@ def enforce(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
         # are the fallbacks.
         return [cs.toward(o, t, EXPLICIT_MAX_DE)
                 for t in (want, cs.from_oklch(1.0, Ch, h, a), cs.from_oklch(0.0, Ch, h, a))]
+
+    # Touching the canvas: a small nudge, derived surfaces only, never a
+    # flip. First, so the parent rules below see the result.
+    for surface, far, own in TOUCH_PAIRS:
+        s, f, o = (_get(theme, r) for r in (surface, far, own))
+        if s is None or f is None or o is None or id(s) in origin or (len(s) > 3 and s[3] < 255):
+            continue
+        target = TOUCH_TARGETS[depth]
+        if lightness_gap(s, f) >= target:
+            continue
+        want = _touch_fix(s, f, o, target)
+        if want is not None and _move(s, want, surface_followers):
+            moved.append(".".join(surface))
 
     for role, surface, parent in SEPARATION_PAIRS:
         s, p = _get(theme, surface), _get(theme, parent)
@@ -319,6 +389,10 @@ def enforce(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
         for _ in range(2):
             for t, q in rules:
                 wants.append(cs.ensure_contrast(wants[-1], q, t + 0.02))
+        # The two ends of its hue too: on mid-tone surfaces the one colour
+        # readable on all of them is often near black or near white.
+        _, Cf, hf, _ = cs.to_oklch(fg)
+        wants += [cs.from_oklch(end, Cf, hf, a) for end in (0.0, 1.0)]
         cands = [c for w in wants for c in options(fg, w, a)]
         # Among the allowed moves, the one closest to the target that passes
         # everywhere, else the one that fails fewest and gets furthest here.
@@ -334,6 +408,6 @@ def enforce(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
 __all__ = [
     "EXPLICIT_MAX_DE", "enforce",
     "CONTRAST_TARGETS", "CONTRAST_LEVELS", "CONTRAST_PAIRS", "Pair",
-    "SEPARATION_TARGETS", "SEPARATION_PAIRS", "DEPTH_LEVELS",
+    "SEPARATION_TARGETS", "SEPARATION_PAIRS", "TOUCH_PAIRS", "DEPTH_LEVELS",
     "Finding", "audit", "lightness_gap",
 ]
