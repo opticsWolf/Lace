@@ -64,6 +64,19 @@ def test_selected_tab_underlines_the_pane_edge(qapp, shape, edge):
         cs.contrast_ratio(_rgb(img.pixelColor(*far)), _rgb(accent))
 
 
+def test_focused_tab_label_has_no_tinted_box(qapp):
+    """Fusion paints its own focus box in the tab label; only our ring remains."""
+    pal = _palette("kilim_light_neo")
+    opt = QStyleOptionTab()
+    opt.rect, opt.palette, opt.text = QRect(0, 0, W, H), pal, ""
+    opt.state = _state(S.State_HasFocus)   # mouse focus: nothing at all
+    img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabLabel, o, p, w), opt)
+    assert {img.pixelColor(x, y).alpha() for x in range(W) for y in range(H)} == {0}
+    opt.state |= S.State_KeyboardFocusChange   # keyboard: a ring, hollow inside
+    img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabLabel, o, p, w), opt)
+    assert img.pixelColor(W // 2, 3).alpha() > 0 and img.pixelColor(W // 2, H // 2).alpha() == 0
+
+
 def test_unselected_tab_at_rest_is_bare(qapp):
     opt = QStyleOptionTab()
     opt.rect, opt.palette, opt.state = QRect(0, 0, W, H), _palette(), _state()

@@ -120,6 +120,27 @@ def tab_shape(style, opt, p, w):
     return True
 
 
+def tab_label(style, opt, p, w):
+    """Fusion's label, minus the tinted focus box it paints itself (it never
+    goes through ``PE_FrameFocusRect``); keyboard focus gets the accent ring."""
+    if not isinstance(opt, QStyleOptionTab):
+        return False
+    focused = bool(opt.state & State.State_HasFocus)
+    saved = opt.state
+    opt.state &= ~State.State_HasFocus
+    try:
+        style.baseStyle().drawControl(CE.CE_TabBarTabLabel, opt, p, w)
+    finally:
+        opt.state = saved
+    if focused and opt.state & State.State_KeyboardFocusChange and style.focus_width > 0:
+        inset = 2 + style.focus_width / 2
+        ring = QRectF(opt.rect).adjusted(inset, inset, -inset, -inset)
+        with P.Painting(p):
+            P.rounded(p, ring, max(0.0, style.control_radius - inset / 2),
+                      line=P.legible(opt, P.accent(opt), style.ui_ratio), width=style.focus_width)
+    return True
+
+
 def tab_bar_base(style, opt, p, w):
     """The line under a tab bar that runs on past the last tab."""
     r = opt.rect
@@ -281,6 +302,7 @@ PRIMITIVES = {
 
 CONTROLS = {
     CE.CE_TabBarTabShape: tab_shape,
+    CE.CE_TabBarTabLabel: tab_label,
     CE.CE_HeaderSection: header_section,
     CE.CE_MenuItem: menu_item,
     CE.CE_MenuBarItem: menu_bar_item,
