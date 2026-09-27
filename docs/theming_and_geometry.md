@@ -459,6 +459,13 @@ A dock widget's content (a text edit, a view) is square, but the card around it 
 It draws buttons, check and radio boxes, line edits, combo and spin boxes, sliders, progress
 bars, tabs, headers, menus, item views, tooltips, the tool box and scroll bars.
 
+**Framed scroll areas** (text edits and list, tree and table views) get rounded corners at
+`control_radius`. Their viewport is a square child that would paint over the arc. So LaceStyle's
+`polish()` adds a transparent overlay (`lace/style/_frame_cap.py`) that caps the corners with the
+backdrop and then draws the outline, the same way the dock card uses `cap`.
+- A dock widget's own content gets no outline, because the card already frames it.
+- Combo box popup lists and areas holding a native child window are left square.
+
 ```python
 from lace import DockThemeBridge, LaceStyle
 

@@ -85,11 +85,14 @@ def _handle_path(sb, into) -> QPainterPath:
 @pytest.fixture
 def lace_app(qapp):
     """LaceStyle on the application, restored afterwards."""
-    previous = qapp.style().name()
+    previous, palette = qapp.style().name(), QPalette(qapp.palette())
     style = LaceStyle()
     qapp.setStyle(style)
     yield style
+    # setStyle() also resets the app palette; later tests compare against it.
     qapp.setStyle(previous)
+    qapp.setPalette(palette)
+    QApplication.processEvents()
 
 
 @pytest.mark.parametrize("bar", ["vertical", "horizontal"])
@@ -254,3 +257,39 @@ def test_dock_content_frame_draws_no_inner_ring(lace_app):
     content.setProperty("dockWidgetContent", True)
     assert edge(plain) > 0
     assert edge(content) == 0
+
+
+def test_nested_scroll_area_gets_rounded_corners(lace_app):
+    """A text edit inside a form is capped to the control radius: the corner
+    pixel shows the backdrop, the edge midpoint the outline. A combo box's
+    popup list gets no cap, and switching style away removes it."""
+    from PySide6.QtWidgets import QComboBox, QStyleFactory, QVBoxLayout, QWidget
+    from lace.style import _frame_cap
+
+    lace_app.set_tokens(control_radius=8)
+    host = QWidget()
+    host.setAutoFillBackground(True)
+    lay = QVBoxLayout(host)
+    edit = QTextEdit("x")
+    combo = QComboBox()
+    combo.addItems(["a", "b"])
+    lay.addWidget(edit)
+    lay.addWidget(combo)
+    host.resize(200, 160)
+    host.show()
+    QApplication.processEvents()
+
+    cap = _frame_cap.cap_of(edit)
+    assert cap is not None and cap.geometry() == edit.rect()
+    assert _frame_cap.cap_of(combo.view()) is None
+
+    img = host.grab().toImage()
+    o = edit.geometry().topLeft()
+    backdrop = host.palette().color(host.backgroundRole())
+    assert img.pixelColor(o) == backdrop                                  # corner capped
+    assert img.pixelColor(o.x(), o.y() + edit.height() // 2) != backdrop  # outline drawn
+
+    fusion = QStyleFactory.create("Fusion")
+    edit.setStyle(fusion)
+    assert _frame_cap.cap_of(edit) is None
+    host.close()
