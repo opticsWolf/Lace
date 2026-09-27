@@ -119,7 +119,8 @@ def _push(features=None, text="Button"):
 
 def _tool(auto_raise=False, split=False):
     def draw(style, p, cell, pal, flags, disabled):
-        opt = _base(QStyleOptionToolButton(), _centred(cell, 44 if split else 30, 26), pal, flags, disabled)
+        width = 30 + (style.pixelMetric(QStyle.PixelMetric.PM_MenuButtonIndicator) if split else 0)
+        opt = _base(QStyleOptionToolButton(), _centred(cell, width, 26), pal, flags, disabled)
         opt.text = "T"
         opt.fontMetrics = p.fontMetrics()
         opt.toolButtonStyle = Qt.ToolButtonStyle.ToolButtonTextOnly
