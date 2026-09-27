@@ -18,6 +18,7 @@ readme = "README.md"
 dev = [
     "pytest",
     "pytest-xdist",
+    "pytest-cov",
     "hypothesis",
     "ruff",
 ]
