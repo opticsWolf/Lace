@@ -16,8 +16,9 @@ GLYPHS = (
     "radio_indicator", "hscrollbar", "vscrollbar", "slider_handle",
     "tree_branch_open", "tree_branch_shut", "menu_submenu_arrow",
 )
-#: Still bitmap- or gradient-painted; remove entries as Phase 4 lands.
-NOT_YET_SHARP = set(GLYPHS)
+#: Still painted from Fusion's pixmap cache inside its complex controls, which
+#: LaceStyle redraws in 4b-2; remove entries as that lands.
+NOT_YET_SHARP = {"combo_arrow", "spin_arrows", "dspin_arrows"}
 
 _cache = {}
 

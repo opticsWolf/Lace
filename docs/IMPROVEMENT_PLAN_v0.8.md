@@ -631,6 +631,32 @@ LaceStyle, grabs one frame each, and fails on any Qt warning.
 **Interactive:** `S5_style_checklist.md` — hover, press, focus and keyboard navigation for each
 family in the demo; Weave canvas at 100 %, 200 % and 400 % zoom with every family on a node.
 
+## 4a status
+
+Landed: `LaceStyle` (`lace/lace_style.py`), `lace/style/_paint.py`, `lace/style/_primitives.py`,
+the gallery, `tests/test_lace_style.py`. `DockThemeBridge(style_name=None)` installs it, parented
+to the target; the demos call `app.setStyle(LaceStyle())`. The knobs `scrollbar`, `control_radius`
+and `contrast` live on `ThemeSpec` / `ThemeJson` and in the CORE tokens. Non-text UI (indicator
+outlines, focus ring, scrollbar handle) is held to the theme's `ui` target against the window,
+frames to `border`. The focus ring shows on keyboard focus only, as in Fusion.
+
+**Zoom harness corrected.** It stretched the render into an image 1 px larger than `src * zoom`,
+putting every edge on a fractional pixel, and it counted ramp width along rows and columns only, so
+a perfectly sharp diagonal read 3 px. Edges are now measured as the 10–90 % rise across each edge
+(the shorter of the row and column ramp). Stretched pixmaps still read 3.5–6 px, vectors ≤ 2:
+
+| Glyph (4x, kilim_dark / kilim_light_neo) | Fusion | LaceStyle |
+|---|---|---|
+| check indicator | 1.83 / 1.78 | 1.98 / 1.94 |
+| radio indicator | 3.15 / 2.16 | 1.81 / 1.80 |
+| scrollbar h / v | 3.68 / 2.46 | 1.27 / 1.27 |
+| tree branch | 5.95 / 5.82 | 1.91 / 1.88 |
+| menu submenu arrow | 5.56 / 3.54 | 1.92 / 1.50 |
+| slider handle (Fusion vector, already sharp) | 1.57 / 1.28 | unchanged |
+| combo / spin arrows (4b-2) | 4.6–5.3 | unchanged, still xfail |
+
+Still to do for 4a exit: the Weave zoom check by hand. `smoke_lace_style.py` lands with 4b.
+
 ## Exit criteria
 - 4a: zoom metrics pass, no reflow, scrollbar modes verified, Weave zoom checked by hand
 - each 4b family: flat and contrast checks green over `QUICK`, no reflow, its gallery images

@@ -68,6 +68,15 @@ class DockCoreStyleSchema(_FontFields):
     margin: int = 0 #to be kept at zero
     padding: int = 0 #probably not even used, need to check or connect
 
+    # LaceStyle knobs (DockThemeBridge pushes them via LaceStyle.set_tokens)
+    #: Corner radius of every standard control; 0 = square.
+    control_radius: int = 4
+    #: Scrollbar look: "thin" | "expanding" | "fusion".
+    scrollbar: str = "thin"
+    #: The theme's contrast level ("low" | "normal" | "high"); sets the floor
+    #: LaceStyle holds its non-text UI (outlines, focus ring) to.
+    contrast: str = "normal"
+
     # Typography — font_* provided by _FontFields
     text_color: Optional[List[int]] = None
     disabled_text_color: Optional[List[int]] = None
@@ -398,6 +407,10 @@ class ThemeSpec:
     #: Selected items: "solid" accent fill, or "tint", an accent wash that
     #: keeps the normal text colour.
     selection: str = "solid"
+    #: LaceStyle scrollbars: "thin" | "expanding" | "fusion".
+    scrollbar: str = "thin"
+    #: Corner radius of every LaceStyle control; 0 = square.
+    control_radius: int = 4
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
     #: Explicit tab/title-bar background. Overrides the derived value, which
     #: is a fixed 0.06 lightness step off the panel and so cannot be widened
@@ -607,6 +620,8 @@ def _spec_kwargs(spec: ThemeSpec) -> Dict[str, Any]:
         contrast=spec.contrast,
         depth=spec.depth,
         selection=spec.selection,
+        scrollbar=spec.scrollbar,
+        control_radius=spec.control_radius,
     )
 
 
@@ -665,6 +680,8 @@ def _build_theme(
     contrast: str = "normal",
     depth: str = "subtle",
     selection: str = "solid",
+    scrollbar: str = "thin",
+    control_radius: int = 4,
     _explicit_out: Optional[set] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
@@ -826,6 +843,10 @@ def _build_theme(
         DockStyleCategory.SPLITTER: _build_splitter(base, accent),
         DockStyleCategory.OVERLAY: _build_overlay(text, _panel, _accent_bright, _accent_dim, _shadow),
     }
+
+    # LaceStyle knobs; DockThemeBridge hands them to LaceStyle.set_tokens.
+    theme[DockStyleCategory.CORE].update(
+        contrast=contrast, scrollbar=scrollbar, control_radius=control_radius)
 
     if corner_radius is not None:
         theme[DockStyleCategory.CORE]["corner_radius"] = corner_radius

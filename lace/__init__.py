@@ -44,6 +44,7 @@ from lace.dock_style_manager import (
     theme_groups,
 )
 from lace.dock_theme_bridge import DockThemeBridge
+from lace.lace_style import LaceStyle
 from lace.dock_menu_bar import DockMenuBarStyler
 from lace.theme_manager import ThemeManager
 from lace.theme_models import ThemeJson, load_theme_json
@@ -153,6 +154,7 @@ __all__ = [
     "theme_choices",
     "theme_groups",
     "DockThemeBridge",
+    "LaceStyle",
     "DockMenuBarStyler",
     "ThemeManager",
     "ThemeJson",

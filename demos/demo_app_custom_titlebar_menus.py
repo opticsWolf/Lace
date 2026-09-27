@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
 )
 
 from lace import (
+    LaceStyle,
     DockManager,
     DockWidget,
     DockWidgetArea,
@@ -406,7 +407,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
 
 if __name__ == "__main__":
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setStyle("Fusion")
+    app.setStyle(LaceStyle())
     window = DemoMainWindow()
     window.show()
     sys.exit(app.exec())

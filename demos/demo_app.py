@@ -17,6 +17,7 @@ from pathlib import Path
 
 # Adjust these imports if your docking framework is in a subfolder
 from lace import (
+    LaceStyle,
     DockManager, DockWidget, DockWidgetArea,
     apply_dock_theme, DockWidgetFeature, DockFlags, get_icon_provider,
     ThemeManager, SideBarFocusBehavior, InsertionOrder, TabBadgePosition,
@@ -661,7 +662,7 @@ class DemoMainWindow(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setStyle("Fusion") 
+    app.setStyle(LaceStyle())
     window = DemoMainWindow()
     window.show()
     sys.exit(app.exec())

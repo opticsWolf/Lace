@@ -8,10 +8,10 @@ stretched, and its edges blur by roughly the zoom factor.
 The widgets are laid out in one container, styled and coloured exactly as
 DockThemeBridge does it, embedded with QGraphicsProxyWidget and rendered
 through a scaled painter. For each glyph the harness crops its rect and
-measures the **edge width**: the mean length, in device pixels, of the
-monotonic intensity ramps that make up its edges (rows and columns). A vector
-edge stays about 1-2 px wide at any zoom; a stretched bitmap edge grows with
-it.
+measures the **edge width**: the mean 10-90 % rise distance, in device pixels,
+of the monotonic intensity ramps that make up its edges, taken across each
+edge (see :func:`edge_width`). A vector edge stays about 1-2 px wide at any
+zoom; a stretched bitmap edge grows with it.
 
     <python> tests/visual/zoom_harness.py [theme] [zoom...]   # prints the table
 """
@@ -51,9 +51,25 @@ def _gray(img: QImage) -> List[List[int]]:
     return [list(raw[y * bpl:y * bpl + w]) for y in range(h)]
 
 
-def _ramps(line: List[int]) -> List[int]:
-    """Widths of the monotonic ramps along one line of pixels."""
-    widths = []
+#: Rise distance: a ramp is measured between 10 % and 90 % of its swing, so a
+#: faint antialiasing tail (a few percent coverage) doesn't count as blur.
+_RISE = 0.10
+
+
+def _trim(line: List[int], i: int, j: int) -> Tuple[int, int]:
+    """Narrow ramp ``i..j`` to its 10-90 % rise."""
+    lo, hi = line[i], line[j]
+    tol = abs(hi - lo) * _RISE
+    while i < j - 1 and abs(line[i + 1] - lo) <= tol:
+        i += 1
+    while j > i + 1 and abs(hi - line[j - 1]) <= tol:
+        j -= 1
+    return i, j
+
+
+def _ramp_spans(line: List[int]) -> List[Tuple[int, int]]:
+    """``(start, end)`` of each monotonic ramp along one line, at 10-90 % rise."""
+    spans = []
     i, n = 0, len(line)
     while i < n - 1:
         step = line[i + 1] - line[i]
@@ -65,21 +81,45 @@ def _ramps(line: List[int]) -> List[int]:
         while j < n - 1 and (line[j + 1] - line[j]) * sign >= _STEP_MIN:
             j += 1
         if abs(line[j] - line[i]) >= _EDGE_MIN:
-            widths.append(j - i)
+            spans.append(_trim(line, i, j))
         i = j
-    return widths
+    return spans
+
+
+def _ramps(line: List[int]) -> List[int]:
+    """Widths of the monotonic ramps along one line of pixels."""
+    return [j - i for i, j in _ramp_spans(line)]
 
 
 def edge_width(img: QImage) -> float:
-    """Mean ramp width over every row and column; 0.0 when there are no edges."""
+    """Mean edge width, measured across each edge; 0.0 when there are no edges.
+
+    A row or column crosses a slanted edge obliquely, so a perfectly sharp
+    diagonal or curve reads several pixels wide along it. Each ramp therefore
+    counts as the shorter of its own width and that of the ramp crossing its
+    midpoint on the other axis, which is the one nearer the edge normal. Blur
+    from a stretched bitmap widens the edge in every direction, so it still
+    reads wide.
+    """
     px = _gray(img)
     if not px:
         return 0.0
-    widths = []
-    for row in px:
-        widths += _ramps(row)
-    for x in range(len(px[0])):
-        widths += _ramps([row[x] for row in px])
+    h, w = len(px), len(px[0])
+    across_rows = [[0] * w for _ in range(h)]   # ramp width through (y, x), along x
+    across_cols = [[0] * w for _ in range(h)]   # ... along y
+    row_ramps, col_ramps = [], []
+    for y, row in enumerate(px):
+        for i, j in _ramp_spans(row):
+            row_ramps.append((y, (i + j) // 2, j - i))
+            for x in range(i, j + 1):
+                across_rows[y][x] = j - i
+    for x in range(w):
+        for i, j in _ramp_spans([row[x] for row in px]):
+            col_ramps.append(((i + j) // 2, x, j - i))
+            for y in range(i, j + 1):
+                across_cols[y][x] = j - i
+    widths = [min(n, across_cols[y][x] or n) for y, x, n in row_ramps]
+    widths += [min(n, across_rows[y][x] or n) for y, x, n in col_ramps]
     return sum(widths) / len(widths) if widths else 0.0
 
 
@@ -203,7 +243,9 @@ class ZoomBench:
         p = QPainter(img)
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
-        self.scene.render(p, QRectF(img.rect()), src)
+        # Exactly ``zoom``: the image is a pixel larger than src * zoom, and
+        # stretching into all of it would put every edge on a fractional pixel.
+        self.scene.render(p, QRectF(0, 0, src.width() * zoom, src.height() * zoom), src)
         p.end()
         self._origin = src.topLeft()
         return img

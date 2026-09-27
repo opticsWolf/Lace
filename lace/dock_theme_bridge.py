@@ -20,11 +20,13 @@ from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import (
     DockStyleCategory, resolve_dock_colors, build_dock_palette, build_tooltip_palette,
 )
+from lace.lace_style import LaceStyle
 
 logger = logging.getLogger(__name__)
 
-# Default base style — Fusion respects all QPalette roles on every OS.
-DOCK_WIDGET_STYLE: str = "Fusion"
+#: Base style for ``style_name=None``. ``None`` here means LaceStyle; set a
+#: Qt style name (``"Fusion"``) to fall back to a stock style.
+DOCK_WIDGET_STYLE: Optional[str] = None
 
 
 class DockThemeBridge(QObject):
@@ -38,8 +40,9 @@ class DockThemeBridge(QObject):
         Widget (or app) whose palette is updated.  ``None`` targets
         the running ``QApplication``.
     style_name : str | None
-        Qt style to apply.  ``None`` uses ``DOCK_WIDGET_STYLE``
-        (Fusion).  ``""`` skips automatic style application.
+        Qt style to apply.  ``None`` installs :class:`LaceStyle`, whose
+        tokens then follow the theme; a name (``"Fusion"``) creates that
+        stock style.  ``""`` skips automatic style application.
     parent : QObject | None
         Optional QObject parent for preventing premature GC.
     """
@@ -66,8 +69,7 @@ class DockThemeBridge(QObject):
         self._style = None
 
         # Apply a palette-friendly base style before setting colours.
-        resolved_style = style_name if style_name is not None else DOCK_WIDGET_STYLE
-        self._apply_base_style(resolved_style)
+        self._apply_base_style(style_name if style_name is not None else DOCK_WIDGET_STYLE)
 
         # Subscribe to the categories that feed the palette.
         sm = get_dock_style_manager()
@@ -85,28 +87,45 @@ class DockThemeBridge(QObject):
     # Base style
     # ──────────────────────────────────────────────────────────────────────
 
-    def _apply_base_style(self, style_name: str) -> None:
-        """Apply a palette-friendly Qt style to the target."""
-        if not style_name:
+    def _apply_base_style(self, style_name: Optional[str]) -> None:
+        """Apply LaceStyle (``None``) or a named Qt style to the target."""
+        if style_name == "":
             return
 
-        style = QStyleFactory.create(style_name)
-        if style is None:
-            logger.warning(
-                "QStyleFactory could not create '%s'.  "
-                "Available: %s.  Dock colours may not render correctly.",
-                style_name, QStyleFactory.keys(),
-            )
-            return
+        if style_name is None:
+            style = LaceStyle()
+        else:
+            style = QStyleFactory.create(style_name)
+            if style is None:
+                logger.warning(
+                    "QStyleFactory could not create '%s'.  "
+                    "Available: %s.  Dock colours may not render correctly.",
+                    style_name, QStyleFactory.keys(),
+                )
+                return
 
-        # Neither QApplication.setStyle() nor QWidget.setStyle() takes ownership
-        # of the QStyle, so without a Python reference the object created above
-        # is garbage-collected and the target is left pointing at freed memory.
+        # QWidget.setStyle() does not take ownership of the QStyle (and
+        # QApplication.setStyle() only for a parentless one). Parenting it to
+        # the target ties its lifetime to the widget or app that paints with it,
+        # so neither Python GC nor deleting this bridge leaves the target
+        # pointing at a freed style.
+        style.setParent(self._target)
         self._style = style
         self._target.setStyle(style)
 
-        logger.debug("Applied '%s' style to %s.", style_name,
+        logger.debug("Applied '%s' style to %s.", style_name or "LaceStyle",
                       type(self._target).__name__)
+
+    def _refresh_style_tokens(self) -> None:
+        """Push the theme's style knobs into LaceStyle (defaults when unset)."""
+        if not isinstance(self._style, LaceStyle):
+            return
+        sm = get_dock_style_manager()
+        self._style.set_tokens(
+            control_radius=sm.get(DockStyleCategory.CORE, "control_radius", 4),
+            scrollbar=sm.get(DockStyleCategory.CORE, "scrollbar", "thin"),
+            contrast=sm.get(DockStyleCategory.CORE, "contrast", "normal"),
+        )
 
     # ──────────────────────────────────────────────────────────────────────
     # DockStyleManager callback
@@ -140,7 +159,8 @@ class DockThemeBridge(QObject):
     def refresh_dock_palette(self) -> None:
         """Build a QPalette from the current dock theme and apply it."""
         colors = resolve_dock_colors()
-        
+        self._refresh_style_tokens()
+
         # 1. Apply the CORE palette to the application/manager (is_panel=False)
         palette = build_dock_palette(is_panel=False, colors=colors)
         self._target.setPalette(palette)
