@@ -397,3 +397,17 @@ def test_tree_branch_draws_without_children(qapp):
     tree.setStyle(style)
     tree.resize(120, 60)
     assert not tree.grab().isNull()
+
+
+def test_paint_derives_colours_once(themed, monkeypatch):
+    """Colour derivation happens once per colour, not on every paint (plan
+    Phase 6): a second full gallery paint solves nothing."""
+    from lace.style.gallery import render
+    style = LaceStyle()
+    render(style, themed)
+    calls = []
+    for name in ("mix", "step", "on_color", "ensure_contrast"):
+        real = getattr(cs, name)
+        monkeypatch.setattr(cs, name, lambda *a, _r=real, _n=name, **k: calls.append(_n) or _r(*a, **k))
+    render(style, themed)
+    assert not calls, sorted(set(calls))

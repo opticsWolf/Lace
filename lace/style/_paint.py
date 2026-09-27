@@ -21,7 +21,8 @@ Two rules every family follows:
   zoomed ``QGraphicsView`` (Weave's canvas).
 """
 
-from typing import List, Sequence
+from functools import lru_cache
+from typing import Sequence, Tuple
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen
@@ -51,12 +52,37 @@ _ACCENT = getattr(Role, "Accent", None)
 # ---------------------------------------------------------------------------
 # Colour
 # ---------------------------------------------------------------------------
-def _rgba(c: QColor) -> List[int]:
-    return [c.red(), c.green(), c.blue(), c.alpha()]
-
-
 def _qcolor(v: Sequence[int]) -> QColor:
     return QColor(v[0], v[1], v[2], v[3] if len(v) > 3 else 255)
+
+
+def _key(c: QColor) -> Tuple[int, int, int, int]:
+    return (c.red(), c.green(), c.blue(), c.alpha())
+
+
+# Colour derivations are pure functions of their colours, and a theme's
+# colours are few and fixed, so each is solved once, not on every paint.
+_MEMO = 4096
+
+
+@lru_cache(maxsize=_MEMO)
+def _mix(a, b, t):
+    return cs.mix(list(a), list(b), t)
+
+
+@lru_cache(maxsize=_MEMO)
+def _step(c, amount):
+    return cs.step(list(c), amount, toward="contrast")
+
+
+@lru_cache(maxsize=_MEMO)
+def _on(c, prefer):
+    return cs.on_color(list(c), prefer=[list(p) for p in prefer], ratio=3.0)
+
+
+@lru_cache(maxsize=_MEMO)
+def _ensure(c, bg, ratio):
+    return cs.ensure_contrast(list(c), list(bg), ratio)
 
 
 def group(opt: QStyleOption) -> "QPalette.ColorGroup":
@@ -80,18 +106,18 @@ def accent(opt: QStyleOption) -> QColor:
 
 def mix(a: QColor, b: QColor, t: float) -> QColor:
     """``a`` blended toward ``b`` by ``t``, in OKLab."""
-    return _qcolor(cs.mix(_rgba(a), _rgba(b), t))
+    return _qcolor(_mix(_key(a), _key(b), t))
 
 
 def step(c: QColor, amount: float) -> QColor:
     """``c`` lightened (dark colours) or darkened (light ones) by ``amount`` of OKLCH L."""
-    return _qcolor(cs.step(_rgba(c), amount, toward="contrast"))
+    return _qcolor(_step(_key(c), amount))
 
 
 def on(c: QColor, opt: QStyleOption) -> QColor:
     """Readable glyph colour on ``c``: the palette's light or dark text, whichever reads."""
-    prefer = (_rgba(color(opt, Role.HighlightedText)), _rgba(color(opt, Role.Text)))
-    return _qcolor(cs.on_color(_rgba(c), prefer=prefer, ratio=3.0))
+    prefer = (_key(color(opt, Role.HighlightedText)), _key(color(opt, Role.Text)))
+    return _qcolor(_on(_key(c), prefer))
 
 
 def stroke(opt: QStyleOption, fill: QColor, strength: float = STROKE_MIX) -> QColor:
@@ -110,7 +136,7 @@ def legible(opt: QStyleOption, c: QColor, ratio: float, surface=None) -> QColor:
     if not opt.state & State.State_Enabled:
         ratio = min(ratio, DISABLED_RATIO)
     bg = surface if surface is not None else color(opt, Role.Window)
-    return _qcolor(cs.ensure_contrast(_rgba(c), _rgba(bg), ratio))
+    return _qcolor(_ensure(_key(c), _key(bg), ratio))
 
 
 def state_fill(opt: QStyleOption, fill: QColor) -> QColor:

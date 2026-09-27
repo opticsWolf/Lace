@@ -1349,8 +1349,30 @@ def build_dock_palette(
     base_palette: Optional[QPalette] = None, 
     colors: Optional[DockThemeColors] = None
 ) -> QPalette:
-    """Constructs a QPalette for the docking system."""
+    """Constructs a QPalette for the docking system.
+
+    Without a ``base_palette`` the result depends only on ``colors``, so it
+    is built once per colour snapshot: every widget that restyles on a theme
+    switch asks for the same palette.
+    """
+    global _palette_cache
     c = colors or resolve_dock_colors()
+    if base_palette is None:
+        if _palette_cache[0] is not c:
+            _palette_cache = (c, {})
+        cached = _palette_cache[1].get(is_panel)
+        if cached is None:
+            cached = _palette_cache[1][is_panel] = _build_dock_palette(is_panel, None, c)
+        return QPalette(cached)
+    return _build_dock_palette(is_panel, base_palette, c)
+
+
+#: (colour snapshot, {is_panel: QPalette}) for build_dock_palette.
+_palette_cache: tuple = (None, {})
+
+
+def _build_dock_palette(is_panel: bool, base_palette: Optional[QPalette],
+                        c: DockThemeColors) -> QPalette:
     pal = QPalette(base_palette) if base_palette else QPalette()
 
     primary_bg = c.panel_bg if is_panel else c.canvas_bg

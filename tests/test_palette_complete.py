@@ -90,3 +90,19 @@ def test_disabled_widgets_read_the_disabled_group(qapp):
         for role in (R.Base, R.Button, R.Text, R.ButtonText):
             assert got.color(G.Disabled, role) == pal.color(G.Disabled, role), (cls.__name__, role)
         w.deleteLater()
+
+
+def test_palette_is_built_once_per_theme(qapp):
+    """Every widget that restyles asks for the same palette; it is built once
+    per colour snapshot, handed out as a copy, and rebuilt after a switch."""
+    from PySide6.QtGui import QColor
+    sm = get_dock_style_manager()
+    sm.apply_theme_dict(load("kilim_dark"))
+    a = build_dock_palette(is_panel=True)
+    a.setColor(QPalette.ColorRole.Window, QColor("magenta"))
+    b = build_dock_palette(is_panel=True)
+    assert b.color(QPalette.ColorRole.Window) != QColor("magenta")
+    assert b == build_dock_palette(is_panel=True)
+    assert build_dock_palette(is_panel=False) != b
+    sm.apply_theme_dict(load("kilim_light"))
+    assert build_dock_palette(is_panel=True) != b
