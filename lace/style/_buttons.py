@@ -34,7 +34,7 @@ Feature = QStyleOptionButton.ButtonFeature
 #: Accent share of a checked (toggled) button's fill; matches the partial check.
 CHECKED_WASH = 0.28
 #: Extra room on each side of a split button's chevron, px.
-SPLIT_PAD = 1
+SPLIT_PAD = 2
 
 
 def _features(opt):

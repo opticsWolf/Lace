@@ -17,8 +17,8 @@ glyphs -- with flat fills, one stroke and vector paths.
 
 Sizes stay Fusion's: ``pixelMetric``, ``sizeFromContents`` and
 ``subControlRect`` pass through, except the scrollbar extent and sub-control
-rects in the ``thin`` and ``expanding`` scrollbar modes, and 2 px more for a
-split button's menu arrow.
+rects in the ``thin`` and ``expanding`` scrollbar modes, and a wider split
+button menu arrow.
 
     app.setStyle(LaceStyle())               # standalone, default tokens
     DockThemeBridge()                        # installs it, tokens follow the theme
@@ -140,7 +140,7 @@ class LaceStyle(QProxyStyle):
         if metric == PM.PM_ScrollBarExtent and self._own_scrollbar():
             return _primitives.SCROLLBAR_EXTENT[self.scrollbar]
         if metric == PM.PM_MenuButtonIndicator:
-            # 1 px more on each side of a split button's chevron.
+            # More room on each side of a split button's chevron.
             return super().pixelMetric(metric, option, widget) + 2 * _buttons.SPLIT_PAD
         return super().pixelMetric(metric, option, widget)
 
