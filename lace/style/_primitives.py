@@ -85,10 +85,12 @@ def _outline(style, opt, base):
     return P.legible(opt, line, style.ui_ratio)
 
 
-#: Check box corners: ``control_radius`` scaled by this (0 stays square),
-#: capped at ``CHECK_RADIUS_MAX`` of the box's width so a check box never
+#: Check box corners scale with the box: ``CHECK_RADIUS_SHARE`` of its width
+#: at the reference ``control_radius``, in proportion to it otherwise (0 stays
+#: square), capped at ``CHECK_RADIUS_MAX`` of the width so a check box never
 #: reads as a radio button.
-CHECK_RADIUS_SCALE = 0.75
+CHECK_RADIUS_SHARE = 0.22
+CHECK_RADIUS_REF = 4
 CHECK_RADIUS_MAX = 0.30
 
 #: Accent share of a partially checked box's fill (over Base).
@@ -102,7 +104,8 @@ def check_box(style, opt, p, w):
     r = _indicator_rect(opt)
     on = bool(opt.state & State.State_On)
     partial = bool(opt.state & State.State_NoChange)
-    radius = min(style.control_radius * CHECK_RADIUS_SCALE, r.width() * CHECK_RADIUS_MAX)
+    share = CHECK_RADIUS_SHARE * style.control_radius / CHECK_RADIUS_REF
+    radius = r.width() * min(share, CHECK_RADIUS_MAX)
     with P.Painting(p):
         if on:
             fill = P.state_fill(opt, P.accent(opt))
