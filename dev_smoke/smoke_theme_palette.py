@@ -38,8 +38,12 @@ spec = ThemeSpec(
 )
 theme_dict = build_theme(spec)
 assert theme_dict[DockStyleCategory.CORE]["canvas_bg"] == [10, 10, 10, 255]
-assert theme_dict[DockStyleCategory.CORE]["focus_border_color"] == [50, 10, 10, 255]
-assert theme_dict[DockStyleCategory.CORE]["border_color"] == [50, 10, 10, 255]
+# The dark red border is too faint on near-black: it may drift, but only
+# within the explicit-colour cap.
+from lace.color_science import delta_e
+from lace.theme_contrast import EXPLICIT_MAX_DE
+for tok in ("focus_border_color", "border_color"):
+    assert delta_e(theme_dict[DockStyleCategory.CORE][tok], [50, 10, 10, 255]) <= EXPLICIT_MAX_DE + 0.005, tok
 assert theme_dict[DockStyleCategory.PANEL]["bg_normal"] == [30, 30, 40, 255]
 assert theme_dict[DockStyleCategory.CORE]["success_color"] == [100, 250, 100, 255]
 assert theme_dict[DockStyleCategory.CORE]["error_color"] == [250, 50, 50, 255]
@@ -90,4 +94,23 @@ for name, preset_spec in THEME_SPECS.items():
     assert isinstance(colors.info_color, QColor)
 
 print(f"Verified all {len(THEME_SPECS)} presets in THEME_SPECS and DOCK_THEMES OK")
+
+# 5. Contrast table on the live window: every derived token meets its floor
+#    (explicit colours may stop at their drift cap; some floors are out of
+#    reach on a theme's own mid-tone surface -- both reported by audit).
+from lace.dock_theme import explicit_tokens
+from lace.theme_contrast import audit
+from lace import color_science as cs
+for name, preset_spec in THEME_SPECS.items():
+    apply_dock_theme(name)
+    app.processEvents()
+    explicit = explicit_tokens(preset_spec)
+    misses = [m for m in audit(build_theme(preset_spec))
+              if m.token not in explicit and not m.unreachable]
+    assert not misses, (name, misses)
+    pal = app.palette()
+    fg, bg = pal.color(QPalette.ColorRole.WindowText), pal.color(QPalette.ColorRole.Window)
+    ratio = cs.contrast_ratio([fg.red(), fg.green(), fg.blue(), 255], [bg.red(), bg.green(), bg.blue(), 255])
+    assert ratio >= 3.0, (name, round(ratio, 2))
+print(f"Contrast table holds on the live window for all {len(THEME_SPECS)} presets OK")
 print("SMOKE THEME PALETTE OK")

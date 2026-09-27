@@ -176,3 +176,10 @@ def test_enforce_is_idempotent():
     # a derived one.
     moved = enforce(theme, explicit_ids=ids)
     assert not [n for n in moved if n not in explicit_tokens(spec)]
+
+
+def test_build_leaves_the_callers_lists_alone():
+    from lace.dock_theme import _build_theme
+    accent, text = [45, 85, 170, 255], [60, 60, 60, 255]
+    _build_theme([20, 23, 30, 255], accent, text)
+    assert (accent, text) == ([45, 85, 170, 255], [60, 60, 60, 255])

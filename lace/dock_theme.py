@@ -688,6 +688,25 @@ def _build_theme(
     if selection not in ("solid", "tint"):
         raise ValueError(f"selection must be 'solid' or 'tint', got {selection!r}")
 
+    # The contrast pass edits colour lists in place: work on copies, so a
+    # caller's own lists (reused across builds) never change under it.
+    def _own(c):
+        return None if c is None else _as_rgba(c)
+
+    base, accent, text = _own(base), _own(accent), _own(text)
+    (surface, border, focus_border_color, title_bg, tooltip_bg, tooltip_text,
+     success_color, warning_color, error_color, info_color, title_border_color,
+     title_border_focus_color, tab_border_color, tab_border_active_color,
+     tab_border_unfocused_color, sidebar_tab_bg_normal, sidebar_tab_bg_hover_start,
+     sidebar_tab_bg_hover_end, sidebar_tab_bg_active, sidebar_tab_border_color,
+     sidebar_tab_border_active_color, sidebar_tab_border_hover_color) = map(_own, (
+        surface, border, focus_border_color, title_bg, tooltip_bg, tooltip_text,
+        success_color, warning_color, error_color, info_color, title_border_color,
+        title_border_focus_color, tab_border_color, tab_border_active_color,
+        tab_border_unfocused_color, sidebar_tab_bg_normal, sidebar_tab_bg_hover_start,
+        sidebar_tab_bg_hover_end, sidebar_tab_bg_active, sidebar_tab_border_color,
+        sidebar_tab_border_active_color, sidebar_tab_border_hover_color))
+
     # Every seed list the spec supplied. The contrast pass may nudge these
     # only slightly (theme_contrast.EXPLICIT_MAX_DE); derived colours are free.
     explicit_ids = frozenset(id(c) for c in (

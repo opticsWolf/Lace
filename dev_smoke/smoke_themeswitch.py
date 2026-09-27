@@ -17,3 +17,22 @@ for name in DOCK_THEMES:
     app.processEvents()
     assert ok, name
 print("THEME SWITCH OK across", len(DOCK_THEMES), "themes")
+
+# REGULAR x the three contrast levels, switched live on the same window.
+from dataclasses import replace
+from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_theme import build_theme
+from lace.theme_contrast import CONTRAST_LEVELS
+from tests.theme_sets import REGULAR, FIXTURES
+from lace.theme_models import ThemeJson
+from lace.dock_custom_theme import THEME_SPECS
+sm = get_dock_style_manager()
+n = 0
+for key in REGULAR:
+    spec = (ThemeJson.load(FIXTURES / f"{key}.json").to_theme_spec() if key.startswith("kilim_")
+            else THEME_SPECS[key])
+    for level in CONTRAST_LEVELS:
+        assert sm.apply_theme_dict(build_theme(replace(spec, contrast=level))), (key, level)
+        app.processEvents()
+        n += 1
+print("CONTRAST SWITCH OK across", n, "theme x level combinations")
