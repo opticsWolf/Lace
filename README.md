@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.7.6
+**Version:** 0.8.0
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -49,6 +49,11 @@
 
 - **27 built-in themes** — Dark, light, midnight, warm, nordic, monokai, neutral, tokyo_night, catppuccin, dracula, solarized_dark/light, cyberpunk_neon, cyberpunk_edge, slate_amber, neon_dusk, violet_haze, and midnight_haze, plus light and neutral counterparts of the last four (`*_light`; `*_neutral`, a mid tone between the two and nearer the light, with the backdrop flattened to grey but the accent and focus outlines kept; plus `slate_amber_dark` and a brighter `slate_amber_light`) that keep their parent's geometry and change only the palette
 - **Grouped theme menus** — `theme_groups()` returns `(group, [(label, key), ...])` in presentation order — Basics, Editor Classics, Neon, Edge Treatments — with each family kept together and ordered dark, neutral, light; `theme_choices()` is the same order flattened for a single-level menu
+- **OKLCH theme engine** — Surfaces are derived in OKLCH, so equal steps look equal on any base colour. The keywords `contrast` (low/normal/high WCAG floors), `depth` (flat/subtle/raised) and `selection` (solid/tint) steer the look. Text and UI colours are held to their contrast floors automatically.
+- **Complete `QPalette`** — Every role in every colour group (Active, Inactive, Disabled) is themed, so no platform colour leaks into dark themes
+- **LaceStyle** — A flat, vector `QProxyStyle` over Fusion for buttons, fields, combo and spin boxes, sliders, tabs, menus, item views, tooltips and scroll bars (`thin`/`expanding`/`fusion`). It follows the theme and stays sharp at any zoom, including widgets in a `QGraphicsView`.
+- **Rounded content** — `corner_clip="cap"` paints an antialiased cap over square content inside rounded cards
+- **Theme kit & Theme Studio** — `lace.theme_kit` makes a theme from two seed colours and a chassis, audits contrast (as a CI gate too), derives dark/neutral/light counterparts, and exports JSON. `python -m lace.theme_kit studio` edits a theme live.
 - **Declarative `ThemeSpec`** — Define custom themes with color palettes and geometrical tokens (corner radius, border width, title height, tab radius, content margin, etc.)
 - **Sidebar tab tokens** — A matching `sidebar_tab_*` set for the auto-hide tabs: shape, radius, outline width and per-state colours, fills, and highlight-strip width and edge
 - **JSON theme files** — Ship themes as JSON (Pydantic-validated via `ThemeJson`/`load_theme_json`); colors as `[r,g,b,a]` lists or `"#rrggbb"` strings

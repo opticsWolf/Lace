@@ -376,3 +376,106 @@ tm.sync_theme(path="my/custom/theme.json")    # explicit override
 `ThemeManager.default_theme_path` may point at a single theme file (`.json` /
 `.qss` / `.css`) or a directory containing `<theme_name>.json|.qss|.css`, used
 when `sync_theme()` is called without an explicit `path`.
+
+---
+
+## 9. Theme Keywords (0.8)
+
+Since 0.8, `build_theme()` derives every surface in **OKLCH** (`lace/color_science.py`), not HLS.
+Equal steps now look equal on any base colour. A few keywords on `ThemeSpec` (and in JSON
+themes) steer the derivation. Every keyword has a default, so 0.7 themes load unchanged.
+
+| Keyword | Values (default **bold**) | Effect |
+|---|---|---|
+| `contrast` | `low`, **`normal`**, `high` | WCAG floor for text and UI tokens, see §10 |
+| `depth` | `flat`, **`subtle`**, `raised` | how far derived surfaces (panel, title, hover, input, button, …) step off each other |
+| `selection` | **`solid`**, `tint` | selected items: an accent fill, or an accent wash that keeps the normal text colour |
+| `scrollbar` | **`thin`**, `expanding`, `fusion` | LaceStyle scroll bars: a slim overlay handle, one that widens on hover, or Fusion's |
+| `corner_clip` | **`cap`**, `inset`, `none` | how dock content meets the card's rounded corners, see §11 |
+| `control_radius` | **4** | corner radius of every LaceStyle control; 0 is square |
+| `focus_width` | **2.0** | pen width of LaceStyle's keyboard focus ring; 0 hides it |
+| `outline_strength` | **0.22** | how much text colour is mixed over a control's fill for its 1 px outline |
+| `is_light` | **None** | None decides from the base (OKLCH lightness below 0.6 is dark) |
+
+`subtle` is calibrated to the median step 0.7.6 produced over every preset, so the default look
+is kept. The default theme is the "sleek" reference: `subtle`, `thin` and `cap`.
+
+Derivation happens once per theme apply. `build_dock_palette()` is built once per colour snapshot,
+and LaceStyle memoises its colour mixes, so painting does no colour science.
+
+---
+
+## 10. Contrast Floors (`theme_contrast.py`)
+
+After derivation, `enforce` moves **foregrounds only** until each pair in `CONTRAST_PAIRS`
+meets its floor. Surfaces are never moved. Colours that already pass stay as they are.
+
+| Role | low | normal | high |
+|---|---|---|---|
+| text | 4.5 | 7.0 | 10.0 |
+| muted | 3.0 | 4.5 | 7.0 |
+| disabled | 1.8 | 2.3 | 3.0 |
+| ui (outlines, focus, indicators) | 1.5 | 3.0 | 4.5 |
+| border | 1.15 | 1.3 | 1.6 |
+| on_accent (text on a selection) | 3.0 | 4.5 | 7.0 |
+
+- A colour the preset sets **explicitly** moves only up to ΔE 0.04 (`EXPLICIT_MAX_DE`), so the
+  author's colour survives. A floor it still misses is reported as *capped*.
+- A floor that no colour can reach on its surface is reported as *unreachable*.
+
+Neither of these is an error. `python -m lace.theme_kit audit` and `dev_smoke/theme_drift.py`
+list both.
+
+The completed `QPalette` sets every role in every colour group (Active, Inactive, Disabled).
+Disabled text keeps the disabled floor on its disabled fill, and an inactive selection is quieter
+but still legible.
+
+---
+
+## 11. Corner Modes (`corner_clip`)
+
+A dock widget's content (a text edit, a view) is square, but the card around it can be rounded.
+`corner_clip` decides what happens at the corners:
+
+- **`cap`** (default): after the content paints, an antialiased cap in the backdrop colour
+  is drawn over each corner. The content keeps its full size, and the arc stays clean at any radius
+  and scale. LaceStyle scroll-bar handles stay inside the arc. Content that holds a native child
+  window (`QWebEngineView`, `QOpenGLWidget`) can't be painted over, so it falls back to `inset`
+  and logs this once.
+- **`inset`**: the content is inset far enough that it never reaches the arc.
+- **`none`**: the content is left as it is. This matches 0.7 behaviour.
+
+---
+
+## 12. LaceStyle (`lace_style.py`, `lace/style/`)
+
+`LaceStyle` is a modern, flat Fusion: a `QProxyStyle` over Fusion.
+- Fusion keeps the layout, identical on every OS, and paints what LaceStyle doesn't override.
+- LaceStyle replaces the gradients, bevels and pixmap glyphs with flat fills, one 1.5 px stroke
+  and vector paths.
+- Sizes stay Fusion's. The only exceptions are the scroll-bar extent in the `thin` / `expanding`
+  modes and a wider split-button arrow.
+
+It draws buttons, check and radio boxes, line edits, combo and spin boxes, sliders, progress
+bars, tabs, headers, menus, item views, tooltips, the tool box and scroll bars.
+
+```python
+from lace import DockThemeBridge, LaceStyle
+
+DockThemeBridge()                 # installs LaceStyle on the app; tokens follow the theme
+DockThemeBridge(style_name="Fusion")   # or keep a named Qt style instead
+
+app.setStyle(LaceStyle(control_radius=6, scrollbar="expanding"))  # standalone, no Lace theme
+```
+
+`LaceStyle.set_tokens(control_radius=, scrollbar=, contrast=, focus_width=, outline_strength=)`
+updates the knobs live. The bridge calls it on every theme switch.
+
+**Use case: widgets in a `QGraphicsView`.** A node editor such as Weave embeds ordinary widgets in
+a scene through `QGraphicsProxyWidget`. Native styles draw those poorly: they are scaled as bitmaps,
+and the platform look clashes with the scene. LaceStyle paints only vector paths from the palette,
+so proxied widgets stay sharp at any zoom and take the theme's colours. Set it on the view (or the
+app) with a `DockThemeBridge(target=view)`, and every embedded control follows theme switches.
+
+`lace.style.gallery.render(scale=)` draws every control LaceStyle styles in every state. The Theme
+Studio's gallery tab uses it (see `docs/THEME_KIT.md`).

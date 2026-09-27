@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.7.6
+**Version:** 0.8.0
 
 ---
 
@@ -50,7 +50,9 @@ DockManager (facade)
 │   ├── LayoutEngine (dict → UI)
 │   └── LayoutPersistenceManager (atomic file I/O)
 ├── DockStyleManager (singleton, event-driven theme system)
-├── DockThemeBridge (QPalette push to Qt children)
+├── DockThemeBridge (QPalette push to Qt children; installs LaceStyle)
+│   └── LaceStyle (QProxyStyle over Fusion; painters in lace/style/)
+├── color_science + theme_contrast (OKLCH derivation, contrast floors)
 ├── DockOverlay (×2: container + dock-area drop targets)
 ├── DockSignals (internal event bus)
 ├── ThemeJson / load_theme_json (Pydantic-validated JSON theme loading)
@@ -822,6 +824,50 @@ Example `theme.json`:
 ```
 
 Apply with `get_dock_style_manager().apply_theme_dict(load_theme_json("theme.json"))` or through `ThemeManager.sync_theme(path="theme.json")`.
+
+### 3.14 `color_science.py` — OKLCH colour engine
+
+These are pure functions on `[r, g, b, a]` lists, with no Qt:
+- `to_oklch` / `from_oklch`, where `from_oklch` maps back into the gamut
+- `delta_e`, `contrast_ratio` (WCAG) and `is_dark`
+- `step`, `mix` and `toward`
+- `ensure_contrast` and `on_color`
+
+`build_theme()` derives every surface with them (see `docs/theming_and_geometry.md` §9). Hypothesis
+property tests pin the round trip and the contrast guarantees.
+
+### 3.15 `theme_contrast.py` — Contrast floors
+
+- `CONTRAST_TARGETS` holds the per-role ratios for `low` / `normal` / `high`.
+- `CONTRAST_PAIRS` lists every foreground token and the surface it is drawn on.
+- `enforce()` moves foregrounds (never surfaces) to meet the floors. Explicit preset colours
+  move only up to `EXPLICIT_MAX_DE`.
+- `audit()` returns the findings (failed, capped, unreachable) that `lace.theme_kit.audit` builds on.
+
+### 3.16 `lace_style.py` + `lace/style/` — `LaceStyle`
+
+`LaceStyle` is a `QProxyStyle` over Fusion that paints flat, vector controls from the palette.
+`DockThemeBridge` installs it by default and forwards the theme keywords (`control_radius`,
+`scrollbar`, `contrast`, `focus_width`, `outline_strength`) through `set_tokens()`. The painters are
+split by control family:
+- `_primitives` (frames, check and radio indicators, focus, scroll bars)
+- `_buttons`
+- `_inputs` (line, combo and spin)
+- `_range` (sliders, progress)
+- `_containers` (tabs, headers, menus, item views, tooltips, tool box)
+- `_paint`, with memoised colour helpers shared by the others
+
+`gallery.py` renders every control in every state for tests and the Theme Studio.
+
+### 3.17 `lace/theme_kit/` — Theme kit
+
+The theme kit reads the engine but never changes it. It holds:
+- `derive` (palette from seeds) and `chassis` (geometry sets, `compose`)
+- `audit` (the findings from `theme_contrast.audit()` plus separation checks and suggestions, `apply_fix`)
+- `family` (dark, neutral and light members) and `export` (JSON or Python)
+- `studio` (the Theme Studio GUI, run in its own process) and a CLI in `__main__`
+
+See `docs/THEME_KIT.md`.
 
 ---
 

@@ -5,6 +5,71 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.8.0] — unreleased
+
+Theming modernisation: an OKLCH colour engine, contrast floors, a complete
+palette, a flat vector style, rounded content and a theme kit. 0.7 themes load
+unchanged; every new keyword has a default that keeps the 0.7.6 look.
+
+### Added
+
+- **`lace.color_science`** — an OKLCH colour engine with pure functions on
+  `[r, g, b, a]`: conversions, ΔE, WCAG contrast, `step`, `mix`,
+  `ensure_contrast` and `on_color`.
+- **Theme keywords** on `ThemeSpec` and JSON themes:
+  - `contrast` (low/normal/high), `depth` (flat/subtle/raised) and
+    `selection` (solid/tint);
+  - `scrollbar` (thin/expanding/fusion) and `corner_clip` (cap/inset/none);
+  - `control_radius`, `focus_width` and `outline_strength`.
+- **Contrast floors** (`lace.theme_contrast`). After derivation, foregrounds
+  move until they meet per-role WCAG targets. This includes text on buttons
+  and input fields. Colours a preset sets explicitly move at most ΔE 0.04,
+  and a floor they still miss is reported as *capped*.
+- **Complete `QPalette`.** Every role in every colour group is themed.
+  Disabled colours stay legible, and an inactive selection is quieter.
+- **`LaceStyle`** — a flat, vector `QProxyStyle` over Fusion, installed by
+  `DockThemeBridge` by default (`style_name=` keeps a named Qt style). It
+  draws buttons, check and radio boxes, fields, combo and spin boxes,
+  sliders, progress bars, tabs, headers, menus, item views, tooltips, the
+  tool box and scroll bars. `set_tokens()` follows the theme.
+- **Rounded content.** `corner_clip="cap"` paints an antialiased backdrop cap
+  over square content in rounded cards. Content with a native child window
+  falls back to `inset`.
+- **`lace.theme_kit`** — `derive`, `compose` with seven chassis, `audit`
+  (with `apply_fix`), `family` and `export`, plus a CLI
+  (`python -m lace.theme_kit`) whose `audit` can gate CI.
+- **Theme Studio** (`python -m lace.theme_kit studio`) — live editing with a
+  dock preview, a control gallery, audit fixes, the family strip and export.
+- `lace.style.gallery` renders every styled control in every state.
+- Dev tooling:
+  - staged theme sets (quick/regular/full/all) and a parallel smoke runner;
+  - visual tests and the M0 baseline screenshots;
+  - `dev_smoke/theme_drift.py`, `perf_bench.py`, `compare_grid.py` and
+    `theme_grid.py`.
+
+### Changed
+
+- **Theme derivation moved from HLS to OKLCH.** `depth="subtle"` is
+  calibrated to the median step 0.7.6 produced over every preset, so
+  surfaces keep their look while the per-theme spread goes away. Drift
+  against the 0.7.6 token snapshot:
+  - explicit colours move ΔE ≤ 0.04, derived colours ≤ 0.15, and text as
+    far as its floor needs;
+  - 42 tokens stop short of their floor (capped or unreachable). These are
+    reported, not failed.
+- The title bar and input fields step off the canvas where they would
+  otherwise vanish into it.
+- `ThemeJson.is_light` is now optional (`None` decides from the base), and
+  `title_margin` accepts fractions.
+- Colours are derived once per theme apply: the dock palette is built once
+  per theme and LaceStyle memoises its colour mixes. Theme switching is
+  within +8 % of 0.7.6 and resizing within +1 %.
+
+### Fixed
+
+- `update_icon` includes directly-set icons in its memo key.
+- `title_border_focus_color` is accepted in JSON themes.
+
 ## [0.7.6] — 2026-09-15
 
 ### Fixed

@@ -103,6 +103,24 @@ python -m lace.theme_kit chassis --preset neon_dusk  # closest chassis + overrid
 `--allow-capped` to forgive those. The exit code lets the command gate CI for a project's
 theme files.
 
+### Auditing your themes in CI
+
+`audit` takes one theme per call. Loop over the theme folder and fail the job on the first miss:
+
+```yaml
+# .github/workflows/themes.yml (a step)
+- name: Audit themes
+  env:
+    QT_QPA_PLATFORM: offscreen
+  run: |
+    for f in themes/*.json; do
+      python -m lace.theme_kit audit "$f" --allow-capped || exit 1
+    done
+```
+
+Leave out `--allow-capped` to also fail when your own explicit colours miss a floor. Add
+`--contrast high` to check the high-contrast build too.
+
 ## Theme Studio
 
 ```bash
