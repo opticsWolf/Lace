@@ -39,11 +39,11 @@ spec = ThemeSpec(
 theme_dict = build_theme(spec)
 assert theme_dict[DockStyleCategory.CORE]["canvas_bg"] == [10, 10, 10, 255]
 # The dark red border is too faint on near-black: it may drift, but only
-# within the border cap (the focus ring shares the border list here).
+# within the explicit-colour cap.
 from lace.color_science import delta_e
-from lace.theme_contrast import BORDER_MAX_DE
+from lace.theme_contrast import EXPLICIT_MAX_DE
 for tok in ("focus_border_color", "border_color"):
-    assert delta_e(theme_dict[DockStyleCategory.CORE][tok], [50, 10, 10, 255]) <= BORDER_MAX_DE + 0.005, tok
+    assert delta_e(theme_dict[DockStyleCategory.CORE][tok], [50, 10, 10, 255]) <= EXPLICIT_MAX_DE + 0.005, tok
 assert theme_dict[DockStyleCategory.PANEL]["bg_normal"] == [30, 30, 40, 255]
 assert theme_dict[DockStyleCategory.CORE]["success_color"] == [100, 250, 100, 255]
 assert theme_dict[DockStyleCategory.CORE]["error_color"] == [250, 50, 50, 255]
