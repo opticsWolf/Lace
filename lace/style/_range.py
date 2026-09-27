@@ -36,6 +36,8 @@ GROOVE = 4.0
 TRACK_MIX = 0.16
 #: Disabled fill: accent share mixed over the track.
 DISABLED_TINT = 0.45
+#: Disabled track and fill: share of the floored colour over the plain mix.
+DISABLED_BLEND = 0.5
 #: Busy progress: segment length (share of the track) and one sweep, seconds.
 BUSY_SPAN, BUSY_PERIOD = 0.3, 1.6
 
@@ -44,11 +46,16 @@ def _enabled(opt) -> bool:
     return bool(opt.state & State.State_Enabled)
 
 
+def _floored(opt, plain, floored):
+    """Disabled: halfway between the plain colour and the floored one."""
+    return floored if _enabled(opt) else P.mix(plain, floored, DISABLED_BLEND)
+
+
 def _track(opt):
-    # Held to the disabled floor in every state, so a disabled track never
-    # reads stronger than an enabled one.
+    # Held to the disabled floor, so a disabled track never reads stronger
+    # than an enabled one.
     track = P.mix(P.color(opt, Role.Window), P.color(opt, Role.Text), TRACK_MIX)
-    return P.legible(opt, track, P.DISABLED_RATIO)
+    return _floored(opt, track, P.legible(opt, track, P.DISABLED_RATIO))
 
 
 def _fill(opt):
@@ -56,8 +63,10 @@ def _fill(opt):
     if _enabled(opt):
         return acc
     # A muted accent tinted from the track it sits on, held apart from it.
-    track = _track(opt)
-    return P.legible(opt, P.mix(track, acc, DISABLED_TINT), P.DISABLED_RATIO, surface=track)
+    window = P.color(opt, Role.Window)
+    track = P.legible(opt, P.mix(window, P.color(opt, Role.Text), TRACK_MIX), P.DISABLED_RATIO)
+    floored = P.legible(opt, P.mix(track, acc, DISABLED_TINT), P.DISABLED_RATIO, surface=track)
+    return _floored(opt, P.mix(window, acc, 0.4), floored)
 
 
 # ---------------------------------------------------------------------------
