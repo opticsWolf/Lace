@@ -507,7 +507,10 @@ class ThemeSpec:
 
 
 from lace import color_science as _cs
-from lace.theme_contrast import enforce as _enforce
+from lace.theme_contrast import CONTRAST_TARGETS as _CONTRAST_TARGETS, enforce as _enforce
+
+#: Disabled text on disabled fills (palette Disabled group): the "normal" floor.
+_DISABLED_TARGET = _CONTRAST_TARGETS["disabled"]["normal"]
 
 _CONTRAST_LEVELS = ("low", "normal", "high")
 _DEPTH_LEVELS = ("flat", "subtle", "raised")
@@ -1326,7 +1329,67 @@ def build_dock_palette(
     pal.setColor(QPalette.ColorRole.Shadow, c.color_shadow)
 
     _apply_shared_roles(pal, c)
+    _apply_state_groups(pal, c, primary_bg)
     return pal
+
+
+#: Qt >= 6.6 only; guarded so older bindings still build a palette.
+_ACCENT_ROLE = getattr(QPalette.ColorRole, "Accent", None)
+
+
+def _apply_state_groups(pal: QPalette, c: DockThemeColors, window: QColor) -> None:
+    """Fill the roles the base set leaves to Qt, then the Inactive and Disabled groups.
+
+    Every role in every group ends up set from the theme, so nothing falls
+    back to the platform palette (a light Windows default under a dark
+    theme). ``setColor`` without a group writes all three groups; the
+    Inactive and Disabled overrides come after.
+    """
+    L = qcolor_to_list
+    win, base, button = L(window), L(c.input_bg), L(c.button_bg)
+
+    # Midlight sits between Button and Light, as Fusion expects.
+    pal.setColor(QPalette.ColorRole.Midlight, to_qcolor(_cs.mix(button, L(c.color_light), 0.5)))
+    # BrightText: text that must read on Dark (Fusion's pressed/indicator fills).
+    pal.setColor(QPalette.ColorRole.BrightText, to_qcolor(_cs.on_color(L(c.color_dark))))
+    if _ACCENT_ROLE is not None:
+        pal.setColor(_ACCENT_ROLE, c.accent_color)
+
+    # --- Inactive: selection loses its colour when the window loses focus,
+    # like Windows 11 and macOS; everything else matches Active.
+    Li, Ci, hi, ai = _cs.to_oklch(L(c.highlight))
+    quiet = _cs.from_oklch(Li, Ci * 0.3, hi, ai)
+    I = QPalette.ColorGroup.Inactive
+    pal.setColor(I, QPalette.ColorRole.Highlight, to_qcolor(quiet))
+    pal.setColor(I, QPalette.ColorRole.HighlightedText,
+                 to_qcolor(_cs.ensure_contrast(L(c.highlighted_text), _cs._composite(quiet, base), 4.5)))
+
+    # --- Disabled: fills fade toward the window, text stays legible on them.
+    D = QPalette.ColorGroup.Disabled
+    target = _DISABLED_TARGET
+    d_base = _cs.mix(base, win, 0.5)
+    d_button = _cs.mix(button, win, 0.5)
+    d_high = _cs.mix(L(c.highlight), win, 0.6)
+    pal.setColor(D, QPalette.ColorRole.Window, window)
+    pal.setColor(D, QPalette.ColorRole.Base, to_qcolor(d_base))
+    pal.setColor(D, QPalette.ColorRole.AlternateBase, to_qcolor(_cs.mix(L(c.alternate_base), win, 0.5)))
+    pal.setColor(D, QPalette.ColorRole.Button, to_qcolor(d_button))
+    pal.setColor(D, QPalette.ColorRole.Highlight, to_qcolor(d_high))
+    if _ACCENT_ROLE is not None:
+        pal.setColor(D, _ACCENT_ROLE, to_qcolor(_cs.mix(L(c.accent_color), win, 0.6)))
+    dis = L(c.disabled_text)
+
+    def legible(surface):
+        # A translucent disabled text (some themes use alpha ~85) can't
+        # reach the floor by lightness alone: flatten it onto its surface
+        # first -- the same colour there -- then adjust.
+        return to_qcolor(_cs.ensure_contrast(_cs._composite(dis, surface), surface, target))
+
+    for role, surface in ((QPalette.ColorRole.WindowText, win), (QPalette.ColorRole.Text, d_base),
+                          (QPalette.ColorRole.ButtonText, d_button),
+                          (QPalette.ColorRole.HighlightedText, d_high),
+                          (QPalette.ColorRole.PlaceholderText, d_base)):
+        pal.setColor(D, role, legible(surface))
 
 
 def build_tooltip_palette(
