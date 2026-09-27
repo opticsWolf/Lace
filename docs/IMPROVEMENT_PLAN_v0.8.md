@@ -900,6 +900,42 @@ python -m lace.theme_kit audit --preset slate_amber
 - **CLI smoke:** each subcommand runs on a Kilim fixture and on `--preset slate_amber`; `audit`
   returns non-zero on a deliberately failing theme
 
+## Status
+
+Done. The API and CLI are documented in `docs/THEME_KIT.md`; the tests are in
+`tests/test_theme_kit.py` (177 cases).
+
+- **Chassis.** A seventh chassis, `stock` (nothing set), covers presets like `warm` and
+  `dracula`. Chassis colour tokens are roles (`"focus"`, `"border"`, `"clear"`,
+  `(role, alpha)`), so a chassis fits any palette.
+  - `chassis_of` finds each chassis's source preset.
+  - `neon_dusk` fits `haze` with 9 overrides.
+  - `compose(palette_of(p), *chassis_of(p))` rebuilds all 36 themes token for token.
+- **Audit.** `audit` uses the `lace.theme_contrast` rules. Its `failures` equal Phase 2's hard
+  misses on all 36 themes. Two more lists sit beside them:
+  - `capped`: the spec's own colours
+  - `unreachable`
+  
+  Warnings cover a faint accent, a faint focus ring and colours clipped to fit sRGB.
+  `suggest()` gives a fix that changes OKLCH lightness only.
+- **Family.** Calibrated on the hand-made families. The mean ΔE per member against the hand
+  presets:
+
+  | Family | neutral | light |
+  |---|---|---|
+  | `cyberpunk_edge` | 0.052 | 0.057 |
+  | `violet_haze` | 0.047 | 0.040 |
+  | `midnight_haze` | 0.041 | 0.030 |
+  | `slate_amber_dark` | 0.104 (listed miss) | 0.029 |
+
+  The budget is 0.06. `slate_amber` is listed as a strict xfail: the kit's neutral sits at
+  L 0.72, and `slate_amber` sits at 0.815.
+- **Status colours.** One lightness and chroma for all four hues, at the "muted" floor.
+- **Export.** `to_json` and `to_python` round-trip all 36 themes exactly. `diff` gives ΔE per
+  token.
+- **CLI.** Subcommands `derive`, `audit` (exits 1 on a miss, `--allow-capped`), `family` and
+  `chassis`.
+
 ## Exit criteria
 The API and CLI are documented; the family check reports on every hand-made family; the property
 tests are green.
