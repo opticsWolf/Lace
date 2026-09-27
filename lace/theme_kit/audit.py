@@ -83,19 +83,34 @@ class AuditReport:
         """The smallest lightness change (OKLCH L only, hue and chroma kept)
         that fixes each failing or capped miss."""
         out = []
+        by_token: Dict[str, List[Miss]] = {}
         for m in self.failures + self.capped:
-            fg, bg = _lookup(self.theme, m.token), _lookup(self.theme, m.surface)
-            if fg is None or bg is None:
+            by_token.setdefault(m.token, []).append(m)
+        for token, misses in by_token.items():
+            fg = _lookup(self.theme, token)
+            if fg is None:
                 continue
-            if m.kind == "contrast":
-                new = cs.ensure_contrast(list(fg), list(bg), m.target)
-            else:
-                # Separation: step the surface further from its parent.
-                sign = 1.0 if cs.to_oklch(fg)[0] >= cs.to_oklch(bg)[0] else -1.0
-                new = cs.step(list(fg), sign * (m.target - m.value + 0.002))
+            new = list(fg)
+            # A colour can miss on several surfaces (panel text on the panel,
+            # a button and a field): one suggestion that clears them all.
+            # Every surface here lies on the same side of the colour, so each
+            # pass only pushes it further the same way.
+            for _ in range(2):
+                for m in misses:
+                    bg = _lookup(self.theme, m.surface)
+                    if bg is None:
+                        continue
+                    if m.kind == "contrast":
+                        new = cs.ensure_contrast(new, list(bg), m.target)
+                    else:
+                        # Separation: step the surface further from its parent.
+                        sign = 1.0 if cs.to_oklch(fg)[0] >= cs.to_oklch(bg)[0] else -1.0
+                        gap = abs(cs.to_oklch(new)[0] - cs.to_oklch(bg)[0])
+                        if gap < m.target:
+                            new = cs.step(new, sign * (m.target - gap + 0.002))
             new = list(new[:len(fg)])
             if new != list(fg):
-                out.append(Suggestion(m.token, list(fg), new,
+                out.append(Suggestion(token, list(fg), new,
                                       round(cs.to_oklch(new)[0] - cs.to_oklch(fg)[0], 4)))
         return out
 

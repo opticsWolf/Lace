@@ -58,6 +58,9 @@ class Pair(NamedTuple):
 CONTRAST_PAIRS: Tuple[Pair, ...] = (
     Pair("text",     (C, "text_color"),            (C, "canvas_bg")),
     Pair("text",     (P, "text_color"),            (P, "bg_normal")),
+    # Panel text is also drawn on buttons and fields (ButtonText / Text).
+    Pair("text",     (P, "text_color"),            (P, "button_bg")),
+    Pair("text",     (P, "text_color"),            (P, "input_bg")),
     Pair("text",     (SP, "title_text_color"),     (SP, "bg_normal")),
     Pair("text",     (T, "text_active"),           (T, "bg_active")),
     Pair("text",     (TB, "text_active"),          (TB, "bg_normal")),

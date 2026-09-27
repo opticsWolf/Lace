@@ -77,12 +77,20 @@ def _indicator_rect(opt) -> QRectF:
     return P.half_pixel(sq)
 
 
+def _surface(opt):
+    """What an indicator sits on: the selection fill on a selected item-view
+    row, else the window."""
+    if opt.state & State.State_Selected:
+        return P.color(opt, Role.Highlight)
+    return P.color(opt, Role.Window)
+
+
 def _outline(style, opt, base):
     """Outline of an unchecked indicator: accent on hover, else the stroke,
-    either lifted to the ``ui`` contrast target against the window."""
+    either lifted to the ``ui`` contrast target against its surface."""
     hovered = opt.state & State.State_MouseOver and opt.state & State.State_Enabled
     line = P.accent(opt) if hovered else P.stroke(opt, base, style.outline_strength)
-    return P.legible(opt, line, style.ui_ratio)
+    return P.legible(opt, line, style.ui_ratio, surface=_surface(opt))
 
 
 #: Accent share of a partially checked box's fill (over Base).
@@ -100,7 +108,9 @@ def check_box(style, opt, p, w):
     with P.Painting(p):
         if on:
             fill = P.state_fill(opt, P.accent(opt))
-            P.rounded(p, r, radius, fill=fill, line=fill)
+            # The box's own edge reads against its surface, as unchecked does.
+            P.rounded(p, r, radius, fill=fill,
+                      line=P.legible(opt, fill, style.ui_ratio, surface=_surface(opt)))
             P.check_mark(p, r, P.on(fill, opt))
         elif partial:
             # Between off and on: an accent wash, accent outline and dash.

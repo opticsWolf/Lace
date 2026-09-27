@@ -27,8 +27,8 @@ GALLERY = (QPushButton, QToolButton, QCheckBox, QRadioButton, QLineEdit, QComboB
            QSpinBox, QDoubleSpinBox, QSlider, QProgressBar, QTabWidget, QGroupBox,
            QTextEdit, QListWidget, QTreeWidget, QLabel, QDial, QCalendarWidget, QMdiArea)
 #: Hints that legitimately follow PM_ScrollBarExtent: scroll areas count their
-#: scrollbars, the combo box its popup's.
-EXTENT_DEPENDENT = (QScrollBar, QComboBox, QAbstractScrollArea)
+#: scrollbars.
+EXTENT_DEPENDENT = (QScrollBar, QAbstractScrollArea)
 
 
 def _styled(cls, style):

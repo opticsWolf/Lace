@@ -26,7 +26,7 @@ button menu arrow.
 
 from typing import Callable, Dict, Optional
 
-from PySide6.QtWidgets import QProxyStyle, QStyle, QStyleFactory
+from PySide6.QtWidgets import QComboBox, QProxyStyle, QStyle, QStyleFactory
 
 from lace.style import _buttons, _containers, _inputs, _primitives, _range
 from lace.theme_contrast import CONTRAST_TARGETS
@@ -137,7 +137,11 @@ class LaceStyle(QProxyStyle):
         return super().subControlRect(control, option, sub_control, widget)
 
     def pixelMetric(self, metric, option=None, widget=None):
-        if metric == PM.PM_ScrollBarExtent and self._own_scrollbar():
+        # A combo box reserves room for its popup's scrollbar out of this
+        # metric; that room is text layout, so it keeps the base width and a
+        # combo never reflows under LaceStyle.
+        if (metric == PM.PM_ScrollBarExtent and self._own_scrollbar()
+                and not isinstance(widget, QComboBox)):
             return _primitives.SCROLLBAR_EXTENT[self.scrollbar]
         if metric == PM.PM_MenuButtonIndicator:
             # More room on each side of a split button's chevron.
