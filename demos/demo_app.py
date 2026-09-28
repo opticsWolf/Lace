@@ -15,6 +15,13 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit, QLabel, QSty
 
 from pathlib import Path
 
+# demo_panels sits next to this file; importable whether the demo runs as
+# a script (demos/ on sys.path) or as the demos.<name> module.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from demo_panels import (calendar_panel, controls_panel, data_panel, design_panel,  # noqa: E402
+                         logger_panel, sidebar_layers_panel, sidebar_tree_panel,
+                         tabs_panel, editor_panel, note_panel)
+
 # Adjust these imports if your docking framework is in a subfolder
 from lace import (
     LaceStyle,
@@ -215,7 +222,7 @@ class DemoMainWindow(QMainWindow):
         standard_widget.set_custom_icon_name("pin")
         standard_content = DebugTextEdit()
         standard_content.setPlaceholderText("I can be moved, closed, and floated.")
-        standard_widget.set_widget(standard_content)
+        standard_widget.set_widget(editor_panel(standard_content))
         standard_widget.set_features(DockWidgetFeature.all_features)
         self.dock_manager.add_dock_widget(DockWidgetArea.center, standard_widget)
         self.standard_widget = standard_widget
@@ -225,9 +232,7 @@ class DemoMainWindow(QMainWindow):
         unclosable_widget = DockWidget("Unclosable Logger", self)
         unclosable_widget.set_default_icon_name("tab_list")
         unclosable_widget.set_custom_icon_name("float")
-        unclosable_content = QTextEdit()
-        unclosable_content.setReadOnly(True)
-        unclosable_content.setText("FEATURE TEST:\nI cannot be closed via tab or title bar.\n\nTry grouping me with the Standard Editor!")
+        unclosable_content = logger_panel("FEATURE TEST:\nI cannot be closed via tab or title bar.\n\nTry grouping me with the Standard Editor!")
         unclosable_widget.set_widget(unclosable_content)
         unclosable_widget.set_features(DockWidgetFeature.movable | DockWidgetFeature.floatable | DockWidgetFeature.pinnable)
         self.dock_manager.add_dock_widget(DockWidgetArea.bottom, unclosable_widget)
@@ -236,64 +241,55 @@ class DemoMainWindow(QMainWindow):
         unfloatable_widget = DockWidget("Unfloatable Tool", self)
         unfloatable_widget.set_default_icon_name("pin")
         unfloatable_widget.set_custom_icon_name("unpin")
-        unfloatable_content = QLabel("FEATURE TEST:\nI can be closed, but I cannot be detached into a floating window.\n\nNotice the Detach icon is disabled.")
-        unfloatable_content.setAlignment(Qt.AlignCenter)
+        unfloatable_content = data_panel("FEATURE TEST:\nI can be closed, but I cannot be detached into a floating window.\n\nNotice the Detach icon is disabled.")
         unfloatable_widget.set_widget(unfloatable_content)
         unfloatable_widget.set_features(DockWidgetFeature.movable | DockWidgetFeature.closable | DockWidgetFeature.pinnable)
         self.dock_manager.add_dock_widget(DockWidgetArea.right, unfloatable_widget)
 
         # --- 3b. Immovable Widget ---
         immovable_widget = DockWidget("Immovable Tool", self)
-        immovable_content = QLabel("FEATURE TEST:\nI can be closed, floated, or pinned, but I CANNOT be moved/dragged between dock areas.")
-        immovable_content.setAlignment(Qt.AlignCenter)
+        immovable_content = note_panel("FEATURE TEST:\nI can be closed, floated, or pinned, but I CANNOT be moved/dragged between dock areas.")
         immovable_widget.set_widget(immovable_content)
         immovable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.floatable | DockWidgetFeature.pinnable)
         self.dock_manager.add_dock_widget(DockWidgetArea.top, immovable_widget)
 
         # --- 4. Locked Widget (No Features) ---
         locked_widget = DockWidget("Locked Panel", self)
-        locked_content = QLabel("FEATURE TEST:\nI have 'no_features'.\n\nI am permanently stuck here.")
-        locked_content.setAlignment(Qt.AlignCenter)
+        locked_content = controls_panel("FEATURE TEST:\nI have 'no_features'.\n\nI am permanently stuck here.")
         locked_widget.set_widget(locked_content)
         locked_widget.set_features(DockWidgetFeature.no_features)
         self.dock_manager.add_dock_widget(DockWidgetArea.left, locked_widget)
 
         # --- 5. Unpinnable Widget ---
         unpinnable_widget = DockWidget("Unpinnable Data", self)
-        unpinnable_content = QTextEdit()
-        unpinnable_content.setReadOnly(True)
-        unpinnable_content.setText("FEATURE TEST:\nI can be moved, closed, and floated, but I CANNOT be pinned to the sidebar.\n\nNotice the Pin icon is disabled in my title bar and context menu.")
+        unpinnable_content = tabs_panel("FEATURE TEST:\nI can be moved, closed, and floated, but I CANNOT be pinned to the sidebar.\n\nNotice the Pin icon is disabled in my title bar and context menu.")
         unpinnable_widget.set_widget(unpinnable_content)
         unpinnable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.movable | DockWidgetFeature.floatable)
         self.dock_manager.add_dock_widget(DockWidgetArea.center, unpinnable_widget)
 
         # --- 6. Locked Sidebar Tool (Permanently Locked in Sidebar) ---
         locked_sidebar_widget = DockWidget("Locked Sidebar Tool", self)
-        locked_sidebar_content = QLabel("FEATURE TEST:\nI am permanently locked to this sidebar.\n\nI am not draggable/floatable and cannot be unpinned.")
-        locked_sidebar_content.setAlignment(Qt.AlignCenter)
+        locked_sidebar_content = sidebar_layers_panel("FEATURE TEST:\nI am permanently locked to this sidebar.\n\nI am not draggable/floatable and cannot be unpinned.")
         locked_sidebar_widget.set_widget(locked_sidebar_content)
         locked_sidebar_widget.set_features(DockWidgetFeature.closable)
         self.dock_manager.add_sidebar_widget(DockWidgetArea.left, locked_sidebar_widget)
 
         # --- 7. Right Locked Panel (Neither floatable, closable, nor unpinnable) ---
         right_locked_widget = DockWidget("Right Locked Panel", self)
-        right_locked_content = QLabel("FEATURE TEST:\nI am in the right sidebar.\n\nI am neither floatable, closable, nor unpinnable.")
-        right_locked_content.setAlignment(Qt.AlignCenter)
+        right_locked_content = sidebar_tree_panel("FEATURE TEST:\nI am in the right sidebar.\n\nI am neither floatable, closable, nor unpinnable.")
         right_locked_widget.set_widget(right_locked_content)
         right_locked_widget.set_features(DockWidgetFeature.movable)
         self.dock_manager.add_sidebar_widget(DockWidgetArea.right, right_locked_widget)
 
         # --- 8. Right Pinnable Tool (Not floatable, but pinnable/unpinnable and closable) ---
         right_pinnable_widget = DockWidget("Right Pinnable Tool", self)
-        right_pinnable_content = QLabel("FEATURE TEST:\nI am in the right sidebar.\n\nI am not floatable, but I am pinnable/unpinnable and closable.")
-        right_pinnable_content.setAlignment(Qt.AlignCenter)
+        right_pinnable_content = sidebar_layers_panel("FEATURE TEST:\nI am in the right sidebar.\n\nI am not floatable, but I am pinnable/unpinnable and closable.")
         right_pinnable_widget.set_widget(right_pinnable_content)
         right_pinnable_widget.set_features(DockWidgetFeature.closable | DockWidgetFeature.movable | DockWidgetFeature.pinnable)
         self.dock_manager.add_sidebar_widget(DockWidgetArea.right, right_pinnable_widget)
         # --- 9. Locked Area Demonstration ---
         locked_a = DockWidget("Design Item A", self)
-        a_content = QLabel("Design Canvas A\n\nI am locked permanently to the 'DesignArea' dock area.\nI cannot be floated or pinned.")
-        a_content.setAlignment(Qt.AlignCenter)
+        a_content = design_panel("Design Canvas A\n\nI am locked permanently to the 'DesignArea' dock area.\nI cannot be floated or pinned.")
         locked_a.set_widget(a_content)
         locked_a.set_features(DockWidgetFeature.all_features)
         
@@ -306,8 +302,7 @@ class DemoMainWindow(QMainWindow):
         locked_a.locked_to_area = "DesignArea"
         
         locked_b = DockWidget("Design Item B", self)
-        b_content = QLabel("Design Canvas B\n\nI am also locked permanently to the 'DesignArea' dock area.\nI cannot be floated or pinned.")
-        b_content.setAlignment(Qt.AlignCenter)
+        b_content = calendar_panel("Design Canvas B\n\nI am also locked permanently to the 'DesignArea' dock area.\nI cannot be floated or pinned.")
         locked_b.set_widget(b_content)
         locked_b.set_features(DockWidgetFeature.all_features)
         locked_b.locked_to_area = "DesignArea"
