@@ -49,8 +49,8 @@ MUTED_MIX = 0.5
 # ---------------------------------------------------------------------------
 # Splitter
 # ---------------------------------------------------------------------------
-#: Grip thickness at rest: the resting scroll bar handle's.
-SPLITTER_GRIP = EXPANDING_REST
+#: Grip thickness at rest: a pixel under the resting scroll bar handle's.
+SPLITTER_GRIP = EXPANDING_REST - 1
 #: How much the grip thickens under the mouse or while dragged.
 SPLITTER_GROW = 2
 #: Clear space on each side of the grown grip.
@@ -78,6 +78,11 @@ def splitter(style, opt, p, w):
     length = min(float(style.splitter_length), along)
     grip = QRectF(0, 0, thick, length) if vertical_grip else QRectF(0, 0, length, thick)
     grip.moveCenter(r.center())
+    # Whole pixels across, so the grip's edges stay crisp at any handle width.
+    if vertical_grip:
+        grip.moveLeft(float(round(grip.left())))
+    else:
+        grip.moveTop(float(round(grip.top())))
     if active:
         fill = P.legible(opt, P.accent(opt), style.ui_ratio)
     else:

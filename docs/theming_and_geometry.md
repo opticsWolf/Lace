@@ -455,13 +455,13 @@ A dock widget's content (a text edit, a view) is square, but the card around it 
 - LaceStyle replaces the gradients, bevels and pixmap glyphs with flat fills, one 1.5 px stroke
   and vector paths.
 - Sizes stay Fusion's. The only exceptions are the scroll-bar extent in the `thin` / `expanding`
-  modes, a wider split-button arrow and a 12 px splitter handle.
+  modes, a wider split-button arrow and an 11 px splitter handle.
 
 It draws buttons, check and radio boxes, line edits, combo and spin boxes, sliders, dials, progress
 bars, tabs, headers, menus, item views, tooltips, the tool box and scroll bars. The rest of the
 chrome (`lace/style/_chrome.py`) is flat too:
-- **Splitter handles** show a faint round-ended grip, 4 px thick (the resting `expanding` scroll
-  bar) and `splitter_length` long, padded 3 px on each side. On hover or drag it turns accent and
+- **Splitter handles** show a faint round-ended grip, 3 px thick (a pixel under the resting
+  `expanding` scroll bar) and `splitter_length` long, padded 3 px on each side. On hover or drag it turns accent and
   grows by 2 px. `DockSplitter` keeps its own handle width; handles narrower than the grip keep
   Fusion's look.
 - **Tab close buttons** are a vector cross with a rounded wash on hover and press.

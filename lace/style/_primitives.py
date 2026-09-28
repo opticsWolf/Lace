@@ -288,6 +288,10 @@ def scrollbar_rect(style, opt, sc, w):
             SC.SC_ScrollBarAddPage: after}.get(sc, QRect())
 
 
+#: Extra width, in px, of an expanded bar's step triangles beyond half the button.
+STEP_ARROW_GROW = 2
+
+
 def _step_arrows(style, opt, p, w, window, text, horizontal):
     """Filled triangles in the step buttons of an expanded ``expanding`` bar."""
     enabled = bool(opt.state & State.State_Enabled)
@@ -309,8 +313,9 @@ def _step_arrows(style, opt, p, w, window, text, horizontal):
             fill = P.mix(window, text, 0.18 if sunken else 0.10)
             P.rounded(p, face, min(face.width(), face.height()) / 2, fill=fill)
         strength = 0.35 if (at_end or not enabled) else 0.85 if active else 0.62
+        side = min(rect.width(), rect.height())
         P.triangle(p, rect, direction, P.mix(window, text, strength),
-                   size=min(rect.width(), rect.height()) * 0.5)
+                   size=min(side * 0.5 + STEP_ARROW_GROW, side - 2))
 
 
 def scrollbar(style, opt, p, w):
