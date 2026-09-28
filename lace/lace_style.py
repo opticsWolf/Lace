@@ -70,6 +70,7 @@ class LaceStyle(QProxyStyle):
         self.outline_strength = 0.22
         self.splitter_length = 50
         self._weekend_tint = _chrome.WeekendTint(self)
+        self._popup_shift = _popup.ShadowShift(self)
         self.set_tokens(control_radius=control_radius, scrollbar=scrollbar, contrast=contrast,
                         focus_width=focus_width, outline_strength=outline_strength,
                         splitter_length=splitter_length)
@@ -130,7 +131,7 @@ class LaceStyle(QProxyStyle):
         if isinstance(w, QCalendarWidget):
             self._weekend_tint.attach(w)
         if _popup.is_popup(w):
-            _popup.round_popup(self, w)
+            _popup.round_popup(self, w, self._popup_shift)
         return result
 
     def unpolish(self, *args):
@@ -141,7 +142,7 @@ class LaceStyle(QProxyStyle):
         if isinstance(w, QCalendarWidget):
             self._weekend_tint.detach(w)
         if _popup.is_popup(w):
-            _popup.unround_popup(self, w)
+            _popup.unround_popup(self, w, self._popup_shift)
         return super().unpolish(*args)
 
     # -- dispatch ----------------------------------------------------------------
@@ -183,9 +184,12 @@ class LaceStyle(QProxyStyle):
             return super().pixelMetric(metric, option, widget) + 2 * _buttons.SPLIT_PAD
         if metric == PM.PM_SplitterWidth:
             return _chrome.SPLITTER_WIDTH
+        if metric == PM.PM_MenuHMargin and _popup.is_rounded(widget):
+            # Room for the shadow beside a rounded menu's panel.
+            return super().pixelMetric(metric, option, widget) + _popup.SHADOW
         if metric == PM.PM_MenuVMargin and _popup.is_rounded(widget):
-            # Rows clear a rounded menu's arcs.
-            return super().pixelMetric(metric, option, widget) + _popup.pad(self)
+            # Room for the shadow, and rows that clear the panel's arcs.
+            return super().pixelMetric(metric, option, widget) + _popup.SHADOW + _popup.pad(self)
         return super().pixelMetric(metric, option, widget)
 
 

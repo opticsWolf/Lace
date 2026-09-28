@@ -19,8 +19,9 @@ through a cycle.
     text colour;
   - `QCalendarWidget` weekends in the theme's accent instead of red.
 - **Rounded menus and combo box popups**: translucent, frameless popup
-  windows with a rounded fill and outline, and padding so rows clear the
-  corners. Square when `control_radius` is 0.
+  windows with a rounded fill and outline over a soft painted shadow, and
+  padding so rows clear the corners. Panels land where Qt places the popup.
+  Square, with no shadow, when `control_radius` is 0.
 - **Flat `QDial`**: a round groove, an accent value arc, a round knob and
   muted notches.
 - **Demo panels** show everyday widgets (buttons, checks, group boxes,

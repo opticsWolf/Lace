@@ -50,10 +50,12 @@ def test_a_menu_becomes_a_translucent_frameless_window(qapp):
     assert menu.testAttribute(WA.WA_TranslucentBackground)
     assert menu.windowFlags() & WT.FramelessWindowHint      # Windows needs it to composite
     assert menu.windowFlags() & WT.NoDropShadowWindowHint   # the native shadow is square
-    # Rows clear the rounded corners.
+    # Room for the shadow all round, and rows that clear the rounded corners.
+    fusion = QStyleFactory.create("Fusion")
+    assert (style.pixelMetric(PM.PM_MenuHMargin, None, menu)
+            == fusion.pixelMetric(PM.PM_MenuHMargin, None, menu) + _popup.SHADOW)
     assert (style.pixelMetric(PM.PM_MenuVMargin, None, menu)
-            == QStyleFactory.create("Fusion").pixelMetric(PM.PM_MenuVMargin, None, menu)
-            + _popup.pad(style))
+            == fusion.pixelMetric(PM.PM_MenuVMargin, None, menu) + _popup.SHADOW + _popup.pad(style))
 
 
 def test_square_controls_keep_square_popups(qapp):
@@ -88,9 +90,11 @@ def test_a_combo_popup_is_padded_and_restored(qapp):
     _, popup = _combo_popup(style)
     assert _popup.is_rounded(popup)
     m = popup.contentsMargins()
-    assert m.top() == before.top() + _popup.pad(style)
-    assert m.bottom() == before.bottom() + _popup.pad(style)
-    assert m.left() == before.left()
+    ends = _popup.SHADOW + _popup.pad(style)
+    assert m.top() == before.top() + ends
+    assert m.bottom() == before.bottom() + ends
+    assert m.left() == before.left() + _popup.SHADOW
+    assert m.right() == before.right() + _popup.SHADOW
     popup.setStyle(fusion)
     assert popup.contentsMargins() == before
 
@@ -109,12 +113,15 @@ def _panel(style, palette, menu):
     return img
 
 
-def test_a_rounded_menu_panel_leaves_its_corners_clear(qapp, themed):
+def test_a_rounded_menu_panel_sits_on_a_soft_shadow(qapp, themed):
     style = LaceStyle()
     img = _panel(style, themed, _menu(style))
-    assert img.pixelColor(0, 0).alpha() == 0
-    assert img.pixelColor(79, 59).alpha() == 0
-    assert img.pixelColor(40, 30).alpha() == 255
+    s = _popup.SHADOW
+    assert img.pixelColor(40, 30).alpha() == 255            # the panel
+    assert img.pixelColor(s, s).alpha() < 255               # outside its rounded corner
+    below = [img.pixelColor(40, 59 - s + d).alpha() for d in range(1, s)]
+    assert below[0] > 0 and below == sorted(below, reverse=True)    # fades outwards
+    assert img.pixelColor(0, 0).alpha() < 20                # nearly clear at the edge
 
 
 def test_a_square_menu_panel_fills_its_corners(qapp, themed):
@@ -139,5 +146,18 @@ def test_a_combo_popup_fills_its_padding(qapp, themed, editable):
     img = QImage(100, 60, QImage.Format.Format_ARGB32_Premultiplied)
     img.fill(0)
     popup.render(img)
-    assert img.pixelColor(0, 0).alpha() == 0                # a clear corner
-    assert img.pixelColor(50, 2).alpha() == 255             # the padding, filled
+    s = _popup.SHADOW
+    assert img.pixelColor(0, 0).alpha() < 20                # the shadow's faint edge
+    assert img.pixelColor(50, s + 2).alpha() == 255         # the padding, filled
+
+
+def test_a_shown_menu_puts_its_panel_on_the_anchor(qapp):
+    """The window grows by the shadow; showing moves it back by as much."""
+    from PySide6.QtCore import QPoint
+    menu = _menu(LaceStyle())
+    at = QPoint(200, 150)
+    menu.popup(at)
+    try:
+        assert menu.geometry().topLeft() == at - QPoint(_popup.SHADOW, _popup.SHADOW)
+    finally:
+        menu.hide()
