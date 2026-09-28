@@ -51,6 +51,9 @@ def test_a_doc_header_states_the_current_version(relative):
 def test_the_changelog_has_an_entry_for_the_current_version():
     """A bump with no entry is a change nobody can find afterwards."""
     headings = re.findall(r"^## \[([^\]]+)\]", _read("CHANGELOG.md"), re.M)
+    # Work since the last release collects under [Unreleased] until the bump.
+    if headings and headings[0] == "Unreleased":
+        headings = headings[1:]
     assert headings, "CHANGELOG.md has no version headings"
     assert lace.__version__ in headings, (
         f"CHANGELOG.md has no [{lace.__version__}] entry; newest is "
