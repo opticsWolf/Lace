@@ -29,7 +29,7 @@ from typing import Callable, Dict, Optional
 from PySide6.QtWidgets import (QCalendarWidget, QComboBox, QProxyStyle, QStyle, QStyleFactory,
                                QWidget)
 
-from lace.style import (_buttons, _chrome, _containers, _frame_cap, _inputs, _primitives,
+from lace.style import (_buttons, _chrome, _containers, _frame_cap, _inputs, _popup, _primitives,
                         _range)
 from lace.theme_contrast import CONTRAST_TARGETS
 
@@ -122,13 +122,15 @@ class LaceStyle(QProxyStyle):
     # -- widgets -----------------------------------------------------------------
     def polish(self, *args):
         # QStyle.polish is overloaded (QWidget, QApplication, QPalette); only
-        # widgets get a frame cap or weekend tint.
+        # widgets get a frame cap, weekend tint or rounded popup window.
         result = super().polish(*args)
         w = args[0] if args else None
         if isinstance(w, QWidget) and _frame_cap.wants_cap(w) and _frame_cap.cap_of(w) is None:
             _frame_cap.FrameCap(w, self)
         if isinstance(w, QCalendarWidget):
             self._weekend_tint.attach(w)
+        if _popup.is_popup(w):
+            _popup.round_popup(self, w)
         return result
 
     def unpolish(self, *args):
@@ -138,6 +140,8 @@ class LaceStyle(QProxyStyle):
             cap.detach()
         if isinstance(w, QCalendarWidget):
             self._weekend_tint.detach(w)
+        if _popup.is_popup(w):
+            _popup.unround_popup(self, w)
         return super().unpolish(*args)
 
     # -- dispatch ----------------------------------------------------------------
@@ -179,6 +183,9 @@ class LaceStyle(QProxyStyle):
             return super().pixelMetric(metric, option, widget) + 2 * _buttons.SPLIT_PAD
         if metric == PM.PM_SplitterWidth:
             return _chrome.SPLITTER_WIDTH
+        if metric == PM.PM_MenuVMargin and _popup.is_rounded(widget):
+            # Rows clear a rounded menu's arcs.
+            return super().pixelMetric(metric, option, widget) + _popup.pad(self)
         return super().pixelMetric(metric, option, widget)
 
 

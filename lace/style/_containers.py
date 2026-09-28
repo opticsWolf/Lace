@@ -20,10 +20,11 @@ so only the flat fill drawn here shows.
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainterPath, QPalette, QPen, QRegion
 from PySide6.QtWidgets import (
-    QStyle, QStyleOptionFrame, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab, QTabBar,
+    QFrame, QStyle, QStyleOptionFrame, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab, QTabBar,
 )
 
 from lace.style import _paint as P
+from lace.style import _popup
 from lace.style._primitives import frame
 
 PE = QStyle.PrimitiveElement
@@ -200,15 +201,20 @@ def header_arrow(style, opt, p, w):
 # Menus and menu bar
 # ---------------------------------------------------------------------------
 def panel_menu(style, opt, p, w):
-    """Menu popups are plain rectangles: a flat fill and a 1 px line."""
-    fill = P.color(opt, Role.Window)
-    p.save()
-    p.fillRect(opt.rect, fill)
-    p.setPen(QPen(_line(style, opt, fill), 1))
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    p.drawRect(opt.rect.adjusted(0, 0, -1, -1))
-    p.restore()
+    """Menu popups: a flat fill and a 1 px line, rounded when LaceStyle made
+    the popup translucent (see ``_popup``)."""
+    if _popup.is_combo_popup(w):
+        if w.frameShape() != QFrame.Shape.NoFrame:
+            return True     # its frame paints the whole popup (see _chrome.shaped_frame)
+        _popup.paint(style, opt, p, w, Role.Base)
+        return True
+    _popup.paint(style, opt, p, w)
     return True
+
+
+def frame_menu(style, opt, p, w):
+    """Fusion's square menu border; a rounded popup's panel draws its own."""
+    return _popup.is_rounded(w)
 
 
 def _selection(style, opt, p, rect: QRectF, radius: float):
@@ -332,6 +338,7 @@ PRIMITIVES = {
     PE.PE_FrameGroupBox: group_box_frame,
     PE.PE_IndicatorHeaderArrow: header_arrow,
     PE.PE_PanelMenu: panel_menu,
+    PE.PE_FrameMenu: frame_menu,
     PE.PE_PanelItemViewItem: item_view_item,
     PE.PE_PanelTipLabel: tooltip,
 }

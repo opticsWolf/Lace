@@ -22,6 +22,7 @@ from PySide6.QtWidgets import QCalendarWidget, QFrame, QStyle, QStyleOption, QSt
 
 from lace.style import _frame_cap
 from lace.style import _paint as P
+from lace.style import _popup
 from lace.style._primitives import EXPANDING_REST
 from lace.theme_contrast import CONTRAST_TARGETS
 
@@ -140,6 +141,13 @@ def shaped_frame(style, opt, p, w):
     if not isinstance(opt, QStyleOptionFrame):
         return False
     shape = opt.frameShape
+    # A combo's list popup: StyledPanel, or Box when the combo is editable.
+    if _popup.is_combo_popup(w) and shape not in (Shape.NoFrame, Shape.HLine, Shape.VLine):
+        # The whole popup, padding included (the frame rect leaves it out).
+        whole = QStyleOptionFrame(opt)
+        whole.rect = w.rect()
+        _popup.paint(style, whole, p, w, Role.Base)     # the list's own colour
+        return True
     lw = max(1, opt.lineWidth)
     r = QRectF(opt.rect)
     if shape in (Shape.HLine, Shape.VLine):

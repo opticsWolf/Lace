@@ -18,6 +18,9 @@ through a cycle.
   - toolbar handles, separators and size grips as flat lines in the muted
     text colour;
   - `QCalendarWidget` weekends in the theme's accent instead of red.
+- **Rounded menus and combo box popups**: translucent, frameless popup
+  windows with a rounded fill and outline, and padding so rows clear the
+  corners. Square when `control_radius` is 0.
 - **Flat `QDial`**: a round groove, an accent value arc, a round knob and
   muted notches.
 - **Demo panels** show everyday widgets (buttons, checks, group boxes,

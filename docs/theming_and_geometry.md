@@ -468,6 +468,11 @@ chrome (`lace/style/_chrome.py`) is flat too:
 - **`QFrame` lines** (`HLine`, `VLine`) are one line in the border colour, and boxes and panels a
   flat rounded outline, whatever their shadow.
 - **Toolbar handles and separators and size grips** are flat lines in the muted text colour.
+- **Menus and combo box popups** get rounded corners (`control_radius` + 2) and a few pixels of
+  top and bottom padding (`lace/style/_popup.py`). `polish()` makes each popup window translucent
+  and frameless before it is created, and drops the native square drop shadow; the 1 px outline
+  separates it from what's behind. With `control_radius=0`, a popup the app already made
+  translucent, or one whose window existed before LaceStyle arrived, the popup stays square.
 - **`QCalendarWidget`** weekends use the accent (held to the text floor) instead of Qt's red,
   re-tinted on each theme switch.
 
