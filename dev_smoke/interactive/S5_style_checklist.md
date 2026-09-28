@@ -86,6 +86,8 @@ Run sections 1–7 in the showcase under **both** `kilim_dark` and
 - [ ] **Rounded popups:** menus and combo drop-downs have rounded corners with
       a soft shadow and no black or square corners behind them; a context menu
       opens at the cursor and a menu-bar menu right under its item.
+- [ ] **Section headers:** in the demo's dock-flags and sidebar menus, "Drag &
+      Resize" and "Focus Mode" show as muted titles with a line after them.
 - [ ] **Submenu:** "Recent" opens with its first row level with the action.
 - [ ] **Combo popup:** the padding above and below the rows matches the rows'
       colour, for a plain and an editable combo.

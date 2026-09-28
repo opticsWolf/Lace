@@ -115,6 +115,47 @@ def test_menu_bar_item_shows_selection(qapp):
     assert _near(img.pixelColor(W // 2, H // 2), pal.color(G, QPalette.ColorRole.Highlight))
 
 
+def _separator(pal, text):
+    opt = QStyleOptionMenuItem()
+    opt.rect, opt.palette, opt.state = QRect(0, 0, W, H), pal, _state()
+    opt.menuItemType, opt.text = QStyleOptionMenuItem.MenuItemType.Separator, text
+    return opt
+
+
+def _inked_columns(img):
+    return [x for x in range(W) if any(img.pixelColor(x, y).alpha() for y in range(H))]
+
+
+def test_menu_section_header_shows_its_title(qapp):
+    """``QMenu.addSection``: the title at the start, the line after it."""
+    pal = _palette()
+    style = LaceStyle()
+    draw = lambda o, p, w: style.drawControl(CE.CE_MenuItem, o, p, w)   # noqa: E731
+    line = _draw(draw, _separator(pal, ""), QMenu())
+    section = _draw(draw, _separator(pal, "Sec"), QMenu())
+    # A bare separator is one row of pixels; the title has height.
+    (row,) = {y for y in range(H) if line.pixelColor(W // 2, y).alpha()}
+    start = _inked_columns(section)[0]
+    assert any(section.pixelColor(start + dx, y).alpha()
+               for dx in range(3) for y in range(H) if y != row)
+    assert section.pixelColor(W - 10, row).alpha()   # the line runs on after the title
+
+
+def test_menu_section_header_has_room_for_its_title(qapp):
+    menu = QMenu()
+    menu.setStyle(LaceStyle())
+    menu.addAction("x")
+    section = menu.addSection("A section title much wider than its items")
+    menu.addAction("y")
+    line = menu.addSeparator()      # between items: QMenu collapses bare ones at the ends
+    menu.addAction("z")
+    menu.sizeHint()                 # lays out the action rects
+    title = menu.fontMetrics().horizontalAdvance(section.text())
+    assert menu.actionGeometry(section).width() > title
+    assert menu.actionGeometry(section).height() > menu.fontMetrics().height()
+    assert menu.actionGeometry(line).height() < menu.fontMetrics().height()
+
+
 @pytest.mark.parametrize("element", [QStyle.PrimitiveElement.PE_IndicatorCheckBox,
                                      QStyle.PrimitiveElement.PE_IndicatorRadioButton])
 def test_menu_checks_are_bare(qapp, element):

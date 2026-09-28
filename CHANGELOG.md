@@ -27,6 +27,11 @@ through a cycle.
 - **Demo panels** show everyday widgets (buttons, checks, group boxes,
   tables, splitters, calendars) so themes are easier to compare.
 
+### Fixed
+
+- **Menu section headers** (`QMenu.addSection`) show their title in muted
+  text with the line after it; LaceStyle drew them as a bare line before.
+
 ## [0.8.0] — 2026-09-28
 
 Theming modernisation: an OKLCH colour engine, contrast floors, a complete

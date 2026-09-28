@@ -17,12 +17,15 @@ a selection fill inside a label element, it is handed a transparent highlight
 so only the flat fill drawn here shows.
 """
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from typing import Optional
+
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QPainterPath, QPalette, QPen, QRegion
 from PySide6.QtWidgets import (
     QFrame, QStyle, QStyleOptionFrame, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab, QTabBar,
 )
 
+from lace.style import _chrome
 from lace.style import _paint as P
 from lace.style import _popup
 from lace.style._primitives import frame
@@ -37,6 +40,17 @@ Shape = QTabBar.Shape
 TAB_UNDERLINE = 2.0
 #: Hover wash of item-view rows and unselected tabs: text over the surface.
 HOVER_WASH = 0.06
+#: Menu separators' inset from the popup's sides, px.
+MENU_SEPARATOR_INSET = 6
+#: Gap between a section header's title and its line, px.
+MENU_SECTION_GAP = 6
+#: Padding above and below a section header's title, px.
+MENU_SECTION_PAD = 4
+#: Shortest line after a section header's title, px.
+MENU_SECTION_STUB = 12
+#: A section title: one line, left, with ``&&`` shown as ``&``.
+_SECTION_TEXT = (Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextSingleLine
+                 | Qt.TextFlag.TextHideMnemonic)
 #: Tooltip padding above and below one line of text (QTipLabel's margin), px.
 TIP_PAD = 4
 
@@ -222,14 +236,46 @@ def _selection(style, opt, p, rect: QRectF, radius: float):
         P.rounded(p, rect, radius, fill=P.color(opt, Role.Highlight))
 
 
+def _is_section(opt) -> bool:
+    return (isinstance(opt, QStyleOptionMenuItem) and bool(opt.text)
+            and opt.menuItemType == QStyleOptionMenuItem.MenuItemType.Separator)
+
+
+def _section_width(opt) -> int:
+    return opt.fontMetrics.size(int(_SECTION_TEXT), opt.text).width()
+
+
+def menu_section_size(style, opt, size: QSize) -> Optional[QSize]:
+    """A section header's row: Fusion sizes it to one bare line of text, so
+    it gets padding above and below, and room for its whole title and a stub
+    of line."""
+    if not _is_section(opt):
+        return None
+    width = 2 * MENU_SEPARATOR_INSET + _section_width(opt) + MENU_SECTION_GAP + MENU_SECTION_STUB
+    return QSize(max(size.width(), width), opt.fontMetrics.height() + 2 * MENU_SECTION_PAD)
+
+
+def _menu_separator(style, opt, p):
+    """A flat line; a section header (``QMenu.addSection``) puts its title in
+    muted text at the start and runs the line after it."""
+    left, right = opt.rect.left() + MENU_SEPARATOR_INSET, opt.rect.right() - MENU_SEPARATOR_INSET
+    y = opt.rect.center().y()
+    with P.Painting(p):
+        if _is_section(opt):
+            p.setFont(opt.font)
+            p.setPen(_chrome.muted(style, opt))
+            text = QRectF(left, opt.rect.top(), right - left, opt.rect.height())
+            p.drawText(text, int(_SECTION_TEXT), opt.text)
+            left += _section_width(opt) + MENU_SECTION_GAP
+        if left < right:
+            _hline(p, left, right, y, _line(style, opt, P.color(opt, Role.Window)))
+
+
 def menu_item(style, opt, p, w):
     if not isinstance(opt, QStyleOptionMenuItem):
         return False
     if opt.menuItemType == QStyleOptionMenuItem.MenuItemType.Separator:
-        y = opt.rect.center().y()
-        p.save()
-        _hline(p, opt.rect.left() + 6, opt.rect.right() - 6, y, _line(style, opt, P.color(opt, Role.Window)))
-        p.restore()
+        _menu_separator(style, opt, p)
         return True
     if opt.state & State.State_Selected and _enabled(opt):
         _selection(style, opt, p, QRectF(opt.rect).adjusted(3, 1, -3, -1), style.control_radius)

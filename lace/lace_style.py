@@ -18,7 +18,8 @@ glyphs -- with flat fills, one stroke and vector paths.
 Sizes stay Fusion's: ``pixelMetric``, ``sizeFromContents`` and
 ``subControlRect`` pass through, except the scrollbar extent and sub-control
 rects in the ``thin`` and ``expanding`` scrollbar modes, a wider split
-button menu arrow, and a splitter handle wide enough to pad its grip.
+button menu arrow, a splitter handle wide enough to pad its grip, and menu
+section headers tall and wide enough for their titles.
 
     app.setStyle(LaceStyle())               # standalone, default tokens
     DockThemeBridge()                        # installs it, tokens follow the theme
@@ -171,6 +172,12 @@ class LaceStyle(QProxyStyle):
                 control == CC.CC_ScrollBar and not self._own_scrollbar()):
             return fn(self, option, sub_control, widget)
         return super().subControlRect(control, option, sub_control, widget)
+
+    def sizeFromContents(self, type_, option, size, widget=None):
+        size = super().sizeFromContents(type_, option, size, widget)
+        if type_ == QStyle.ContentsType.CT_MenuItem:
+            return _containers.menu_section_size(self, option, size) or size
+        return size
 
     def pixelMetric(self, metric, option=None, widget=None):
         # A combo box reserves room for its popup's scrollbar out of this
