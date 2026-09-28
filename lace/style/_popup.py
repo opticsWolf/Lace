@@ -26,11 +26,11 @@ WA = Qt.WidgetAttribute
 #: How much rounder a popup is than the controls inside it.
 RADIUS_EXTRA = 2
 #: Transparent margin around a rounded popup's panel, where its shadow falls.
-SHADOW = 8
+SHADOW = 5
 #: How far the shadow drops below the panel.
-SHADOW_DROP = 2
+SHADOW_DROP = 1
 #: Shadow opacity at the panel's edge, on dark and on light surfaces.
-SHADOW_DARK, SHADOW_LIGHT = 0.42, 0.16
+SHADOW_DARK, SHADOW_LIGHT = 0.26, 0.09
 
 #: Marks a popup this style made translucent, so ``unpolish`` undoes only that.
 _ROUNDED = "_laceRoundedPopup"

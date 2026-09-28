@@ -471,7 +471,7 @@ chrome (`lace/style/_chrome.py`) is flat too:
 - **Menus and combo box popups** get rounded corners (`control_radius` + 2) and a few pixels of
   top and bottom padding, over a soft painted shadow (`lace/style/_popup.py`). `polish()` makes
   each popup window translucent and frameless before it is created, and swaps the native square
-  drop shadow for a painted one: the window grows by 8 px on every side for the shadow, and on
+  drop shadow for a painted one: the window grows by 5 px on every side for the shadow, and on
   show it moves back by as much, so the panel sits exactly where Qt placed it (at the cursor, under
   its menu-bar item, beside its parent menu, or at its combo's width). With `control_radius=0`, a
   popup the app already made translucent, or one whose window existed before LaceStyle arrived,
