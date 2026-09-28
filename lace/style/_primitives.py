@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QPushButton, QMenu, QStyle, QToolButton,
 )
 
+from lace.style import _frame_cap
 from lace.style import _paint as P
 
 PE = QStyle.PrimitiveElement
@@ -200,7 +201,7 @@ def frame(style, opt, p, w):
     """
     if w is not None and w.property("dockWidgetContent"):
         return True     # the card is its frame
-    cap = getattr(w, "_lace_frame_cap", None) if w is not None else None
+    cap = _frame_cap.cap_of(w)
     if cap is not None:
         if cap.isVisible():
             return True     # the area's FrameCap draws the outline above the viewport

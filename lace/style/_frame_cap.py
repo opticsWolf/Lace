@@ -22,6 +22,7 @@ is masked to the corners and edge strips it paints, so typing or scrolling
 in the viewport never repaints it.
 """
 
+from functools import partial
 from math import ceil
 
 from PySide6.QtCore import QEvent, QObject, QRect, QRectF, Qt, QTimer
@@ -30,8 +31,12 @@ from PySide6.QtWidgets import QAbstractScrollArea, QFrame, QStyle, QStyleOptionF
 
 from lace.dock_paint import corner_cap_path, paint_corner_cap
 
-#: Attribute on the scroll area holding its cap.
-ATTR = "_lace_frame_cap"
+#: Every live cap, by id. PySide keeps a Python child alive only through its
+#: parent's wrapper, and a widget Qt created in C++ (a calendar's table, a
+#: font combo's list) may have a transient one: without this, the cap's Python
+#: half is collected while the C++ overlay still filters and paints, and Qt
+#: calls into an empty wrapper. Entries leave when the overlay is destroyed.
+_LIVE = {}
 
 
 def wants_cap(w: QWidget) -> bool:
@@ -55,7 +60,11 @@ def _inset_in_dock(w: QWidget) -> bool:
 
 
 def cap_of(w: QWidget):
-    return getattr(w, ATTR, None) if w is not None else None
+    """The area's cap, found among its direct children (a Python attribute on
+    the area would vanish with a transient wrapper)."""
+    if w is None:
+        return None
+    return w.findChild(FrameCap, options=Qt.FindChildOption.FindDirectChildrenOnly)
 
 
 #: Area events after which the cap re-checks its mode, geometry and mask:
@@ -78,15 +87,14 @@ class FrameCap(QWidget):
         self._cap = QPainterPath()
         self._mask_key = None
         self._sync_queued = False
-        setattr(area, ATTR, self)
+        _LIVE[id(self)] = self
+        self.destroyed.connect(partial(_LIVE.pop, id(self), None))
         area.installEventFilter(self)
         self.hide()
         self.sync()
 
     def detach(self) -> None:
         self._area.removeEventFilter(self)
-        if getattr(self._area, ATTR, None) is self:
-            delattr(self._area, ATTR)
         self.setParent(None)
         self.deleteLater()
 

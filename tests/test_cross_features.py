@@ -10,11 +10,12 @@
   meet the high targets.
 """
 
+import sys
 from dataclasses import replace
 
 import pytest
 from PySide6.QtCore import QPointF, QRect, QRectF, Qt
-from PySide6.QtGui import QPainterPath, QPalette
+from PySide6.QtGui import QColor, QPainterPath, QPalette
 from PySide6.QtWidgets import (QApplication, QMainWindow, QStyle, QStyleOptionButton,
                                QStyleOptionSlider, QStyleOptionTab, QStyleOptionViewItem,
                                QTabBar, QTextEdit)
@@ -395,3 +396,40 @@ def test_frame_cap_is_hidden_when_idle_and_masked_when_shown(lace_app):
         assert idle.isVisible()
     finally:
         host.close()
+
+
+def test_frame_cap_survives_a_transient_area_wrapper(lace_app):
+    """A scroll area Qt creates in C++ (a calendar's table view) has only a
+    transient Python wrapper. Its cap must outlive that wrapper: after a
+    collection, palette changes and repaints reach a live cap (no calls into
+    an empty wrapper), and a repolish never adds a second one."""
+    import gc
+    from PySide6.QtCore import qInstallMessageHandler
+    from PySide6.QtWidgets import QAbstractItemView, QCalendarWidget
+    from lace.style import _frame_cap
+
+    errors = []
+    previous = qInstallMessageHandler(lambda mode, ctx, msg: errors.append(msg))
+    old_hook = sys.unraisablehook
+    sys.unraisablehook = lambda u: errors.append(repr(u.exc_value))
+    cal = QCalendarWidget()
+    cal.show()
+    QApplication.processEvents()
+    try:
+        gc.collect()
+        for pal in (QPalette(QColor("#202020")), QPalette(QColor("#f0f0f0"))):
+            cal.setPalette(pal)
+            cal.repaint()
+            QApplication.processEvents()
+        gc.collect()
+        cal.setStyle(lace_app)          # repolish
+        QApplication.processEvents()
+        view = cal.findChild(QAbstractItemView)
+        caps = view.findChildren(_frame_cap.FrameCap,
+                                 options=Qt.FindChildOption.FindDirectChildrenOnly)
+        assert len(caps) == 1
+        assert not [e for e in errors if "FrameCap" in e or "no attribute" in e], errors
+    finally:
+        cal.close()
+        qInstallMessageHandler(previous)
+        sys.unraisablehook = old_hook
