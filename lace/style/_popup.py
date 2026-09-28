@@ -16,7 +16,7 @@ import math
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QPalette, QPen
-from PySide6.QtWidgets import QApplication, QMenu, QWidget
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QMenu, QWidget
 
 from lace.style import _paint as P
 
@@ -49,6 +49,25 @@ def radius(style) -> float:
 
 def is_combo_popup(w) -> bool:
     return isinstance(w, QWidget) and w.inherits("QComboBoxPrivateContainer")
+
+
+def combo_fill(w, opt) -> QColor:
+    """The colour a combo popup's rows sit on, for its panel and padding to
+    match them.
+
+    A plain combo's ``QComboMenuDelegate`` fills each row with Window from
+    the view's palette resolved over the app's ``QMenu`` palette; an editable
+    combo's rows sit on the view's Base.
+    """
+    view = w.findChild(QAbstractItemView)
+    if view is None:
+        return P.color(opt, Role.Base)
+    group = opt.palette.currentColorGroup()
+    delegate = view.itemDelegate()
+    if delegate is not None and delegate.inherits("QComboMenuDelegate"):
+        menu = view.palette().resolve(QApplication.palette("QMenu"))
+        return menu.color(group, Role.Window)
+    return view.palette().color(group, Role.Base)
 
 
 def is_popup(w) -> bool:
@@ -162,10 +181,12 @@ def _shadow(p, panel: QRectF, r: float, strength: float) -> None:
         p.drawRoundedRect(spread, r + i, r + i)
 
 
-def paint(style, opt, p, w, role=Role.Window) -> None:
-    """A popup's panel: a flat fill and a 1 px outline. Rounded, and over a
-    soft shadow in its margin, when the window is translucent."""
-    fill = P.color(opt, role)
+def paint(style, opt, p, w, fill: QColor = None) -> None:
+    """A popup's panel: a flat fill (Window unless given) and a 1 px outline.
+    Rounded, and over a soft shadow in its margin, when the window is
+    translucent."""
+    if fill is None:
+        fill = P.color(opt, Role.Window)
     line = P.legible(opt, P.stroke(opt, fill, style.outline_strength), style.border_ratio)
     if is_rounded(w):
         s = SHADOW

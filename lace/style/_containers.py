@@ -206,7 +206,7 @@ def panel_menu(style, opt, p, w):
     if _popup.is_combo_popup(w):
         if w.frameShape() != QFrame.Shape.NoFrame:
             return True     # its frame paints the whole popup (see _chrome.shaped_frame)
-        _popup.paint(style, opt, p, w, Role.Base)
+        _popup.paint(style, opt, p, w, _popup.combo_fill(w, opt))
         return True
     _popup.paint(style, opt, p, w)
     return True

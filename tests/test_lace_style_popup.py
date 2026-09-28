@@ -151,6 +151,33 @@ def test_a_combo_popup_fills_its_padding(qapp, themed, editable):
     assert img.pixelColor(50, s + 2).alpha() == 255         # the padding, filled
 
 
+@pytest.mark.parametrize("editable", [False, True], ids=["plain", "editable"])
+def test_a_combo_popups_padding_matches_its_rows(qapp, themed, editable):
+    """A plain combo draws menu rows, an editable one list rows: the padding
+    above and below them takes the same colour."""
+    style = LaceStyle()
+    combo = QComboBox()
+    combo.setEditable(editable)
+    combo.addItems(["alpha", "beta", "gamma"])
+    combo.setStyle(style)
+    combo.setPalette(themed)
+    popup = combo.view().window()
+    popup.setStyle(style)
+    popup.setPalette(themed)
+    popup.ensurePolished()
+    popup.resize(160, 120)
+    popup.layout().activate()
+    img = QImage(160, 120, QImage.Format.Format_ARGB32_Premultiplied)
+    img.fill(0)
+    popup.render(img)
+    view = combo.view()
+    row = view.visualRect(combo.model().index(1, 0))       # an unselected row
+    spot = view.mapTo(popup, row.center())
+    spot.setX(popup.width() - _popup.SHADOW - 12)          # right of the text
+    padding = img.pixelColor(spot.x(), _popup.SHADOW + 2)
+    assert padding == img.pixelColor(spot)
+
+
 def test_a_shown_menu_puts_its_panel_on_the_anchor(qapp):
     """The window grows by the shadow; showing moves it back by as much."""
     from PySide6.QtCore import QPoint

@@ -146,7 +146,7 @@ def shaped_frame(style, opt, p, w):
         # The whole popup, padding included (the frame rect leaves it out).
         whole = QStyleOptionFrame(opt)
         whole.rect = w.rect()
-        _popup.paint(style, whole, p, w, Role.Base)     # the list's own colour
+        _popup.paint(style, whole, p, w, _popup.combo_fill(w, opt))   # the rows' own colour
         return True
     lw = max(1, opt.lineWidth)
     r = QRectF(opt.rect)
