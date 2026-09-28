@@ -5,7 +5,7 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
-## [0.8.0] — unreleased
+## [0.8.0] — 2026-09-28
 
 Theming modernisation: an OKLCH colour engine, contrast floors, a complete
 palette, a flat vector style, rounded content and a theme kit. 0.7 themes load
