@@ -31,6 +31,10 @@ from PySide6.QtCore import QTimer, QPoint, Qt
 from PySide6.QtGui import QCursor
 app = QApplication(sys.argv[:1] + qt_args)
 
+from lace import LaceStyle
+# As the demo's own entry point does: without it the shots show plain Fusion.
+app.setStyle(LaceStyle())
+
 from demos.demo_app_custom_titlebar import DemoMainWindow
 from lace.floating_dock_container_frameless import (
     FramelessFloatingDockContainer)
