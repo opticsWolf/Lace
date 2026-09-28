@@ -83,6 +83,13 @@ Run sections 1–7 in the showcase under **both** `kilim_dark` and
       disabled; separators are flat lines; "Wrap lines" shows a bare tick
       (no box); "Recent" shows a vector submenu arrow.
 - [ ] **Style menu radios:** exclusive choices show a dot, not a radio circle.
+- [ ] **Rounded popups:** menus and combo drop-downs have rounded corners with
+      a soft shadow and no black or square corners behind them; a context menu
+      opens at the cursor and a menu-bar menu right under its item.
+- [ ] **Submenu:** "Recent" opens with its first row level with the action.
+- [ ] **Combo popup:** the padding above and below the rows matches the rows'
+      colour, for a plain and an editable combo.
+- [ ] **Splitter:** a thin grip that highlights on hover and drags smoothly.
 - [ ] **Keyboard:** Alt+F opens File; arrows move the highlight; Esc closes.
 - [ ] **Tooltip:** hover the table: rounded corners with no square corners
       showing behind them, a 1 px outline, readable text.

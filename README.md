@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.8.0
+**Version:** 0.8.1
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -51,7 +51,7 @@
 - **Grouped theme menus** — `theme_groups()` returns `(group, [(label, key), ...])` in presentation order — Basics, Editor Classics, Neon, Edge Treatments — with each family kept together and ordered dark, neutral, light; `theme_choices()` is the same order flattened for a single-level menu
 - **OKLCH theme engine** — Surfaces are derived in OKLCH, so equal steps look equal on any base colour. The keywords `contrast` (low/normal/high WCAG floors), `depth` (flat/subtle/raised) and `selection` (solid/tint) steer the look. Text and UI colours are held to their contrast floors automatically.
 - **Complete `QPalette`** — Every role in every colour group (Active, Inactive, Disabled) is themed, so no platform colour leaks into dark themes
-- **LaceStyle** — A flat, vector `QProxyStyle` over Fusion for buttons, fields, combo and spin boxes, sliders, tabs, menus, item views, tooltips and scroll bars (`thin`/`expanding`/`fusion`). It follows the theme and stays sharp at any zoom, including widgets in a `QGraphicsView`.
+- **LaceStyle** — A flat, vector `QProxyStyle` over Fusion for buttons, fields, combo and spin boxes, sliders, dials, tabs, menus, item views, tooltips, frames, splitters, tool bars and scroll bars (`thin`/`expanding`/`fusion`). Menus and combo popups get rounded corners and a soft painted shadow. It follows the theme and stays sharp at any zoom, including widgets in a `QGraphicsView`.
 - **Rounded content** — `corner_clip="cap"` paints an antialiased cap over square content inside rounded cards
 - **Theme kit & Theme Studio** — `lace.theme_kit` makes a theme from two seed colours and a chassis, audits contrast (as a CI gate too), derives dark/neutral/light counterparts, and exports JSON. `python -m lace.theme_kit studio` edits a theme live.
 - **Declarative `ThemeSpec`** — Define custom themes with color palettes and geometrical tokens (corner radius, border width, title height, tab radius, content margin, etc.)

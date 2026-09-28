@@ -452,7 +452,7 @@ class DemoMainWindow(QMainWindow):
         self._flag_actions = {}
 
         # Group: Splitter & Drag behavior
-        flags_menu.addSection("Drag && Resize")
+        #flags_menu.addSection("Drag && Resize")
         self._add_flag_action(flags_menu, DockFlags.opaque_splitter_resize)
         self._add_flag_action(flags_menu, DockFlags.opaque_undocking)
         self._add_flag_action(flags_menu, DockFlags.chromeless_float)
@@ -499,7 +499,7 @@ class DemoMainWindow(QMainWindow):
         focus_group = QActionGroup(self)
         focus_group.setExclusive(True)
         
-        sidebar_menu.addSection("Focus Mode")
+        #sidebar_menu.addSection("Focus Mode")
         
         modes = [
             ("Take Focus && Restore (Default)", SideBarFocusBehavior.take_focus_and_restore, "Sidebar steals focus on open and returns focus to previous card on close."),
