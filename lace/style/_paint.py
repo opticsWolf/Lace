@@ -216,6 +216,26 @@ def _pen(c: QColor, width: float = GLYPH_PEN) -> QPen:
     return pen
 
 
+def pen(c: QColor, width: float = GLYPH_PEN, round_cap: bool = True) -> QPen:
+    """A cosmetic line pen; square caps for lines that must end flush."""
+    p = _pen(c, width)
+    if not round_cap:
+        p.setCapStyle(Qt.PenCapStyle.FlatCap)
+    return p
+
+
+def cross(painter: QPainter, rect, c: QColor, size: float = 0.0) -> None:
+    """A stroked ``x`` centred in ``rect`` (close buttons)."""
+    r = QRectF(rect)
+    s = size or min(r.width(), r.height()) * 0.45
+    h = s / 2
+    cx, cy = r.center().x(), r.center().y()
+    painter.setPen(_pen(c))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.drawLine(QPointF(cx - h, cy - h), QPointF(cx + h, cy + h))
+    painter.drawLine(QPointF(cx - h, cy + h), QPointF(cx + h, cy - h))
+
+
 def chevron(painter: QPainter, rect, direction: str, c: QColor, size: float = 0.0) -> None:
     """A stroked chevron centred in ``rect``, pointing ``up|down|left|right``."""
     r = QRectF(rect)

@@ -17,8 +17,8 @@ glyphs -- with flat fills, one stroke and vector paths.
 
 Sizes stay Fusion's: ``pixelMetric``, ``sizeFromContents`` and
 ``subControlRect`` pass through, except the scrollbar extent and sub-control
-rects in the ``thin`` and ``expanding`` scrollbar modes, and a wider split
-button menu arrow.
+rects in the ``thin`` and ``expanding`` scrollbar modes, a wider split
+button menu arrow, and a splitter handle wide enough to pad its grip.
 
     app.setStyle(LaceStyle())               # standalone, default tokens
     DockThemeBridge()                        # installs it, tokens follow the theme
@@ -26,9 +26,11 @@ button menu arrow.
 
 from typing import Callable, Dict, Optional
 
-from PySide6.QtWidgets import QComboBox, QProxyStyle, QStyle, QStyleFactory, QWidget
+from PySide6.QtWidgets import (QCalendarWidget, QComboBox, QProxyStyle, QStyle, QStyleFactory,
+                               QWidget)
 
-from lace.style import _buttons, _containers, _frame_cap, _inputs, _primitives, _range
+from lace.style import (_buttons, _chrome, _containers, _frame_cap, _inputs, _primitives,
+                        _range)
 from lace.theme_contrast import CONTRAST_TARGETS
 
 SCROLLBAR_MODES = ("thin", "expanding", "fusion")
@@ -50,14 +52,15 @@ class LaceStyle(QProxyStyle):
 
     #: element -> draw(style, option, painter, widget) -> bool (True = painted)
     PRIMITIVES: Dict = _merge(_primitives.PRIMITIVES, _buttons.PRIMITIVES, _inputs.PRIMITIVES,
-                              _containers.PRIMITIVES)
-    CONTROLS: Dict = _merge(_buttons.CONTROLS, _range.CONTROLS, _containers.CONTROLS)
+                              _containers.PRIMITIVES, _chrome.PRIMITIVES)
+    CONTROLS: Dict = _merge(_buttons.CONTROLS, _range.CONTROLS, _containers.CONTROLS,
+                            _chrome.CONTROLS)
     COMPLEX: Dict = _merge(_primitives.COMPLEX, _inputs.COMPLEX, _range.COMPLEX)
     SUBCONTROL_RECTS: Dict = _merge(_primitives.SUBCONTROL_RECTS)
 
     def __init__(self, control_radius: int = 4, scrollbar: str = "expanding",
                  contrast: str = "normal", focus_width: float = 2.0,
-                 outline_strength: float = 0.22):
+                 outline_strength: float = 0.22, splitter_length: int = 50):
         # QProxyStyle takes ownership of the base style.
         super().__init__(QStyleFactory.create("Fusion"))
         self.control_radius = 4
@@ -65,14 +68,18 @@ class LaceStyle(QProxyStyle):
         self.contrast = "normal"
         self.focus_width = 2.0
         self.outline_strength = 0.22
+        self.splitter_length = 50
+        self._weekend_tint = _chrome.WeekendTint(self)
         self.set_tokens(control_radius=control_radius, scrollbar=scrollbar, contrast=contrast,
-                        focus_width=focus_width, outline_strength=outline_strength)
+                        focus_width=focus_width, outline_strength=outline_strength,
+                        splitter_length=splitter_length)
 
     # -- theme knobs -------------------------------------------------------------
     def set_tokens(self, control_radius: Optional[int] = None,
                    scrollbar: Optional[str] = None, contrast: Optional[str] = None,
                    focus_width: Optional[float] = None,
-                   outline_strength: Optional[float] = None) -> None:
+                   outline_strength: Optional[float] = None,
+                   splitter_length: Optional[int] = None) -> None:
         """Update the theme knobs; widgets repaint on their next paint event.
 
         ``contrast`` is the theme's level: it sets the ratio the non-text UI
@@ -80,6 +87,7 @@ class LaceStyle(QProxyStyle):
         ``focus_width`` is the keyboard focus ring's pen width; 0 hides it.
         ``outline_strength`` (0-1) is how much text colour is mixed over a
         control's fill for its 1 px outline; the contrast floor still applies.
+        ``splitter_length`` is the length of a splitter handle's grip, in px.
         """
         if control_radius is not None:
             self.control_radius = max(0, int(control_radius))
@@ -95,6 +103,8 @@ class LaceStyle(QProxyStyle):
             self.focus_width = max(0.0, float(focus_width))
         if outline_strength is not None:
             self.outline_strength = min(1.0, max(0.0, float(outline_strength)))
+        if splitter_length is not None:
+            self.splitter_length = max(0, int(splitter_length))
 
     @property
     def ui_ratio(self) -> float:
@@ -112,11 +122,13 @@ class LaceStyle(QProxyStyle):
     # -- widgets -----------------------------------------------------------------
     def polish(self, *args):
         # QStyle.polish is overloaded (QWidget, QApplication, QPalette); only
-        # widgets get a frame cap.
+        # widgets get a frame cap or weekend tint.
         result = super().polish(*args)
         w = args[0] if args else None
         if isinstance(w, QWidget) and _frame_cap.wants_cap(w) and _frame_cap.cap_of(w) is None:
             _frame_cap.FrameCap(w, self)
+        if isinstance(w, QCalendarWidget):
+            self._weekend_tint.attach(w)
         return result
 
     def unpolish(self, *args):
@@ -124,6 +136,8 @@ class LaceStyle(QProxyStyle):
         cap = _frame_cap.cap_of(w) if isinstance(w, QWidget) else None
         if cap is not None:
             cap.detach()
+        if isinstance(w, QCalendarWidget):
+            self._weekend_tint.detach(w)
         return super().unpolish(*args)
 
     # -- dispatch ----------------------------------------------------------------
@@ -163,6 +177,8 @@ class LaceStyle(QProxyStyle):
         if metric == PM.PM_MenuButtonIndicator:
             # More room on each side of a split button's chevron.
             return super().pixelMetric(metric, option, widget) + 2 * _buttons.SPLIT_PAD
+        if metric == PM.PM_SplitterWidth:
+            return _chrome.SPLITTER_WIDTH
         return super().pixelMetric(metric, option, widget)
 
 

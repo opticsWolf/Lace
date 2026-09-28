@@ -16,6 +16,7 @@ accent fill; the busy state is a segment sliding along the track. Sub-control
 and sub-element rects stay Fusion's.
 """
 
+import math
 import time
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
@@ -207,8 +208,83 @@ def progress_contents(style, opt, p, w):
     return True
 
 
+# ---------------------------------------------------------------------------
+# Dial
+# ---------------------------------------------------------------------------
+#: Room outside the arc for the notches, and their length.
+NOTCH_ROOM, NOTCH_LEN = 6.0, 3.0
+#: Handle diameter, as a multiple of the groove.
+DIAL_KNOB = 3.0
+
+
+def _dial_angle(opt, value) -> float:
+    """Qt's dial angle for ``value``, in degrees: counter-clockwise from 3
+    o'clock, 240 at the minimum to -60 at the maximum (or a full turn from 6
+    o'clock when the dial wraps), as QDial's own mouse mapping has it."""
+    span = opt.maximum - opt.minimum
+    if span <= 0:
+        return 90.0
+    pos = value if opt.upsideDown else opt.maximum + opt.minimum - value
+    frac = (pos - opt.minimum) / span
+    if opt.dialWrapping:
+        return 270.0 + frac * 360.0
+    return 240.0 - frac * 300.0
+
+
+def _on_circle(c: QPointF, radius: float, degrees: float) -> QPointF:
+    a = math.radians(degrees)
+    return QPointF(c.x() + radius * math.cos(a), c.y() - radius * math.sin(a))
+
+
+def dial(style, opt, p, w):
+    """A flat dial: a round groove, accent from the minimum to the value, and
+    the slider's round handle riding on it. Notches are short muted ticks
+    outside the groove."""
+    if not isinstance(opt, QStyleOptionSlider):
+        return False
+    r = QRectF(opt.rect)
+    side = min(r.width(), r.height())
+    # A small dial keeps its arc readable: the knob never tops a fifth of it.
+    knob_d = min(GROOVE * DIAL_KNOB, side * 0.2)
+    # QDial asks for SC_DialTickmarks exactly when its notches are visible.
+    room = NOTCH_ROOM if opt.subControls & SC.SC_DialTickmarks else 0.0
+    radius = side / 2 - room - knob_d / 2 - 1
+    if radius <= GROOVE:
+        return False
+    c = r.center()
+    ring = QRectF(c.x() - radius, c.y() - radius, 2 * radius, 2 * radius)
+    start = _dial_angle(opt, opt.minimum)
+    end = _dial_angle(opt, opt.maximum) if not opt.dialWrapping else start + 360.0
+    at = _dial_angle(opt, opt.sliderPosition)
+    with P.Painting(p):
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(P.pen(_track(opt), GROOVE))
+        p.drawArc(ring, int(start * 16), int((end - start) * 16))
+        if abs(at - start) > 0.01:
+            p.setPen(P.pen(_fill(opt), GROOVE))
+            p.drawArc(ring, int(start * 16), int((at - start) * 16))
+        if room:
+            p.setPen(P.pen(P.mix(P.color(opt, Role.Window), P.color(opt, Role.Text), 0.35), 1.0))
+            step_ = opt.tickInterval or opt.pageStep or 1
+            v = opt.minimum
+            while v <= opt.maximum:
+                a = _dial_angle(opt, v)
+                inner = radius + knob_d / 2 + 1
+                p.drawLine(_on_circle(c, inner, a), _on_circle(c, inner + NOTCH_LEN, a))
+                v += step_
+        knob = QRectF(0, 0, knob_d, knob_d)
+        knob.moveCenter(_on_circle(c, radius, at))
+        face = P.state_fill(opt, P.color(opt, Role.Button))
+        line = P.legible(opt, P.stroke(opt, face, style.outline_strength), style.ui_ratio)
+        P.rounded(p, knob, knob_d / 2, fill=face, line=line)
+        if opt.state & State.State_HasFocus and opt.state & State.State_KeyboardFocusChange:
+            P.focus_ring(p, knob, knob_d / 2, opt, style.ui_ratio, style.focus_width)
+    return True
+
+
 COMPLEX = {
     CC.CC_Slider: slider,
+    CC.CC_Dial: dial,
 }
 
 CONTROLS = {

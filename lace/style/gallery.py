@@ -13,10 +13,10 @@ from typing import Callable, List, Tuple
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QFont, QImage, QPainter, QPalette
 from PySide6.QtWidgets import (
-    QComboBox, QLineEdit, QPushButton, QSpinBox, QToolButton, QStyle,
+    QComboBox, QFrame, QLineEdit, QPushButton, QSpinBox, QToolButton, QStyle,
     QStyleOptionComboBox, QStyleOptionSpinBox, QStyleOption, QStyleOptionButton,
-    QStyleOptionFocusRect, QStyleOptionFrame, QStyleOptionMenuItem, QStyleOptionSlider,
-    QStyleOptionToolButton,
+    QStyleOptionFocusRect, QStyleOptionFrame, QStyleOptionMenuItem, QStyleOptionSizeGrip,
+    QStyleOptionSlider, QStyleOptionToolButton,
 )
 
 S = QStyle.StateFlag
@@ -295,6 +295,45 @@ def _group_box(style, p, cell, pal, flags, disabled):
     style.drawComplexControl(QStyle.ComplexControl.CC_GroupBox, opt, p, None)
 
 
+def _splitter(style, p, cell, pal, flags, disabled):
+    """A handle between side-by-side panes (a vertical grip)."""
+    width = style.pixelMetric(QStyle.PixelMetric.PM_SplitterWidth)
+    opt = _base(QStyleOption(), _centred(cell, width, cell.height() - 4), pal,
+                flags | S.State_Horizontal, disabled)
+    style.drawControl(QStyle.ControlElement.CE_Splitter, opt, p, None)
+
+
+def _shaped_frame(shape, size):
+    def draw(style, p, cell, pal, flags, disabled):
+        opt = _base(QStyleOptionFrame(), _centred(cell, *size), pal, flags | S.State_Sunken, disabled)
+        opt.frameShape, opt.lineWidth, opt.midLineWidth = shape, 1, 0
+        style.drawControl(QStyle.ControlElement.CE_ShapedFrame, opt, p, _widget(QFrame))
+    return draw
+
+
+def _dial(style, p, cell, pal, flags, disabled):
+    side = cell.height() - 2
+    at = _centred(cell, side, side)
+    opt = _base(QStyleOptionSlider(), at, pal, flags, disabled)
+    opt.minimum, opt.maximum, opt.pageStep, opt.singleStep = 0, 100, 20, 1
+    opt.sliderPosition = opt.sliderValue = 40
+    opt.upsideDown = True       # QDial's default (not inverted)
+    opt.subControls = (QStyle.SubControl.SC_DialGroove | QStyle.SubControl.SC_DialHandle
+                       | QStyle.SubControl.SC_DialTickmarks)
+    style.drawComplexControl(QStyle.ComplexControl.CC_Dial, opt, p, None)
+
+
+def _size_grip(style, p, cell, pal, flags, disabled):
+    opt = _base(QStyleOptionSizeGrip(), _centred(cell, 16, 16), pal, flags, disabled)
+    opt.corner = Qt.Corner.BottomRightCorner
+    style.drawControl(QStyle.ControlElement.CE_SizeGrip, opt, p, None)
+
+
+def _toolbar_line(element):
+    return _primitive(element, size=(10, 28),
+                      extra=lambda o: setattr(o, "state", o.state | S.State_Horizontal))
+
+
 def _menu_check(opt):
     opt.checkType = QStyleOptionMenuItem.CheckType.NonExclusive
     opt.checked = bool(opt.state & S.State_On)
@@ -343,6 +382,14 @@ ROWS: List[Tuple[str, Callable]] = [
     ("scrollbar h", _scrollbar(Qt.Orientation.Horizontal)),
     ("scrollbar v", _scrollbar(Qt.Orientation.Vertical)),
     ("expanding h", _scrollbar(Qt.Orientation.Horizontal, "expanding")),
+    ("splitter", _splitter),
+    ("dial", _dial),
+    ("tab close", _primitive(PE.PE_IndicatorTabClose, size=(16, 16))),
+    ("frame line", _shaped_frame(QFrame.Shape.HLine, (52, 8))),
+    ("frame box", _shaped_frame(QFrame.Shape.Box, (52, 24))),
+    ("toolbar handle", _toolbar_line(PE.PE_IndicatorToolBarHandle)),
+    ("toolbar separator", _toolbar_line(PE.PE_IndicatorToolBarSeparator)),
+    ("size grip", _size_grip),
 ]
 
 

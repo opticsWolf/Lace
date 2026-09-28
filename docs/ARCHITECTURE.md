@@ -848,12 +848,14 @@ property tests pin the round trip and the contrast guarantees.
 
 `LaceStyle` is a `QProxyStyle` over Fusion that paints flat, vector controls from the palette.
 `DockThemeBridge` installs it by default and forwards the theme keywords (`control_radius`,
-`scrollbar`, `contrast`, `focus_width`, `outline_strength`) through `set_tokens()`. The painters are
-split by control family:
+`scrollbar`, `contrast`, `focus_width`, `outline_strength`, `splitter_length`) through
+`set_tokens()`. The painters are split by control family:
 - `_primitives` (frames, check and radio indicators, focus, scroll bars)
 - `_buttons`
 - `_inputs` (line, combo and spin)
-- `_range` (sliders, progress)
+- `_range` (sliders, dials, progress)
+- `_chrome` (splitter grips, tab close buttons, `QFrame` lines and boxes, toolbar handles and
+  separators, size grips, calendar weekend tint)
 - `_containers` (tabs, headers, menus, item views, tooltips, tool box)
 - `_paint`, with memoised colour helpers shared by the others
 

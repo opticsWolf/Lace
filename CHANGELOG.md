@@ -5,6 +5,24 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Added
+
+- **LaceStyle chrome** (`lace/style/_chrome.py`):
+  - splitter handles with a faint, round-ended grip that turns accent and
+    grows by 2 px on hover; the new theme keyword `splitter_length`
+    (default 50) sets its length;
+  - vector tab close buttons with a hover wash;
+  - flat `QFrame` lines and boxes, with no bevels;
+  - toolbar handles, separators and size grips as flat lines in the muted
+    text colour;
+  - `QCalendarWidget` weekends in the theme's accent instead of red.
+- **Flat `QDial`**: a round groove, an accent value arc, a round knob and
+  muted notches.
+- **Demo panels** show everyday widgets (buttons, checks, group boxes,
+  tables, splitters, calendars) so themes are easier to compare.
+
 ## [0.8.0] — 2026-09-28
 
 Theming modernisation: an OKLCH colour engine, contrast floors, a complete

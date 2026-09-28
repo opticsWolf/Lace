@@ -395,6 +395,7 @@ themes) steer the derivation. Every keyword has a default, so 0.7 themes load un
 | `control_radius` | **4** | corner radius of every LaceStyle control; 0 is square |
 | `focus_width` | **2.0** | pen width of LaceStyle's keyboard focus ring; 0 hides it |
 | `outline_strength` | **0.22** | how much text colour is mixed over a control's fill for its 1 px outline |
+| `splitter_length` | **50** | length in px of the grip on a LaceStyle splitter handle (clipped to the handle) |
 | `is_light` | **None** | None decides from the base (OKLCH lightness below 0.6 is dark) |
 
 `subtle` is calibrated to the median step 0.7.6 produced over every preset, so the default look
@@ -454,10 +455,21 @@ A dock widget's content (a text edit, a view) is square, but the card around it 
 - LaceStyle replaces the gradients, bevels and pixmap glyphs with flat fills, one 1.5 px stroke
   and vector paths.
 - Sizes stay Fusion's. The only exceptions are the scroll-bar extent in the `thin` / `expanding`
-  modes and a wider split-button arrow.
+  modes, a wider split-button arrow and a 12 px splitter handle.
 
-It draws buttons, check and radio boxes, line edits, combo and spin boxes, sliders, progress
-bars, tabs, headers, menus, item views, tooltips, the tool box and scroll bars.
+It draws buttons, check and radio boxes, line edits, combo and spin boxes, sliders, dials, progress
+bars, tabs, headers, menus, item views, tooltips, the tool box and scroll bars. The rest of the
+chrome (`lace/style/_chrome.py`) is flat too:
+- **Splitter handles** show a faint round-ended grip, 4 px thick (the resting `expanding` scroll
+  bar) and `splitter_length` long, padded 3 px on each side. On hover or drag it turns accent and
+  grows by 2 px. `DockSplitter` keeps its own handle width; handles narrower than the grip keep
+  Fusion's look.
+- **Tab close buttons** are a vector cross with a rounded wash on hover and press.
+- **`QFrame` lines** (`HLine`, `VLine`) are one line in the border colour, and boxes and panels a
+  flat rounded outline, whatever their shadow.
+- **Toolbar handles and separators and size grips** are flat lines in the muted text colour.
+- **`QCalendarWidget`** weekends use the accent (held to the text floor) instead of Qt's red,
+  re-tinted on each theme switch.
 
 **Framed scroll areas** (text edits and list, tree and table views) get rounded corners at
 `control_radius`. Their viewport is a square child that would paint over the arc. So LaceStyle's
@@ -479,7 +491,8 @@ DockThemeBridge(style_name="Fusion")   # or keep a named Qt style instead
 app.setStyle(LaceStyle(control_radius=6, scrollbar="expanding"))  # standalone, no Lace theme
 ```
 
-`LaceStyle.set_tokens(control_radius=, scrollbar=, contrast=, focus_width=, outline_strength=)`
+`LaceStyle.set_tokens(control_radius=, scrollbar=, contrast=, focus_width=, outline_strength=,
+splitter_length=)`
 updates the knobs live. The bridge calls it on every theme switch.
 
 **Use case: widgets in a `QGraphicsView`.** A node editor such as Weave embeds ordinary widgets in

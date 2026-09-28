@@ -79,6 +79,8 @@ class DockCoreStyleSchema(_FontFields):
     focus_width: float = 2.0
     #: Share of text colour mixed over a control's fill for its outline (0-1).
     outline_strength: float = 0.22
+    #: Length of a splitter handle's grip, in px.
+    splitter_length: int = 50
     #: The theme's contrast level ("low" | "normal" | "high"); sets the floor
     #: LaceStyle holds its non-text UI (outlines, focus ring) to.
     contrast: str = "normal"
@@ -424,6 +426,8 @@ class ThemeSpec:
     focus_width: float = 2.0
     #: LaceStyle outline strength: text mixed over a control's fill (0-1).
     outline_strength: float = 0.22
+    #: Length of LaceStyle's splitter grip, in px.
+    splitter_length: int = 50
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
     #: Explicit tab/title-bar background. Overrides the derived value, which
     #: is a fixed 0.06 lightness step off the panel and so cannot be widened
@@ -638,6 +642,7 @@ def _spec_kwargs(spec: ThemeSpec) -> Dict[str, Any]:
         control_radius=spec.control_radius,
         focus_width=spec.focus_width,
         outline_strength=spec.outline_strength,
+        splitter_length=spec.splitter_length,
     )
 
 
@@ -701,6 +706,7 @@ def _build_theme(
     control_radius: int = 4,
     focus_width: float = 2.0,
     outline_strength: float = 0.22,
+    splitter_length: int = 50,
     _explicit_out: Optional[set] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
@@ -867,7 +873,7 @@ def _build_theme(
     theme[DockStyleCategory.CORE].update(
         contrast=contrast, scrollbar=scrollbar, control_radius=control_radius,
         focus_width=focus_width, outline_strength=outline_strength,
-        corner_clip=corner_clip)
+        splitter_length=splitter_length, corner_clip=corner_clip)
 
     if corner_radius is not None:
         theme[DockStyleCategory.CORE]["corner_radius"] = corner_radius
