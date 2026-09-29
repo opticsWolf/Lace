@@ -5,7 +5,7 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
-## [Unreleased]
+## [0.8.1] — 2026-09-29
 
 ### Changed
 
@@ -16,6 +16,23 @@ through a cycle.
 
 ### Added
 
+- **LaceStyle chrome** (`lace/style/_chrome.py`):
+  - splitter handles with a faint, round-ended grip that turns accent and
+    grows by 2 px on hover; the new theme keyword `splitter_length`
+    (default 50) sets its length;
+  - vector tab close buttons with a hover wash;
+  - flat `QFrame` lines and boxes, with no bevels;
+  - toolbar handles, separators and size grips as flat lines in the muted
+    text colour;
+  - `QCalendarWidget` weekends in the theme's accent instead of red.
+- **Rounded menus and combo box popups**: translucent, frameless popup
+  windows with a rounded fill and outline over a soft painted shadow, and
+  padding so rows clear the corners. Panels land where Qt places the popup.
+  Square, with no shadow, when `control_radius` is 0.
+- **Flat `QDial`**: a round groove, an accent value arc, a round knob and
+  muted notches.
+- **Demo panels** show everyday widgets (buttons, checks, group boxes,
+  tables, splitters, calendars) so themes are easier to compare.
 - **Active edge strip**: `TITLE_BAR.active_edge_width` draws a strip in `active_edge_color`
   (the bright accent) along the top of the focused dock area's title bar, over its tabs, as in
   VS Code. The width now defaults to 0, so the strip is off until a theme sets one.
@@ -24,6 +41,11 @@ through a cycle.
 - **Bold open sidebar tab**: `SIDEBAR.tab_active_font_weight` sets the open tab's label
   weight. It now defaults to None, which keeps `tab_font_weight`. Sidebar tabs are sized for
   the wider of the two weights, so opening one doesn't change its length.
+
+### Fixed
+
+- **Menu section headers** (`QMenu.addSection`) show their title in muted
+  text with the line after it; LaceStyle drew them as a bare line before.
 
 ### Removed
 
@@ -46,33 +68,6 @@ through a cycle.
   `ThemeSpec.title_border_focus_color` is listed in §1.
 - **Layout persistence** (`docs/QUICK_REFERENCE.md`): `version` is an int, and relative
   filenames resolve against the working directory the `DockManager` was created in.
-
-## [0.8.1] — 2026-09-28
-
-### Added
-
-- **LaceStyle chrome** (`lace/style/_chrome.py`):
-  - splitter handles with a faint, round-ended grip that turns accent and
-    grows by 2 px on hover; the new theme keyword `splitter_length`
-    (default 50) sets its length;
-  - vector tab close buttons with a hover wash;
-  - flat `QFrame` lines and boxes, with no bevels;
-  - toolbar handles, separators and size grips as flat lines in the muted
-    text colour;
-  - `QCalendarWidget` weekends in the theme's accent instead of red.
-- **Rounded menus and combo box popups**: translucent, frameless popup
-  windows with a rounded fill and outline over a soft painted shadow, and
-  padding so rows clear the corners. Panels land where Qt places the popup.
-  Square, with no shadow, when `control_radius` is 0.
-- **Flat `QDial`**: a round groove, an accent value arc, a round knob and
-  muted notches.
-- **Demo panels** show everyday widgets (buttons, checks, group boxes,
-  tables, splitters, calendars) so themes are easier to compare.
-
-### Fixed
-
-- **Menu section headers** (`QMenu.addSection`) show their title in muted
-  text with the line after it; LaceStyle drew them as a bare line before.
 
 ## [0.8.0] — 2026-09-28
 
