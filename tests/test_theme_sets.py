@@ -14,7 +14,7 @@ def test_stages_nest_and_have_their_sizes():
 
 def test_all_covers_presets_and_ten_kilim_fixtures():
     assert len(theme_sets.kilim_keys()) == 10
-    assert len(theme_sets.all_themes()) == 36
+    assert len(theme_sets.all_themes()) == 52
 
 
 def test_every_theme_loads(theme_key):

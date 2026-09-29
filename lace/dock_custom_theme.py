@@ -1157,6 +1157,109 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 }
 
 # =============================================================================
+# BASICS V2 (candidates, kept beside the originals for comparison)
+#
+# Eight palettes, each in two geometries: the classic 4px chassis the basics
+# use today, and "neo", the 10px card chassis Kilim's *_neo themes use.  A
+# pair shares every colour; only the shapes differ.
+#
+# Dark to light: midnight, dark, mocha, slate, caramel, neutral, cream, light.
+# dark and light follow VS Code's modern themes, so their grounds carry only a
+# trace of blue.  slate and caramel share a mid tone, cool and warm, and
+# mocha / caramel / cream are the warm family.
+# =============================================================================
+
+_CLASSIC_V2 = dict(
+    corner_radius=4,
+    tab_radius=4,
+    border_width=1.5,
+    title_margin=0.5,
+    content_margin=0.5,
+    tab_dimming=True,
+    title_mode="darker",
+    hover_mode="darker",
+)
+
+_NEO_V2 = dict(
+    corner_radius=10,
+    border_width=1.5,
+    title_height=32,
+    title_padding_left=0,
+    title_padding_right=8,
+    title_button_spacing=6,
+    title_margin=0,
+    tab_radius=8,
+    tab_margin=3,
+    content_margin=(8, 2),
+    indicator_width=1.5,
+    indicator_position="bottom",
+    tab_dimming=True,
+    title_mode="darker",
+    hover_mode="lighter",
+    title_border_bottom=1.5,
+    sidebar_tab_flat_edge="none",
+    sidebar_tab_border_width=1.5,
+    sidebar_indicator_width=1.5,
+)
+
+_PALETTES_V2: Dict[str, Dict[str, Any]] = {
+    # Between the old midnight (8,10,15) and Kilim's (16,19,25); the accent
+    # between electric blue and Kilim's calmer 50,90,198.
+    "midnight": dict(
+        base=[12, 14, 20, 255], surface=[18, 22, 30, 255], border=[26, 30, 40, 255],
+        accent=[55, 95, 226, 255], text=[206, 211, 224, 255]),
+    # VS Code Dark Modern: #121314 / #191a1b / #252627.
+    "dark": dict(
+        base=[18, 19, 20, 255], surface=[25, 26, 27, 255], border=[37, 38, 39, 255],
+        accent=[0, 120, 212, 255], text=[204, 204, 204, 255]),
+    # The old warm, renamed.
+    "mocha": dict(
+        base=[36, 30, 27, 255], surface=[46, 39, 35, 255], border=[60, 51, 46, 255],
+        accent=[200, 110, 60, 255], text=[235, 225, 210, 255]),
+    # Mid tone, cool blue-grey.
+    "slate": dict(
+        base=[150, 156, 166, 255], surface=[168, 174, 184, 255], border=[132, 138, 148, 255],
+        accent=[22, 70, 150, 255], text=[22, 26, 34, 255], is_light=True),
+    # slate's tone, warm and more strongly tinted.
+    "caramel": dict(
+        base=[168, 146, 120, 255], surface=[186, 164, 138, 255], border=[148, 126, 100, 255],
+        accent=[124, 52, 0, 255], text=[34, 24, 14, 255], is_light=True),
+    # The old neutral with its blue cast taken out.
+    "neutral": dict(
+        base=[190, 191, 194, 255], surface=[210, 211, 214, 255], border=[170, 171, 175, 255],
+        accent=[40, 110, 190, 255], text=[30, 33, 40, 255], is_light=True),
+    # The warm family's light end.
+    "cream": dict(
+        base=[236, 230, 218, 255], surface=[250, 246, 238, 255], border=[222, 214, 200, 255],
+        accent=[176, 92, 0, 255], text=[48, 40, 32, 255], is_light=True),
+    # VS Code Light Modern: #fafafd / #f7f8fb / #e5e5e8.
+    "light": dict(
+        base=[235, 235, 239, 255], surface=[250, 250, 253, 255], border=[229, 229, 232, 255],
+        accent=[0, 95, 184, 255], text=[45, 47, 52, 255], is_light=True),
+}
+
+
+def _spec_v2(palette: Dict[str, Any], neo: bool) -> ThemeSpec:
+    accent = palette["accent"]
+    fields = dict(palette, focus_border_color=accent)
+    fields.update(_NEO_V2 if neo else _CLASSIC_V2)
+    if neo:
+        fields.update(
+            title_border_focus_color=accent,
+            sidebar_tab_border_color=palette["border"],
+            sidebar_tab_border_active_color=accent,
+            sidebar_tab_border_hover_color=accent[:3] + [160],
+        )
+    return ThemeSpec(**fields)
+
+
+for _name, _palette in _PALETTES_V2.items():
+    THEME_SPECS[f"{_name}_v2"] = _spec_v2(_palette, neo=False)
+for _name, _palette in _PALETTES_V2.items():
+    THEME_SPECS[f"{_name}_neo_v2"] = _spec_v2(_palette, neo=True)
+del _name, _palette
+
+# =============================================================================
 # THEME GROUPS
 # =============================================================================
 
@@ -1188,6 +1291,8 @@ THEME_GROUPS: "OrderedDict[str, Tuple[str, ...]]" = OrderedDict((
         "midnight_haze", "midnight_haze_neutral", "midnight_haze_light",
         "slate_amber_dark", "slate_amber", "slate_amber_light",
     )),
+    ("Basics v2", tuple(f"{name}_v2" for name in _PALETTES_V2)),
+    ("Basics v2 Neo", tuple(f"{name}_neo_v2" for name in _PALETTES_V2)),
 ))
 
 # A preset that is not in a group would simply vanish from every grouped menu,
