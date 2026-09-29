@@ -13,8 +13,8 @@ from pathlib import Path
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage, QPainter
 
-README = ("catppuccin,cyberpunk_neon,dark,dracula,light,midnight,"
-          "neutral,nordic,solarized_dark,tokyo_night,violet_haze,warm")
+README = ("midnight,dark,mocha,slate,neutral,cream,light,dark_neo,light_neo,"
+          "catppuccin,cyberpunk_neon,violet_haze")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("shots")
