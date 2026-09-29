@@ -425,6 +425,10 @@ class ThemeSpec:
     #: LaceStyle outlines input fields and framed views while unfocused.
     #: False drops that line; a focused field keeps its accent ring.
     field_outline: bool = True
+    #: Derived colours keep the theme's hue: the active text (tabs, title bars,
+    #: sidebar) stops short of pure white or black, and zebra rows striped off
+    #: a white input take the panel's tint.
+    keep_tint: bool = False
     #: Length of LaceStyle's splitter grip, in px.
     splitter_length: int = 50
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
@@ -642,6 +646,7 @@ def _spec_kwargs(spec: ThemeSpec) -> Dict[str, Any]:
         focus_width=spec.focus_width,
         outline_strength=spec.outline_strength,
         field_outline=spec.field_outline,
+        keep_tint=spec.keep_tint,
         splitter_length=spec.splitter_length,
     )
 
@@ -708,6 +713,7 @@ def _build_theme(
     outline_strength: float = 0.22,
     field_outline: bool = True,
     splitter_length: int = 50,
+    keep_tint: bool = False,
     _explicit_out: Optional[set] = None,
 ) -> Dict[DockStyleCategory, Dict[str, Any]]:
     """
@@ -816,6 +822,12 @@ def _build_theme(
     # Input widget backgrounds (for QLineEdit, QTextEdit, tables, etc.): recessed
     _input_bg       = step(_panel, -d * dl("input"))
     _alternate_base = step(_input_bg, d * dl("alt"))  # zebra rows
+    if keep_tint and _cs.to_oklch(_input_bg)[1] < 0.002 <= _cs.to_oklch(_panel)[1]:
+        # The input clipped to white and lost the panel's hue, so the rows
+        # striped off it would be plain grey; give them the panel's tint.
+        L_a = _cs.to_oklch(_alternate_base)[0]
+        _, C_p, h_p, _ = _cs.to_oklch(_panel)
+        _alternate_base = list(_cs.from_oklch(L_a, C_p, h_p, _alternate_base[3]))
 
     # Button face background
     _button_bg = step(_panel, d * dl("button"))
@@ -830,6 +842,13 @@ def _build_theme(
     _text_muted    = step(text, -d * 0.09)
     _text_disabled = step(text, -d * 0.26)
     _text_active   = step(text, d * 0.15)
+    # Selected text on a solid accent wants the full-strength step: a tinted
+    # near-white can miss the contrast target on a mid-tone accent.
+    _text_on_accent = _text_active
+    if keep_tint:
+        # Stop short of pure white / black, which have no hue to keep.
+        L_t, C_t, h_t, a_t = _cs.to_oklch(text)
+        _text_active = list(_cs.from_oklch(min(0.965, max(0.08, L_t + d * 0.15)), C_t, h_t, a_t))
 
     # === BUTTON DISABLED: a glyph colour between base and text ===
     _btn_disabled = step(base, d * 0.20)
@@ -843,7 +862,7 @@ def _build_theme(
     # === SELECTION ===
     if selection == "solid":
         _highlight = accent
-        _highlighted_text = _cs.on_color(accent, prefer=(_text_active, base))
+        _highlighted_text = _cs.on_color(accent, prefer=(_text_on_accent, base))
     else:
         tint = accent[:3] + [72]
         _highlight = _cs._composite(tint, _input_bg)

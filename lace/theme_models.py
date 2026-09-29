@@ -117,6 +117,7 @@ class ThemeJson(BaseModel):
     focus_width: float = 2.0
     outline_strength: float = 0.22
     field_outline: bool = True
+    keep_tint: bool = False
     splitter_length: int = 50
     title_mode: str = "darker"   # "darker" | "lighter" relative to panel
     hover_mode: str = "lighter"  # "darker" | "lighter" relative to panel
@@ -222,6 +223,7 @@ class ThemeJson(BaseModel):
             focus_width=self.focus_width,
             outline_strength=self.outline_strength,
             field_outline=self.field_outline,
+            keep_tint=self.keep_tint,
             splitter_length=self.splitter_length,
             title_mode=self.title_mode,
             hover_mode=self.hover_mode,

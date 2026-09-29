@@ -397,6 +397,7 @@ themes) steer the derivation. Every keyword has a default, so 0.7 themes load un
 | `focus_width` | **2.0** | pen width of LaceStyle's keyboard focus ring; 0 hides it |
 | `outline_strength` | **0.22** | how much text colour is mixed over a control's fill for its 1 px outline |
 | `field_outline` | **True** | outline input fields and framed views while unfocused; False leaves only the fill and a focused field's accent ring |
+| `keep_tint` | **False** | derived colours keep the theme's hue: the active text (tabs, title bars, sidebar) stops short of pure white or black, and zebra rows striped off a white input take the panel's tint; selected text on a solid accent still uses the full-strength step |
 | `splitter_length` | **50** | length in px of the grip on a LaceStyle splitter handle (clipped to the handle) |
 | `is_light` | **None** | None decides from the base (OKLCH lightness below 0.6 is dark) |
 

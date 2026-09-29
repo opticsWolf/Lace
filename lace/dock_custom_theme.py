@@ -1209,12 +1209,13 @@ _PALETTES_V2: Dict[str, Dict[str, Any]] = {
     # accent between electric blue and Kilim's calmer 50,90,198.
     "midnight": dict(
         base=[11, 13, 20, 255], surface=[17, 21, 31, 255], border=[25, 30, 42, 255],
-        accent=[55, 95, 226, 255], text=[206, 211, 224, 255]),
+        accent=[55, 95, 226, 255], text=[206, 211, 224, 255],
+        keep_tint=False),   # its active tab and title text stay pure white
     # VS Code Dark Modern: #121314 / #191a1b / #252627.  dark, neutral and
     # light share one blue, #0078d4, a little deeper on each lighter ground.
     "dark": dict(
         base=[18, 19, 20, 255], surface=[25, 26, 27, 255], border=[37, 38, 39, 255],
-        accent=[0, 120, 212, 255], text=[204, 204, 204, 255]),
+        accent=[0, 120, 212, 255], text=[202, 204, 207, 255]),   # text carries the canvas's faint blue
     # The old warm, renamed, with its elevated title bar.
     "mocha": dict(
         base=[36, 30, 27, 255], surface=[46, 39, 35, 255], border=[60, 51, 46, 255],
@@ -1255,6 +1256,7 @@ _PALETTES_V2: Dict[str, Dict[str, Any]] = {
 def _spec_v2(palette: Dict[str, Any], neo: bool) -> ThemeSpec:
     accent = palette["accent"]
     fields = dict(_NEO_V2 if neo else _CLASSIC_V2)
+    fields.update(keep_tint=True)       # a palette may opt out (midnight keeps white)
     fields.update(palette, focus_border_color=accent)
     if not neo:
         # Classic draws no edge on anything inactive: the border goes
