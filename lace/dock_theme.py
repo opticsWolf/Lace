@@ -45,7 +45,7 @@ class _FontFields:
 
 
 @dataclass
-class DockCoreStyleSchema(_FontFields):
+class DockCoreStyleSchema:
     """Global colors and palette basics for the dock system."""
     canvas_bg: Optional[List[int]] = None    #App / Window main background
     border_color: Optional[List[int]] = None #Dock Area Widget Accent accent / highlight color
@@ -65,8 +65,9 @@ class DockCoreStyleSchema(_FontFields):
     #: top. No effect when border_width is 0.
     border_below_title: bool = False
     corner_radius: int = 2.0 #Dock Area Widget corner radius
-    margin: int = 0 #to be kept at zero
-    padding: int = 0 #probably not even used, need to check or connect
+    # Contents margins and spacing of the dock container's layout.
+    margin: int = 0
+    padding: int = 0
 
     # LaceStyle knobs (DockThemeBridge pushes them via LaceStyle.set_tokens)
     #: Corner radius of every standard control; 0 = square.
@@ -85,7 +86,7 @@ class DockCoreStyleSchema(_FontFields):
     #: LaceStyle holds its non-text UI (outlines, focus ring) to.
     contrast: str = "normal"
 
-    # Typography — font_* provided by _FontFields
+    # Text
     text_color: Optional[List[int]] = None
     disabled_text_color: Optional[List[int]] = None
 
@@ -117,11 +118,7 @@ class DockPanelStyleSchema:
     highlight: Optional[List[int]] = None
     highlighted_text: Optional[List[int]] = None
 
-    # Geometry
-    border_width: float = 2.0
-    corner_radius: int = 8
-    padding: int = 0
-    margin: int = 0
+    # Geometry: the dock area's outline and radius are CORE's.
     # Content inset DockWidget applies to its own layout. A scalar, a
     # (horizontal, top) pair, a (left, top, right) triple, or a
     # (left, top, right, bottom) 4-tuple. NOT a colour: colour-ness is decided
@@ -153,7 +150,6 @@ class DockTabStyleSchema(_FontFields):
     #: Master switch for the outline above: 0.0 draws none at all.
     border_width: float = 0.0
     corner_radius: int = 0
-    padding: int = 10
     margin: int = 0
 
     # Typography — bare font_* provided by _FontFields; tabs add an active weight.
@@ -221,7 +217,6 @@ class DockTitleBarStyleSchema(_ActionButtonFields, _FontFields):
     """Dock area title bars."""
     # Backgrounds & Borders
     bg_normal: Optional[List[int]] = None
-    bg_active: Optional[List[int]] = None
     border_color: Optional[List[int]] = None
     # Swapped in for border_color while the dock area holds focus, exactly as
     # CORE.focus_border_color swaps for CORE.border_color on the area's own
@@ -243,8 +238,6 @@ class DockTitleBarStyleSchema(_ActionButtonFields, _FontFields):
     # Bottom-edge rule under the title bar, drawn in border_color. Falls back
     # to border_width when 0. Fed by ThemeSpec.title_border_bottom.
     border_bottom: float = 0.0
-    corner_radius: int = 0
-    padding: int = 4 #distance for the tab from edge
     margin: int = 0
 
     # Typography — bare font_* provided by _FontFields; the window title uses
@@ -267,9 +260,7 @@ class DockSidebarStyleSchema:
     bg_color: Optional[List[int]] = None
     border_color: Optional[List[int]] = None
     border_width: float = 1.0
-    corner_radius: int = 0
     padding: int = 0
-    margin: int = 0
 
     # Tab Buttons - Backgrounds
     tab_bg_normal: Optional[List[int]] = None
@@ -289,7 +280,6 @@ class DockSidebarStyleSchema:
     #: corner square and ignores ``tab_corner_radius`` — the plain rectangle
     #: sidebar tabs have always been.
     tab_flat_edge: str = "all"
-    tab_padding: int = 8
     tab_margin: int = 2
     #: Edge length of the icon drawn on a sidebar tab, and the gap between it
     #: and the label.  Both were hardcoded in ``VerticalTabButton.paintEvent``,
@@ -880,11 +870,9 @@ def _build_theme(
 
     if corner_radius is not None:
         theme[DockStyleCategory.CORE]["corner_radius"] = corner_radius
-        theme[DockStyleCategory.PANEL]["corner_radius"] = corner_radius
         theme[DockStyleCategory.SIDEPANEL]["corner_radius"] = corner_radius
     if border_width is not None:
         theme[DockStyleCategory.CORE]["border_width"] = border_width
-        theme[DockStyleCategory.PANEL]["border_width"] = border_width
         theme[DockStyleCategory.SIDEPANEL]["border_width"] = border_width
     if title_height is not None:
         theme[DockStyleCategory.TITLE_BAR]["height"] = title_height
@@ -1061,7 +1049,6 @@ def _build_tab(text, accent, _title_bg, _panel, _hover, _text_muted, _text_activ
 def _build_titlebar(_title_bg, _text_muted, _text_active, _accent_bright, _btn_disabled, _btn_hover_title, _neutral_border, _focus_border):
     return {
         "bg_normal":          _title_bg,
-        "bg_active":          _title_bg,
         "border_color":       _neutral_border,
         "focus_border_color": _focus_border,
         "text_normal":        _text_muted,

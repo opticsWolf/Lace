@@ -304,12 +304,12 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | Class | Description |
 |---|---|
 | **DockStyleCategory** (enum) | `CORE`, `PANEL`, `TAB`, `TITLE_BAR`, `SIDEBAR`, `SIDEPANEL`, `SPLITTER`, `OVERLAY` |
-| **_FontFields** (dataclass) | Shared typography: `font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline` |
+| **_FontFields** (dataclass) | Shared typography for TAB and TITLE_BAR: `font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline` |
 | **DockCoreStyleSchema** | canvas_bg, border_color, accent_color, focus_border_color, status colors, geometry (border_width, corner_radius, margin, padding), text colors |
-| **DockPanelStyleSchema** | bg_normal, text_color, input_bg, alternate_base, button_bg, 3D colors (light/mid/dark/shadow), geometry |
-| **DockTabStyleSchema** | bg_normal/hover/active, border, geometry, text_normal/active, active_font_weight, indicator_color/width/position, close_btn_* |
+| **DockPanelStyleSchema** | bg_normal, text_color, input_bg, alternate_base, button_bg, 3D colors (light/mid/dark/shadow), selection, content_margin |
+| **DockTabStyleSchema** | Inherits _FontFields; bg_normal/hover/active, border, geometry, text_normal/active, active_font_weight, indicator_color/width/position, close_btn_* |
 | **_ActionButtonFields** | button_color/disabled/hover_bg, corner_radius, padding, expand_vertical, size, icon_size |
-| **DockTitleBarStyleSchema** | Inherits _ActionButtonFields + _FontFields; bg_normal/active, active_edge, geometry, text, button_spacing |
+| **DockTitleBarStyleSchema** | Inherits _ActionButtonFields + _FontFields; bg_normal, active_edge, geometry, text, button_spacing |
 | **DockSidebarStyleSchema** | width, bg/border, tab backgrounds, tab geometry/typography, indicator, badge |
 | **DockSidePanelStyleSchema** | bg_normal, geometry, title text/font, button settings, shadow |
 | **DockSplitterStyleSchema** | handle_color/h_hover_color, handle_width, total_width, handle_margin |

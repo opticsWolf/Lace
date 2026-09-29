@@ -27,20 +27,20 @@ assert sp["button_spacing"] == 2, sp["button_spacing"]
 tb_fields = {f.name for f in fields(DockTitleBarStyleSchema)}
 assert {"button_color", "button_spacing", "bg_normal"} <= tb_fields
 
-# --- shared _FontFields block (CORE / TAB / TITLE_BAR) ---
-for cat in (DockStyleCategory.CORE, DockStyleCategory.TAB, DockStyleCategory.TITLE_BAR):
+# --- shared _FontFields block (TAB / TITLE_BAR; CORE's was never read) ---
+for cat in (DockStyleCategory.TAB, DockStyleCategory.TITLE_BAR):
     got = sm.get_all(cat)
     for key in FONT:
         assert key in got, f"{cat.name} missing {key}"
+assert not set(FONT) & {f.name for f in fields(DockCoreStyleSchema)}
 
 # shared defaults identical, per-host weight preserved
-core = DockCoreStyleSchema()
 tab = DockTabStyleSchema()
 tbar = DockTitleBarStyleSchema()
-assert core.font_family == tab.font_family == tbar.font_family == "Segoe UI"
-assert core.font_size == tab.font_size == 10
+assert tab.font_family == tbar.font_family == "Segoe UI"
+assert tab.font_size == 10
 assert tbar.font_size == 13, tbar.font_size   # title bar uses the native default size
-assert core.font_weight == "normal" and tab.font_weight == "normal"
+assert tab.font_weight == "normal"
 assert tbar.font_weight == "normal", tbar.font_weight   # title bars default to normal; themes may override
 assert tab.active_font_weight == "normal", tab.active_font_weight  # tab-only extra field
 

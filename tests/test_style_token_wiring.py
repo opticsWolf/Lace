@@ -1,23 +1,68 @@
 # -*- coding: utf-8 -*-
 """Style tokens that were declared on the schemas but read by no widget.
 
-Each test sets one token through the style manager and checks the widget
-that should follow it, so a token cannot go back to being silently inert.
+Those with a clear purpose are wired up: each test sets one through the style
+manager and checks the widget that should follow it, so a token cannot go
+back to being silently inert. The rest were removed, and a theme dict written
+for 0.7/0.8 that still sets them must load with a warning, not fail.
 """
 
+import logging
 import os
 import sys
+from dataclasses import fields
 
 import pytest
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_manager import DockManager
-from lace.dock_style_manager import get_dock_style_manager
+from lace.dock_style_manager import _SCHEMA_MAP, get_dock_style_manager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
-from lace.dock_theme import DockStyleCategory
+from lace.dock_theme import BASE_DOCK_DEFAULTS, DockStyleCategory, ThemeSpec, build_theme
 from lace.sidebar_tab import VerticalTabButton
+
+#: Declared up to 0.8.1, read by nothing, and removed.
+REMOVED = {
+    DockStyleCategory.CORE: ("font_family", "font_size", "font_weight",
+                             "font_italic", "font_underline"),
+    DockStyleCategory.PANEL: ("border_width", "corner_radius", "padding", "margin"),
+    DockStyleCategory.TAB: ("padding",),
+    DockStyleCategory.TITLE_BAR: ("bg_active", "corner_radius", "padding"),
+    DockStyleCategory.SIDEBAR: ("corner_radius", "margin", "tab_padding"),
+}
+
+
+def test_removed_tokens_are_gone_from_schema_defaults_and_builder():
+    theme = build_theme(ThemeSpec(base=[20, 20, 20, 255], accent=[0, 120, 212, 255],
+                                  text=[220, 220, 220, 255], corner_radius=6,
+                                  border_width=1.0))
+    for category, names in REMOVED.items():
+        declared = {f.name for f in fields(_SCHEMA_MAP[category])}
+        for name in names:
+            assert name not in declared, f"{category.name}.{name} is still declared"
+            assert name not in BASE_DOCK_DEFAULTS[category], f"default sets {category.name}.{name}"
+            assert name not in theme[category], f"build_theme sets {category.name}.{name}"
+
+
+def test_old_theme_dict_with_removed_tokens_still_applies(qapp, caplog):
+    theme = build_theme(ThemeSpec(base=[20, 20, 20, 255], accent=[0, 120, 212, 255],
+                                  text=[220, 220, 220, 255]))
+    for category, names in REMOVED.items():
+        for name in names:
+            theme[category][name] = 1
+    theme[DockStyleCategory.TAB]["close_btn_size"] = 21   # a live token alongside
+
+    sm = get_dock_style_manager()
+    with caplog.at_level(logging.WARNING):
+        sm.apply_theme_dict(theme)
+
+    assert sm.get(DockStyleCategory.TAB, "close_btn_size") == 21
+    warned = " ".join(r.getMessage() for r in caplog.records)
+    for names in REMOVED.values():
+        for name in names:
+            assert f"unknown token {name} " in warned
 
 
 @pytest.fixture

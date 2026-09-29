@@ -66,8 +66,9 @@ def test_build_theme_honours_geometry_overrides():
         corner_radius=9, border_width=2.0, title_height=34, tab_radius=7,
     ))
     assert theme[DockStyleCategory.CORE]["corner_radius"] == 9
-    assert theme[DockStyleCategory.PANEL]["corner_radius"] == 9
-    assert theme[DockStyleCategory.PANEL]["border_width"] == 2.0
+    assert theme[DockStyleCategory.CORE]["border_width"] == 2.0
+    assert theme[DockStyleCategory.SIDEPANEL]["corner_radius"] == 9
+    assert theme[DockStyleCategory.SIDEPANEL]["border_width"] == 2.0
     assert theme[DockStyleCategory.TITLE_BAR]["height"] == 34
     assert theme[DockStyleCategory.TAB]["corner_radius"] == 7
 
