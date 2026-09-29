@@ -41,6 +41,7 @@ class ThemeSpec:
     title_border_width: Optional[float] = None # Stroke outline around title bar
     title_border_bottom: Optional[float] = None # Divider stroke underneath title bar
     title_border_color: Optional[Union[QColor, List[int]]] = None
+    title_border_focus_color: Optional[Union[QColor, List[int]]] = None  # title_border_color while the area has focus
     tab_radius: Optional[int] = None
     tab_margin: Optional[int] = None
     content_margin: Optional[Union[int, float, List[int], Tuple[int, ...]]] = None
@@ -511,3 +512,203 @@ app) with a `DockThemeBridge(target=view)`, and every embedded control follows t
 
 `lace.style.gallery.render(scale=)` draws every control LaceStyle styles in every state. The Theme
 Studio's gallery tab uses it (see `docs/THEME_KIT.md`).
+
+---
+
+## 13. Style Token Reference (`DockStyleManager`)
+
+A theme ends up as style tokens: flat fields on one schema per `DockStyleCategory`, held by the
+`DockStyleManager` singleton. Widgets read them on every theme change. `build_theme()` turns a
+`ThemeSpec` into these tokens, and a token can also be set directly.
+
+### Setting tokens
+
+```python
+from lace import DockStyleCategory, build_theme, get_dock_style_manager
+
+sm = get_dock_style_manager()
+
+# Live, one category at a time. Only the changed tokens are sent to the widgets.
+sm.update(DockStyleCategory.TAB, close_btn_size=20, indicator_width=3)
+sm.update(DockStyleCategory.TITLE_BAR, button={"size": 20, "hover_bg": "#3a3f4b"})  # = button_size, button_hover_bg
+
+# Kept across theme switches: add the tokens to the theme dict before applying it.
+theme = build_theme(spec)
+theme[DockStyleCategory.SIDEBAR]["badge_radius"] = 4
+sm.apply_theme_dict(theme)
+
+sm.get(DockStyleCategory.TAB, "close_btn_size")   # read one token
+sm.get_all(DockStyleCategory.SIDEBAR)             # a dict of every token in a category
+```
+
+- **`update(category, **tokens)`** returns the names that changed. A dict value is shorthand for
+  a group of prefixed tokens, as `button=` above.
+- **Theme switches reset everything.** `apply_theme()` and `apply_theme_dict()` put every token
+  back to the defaults below before applying the theme, so a live `update()` lasts only until
+  the next switch.
+- **Colours** may be `[r, g, b(, a)]` lists, `"#rrggbb"` strings or `QColor`s. They are stored as `QColor`s, and the
+  ones `get()` returns are the live theme objects, so copy one (`QColor(c)`) before changing it.
+- **Unknown names** log a warning and are ignored.
+
+### Reading the tables
+
+- **Default** is the value before any theme is applied. *derived* means `build_theme()` always
+  computes it from the seed colours and keywords, so every theme overwrites it.
+- **`ThemeSpec`** names the `ThemeSpec` field that sets the token, when one does. Tokens with no
+  `ThemeSpec` field keep their default unless you set them yourself.
+- *Unused* tokens are declared but no widget reads them as of 0.8.1. Setting one has no effect.
+- Font weights take `"normal"`, `"bold"`, an int (100–900) or a `QFont.Weight`.
+
+### `CORE`: the app and dock areas
+
+| Token | Default | `ThemeSpec` | What it does |
+|---|---|---|---|
+| `canvas_bg` | *derived* | `base` | window background behind the dock areas |
+| `border_color` | *derived* | `border` | dock area outline |
+| `focus_border_color` | *derived* | `focus_border_color`, `accent` | dock area outline while the area has focus |
+| `accent_color` | *derived* | `accent` | the accent; also the palette's link colour |
+| `text_color` | *derived* | `text` | main text colour |
+| `disabled_text_color` | *derived* | — | disabled menu items and icons |
+| `success_color`, `warning_color`, `error_color`, `info_color` | *derived* | same names | status colours |
+| `tooltip_bg`, `tooltip_text` | *derived* | same names | `QToolTip` palette |
+| `border_width` | 1.5 | `border_width` | dock area outline width; 0 draws none |
+| `border_below_title` | False | `border_below_title` | draw the area outline only below the title bar, whose bottom rule closes it |
+| `corner_radius` | 4 | `corner_radius` | dock area corner radius |
+| `margin`, `padding` | 0 | — | contents margins of the dock container's layout |
+| `control_radius` | 4 | `control_radius` | LaceStyle control radius (see §9) |
+| `scrollbar` | `"expanding"` | `scrollbar` | LaceStyle scroll bars (see §9) |
+| `corner_clip` | `"cap"` | `corner_clip` | how content meets the card's corners (see §11) |
+| `focus_width` | 2.0 | `focus_width` | LaceStyle focus ring width |
+| `outline_strength` | 0.22 | `outline_strength` | LaceStyle outline strength |
+| `splitter_length` | 50 | `splitter_length` | LaceStyle splitter grip length |
+| `contrast` | `"normal"` | `contrast` | contrast floor for LaceStyle's non-text UI |
+| `font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline` | `"Segoe UI"`, 10, `"normal"`, False, False | — | *unused* |
+
+### `PANEL`: dock widget content
+
+These colours build the `QPalette` of every dock widget (see §7).
+
+| Token | Default | `ThemeSpec` | What it does |
+|---|---|---|---|
+| `bg_normal` | *derived* | `surface` | panel background (`Window` role) |
+| `text_color` | *derived* | `text` | panel text (`WindowText`, `Text`) |
+| `input_bg` | *derived* | — | inputs and item views (`Base`) |
+| `alternate_base` | *derived* | — | striped rows (`AlternateBase`) |
+| `button_bg` | *derived* | — | button faces (`Button`) |
+| `color_light`, `color_mid`, `color_dark`, `color_shadow` | *derived* | — | `Light`, `Mid`, `Dark` and `Shadow` roles |
+| `highlight`, `highlighted_text` | *derived* | `selection` | selection fill and its text |
+| `content_margin` | 0 | `content_margin` | inset of a dock widget's content: a number, `(horizontal, top)`, `(left, top, right)` or `(left, top, right, bottom)` |
+| `border_width`, `corner_radius`, `padding`, `margin` | 1.5, 4, 0, 0 | `border_width`, `corner_radius` | *unused*: the dock area reads `CORE`'s |
+
+### `TAB`: dock area tabs
+
+| Token | Default | `ThemeSpec` | What it does |
+|---|---|---|---|
+| `bg_normal`, `bg_hover`, `bg_active` | *derived* | `title_bg`, `title_mode`, `hover_mode` | tab fill at rest, on hover, and when selected |
+| `text_normal`, `text_active` | *derived* | `text` | label colour, unselected and selected |
+| `font_family`, `font_size`, `font_weight` | `"Segoe UI"`, 10, `"normal"` | — | label font |
+| `active_font_weight` | `"normal"` | — | label weight on the selected tab |
+| `border_normal_color`, `border_active_color` | *derived* | `tab_border_color`, `tab_border_active_color` | outline on the left, top and right; a transparent colour skips that state |
+| `border_unfocused_color` | None | `tab_border_unfocused_color` | selected tab's outline while its area is unfocused; unset dims `border_active_color` (with `tab_dimming`) |
+| `border_width` | 0.0 | `tab_border_width` | outline width; 0 draws none |
+| `corner_radius` | 4 | `tab_radius` | tab corner radius |
+| `margin` | 0 | `tab_margin` | gap between tabs |
+| `indicator_color` | *derived* | `accent` | selected tab's stripe |
+| `indicator_width` | 2.0 | `indicator_width` | stripe thickness |
+| `indicator_position` | `"bottom"` | `indicator_position` | `"top"` or `"bottom"` |
+| `tab_dimming` | False | `tab_dimming` | dim the selected tab of an unfocused area |
+| `tab_icon_size` | 16 | — | size of the widget's icon left of the label |
+| `close_btn_color`, `close_btn_bg_hover`, `close_btn_bg_disable` | *derived* | — | close button icon, hover fill and disabled icon |
+| `close_btn_size` | 17 | — | close button minimum size; the box is `size + 2 × padding + 3` |
+| `close_btn_icon_size` | 14 | — | close icon size |
+| `close_btn_corner_radius` | 3 | — | close button hover fill radius |
+| `close_btn_padding` | 2 | — | close button padding |
+| `close_btn_expand_vertical` | False | — | stretch the close button to the tab's height |
+| `padding`, `font_italic`, `font_underline` | 10, False, False | — | *unused* |
+
+### `TITLE_BAR`: dock area title bars and the frameless window title
+
+| Token | Default | `ThemeSpec` | What it does |
+|---|---|---|---|
+| `bg_normal` | *derived* | `title_bg`, `title_mode` | title bar background |
+| `text_normal` | *derived* | `text` | frameless window title text |
+| `text_active` | *derived* | — | tint of active icons drawn in this category |
+| `font_family`, `font_size`, `font_weight` | `"Segoe UI"`, 13, `"normal"` | — | frameless window title font |
+| `border_color` | *derived* | `title_border_color` | title bar outline and bottom rule |
+| `focus_border_color` | *derived* | `title_border_focus_color` | `border_color` while the area has focus; unset falls back to `CORE`'s pair |
+| `border_width` | 0.0 | `title_border_width` | outline around the title bar |
+| `border_bottom` | 0.0 | `title_border_bottom` | rule under the title bar; 0 uses `border_width` |
+| `height` | 30 | `title_height` | title bar height |
+| `padding_left`, `padding_right`, `padding_top` | 0, 6, 0 | `title_padding_left`, `title_padding_right` | title bar contents margins |
+| `margin` | 0 | `title_margin` | inset from the card edge: 0 is flush, 2–3 an inset ring |
+| `button_color`, `button_disable_clr`, `button_hover_bg` | *derived* | — | button icon, disabled icon and hover fill |
+| `button_size` | 17 | — | button minimum size; the box is `size + 2 × padding + 3` |
+| `button_icon_size` | 16 | — | button icon size |
+| `button_corner_radius` | 3 | — | hover fill radius |
+| `button_padding` | 2 | — | button padding |
+| `button_expand_vertical` | False | — | stretch buttons to the bar's height |
+| `button_spacing` | 4 | `title_button_spacing` | gap between buttons |
+| `bg_active`, `corner_radius`, `padding`, `active_edge_color`, `active_edge_width`, `font_italic`, `font_underline` | *derived*, 0, 4, *derived*, 2, False, False | — | *unused* |
+
+### `SIDEBAR`: auto-hide sidebar strips and their tabs
+
+| Token | Default | `ThemeSpec` | What it does |
+|---|---|---|---|
+| `width` | 30 | — | strip width |
+| `bg_color` | *derived* | — | strip background |
+| `border_color` | None | — | strip outline; unset draws none |
+| `border_width` | 1.0 | — | strip outline width |
+| `padding` | 0 | — | strip contents margins |
+| `tab_margin` | 2 | — | gap between tabs |
+| `tab_bg_normal`, `tab_bg_active` | *derived* | `sidebar_tab_bg_normal`, `sidebar_tab_bg_active` | tab fill at rest and when open |
+| `tab_bg_hover_start`, `tab_bg_hover_end` | *derived* | `sidebar_tab_bg_hover_start`, `sidebar_tab_bg_hover_end` | hover gradient |
+| `tab_corner_radius` | None | `sidebar_tab_radius` | tab radius; unset follows `TAB.corner_radius` |
+| `tab_flat_edge` | `"all"` | `sidebar_tab_flat_edge` | edge left square: `"outward"`, `"inward"`, `"none"`, or `"all"` for a plain rectangle (see §1) |
+| `tab_border_normal_color`, `tab_border_active_color` | *derived* | `sidebar_tab_border_color`, `sidebar_tab_border_active_color` | tab outline; a transparent colour skips that state |
+| `tab_border_hover_color` | None | `sidebar_tab_border_hover_color` | outline of a hovered inactive tab; unset keeps the normal one |
+| `tab_border_width` | 0.0 | `sidebar_tab_border_width` | outline width; 0 draws none |
+| `tab_border_closed` | False | `sidebar_tab_border_closed` | close the outline across the flat edge |
+| `tab_icon_size`, `tab_icon_gap` | 16, 8 | — | tab icon size and its gap to the label |
+| `tab_text_normal`, `tab_text_active`, `tab_text_disabled` | *derived* | — | label colours |
+| `tab_font_family`, `tab_font_size`, `tab_font_weight`, `tab_font_italic`, `tab_font_underline` | `"Segoe UI"`, 10, `"normal"`, False, False | — | label font |
+| `indicator_color` | *derived* | — | open tab's stripe |
+| `indicator_width` | 3.0 | `sidebar_indicator_width` | stripe thickness |
+| `indicator_position` | `"right"` | `sidebar_indicator_position` | `"left"` or `"right"` |
+| `badge_bg`, `badge_text` | *derived* | — | badge fill and text |
+| `badge_font_family`, `badge_font_size`, `badge_font_weight` | `"Segoe UI"`, 8, `"bold"` | — | badge font |
+| `badge_radius` | 6 | — | badge radius |
+| `badge_position` | `"top_right"` | — | `"top_left"`, `"top_right"`, `"bottom_left"` or `"bottom_right"` (or a `TabBadgePosition`) |
+| `corner_radius`, `margin`, `tab_padding`, `tab_active_font_weight` | 0, 0, 8, `"normal"` | — | *unused* |
+
+### `SIDEPANEL`: the panel an open sidebar tab slides out
+
+| Token | Default | `ThemeSpec` | What it does |
+|---|---|---|---|
+| `bg_normal` | *derived* | `base` | panel background |
+| `height` | 30 | — | title strip height |
+| `padding_left`, `padding_right`, `padding_top` | 10, 6, 0 | — | title strip contents margins |
+| `title_text_color` | *derived* | — | title colour |
+| `title_font_family`, `title_font_size`, `title_font_weight` | `"Segoe UI"`, 10, `"bold"` | — | title font |
+| `button_*` | as `TITLE_BAR` | — | the same button tokens as the title bar |
+| `button_spacing` | 2 | — | gap between buttons |
+| `corner_radius` | 4 | `corner_radius` | panel radius |
+| `border_width` | 1.5 | `border_width` | panel outline width |
+| `border_color`, `focus_border_color` | *derived* | `border`, `focus_border_color` | panel outline, unfocused and focused |
+| `shadow_color` | *derived* | — | drop shadow colour |
+| `shadow_blur_radius` | 20 | — | drop shadow blur |
+
+### `SPLITTER`: `DockSplitter` handles between dock areas
+
+| Token | Default | `ThemeSpec` | What it does |
+|---|---|---|---|
+| `handle_color`, `handle_hover_color` | *derived* | `base`, `accent` | handle line at rest and on hover or drag |
+| `handle_width` | 3 | — | thickness of the drawn line |
+| `total_width` | 7 | — | width of the grab area |
+| `handle_margin` | 0 | — | gap between the line's ends and the handle's ends |
+
+### `OVERLAY`: drag-and-drop indicators
+
+| Token | Default | `ThemeSpec` | What it does |
+|---|---|---|---|
+| `frame_color`, `overlay_color` | *derived* | — | drop-area preview outline and fill |
+| `background_color`, `arrow_color`, `shadow_color` | *derived* | — | drop-target cross buttons, their arrows and shadow |

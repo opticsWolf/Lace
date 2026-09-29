@@ -481,7 +481,7 @@ container.is_area_maximized(area)  # same check on container
 dock_manager.save_layout_to_file("my_layout.json")
 
 # Save with custom version
-dock_manager.save_layout_to_file("my_layout.json", version="1.0")
+dock_manager.save_layout_to_file("my_layout.json", version=1)
 ```
 
 ### Load Layout from File
@@ -491,8 +491,12 @@ dock_manager.save_layout_to_file("my_layout.json", version="1.0")
 dock_manager.load_layout_from_file("my_layout.json")
 
 # Restore with version check
-dock_manager.load_layout_from_file("my_layout.json", version="1.0")
+dock_manager.load_layout_from_file("my_layout.json", version=1)
 ```
+
+A relative filename is resolved against the working directory at the time the `DockManager` was
+created; pass an absolute path to save elsewhere. `version` is your application's own layout
+version: loading raises `InvalidFormatError` (a `LayoutError`) when the file's version differs.
 
 ### Save/Restore State (In-Memory)
 
@@ -500,10 +504,10 @@ dock_manager.load_layout_from_file("my_layout.json", version="1.0")
 import json
 
 # Serialize to JSON string
-state_json = dock_manager.save_state(version="1.0")
+state_json = dock_manager.save_state(version=1)
 
 # Restore from JSON string
-dock_manager.restore_state(state_json, version="1.0")
+dock_manager.restore_state(state_json, version=1)
 ```
 
 ### Perspectives (Named Layout Presets)

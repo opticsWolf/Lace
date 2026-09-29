@@ -5,6 +5,17 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Documentation
+
+- **Style token reference** (`docs/theming_and_geometry.md` §13): every `DockStyleManager`
+  token by category, with its default, the `ThemeSpec` field that sets it and what it does;
+  how to change tokens live with `update()` or keep them across theme switches; tokens no
+  widget reads yet are marked unused. `ThemeSpec.title_border_focus_color` is listed in §1.
+- **Layout persistence** (`docs/QUICK_REFERENCE.md`): `version` is an int, and relative
+  filenames resolve against the working directory the `DockManager` was created in.
+
 ## [0.8.1] — 2026-09-28
 
 ### Added
