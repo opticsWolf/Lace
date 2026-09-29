@@ -7,12 +7,36 @@ through a cycle.
 
 ## [Unreleased]
 
+### Added
+
+- **Active edge strip**: `TITLE_BAR.active_edge_width` draws a strip in `active_edge_color`
+  (the bright accent) along the top of the focused dock area's title bar, over its tabs, as in
+  VS Code. The width now defaults to 0, so the strip is off until a theme sets one.
+- **Italic and underlined labels**: `TAB.font_italic` / `font_underline` style the dock tab
+  labels, and `TITLE_BAR.font_italic` / `font_underline` the frameless window title.
+- **Bold open sidebar tab**: `SIDEBAR.tab_active_font_weight` sets the open tab's label
+  weight. It now defaults to None, which keeps `tab_font_weight`. Sidebar tabs are sized for
+  the wider of the two weights, so opening one doesn't change its length.
+
+### Removed
+
+- **Unused style tokens**: these were declared but no widget read them:
+  - `CORE`: `font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline`
+  - `PANEL`: `border_width`, `corner_radius`, `padding`, `margin` (the dock area reads
+    `CORE`'s, which `ThemeSpec.corner_radius` / `border_width` still set)
+  - `TAB`: `padding`
+  - `TITLE_BAR`: `bg_active`, `corner_radius`, `padding`
+  - `SIDEBAR`: `corner_radius`, `margin`, `tab_padding`
+
+  A theme dict that still sets one applies as before: `DockStyleManager` logs a warning for
+  the token and ignores it.
+
 ### Documentation
 
 - **Style token reference** (`docs/theming_and_geometry.md` §13): every `DockStyleManager`
   token by category, with its default, the `ThemeSpec` field that sets it and what it does;
-  how to change tokens live with `update()` or keep them across theme switches; tokens no
-  widget reads yet are marked unused. `ThemeSpec.title_border_focus_color` is listed in §1.
+  how to change tokens live with `update()` or keep them across theme switches.
+  `ThemeSpec.title_border_focus_color` is listed in §1.
 - **Layout persistence** (`docs/QUICK_REFERENCE.md`): `version` is an int, and relative
   filenames resolve against the working directory the `DockManager` was created in.
 

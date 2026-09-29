@@ -548,7 +548,8 @@ sm.get_all(DockStyleCategory.SIDEBAR)             # a dict of every token in a c
   the next switch.
 - **Colours** may be `[r, g, b(, a)]` lists, `"#rrggbb"` strings or `QColor`s. They are stored as `QColor`s, and the
   ones `get()` returns are the live theme objects, so copy one (`QColor(c)`) before changing it.
-- **Unknown names** log a warning and are ignored.
+- **Unknown names** log a warning and are ignored. That includes the unused tokens removed after
+  0.8.1 (listed in the CHANGELOG), so a theme dict written for 0.7 or 0.8 still applies.
 
 ### Reading the tables
 
@@ -556,7 +557,6 @@ sm.get_all(DockStyleCategory.SIDEBAR)             # a dict of every token in a c
   computes it from the seed colours and keywords, so every theme overwrites it.
 - **`ThemeSpec`** names the `ThemeSpec` field that sets the token, when one does. Tokens with no
   `ThemeSpec` field keep their default unless you set them yourself.
-- *Unused* tokens are declared but no widget reads them as of 0.8.1. Setting one has no effect.
 - Font weights take `"normal"`, `"bold"`, an int (100–900) or a `QFont.Weight`.
 
 ### `CORE`: the app and dock areas
@@ -582,11 +582,11 @@ sm.get_all(DockStyleCategory.SIDEBAR)             # a dict of every token in a c
 | `outline_strength` | 0.22 | `outline_strength` | LaceStyle outline strength |
 | `splitter_length` | 50 | `splitter_length` | LaceStyle splitter grip length |
 | `contrast` | `"normal"` | `contrast` | contrast floor for LaceStyle's non-text UI |
-| `font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline` | `"Segoe UI"`, 10, `"normal"`, False, False | — | *unused* |
 
 ### `PANEL`: dock widget content
 
-These colours build the `QPalette` of every dock widget (see §7).
+These colours build the `QPalette` of every dock widget (see §7). The dock area's outline and
+corner radius are `CORE`'s.
 
 | Token | Default | `ThemeSpec` | What it does |
 |---|---|---|---|
@@ -598,7 +598,6 @@ These colours build the `QPalette` of every dock widget (see §7).
 | `color_light`, `color_mid`, `color_dark`, `color_shadow` | *derived* | — | `Light`, `Mid`, `Dark` and `Shadow` roles |
 | `highlight`, `highlighted_text` | *derived* | `selection` | selection fill and its text |
 | `content_margin` | 0 | `content_margin` | inset of a dock widget's content: a number, `(horizontal, top)`, `(left, top, right)` or `(left, top, right, bottom)` |
-| `border_width`, `corner_radius`, `padding`, `margin` | 1.5, 4, 0, 0 | `border_width`, `corner_radius` | *unused*: the dock area reads `CORE`'s |
 
 ### `TAB`: dock area tabs
 
@@ -606,7 +605,7 @@ These colours build the `QPalette` of every dock widget (see §7).
 |---|---|---|---|
 | `bg_normal`, `bg_hover`, `bg_active` | *derived* | `title_bg`, `title_mode`, `hover_mode` | tab fill at rest, on hover, and when selected |
 | `text_normal`, `text_active` | *derived* | `text` | label colour, unselected and selected |
-| `font_family`, `font_size`, `font_weight` | `"Segoe UI"`, 10, `"normal"` | — | label font |
+| `font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline` | `"Segoe UI"`, 10, `"normal"`, False, False | — | label font |
 | `active_font_weight` | `"normal"` | — | label weight on the selected tab |
 | `border_normal_color`, `border_active_color` | *derived* | `tab_border_color`, `tab_border_active_color` | outline on the left, top and right; a transparent colour skips that state |
 | `border_unfocused_color` | None | `tab_border_unfocused_color` | selected tab's outline while its area is unfocused; unset dims `border_active_color` (with `tab_dimming`) |
@@ -624,7 +623,6 @@ These colours build the `QPalette` of every dock widget (see §7).
 | `close_btn_corner_radius` | 3 | — | close button hover fill radius |
 | `close_btn_padding` | 2 | — | close button padding |
 | `close_btn_expand_vertical` | False | — | stretch the close button to the tab's height |
-| `padding`, `font_italic`, `font_underline` | 10, False, False | — | *unused* |
 
 ### `TITLE_BAR`: dock area title bars and the frameless window title
 
@@ -633,7 +631,7 @@ These colours build the `QPalette` of every dock widget (see §7).
 | `bg_normal` | *derived* | `title_bg`, `title_mode` | title bar background |
 | `text_normal` | *derived* | `text` | frameless window title text |
 | `text_active` | *derived* | — | tint of active icons drawn in this category |
-| `font_family`, `font_size`, `font_weight` | `"Segoe UI"`, 13, `"normal"` | — | frameless window title font |
+| `font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline` | `"Segoe UI"`, 13, `"normal"`, False, False | — | frameless window title font |
 | `border_color` | *derived* | `title_border_color` | title bar outline and bottom rule |
 | `focus_border_color` | *derived* | `title_border_focus_color` | `border_color` while the area has focus; unset falls back to `CORE`'s pair |
 | `border_width` | 0.0 | `title_border_width` | outline around the title bar |
@@ -641,6 +639,8 @@ These colours build the `QPalette` of every dock widget (see §7).
 | `height` | 30 | `title_height` | title bar height |
 | `padding_left`, `padding_right`, `padding_top` | 0, 6, 0 | `title_padding_left`, `title_padding_right` | title bar contents margins |
 | `margin` | 0 | `title_margin` | inset from the card edge: 0 is flush, 2–3 an inset ring |
+| `active_edge_color` | *derived* | `accent` | strip along the top of the focused area's title bar, drawn over its tabs |
+| `active_edge_width` | 0.0 | — | strip thickness; 0 draws none |
 | `button_color`, `button_disable_clr`, `button_hover_bg` | *derived* | — | button icon, disabled icon and hover fill |
 | `button_size` | 17 | — | button minimum size; the box is `size + 2 × padding + 3` |
 | `button_icon_size` | 16 | — | button icon size |
@@ -648,7 +648,6 @@ These colours build the `QPalette` of every dock widget (see §7).
 | `button_padding` | 2 | — | button padding |
 | `button_expand_vertical` | False | — | stretch buttons to the bar's height |
 | `button_spacing` | 4 | `title_button_spacing` | gap between buttons |
-| `bg_active`, `corner_radius`, `padding`, `active_edge_color`, `active_edge_width`, `font_italic`, `font_underline` | *derived*, 0, 4, *derived*, 2, False, False | — | *unused* |
 
 ### `SIDEBAR`: auto-hide sidebar strips and their tabs
 
@@ -671,6 +670,7 @@ These colours build the `QPalette` of every dock widget (see §7).
 | `tab_icon_size`, `tab_icon_gap` | 16, 8 | — | tab icon size and its gap to the label |
 | `tab_text_normal`, `tab_text_active`, `tab_text_disabled` | *derived* | — | label colours |
 | `tab_font_family`, `tab_font_size`, `tab_font_weight`, `tab_font_italic`, `tab_font_underline` | `"Segoe UI"`, 10, `"normal"`, False, False | — | label font |
+| `tab_active_font_weight` | None | — | label weight on the open tab; unset keeps `tab_font_weight` |
 | `indicator_color` | *derived* | — | open tab's stripe |
 | `indicator_width` | 3.0 | `sidebar_indicator_width` | stripe thickness |
 | `indicator_position` | `"right"` | `sidebar_indicator_position` | `"left"` or `"right"` |
@@ -678,7 +678,6 @@ These colours build the `QPalette` of every dock widget (see §7).
 | `badge_font_family`, `badge_font_size`, `badge_font_weight` | `"Segoe UI"`, 8, `"bold"` | — | badge font |
 | `badge_radius` | 6 | — | badge radius |
 | `badge_position` | `"top_right"` | — | `"top_left"`, `"top_right"`, `"bottom_left"` or `"bottom_right"` (or a `TabBadgePosition`) |
-| `corner_radius`, `margin`, `tab_padding`, `tab_active_font_weight` | 0, 0, 8, `"normal"` | — | *unused* |
 
 ### `SIDEPANEL`: the panel an open sidebar tab slides out
 
