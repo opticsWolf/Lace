@@ -14,8 +14,9 @@ from typing import TYPE_CHECKING, Optional
 import logging
 
 from PySide6.QtCore import QPoint, QPointF, Qt, Signal, QSize, QRectF
-from PySide6.QtGui import QAction, QColor, QCursor, QMouseEvent, QPainter, QPen
-from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy, QToolButton
+from PySide6.QtGui import QAction, QColor, QCursor, QMouseEvent, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import (QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy,
+                               QToolButton, QWidget)
 
 from lace.enums import DockFlags, DragState, DockWidgetFeature, TitleBarButton, DockWidgetArea, WidgetState
 from lace.util import start_drag_distance
@@ -37,6 +38,42 @@ if TYPE_CHECKING:
     from lace.floating_dock_container import FloatingDockContainer
 
 logger = logging.getLogger(__name__)
+
+
+class _ActiveEdge(QWidget):
+    """The accent strip along the top of a focused dock area's title bar.
+
+    A child laid over the whole bar rather than painted by the bar itself:
+    the tabs fill their own backgrounds on top of the bar's, and would hide
+    the strip wherever they sit. Transparent to the mouse, so it never takes
+    a click or a drag from the tabs underneath.
+    """
+
+    def __init__(self, parent: QWidget):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self._color: Optional[QColor] = None
+        self._width = 0.0
+        self._radius = 0.0
+        self.hide()
+
+    def set_edge(self, color: Optional[QColor], width: float, radius: float) -> None:
+        if (color, width, radius) == (self._color, self._width, self._radius):
+            return
+        self._color, self._width, self._radius = color, width, radius
+        self.update()
+
+    def paintEvent(self, event):
+        if self._color is None or self._width <= 0:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        rect = QRectF(self.rect())
+        # Clipped to the bar's own rounded top, so the strip follows the card.
+        strip = QPainterPath()
+        strip.addRect(QRectF(rect.left(), rect.top(), rect.width(), self._width))
+        p.fillPath(top_rounded_path(rect, self._radius).intersected(strip), self._color)
 
 
 class DockAreaTitleBar(QFrame, DockStyled):
@@ -81,6 +118,10 @@ class DockAreaTitleBar(QFrame, DockStyled):
         
         self._create_tab_bar()
         self._create_buttons()
+        # Created last so it stacks above the tabs and buttons.
+        self._active_edge = _ActiveEdge(self)
+        self._edge_color: Optional[QColor] = None
+        self._edge_width = 0.0
 
         # Right-click anywhere on the title bar opens the unified menu.
         self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -427,6 +468,23 @@ class DockAreaTitleBar(QFrame, DockStyled):
     def update_pin_button_visibility(self):
         self._dock_area._update_title_bar_button_states()
 
+    def _sync_active_edge(self) -> None:
+        """Show the active edge strip while the area has focus, if the theme draws one."""
+        edge = self._active_edge
+        color = self._edge_color
+        edge.set_edge(color, self._edge_width, self._top_radius)
+        show = (self._edge_width > 0 and color is not None and color.alpha() > 0
+                and bool(self._dock_area and self._dock_area.is_chrome_focused()))
+        if show != edge.isVisible():
+            if show:
+                edge.setGeometry(self.rect())
+                edge.raise_()
+            edge.setVisible(show)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._active_edge.setGeometry(self.rect())
+
     def _resolve_border(self) -> tuple:
         """``(bottom rule width, border colour)`` for the current focus state.
 
@@ -443,13 +501,14 @@ class DockAreaTitleBar(QFrame, DockStyled):
                 resolve_title_bar_border_color(self._style_mgr, focused))
 
     def refresh_focus_tint(self) -> None:
-        """Cheap path: re-resolve only the focus-dependent border and repaint.
+        """Cheap path: re-resolve only the focus-dependent chrome and repaint.
 
-        The border is the sole part of this widget's styling that follows the
-        dock area's focus state, and focus changes on every click — so the
-        button stylesheets and icon re-tinting in :meth:`refresh_style` must not
-        run here.
+        The border and the active edge strip are the only parts of this
+        widget's styling that follow the dock area's focus state, and focus
+        changes on every click — so the button stylesheets and icon re-tinting
+        in :meth:`refresh_style` must not run here.
         """
+        self._sync_active_edge()
         border = self._resolve_border()
         if border == (self._border_bottom, self._border_color):
             return
@@ -496,6 +555,9 @@ class DockAreaTitleBar(QFrame, DockStyled):
         # "no dedicated bottom rule, use the general border width".  Same call
         # as the cheap focus path, so the two cannot answer differently.
         self._border_bottom, self._border_color = self._resolve_border()
+        self._edge_color = styles.get("active_edge_color")
+        self._edge_width = float(styles.get("active_edge_width") or 0.0)
+        self._sync_active_edge()
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, False)
         self.update()

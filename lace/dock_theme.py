@@ -228,9 +228,11 @@ class DockTitleBarStyleSchema(_ActionButtonFields, _FontFields):
     # outline. Falls back to the CORE pair when unset.
     focus_border_color: Optional[List[int]] = None
 
-    # Active Edge — colored strip on focused dock area (VS Code style)
+    # Active edge: an accent strip along the top of a focused dock area's
+    # title bar (VS Code style), drawn over the tabs. Off at width 0, the
+    # default, so a theme opts in by setting a width.
     active_edge_color: Optional[List[int]] = None
-    active_edge_width: int = 2
+    active_edge_width: float = 0.0
 
     # Geometry
     height: int = 30

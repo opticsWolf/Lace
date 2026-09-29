@@ -9,6 +9,7 @@ import os
 import sys
 
 import pytest
+from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_manager import DockManager
@@ -58,6 +59,71 @@ def test_tab_label_font_follows_italic_and_underline(qapp, desk, token, getter):
 
     # Both states: the active tab's font is rebuilt on its own path.
     assert all(getattr(t._title_label.font(), getter)() for t in tabs)
+
+
+@pytest.fixture
+def two_areas(qapp):
+    win = QMainWindow()
+    win.resize(900, 600)
+    dock_manager = DockManager(win)
+
+    def mk(name):
+        dock_widget = DockWidget(name)
+        dock_widget.set_widget(QLabel(name))
+        return dock_widget
+
+    area = dock_manager.add_dock_widget(DockWidgetArea.left, mk("Alpha"))
+    other = dock_manager.add_dock_widget(DockWidgetArea.right, mk("Beta"))
+    win.show()
+    qapp.processEvents()
+    dock_manager.set_active_dock_area(area)
+    qapp.processEvents()
+
+    yield dock_manager, area, other
+
+    win.close()
+
+
+def _top_pixel_over_first_tab(title_bar, qapp):
+    qapp.processEvents()
+    img = QImage(title_bar.size(), QImage.Format_ARGB32)
+    img.fill(0)
+    title_bar.render(img)
+    tab = title_bar.tab_bar().tab(0)
+    x = tab.mapTo(title_bar, tab.rect().center()).x()
+    return QColor(img.pixel(x, 0))
+
+
+def test_active_edge_is_off_by_default(qapp, two_areas):
+    _, area, other = two_areas
+    assert not area._title_bar._active_edge.isVisible()
+    assert not other._title_bar._active_edge.isVisible()
+
+
+def test_active_edge_strip_marks_the_focused_area_over_its_tabs(qapp, two_areas):
+    dock_manager, area, other = two_areas
+    sm = get_dock_style_manager()
+    sm.update(DockStyleCategory.TITLE_BAR, active_edge_color=[255, 0, 0, 255],
+              active_edge_width=3)
+    qapp.processEvents()
+
+    bar, other_bar = area._title_bar, other._title_bar
+    assert bar._active_edge.isVisible()
+    assert not other_bar._active_edge.isVisible()
+    # Drawn above the tab, which fills its own background over the bar's.
+    assert _top_pixel_over_first_tab(bar, qapp).getRgb()[:3] == (255, 0, 0)
+    assert _top_pixel_over_first_tab(other_bar, qapp).getRgb()[:3] != (255, 0, 0)
+
+    # Follows focus on the cheap path.
+    dock_manager.set_active_dock_area(other)
+    qapp.processEvents()
+    assert other_bar._active_edge.isVisible()
+    assert not bar._active_edge.isVisible()
+
+    # Width 0 turns it off again.
+    sm.update(DockStyleCategory.TITLE_BAR, active_edge_width=0)
+    qapp.processEvents()
+    assert not other_bar._active_edge.isVisible()
 
 
 def test_open_sidebar_tab_takes_the_active_font_weight(qapp):
