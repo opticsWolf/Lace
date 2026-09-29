@@ -7,6 +7,13 @@ through a cycle.
 
 ## [Unreleased]
 
+### Changed
+
+- **Python 3.11 or newer is required.** Python 3.10 is no longer supported or tested. Its
+  `enum.Flag` rejects flag values with bits outside the named members, so PySide6 raises
+  `ValueError` reading Qt options such as a `QDial`'s `subControls` (all sub-controls but the
+  tick marks). 3.11 added the `KEEP` boundary PySide6 uses to accept them.
+
 ### Added
 
 - **Active edge strip**: `TITLE_BAR.active_edge_width` draws a strip in `active_edge_color`
