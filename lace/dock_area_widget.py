@@ -14,8 +14,8 @@ import logging
 import warnings
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QRect, Signal
-from PySide6.QtGui import QPalette
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Signal
+from PySide6.QtGui import QPainterPath, QPalette
 from PySide6.QtWidgets import QAbstractButton, QBoxLayout
 
 from lace.util import (find_parent, DEBUG_LEVEL, hide_empty_parent_splitters,
@@ -104,6 +104,42 @@ class DockAreaWidget(ChromeFrame, DockStyled):
         if title_bar is None or not title_bar.isVisible():
             return None
         return float(title_bar.geometry().bottom() + 1)
+
+    def chrome_header(self):
+        """The title bar's underside and its fill, so the card's ring around
+        the bar takes the bar's colour rather than the panel's.
+
+        Where the current tab sits flush against the bar's top or left edge,
+        that stretch of ring is left to the panel, which is the tab's own
+        colour; otherwise a title bar lighter than the panel would draw a
+        light halo round the tab.
+        """
+        title_bar = self._title_bar
+        if title_bar is None or not title_bar.isVisible():
+            return None
+        bg = getattr(title_bar, "_bg_color", None)
+        if bg is None:
+            return None
+        bar = title_bar.geometry()
+        hole = None
+        tab = title_bar.tab_bar().current_tab()
+        if tab is not None and tab.isVisible():
+            r = QRectF(tab.rect())
+            r.moveTopLeft(QPointF(tab.mapTo(self, QPoint(0, 0))))
+            if r.top() <= bar.top() + 1:
+                left = 0.0 if r.left() <= bar.left() + 1 else r.left()
+                hole = QRectF(left, 0.0, r.right() + 1 - left, r.bottom() + 1)
+                # Keep clear of the tab's rounded top-right corner: beside
+                # that curve the ring belongs to the bar, and a square hole
+                # there reads as a notch of panel colour above the tab.
+                radius = float(getattr(tab, "_radius", 0) or 0)
+                if radius > 0:
+                    square = QPainterPath()
+                    square.addRect(hole)
+                    corner = QPainterPath()
+                    corner.addRect(QRectF(r.right() + 1 - radius, 0.0, radius, r.top() + radius))
+                    hole = square.subtracted(corner)
+        return float(bar.bottom() + 1), bg, hole
 
     def chrome_border_inset(self):
         """Left edge of the title bar — where the tab column starts.

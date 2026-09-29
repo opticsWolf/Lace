@@ -210,6 +210,18 @@ def test_outline_strength_token(qapp, themed):
     assert _ratio(text, base) > 1   # sanity: the palette is themed
 
 
+def test_field_outline_token(qapp, themed):
+    from lace.style import _inputs, _paint
+    opt = _option(themed, S.State_Off)
+    base = _paint.color(opt, QPalette.ColorRole.Base)
+    assert _inputs.field_outline(LaceStyle(), opt, base) is not None
+    off = LaceStyle(field_outline=False)
+    assert _inputs.field_outline(off, opt, base) is None
+    focused = _option(themed, S.State_Off)
+    focused.state |= S.State_HasFocus
+    assert _inputs.field_outline(off, focused, base) is not None, "the focus ring stays"
+
+
 def test_partial_check_sits_between_off_and_on(qapp, themed):
     """B look: the partial fill is an accent wash, not the solid accent."""
     def centre_fill(state):

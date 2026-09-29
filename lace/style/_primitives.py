@@ -206,6 +206,8 @@ def frame(style, opt, p, w):
         if cap.isVisible():
             return True     # the area's FrameCap draws the outline above the viewport
         cap.queue_sync()    # framed since the cap last looked: draw here meanwhile
+    if not style.field_outline:
+        return True     # the theme draws views without an outline
     with P.Painting(p):
         line = P.legible(opt, P.stroke(opt, P.color(opt, Role.Window), style.outline_strength),
                           style.border_ratio)
@@ -220,8 +222,10 @@ def frame_line_edit(style, opt, p, w):
         focused = opt.state & State.State_HasFocus and opt.state & State.State_Enabled
         if focused:
             line = P.legible(opt, P.accent(opt), style.ui_ratio)
-        else:
+        elif style.field_outline:
             line = P.legible(opt, P.stroke(opt, base, style.outline_strength), style.border_ratio)
+        else:
+            return True
         P.rounded(p, P.half_pixel(opt.rect), style.control_radius, line=line)
     return True
 

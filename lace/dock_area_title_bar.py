@@ -77,7 +77,8 @@ class _ActiveEdge(QWidget):
 
 
 class DockAreaTitleBar(QFrame, DockStyled):
-    STYLE_CATEGORIES = (DockStyleCategory.TITLE_BAR, DockStyleCategory.CORE)
+    STYLE_CATEGORIES = (DockStyleCategory.TITLE_BAR, DockStyleCategory.CORE,
+                        DockStyleCategory.TAB)
     _menu_sections    = MenuSection.TITLE_BAR
 
     tab_bar_clicked = Signal(int)
@@ -547,7 +548,13 @@ class DockAreaTitleBar(QFrame, DockStyled):
         else:
             margin = chrome_content_margin(card_border, card_radius)
         self._bg_color = bg
-        self._top_radius = max(0.0, card_radius - margin)
+        # Never tighter than the tabs, though: the first tab sits in the bar's
+        # top-left corner, and a bar rounded tighter than the tab shows as a
+        # wedge of its colour between the two curves.  The card fills the ring
+        # round the bar in the bar's colour (DockAreaWidget.chrome_header), so
+        # a rounder bar exposes nothing of the panel behind it.
+        tab_radius = self._style_mgr.get(DockStyleCategory.TAB, "corner_radius", 0) or 0
+        self._top_radius = max(0.0, card_radius - margin, float(tab_radius))
         self._border_width = styles.get("border_width", 0.0)
         # The bottom rule and its colour are resolved centrally: DockWidgetTab
         # continues the same rule across inactive tabs and must not compute a

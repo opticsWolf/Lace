@@ -10,7 +10,7 @@
 
 from math import ceil, sqrt
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from PySide6.QtCore import Qt, QRectF, QLineF, QPointF, QSizeF
 from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
@@ -233,8 +233,18 @@ class ChromeTokens:
         return chrome_content_margin(self.border_width, self.radius)
 
 
-def paint_panel_bg(p: QPainter, rect: QRectF, c: ChromeTokens) -> None:
-    """Paint only the filled background of a rounded panel."""
+def paint_panel_bg(p: QPainter, rect: QRectF, c: ChromeTokens,
+                   header: Optional[Tuple[float, QColor, Optional[Union[QRectF, QPainterPath]]]] = None) -> None:
+    """Paint only the filled background of a rounded panel.
+
+    ``header`` is ``(bottom, colour, hole)``: the band of the card above ``bottom``
+    is filled in ``colour`` rather than the panel's.  A title bar sits inside
+    the ring the outline is given, and wherever that outline does not cover
+    the ring -- transparent, the canvas's own colour, or a 1.5 px pen short of
+    a 2 px inset -- the ring would otherwise show the panel as a thin, lighter
+    (or darker) edge around the title bar.  ``hole``, when set, is left in the
+    panel's colour: the part of the band beside a panel-coloured active tab.
+    """
     p.setRenderHint(QPainter.Antialiasing, True)
     w = c.border_width
     inset = (w / 2.0) + 0.5 if w > 0 else 0.0
@@ -245,6 +255,18 @@ def paint_panel_bg(p: QPainter, rect: QRectF, c: ChromeTokens) -> None:
         path = QPainterPath()
         path.addRoundedRect(r, radius, radius)
         p.fillPath(path, c.bg)
+        if header is not None and header[1].alpha() == 255 and header[0] > r.top():
+            bottom, colour, hole = header
+            band = QPainterPath()
+            band.addRect(QRectF(rect.left(), rect.top(), rect.width(), bottom - rect.top()))
+            if hole is not None:
+                if isinstance(hole, QPainterPath):
+                    cut = hole
+                else:
+                    cut = QPainterPath()
+                    cut.addRect(hole)
+                band = band.subtracted(cut)
+            p.fillPath(path.intersected(band), colour)
 
 
 def paint_panel_border(p: QPainter, rect: QRectF, c: ChromeTokens,

@@ -61,7 +61,8 @@ class LaceStyle(QProxyStyle):
 
     def __init__(self, control_radius: int = 4, scrollbar: str = "expanding",
                  contrast: str = "normal", focus_width: float = 2.0,
-                 outline_strength: float = 0.22, splitter_length: int = 50):
+                 outline_strength: float = 0.22, splitter_length: int = 50,
+                 field_outline: bool = True):
         # QProxyStyle takes ownership of the base style.
         super().__init__(QStyleFactory.create("Fusion"))
         self.control_radius = 4
@@ -70,18 +71,20 @@ class LaceStyle(QProxyStyle):
         self.focus_width = 2.0
         self.outline_strength = 0.22
         self.splitter_length = 50
+        self.field_outline = True
         self._weekend_tint = _chrome.WeekendTint(self)
         self._popup_shift = _popup.ShadowShift(self)
         self.set_tokens(control_radius=control_radius, scrollbar=scrollbar, contrast=contrast,
                         focus_width=focus_width, outline_strength=outline_strength,
-                        splitter_length=splitter_length)
+                        splitter_length=splitter_length, field_outline=field_outline)
 
     # -- theme knobs -------------------------------------------------------------
     def set_tokens(self, control_radius: Optional[int] = None,
                    scrollbar: Optional[str] = None, contrast: Optional[str] = None,
                    focus_width: Optional[float] = None,
                    outline_strength: Optional[float] = None,
-                   splitter_length: Optional[int] = None) -> None:
+                   splitter_length: Optional[int] = None,
+                   field_outline: Optional[bool] = None) -> None:
         """Update the theme knobs; widgets repaint on their next paint event.
 
         ``contrast`` is the theme's level: it sets the ratio the non-text UI
@@ -90,6 +93,8 @@ class LaceStyle(QProxyStyle):
         ``outline_strength`` (0-1) is how much text colour is mixed over a
         control's fill for its 1 px outline; the contrast floor still applies.
         ``splitter_length`` is the length of a splitter handle's grip, in px.
+        ``field_outline`` False drops the outline of unfocused input fields
+        and framed views; a focused field keeps its accent ring.
         """
         if control_radius is not None:
             self.control_radius = max(0, int(control_radius))
@@ -107,6 +112,8 @@ class LaceStyle(QProxyStyle):
             self.outline_strength = min(1.0, max(0.0, float(outline_strength)))
         if splitter_length is not None:
             self.splitter_length = max(0, int(splitter_length))
+        if field_outline is not None:
+            self.field_outline = bool(field_outline)
 
     @property
     def ui_ratio(self) -> float:

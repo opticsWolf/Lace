@@ -96,6 +96,22 @@ SEPARATION_TARGETS: Dict[str, Dict[str, float]] = {
 }
 DEPTH_LEVELS = ("flat", "subtle", "raised")
 
+#: The "surface" floor on a light canvas, as a share of the one above.
+#: Near white there is only ~0.02 of lightness left above a light panel, and
+#: a light theme wants three steps in it -- a white field, the panel, a title
+#: bar barely off it -- set apart by their frames and rules rather than by
+#: fill alone.  At the full floor the fixer has to push one of them down past
+#: the panel, and the theme turns grey.  Hovers keep their full floor.
+LIGHT_SURFACE_SCALE = 0.75
+
+
+def separation_target(role: str, depth: str, canvas) -> float:
+    """The lightness floor for ``role`` at ``depth`` on ``canvas``."""
+    target = SEPARATION_TARGETS[role][depth]
+    if role == "surface" and canvas is not None and cs.to_oklch(_rgba(canvas))[0] >= cs.DARK_L:
+        target *= LIGHT_SURFACE_SCALE
+    return target
+
 #: (role, surface, parent). The surface is the one moved when too close.
 SEPARATION_PAIRS: Tuple[Tuple[str, Tuple[str, str], Tuple[str, str]], ...] = (
     ("surface", (P, "bg_normal"),        (C, "canvas_bg")),
@@ -221,7 +237,7 @@ def audit(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
             continue
         s, p = _opaque(_rgba(s), canvas), _opaque(_rgba(p), canvas)
         gap = lightness_gap(s, p)
-        target = SEPARATION_TARGETS[role][depth]
+        target = separation_target(role, depth, canvas)
         if gap < target - 1e-6:
             out.append(Finding("separation", role, ".".join(surface), ".".join(parent),
                                round(gap, 3), target))
@@ -325,7 +341,7 @@ def enforce(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
         s, p = _get(theme, surface), _get(theme, parent)
         if s is None or p is None or (len(s) > 3 and s[3] < 255):
             continue
-        target = SEPARATION_TARGETS[role][depth]
+        target = separation_target(role, depth, canvas)
         Ls, Cs, hs, a = cs.to_oklch(s)
         Lp = cs.to_oklch(p)[0]
         gap = abs(Ls - Lp)
@@ -334,7 +350,7 @@ def enforce(theme: Dict[Any, Dict[str, Any]], contrast: str = "normal",
         # Every separation rule this list takes part in: a shared hover sits
         # on the title bar and the sidebar at once, and a fix for one side
         # must not undo the other.
-        rules = [(SEPARATION_TARGETS[r][depth], _get(theme, par))
+        rules = [(separation_target(r, depth, canvas), _get(theme, par))
                  for r, sf, par in SEPARATION_PAIRS
                  if _get(theme, sf) is s and _get(theme, par) is not None]
 
@@ -412,5 +428,6 @@ __all__ = [
     "EXPLICIT_MAX_DE", "enforce",
     "CONTRAST_TARGETS", "CONTRAST_LEVELS", "CONTRAST_PAIRS", "Pair",
     "SEPARATION_TARGETS", "SEPARATION_PAIRS", "TOUCH_PAIRS", "DEPTH_LEVELS",
+    "LIGHT_SURFACE_SCALE", "separation_target",
     "Finding", "audit", "lightness_gap",
 ]

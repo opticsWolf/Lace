@@ -8,7 +8,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Tuple, Union
 
 from PySide6.QtCore import Qt, QEvent, QObject, QPoint, QRectF, QSize, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath
@@ -564,6 +564,15 @@ class ChromeFrame(QFrame):
         """
         return None
 
+    def chrome_header(self) -> Optional[Tuple[float, QColor, Optional[Union[QRectF, QPainterPath]]]]:
+        """``(bottom, colour, hole)`` of a header band the card fills in the header's
+        own colour instead of the panel's, or None.
+
+        Resolved per repaint, like :meth:`chrome_border_top`.  Subclasses that
+        own a title bar override this; see :func:`paint_panel_bg`.
+        """
+        return None
+
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         if hasattr(self, "_border_overlay") and self._border_overlay is not None:
@@ -578,4 +587,4 @@ class ChromeFrame(QFrame):
 
     def paintEvent(self, event) -> None:
         p = QPainter(self)
-        paint_panel_bg(p, QRectF(self.rect()), self._chrome)
+        paint_panel_bg(p, QRectF(self.rect()), self._chrome, self.chrome_header())

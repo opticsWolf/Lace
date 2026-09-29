@@ -41,9 +41,12 @@ def _focused(opt) -> bool:
 
 
 def field_outline(style, opt, base):
-    """Outline of an input field: accent while focused, else the stroke."""
+    """Outline of an input field: accent while focused, else the stroke
+    (None when the theme turns field outlines off)."""
     if _focused(opt):
         return P.legible(opt, P.accent(opt), style.ui_ratio)
+    if not style.field_outline:
+        return None
     return P.legible(opt, P.stroke(opt, base, style.outline_strength), style.border_ratio)
 
 
