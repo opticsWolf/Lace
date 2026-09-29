@@ -18,109 +18,6 @@ from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 
 THEME_SPECS: Dict[str, ThemeSpec] = {
     # =========================================================================
-    # BASICS
-    #
-    # The five that come with no story attached.  A dark and a light,
-    # a black and a warm-black, and a light grey that sits lower than `light`
-    # does — pick one of these when the theme is not meant to be noticed.
-    # =========================================================================
-
-    # -------------------------------------------------------------------------
-    # DARK (Recessed headers, clean contrast)
-    # -------------------------------------------------------------------------
-    "dark": ThemeSpec(
-        base               = [20, 23, 30, 255],
-        accent             = [45, 85, 170, 255],    # Boosted saturation
-        text               = [200, 205, 215, 255],
-        surface            = [26, 30, 39, 255],
-        border             = [20, 23, 30, 255],
-        focus_border_color = [45, 85, 170, 255],   # Highlight border
-        title_mode         = "darker",              # Deep, integrated title bars
-        hover_mode         = "darker",              # Tabs pop from the panel
-        corner_radius      = 4,
-        tab_radius         = 4,
-        border_width       = 1.5,
-        title_margin       = 0.5,
-        content_margin     = 0.5,
-        tab_dimming        = True,
-    ),
-
-    # -------------------------------------------------------------------------
-    # LIGHT (High clarity, professional light gray)
-    # -------------------------------------------------------------------------
-    "light": ThemeSpec(
-        base               = [218, 221, 225, 255],  # Slightly deeper base for better highlights
-        accent             = [54, 81, 217, 255],
-        text               = [45, 50, 60, 255],
-        surface            = [245, 247, 250, 255],
-        border             = [218, 221, 225, 255],
-        focus_border_color = [54, 81, 217, 255],    # Highlight border
-        is_light           = True,
-        title_mode         = "darker",              # Title bars feel like part of the frame
-        hover_mode         = "darker",              # Recessed inactive tabs
-        corner_radius      = 4,
-        tab_radius         = 4,
-        border_width       = 1.5,
-        title_margin       = 0.5,
-        content_margin     = 0.5,
-        tab_dimming        = True,
-    ),
-
-    # -------------------------------------------------------------------------
-    # NEUTRAL (The "Silver" Workstation)
-    # -------------------------------------------------------------------------
-    "neutral": ThemeSpec(
-        base               = [190, 193, 197, 255],  # Pushed light-gray
-        accent             = [40, 110, 190, 255],
-        text               = [30, 35, 45, 255],
-        surface            = [210, 213, 217, 255],
-        border             = [170, 173, 178, 255],
-        focus_border_color = [40, 110, 190, 255],   # Highlight border
-        is_light           = True,
-        title_mode         = "darker",              # Strong structural separation
-        hover_mode         = "lighter",
-        corner_radius      = 4,
-        tab_radius         = 4,
-        border_width       = 1.5,
-        title_margin       = 0.5,
-        content_margin     = 0.5,
-        tab_dimming        = True,
-    ),
-
-    # -------------------------------------------------------------------------
-    # MIDNIGHT (OLED-friendly, ultra-high contrast)
-    # -------------------------------------------------------------------------
-    "midnight": ThemeSpec(
-        base       = [8, 10, 15, 255],      # Darker base
-        accent     = [60, 100, 255, 255],   # Electric blue
-        text       = [210, 215, 230, 255],
-        surface    = [14, 18, 26, 255],
-        border     = [14, 15, 18, 255],
-        focus_border_color = [44, 65, 148, 255],
-        title_mode = "darker",
-        hover_mode = "darker",              # Everything recessed except active content
-        corner_radius      = 0,
-        tab_radius         = 4,
-        border_width       = 0.5,
-        title_margin       = 0.0,
-        content_margin     = 4.0,
-        tab_dimming        = True,
-    ),
-
-    # -------------------------------------------------------------------------
-    # WARM (Organic, cozy tones)
-    # -------------------------------------------------------------------------
-    "warm": ThemeSpec(
-        base       = [38, 32, 30, 255],
-        accent     = [200, 110, 60, 255],   # Richer orange
-        text       = [235, 225, 210, 255],
-        surface    = [46, 39, 36, 255],
-        border     = [46, 39, 36, 255],
-        title_mode = "lighter",             # "Elevated" headers
-        hover_mode = "lighter",
-    ),
-
-    # =========================================================================
     # EDITOR CLASSICS
     #
     # Palettes borrowed from editors and terminals people
@@ -1157,11 +1054,13 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 }
 
 # =============================================================================
-# BASICS V2 (candidates, kept beside the originals for comparison)
+# BASICS
 #
-# Eight palettes, each in two geometries: the classic 4px chassis the basics
-# use today, and "neo", the 10px card chassis Kilim's *_neo themes use.  A
-# pair shares every colour; only the shapes differ.
+# The ones that come with no story attached -- pick one of these when the
+# theme is not meant to be noticed.  Eight palettes, each in two geometries:
+# the classic 4px chassis (<name>) and "neo" (<name>_neo), the 10px card
+# chassis Kilim's *_neo themes use.  A pair shares every colour; only the
+# shapes differ.
 #
 # Dark to light: midnight, dark, mocha, slate, caramel, neutral, cream, light.
 # dark and light follow VS Code's modern themes, so their grounds carry only a
@@ -1169,7 +1068,7 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 # mocha / caramel / cream are the warm family.
 # =============================================================================
 
-_CLASSIC_V2 = dict(
+_BASIC_CLASSIC = dict(
     corner_radius=4,
     tab_radius=4,
     border_width=1.5,
@@ -1181,7 +1080,7 @@ _CLASSIC_V2 = dict(
     field_outline=False,    # fields and views are told apart by their fill
 )
 
-_NEO_V2 = dict(
+_BASIC_NEO = dict(
     corner_radius=10,
     border_width=1.5,
     title_height=32,
@@ -1203,8 +1102,8 @@ _NEO_V2 = dict(
     sidebar_indicator_width=1.5,
 )
 
-_PALETTES_V2: Dict[str, Dict[str, Any]] = {
-    # Between the old midnight (8,10,15) and Kilim's (16,19,25), with a deeper
+_BASIC_PALETTES: Dict[str, Dict[str, Any]] = {
+    # Between the former midnight (8,10,15) and Kilim's (16,19,25), with a deeper
     # blue cast; a touch under dark's lightness (panel L 0.197 vs 0.217).  The
     # accent between electric blue and Kilim's calmer 50,90,198.
     "midnight": dict(
@@ -1215,8 +1114,9 @@ _PALETTES_V2: Dict[str, Dict[str, Any]] = {
     # light share one blue, #0078d4, a little deeper on each lighter ground.
     "dark": dict(
         base=[18, 19, 20, 255], surface=[25, 26, 27, 255], border=[37, 38, 39, 255],
-        accent=[0, 120, 212, 255], text=[202, 204, 207, 255]),   # text carries the canvas's faint blue
-    # The old warm, renamed, with its elevated title bar.
+        accent=[0, 120, 212, 255], text=[202, 204, 207, 255],   # text carries the canvas's faint blue
+        title_mode="lighter"),
+    # The former warm, renamed, with its elevated title bar.
     "mocha": dict(
         base=[36, 30, 27, 255], surface=[46, 39, 35, 255], border=[60, 51, 46, 255],
         accent=[200, 110, 60, 255], text=[235, 225, 210, 255],
@@ -1231,7 +1131,7 @@ _PALETTES_V2: Dict[str, Dict[str, Any]] = {
     "caramel": dict(
         base=[197, 194, 189, 255], surface=[217, 214, 207, 255], border=[167, 162, 151, 255],
         accent=[186, 98, 0, 255], text=[39, 34, 28, 255], is_light=True),
-    # The old neutral with its blue cast taken out.
+    # The former neutral with its blue cast taken out.
     "neutral": dict(
         base=[190, 191, 194, 255], surface=[210, 211, 214, 255], border=[170, 171, 175, 255],
         accent=[6, 108, 196, 255], text=[30, 33, 40, 255], is_light=True),
@@ -1253,9 +1153,9 @@ _PALETTES_V2: Dict[str, Dict[str, Any]] = {
 }
 
 
-def _spec_v2(palette: Dict[str, Any], neo: bool) -> ThemeSpec:
+def _basic_spec(palette: Dict[str, Any], neo: bool) -> ThemeSpec:
     accent = palette["accent"]
-    fields = dict(_NEO_V2 if neo else _CLASSIC_V2)
+    fields = dict(_BASIC_NEO if neo else _BASIC_CLASSIC)
     fields.update(keep_tint=True)       # a palette may opt out (midnight keeps white)
     fields.update(palette, focus_border_color=accent)
     if not neo:
@@ -1274,10 +1174,10 @@ def _spec_v2(palette: Dict[str, Any], neo: bool) -> ThemeSpec:
     return ThemeSpec(**fields)
 
 
-for _name, _palette in _PALETTES_V2.items():
-    THEME_SPECS[f"{_name}_v2"] = _spec_v2(_palette, neo=False)
-for _name, _palette in _PALETTES_V2.items():
-    THEME_SPECS[f"{_name}_neo_v2"] = _spec_v2(_palette, neo=True)
+for _name, _palette in _BASIC_PALETTES.items():
+    THEME_SPECS[_name] = _basic_spec(_palette, neo=False)
+for _name, _palette in _BASIC_PALETTES.items():
+    THEME_SPECS[f"{_name}_neo"] = _basic_spec(_palette, neo=True)
 del _name, _palette
 
 # =============================================================================
@@ -1286,8 +1186,9 @@ del _name, _palette
 
 #: Group label -> the keys in it, both in presentation order.
 #:
-#: This is the same four sections THEME_SPECS is written in above, named so a
-#: menu can show them.  Twenty-six entries in one flat list is a scroll, and it
+#: The basics (and their neo twins) built from _BASIC_PALETTES, then the three
+#: sections THEME_SPECS is written in above, named so a menu can show them.
+#: Thirty-seven entries in one flat list is a scroll, and it
 #: hides the thing a reader most needs to see: that `violet_haze_neutral` is
 #: not a preset of its own but one key of a design that ships in three.
 #:
@@ -1296,9 +1197,8 @@ del _name, _palette
 #: Sorting these alphabetically would file the counterparts away from their
 #: parents and put `midnight_haze_light` above `midnight_haze`.
 THEME_GROUPS: "OrderedDict[str, Tuple[str, ...]]" = OrderedDict((
-    ("Basics", (
-        "dark", "light", "neutral", "midnight", "warm",
-    )),
+    ("Basics", tuple(_BASIC_PALETTES)),
+    ("Basics Neo", tuple(f"{name}_neo" for name in _BASIC_PALETTES)),
     ("Editor Classics", (
         "dracula", "monokai", "nordic", "catppuccin", "tokyo_night",
         "solarized_dark", "solarized_light",
@@ -1312,8 +1212,6 @@ THEME_GROUPS: "OrderedDict[str, Tuple[str, ...]]" = OrderedDict((
         "midnight_haze", "midnight_haze_neutral", "midnight_haze_light",
         "slate_amber_dark", "slate_amber", "slate_amber_light",
     )),
-    ("Basics v2", tuple(f"{name}_v2" for name in _PALETTES_V2)),
-    ("Basics v2 Neo", tuple(f"{name}_neo_v2" for name in _PALETTES_V2)),
 ))
 
 # A preset that is not in a group would simply vanish from every grouped menu,

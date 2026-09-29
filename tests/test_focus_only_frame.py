@@ -258,12 +258,17 @@ def test_midnight_haze_keeps_violet_hazes_geometry():
         assert getattr(mid, field) == getattr(haze, field), field
 
 
+#: The midnight preset midnight_haze was mixed from, before the basics were
+#: redone; the current midnight is a different palette.
+_FORMER_MIDNIGHT = dict(base=[8, 10, 15], accent=[60, 100, 255], text=[210, 215, 230])
+
+
 def test_midnight_haze_mixes_the_two_palettes():
     mid = THEME_SPECS["midnight_haze"]
     for field in ("base", "accent", "text"):
-        low = THEME_SPECS["midnight"]
+        low = _FORMER_MIDNIGHT[field]
         high = THEME_SPECS["violet_haze"]
         for i, channel in enumerate(getattr(mid, field)[:3]):
-            ends = sorted((getattr(low, field)[i], getattr(high, field)[i]))
+            ends = sorted((low[i], getattr(high, field)[i]))
             assert ends[0] <= channel <= ends[1], \
                 f"{field}[{i}]={channel} is outside {ends} — not a mix of the two"

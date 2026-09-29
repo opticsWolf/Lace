@@ -117,7 +117,7 @@ def test_chassis_round_trip(key):
 
 @pytest.mark.parametrize("key, chassis", [
     ("dark", "classic"), ("nordic", "flat"), ("solarized_light", "flat"),
-    ("midnight", "square"), ("cyberpunk_edge", "edge"), ("violet_haze", "haze"),
+    ("cyberpunk_edge", "edge"), ("violet_haze", "haze"),
     ("midnight_haze", "haze"), ("cyberpunk_neon", "neon"),
 ])
 def test_chassis_source_presets(key, chassis):

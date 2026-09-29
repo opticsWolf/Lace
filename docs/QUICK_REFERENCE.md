@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.8.1
+**Version:** 0.8.2
 
 ---
 
@@ -233,11 +233,12 @@ from lace import apply_dock_theme
 apply_dock_theme("cyberpunk_neon")
 ```
 
-Twenty-seven presets, in four groups:
+Thirty-eight presets, in five groups:
 
 | Group | Presets |
 |---|---|
-| Basics | `default`, `dark`, `light`, `neutral`, `midnight`, `warm` |
+| Basics | `default`, `midnight`, `dark`, `mocha`, `slate`, `caramel`, `neutral`, `cream`, `light` |
+| Basics Neo | `midnight_neo`, `dark_neo`, `mocha_neo`, `slate_neo`, `caramel_neo`, `neutral_neo`, `cream_neo`, `light_neo` |
 | Editor Classics | `dracula`, `monokai`, `nordic`, `catppuccin`, `tokyo_night`, `solarized_dark`, `solarized_light` |
 | Neon | `cyberpunk_neon`, `neon_dusk` |
 | Edge Treatments | `cyberpunk_edge`, `violet_haze`, `midnight_haze` — each with a `*_neutral` and a `*_light` — plus `slate_amber_dark`, `slate_amber`, `slate_amber_light` |
@@ -780,7 +781,7 @@ class ThemeSwitcher:
         self.dock_manager = dock_manager
         self.theme_manager = ThemeManager(QApplication.instance())
         self.themes = [
-            "default", "dark", "light", "midnight", "warm", "nordic",
+            "default", "dark", "light", "midnight", "mocha", "nordic",
             "monokai", "neutral", "tokyo_night", "catppuccin",
             "dracula", "solarized_dark", "solarized_light", "cyberpunk_neon",
             "cyberpunk_edge"

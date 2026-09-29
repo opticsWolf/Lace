@@ -19,7 +19,7 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QImage, QRegion
 from PySide6.QtWidgets import QWidget
 
-from lace.dock_custom_theme import THEME_SPECS
+from lace.dock_custom_theme import THEME_GROUPS
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 from lace.enums import DockWidgetArea
@@ -506,21 +506,21 @@ def _with_variants(*names) -> tuple:
     return tuple(n for name in names for n in (name,) + VARIANTS.get(name, ()))
 
 
-#: The neo v2 basics: Kilim's neo sidebar, a pill that rings every tab (idle in
+#: The neo basics: Kilim's neo sidebar, a pill that rings every tab (idle in
 #: the border colour, as cyberpunk_edge) and previews the accent on hover.
-NEO_V2 = tuple(k for k in THEME_SPECS if k.endswith("_neo_v2"))
+BASICS_NEO = THEME_GROUPS["Basics Neo"]
 
 #: The presets that ring their sidebar tabs. Every other one sets tab_radius
 #: but leaves the sidebar alone, so its tabs stay rectangles.
 RINGED = _with_variants("cyberpunk_neon", "cyberpunk_edge", "midnight_haze",
-                        "violet_haze", "slate_amber", "neon_dusk") + NEO_V2
+                        "violet_haze", "slate_amber", "neon_dusk") + BASICS_NEO
 #: Of those, the closed pills that ring their *active* tab. neon_dusk is the odd
 #: one out: it keeps a flat edge, so its outline is open along it — its own test.
 PILL = _with_variants("cyberpunk_neon", "cyberpunk_edge", "midnight_haze",
-                      "violet_haze", "slate_amber") + NEO_V2
+                      "violet_haze", "slate_amber") + BASICS_NEO
 #: The presets that give the hover an outline of its own.
 ON_HOVER = _with_variants("violet_haze", "neon_dusk", "slate_amber",
-                          "cyberpunk_neon") + NEO_V2
+                          "cyberpunk_neon") + BASICS_NEO
 #: The pills that leave an *idle* tab bare — cyberpunk_edge rings both states.
 #: violet_haze belongs here: its extra ring is a hover state, and an idle tab is
 #: as bare as the other three's.

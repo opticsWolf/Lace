@@ -39,7 +39,7 @@ CHASSIS: Dict[str, Dict[str, Any]] = {
     ),
     # nordic, solarized_*: no border.
     "flat": dict(border_width=0.0),
-    # midnight: square card, 0.5 px hairline.
+    # The former midnight preset: square card, 0.5 px hairline.
     "square": dict(
         corner_radius=0, tab_radius=4, border_width=0.5, title_margin=0.0,
         content_margin=4.0, tab_dimming=True,

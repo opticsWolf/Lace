@@ -5,6 +5,33 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.8.2] — 2026-09-30
+
+### Changed
+
+- **New basic themes.** The Basics group is now eight palettes -- `midnight`, `dark`,
+  `mocha`, `slate`, `caramel`, `neutral`, `cream`, `light` -- on the classic 4px chassis, and
+  a new **Basics Neo** group puts the same eight on the 10px neo card chassis (`*_neo`).
+  `dark`, `light`, `neutral` and `midnight` keep their names with new palettes; `dark` and
+  `light` follow VS Code's Modern themes.
+- Dock area cards fill the ring around the title bar in the bar's colour, so title bars no
+  longer show a lighter or darker edge; the title bar's top corners round at least as much
+  as the tabs.
+- On light canvases the surface separation targets are scaled by
+  `theme_contrast.LIGHT_SURFACE_SCALE` (0.75), so very light themes can keep white fields.
+
+### Added
+
+- ThemeSpec `field_outline` (CORE token, `LaceStyle.set_tokens`): False drops the
+  unfocused outline of input fields and framed views.
+- ThemeSpec `keep_tint`: derived active text stops short of pure white or black, and zebra
+  rows off a white input take the panel's tint.
+
+### Removed
+
+- The `warm` preset; `mocha` is its successor. The former `dark`, `light`, `neutral` and
+  `midnight` palettes are replaced.
+
 ## [0.8.1] — 2026-09-29
 
 ### Changed

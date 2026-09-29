@@ -15,11 +15,11 @@ engine, so a theme made here is an ordinary `ThemeSpec` or JSON theme file.
 
 | Chassis | Taken from | Look |
 |---|---|---|
-| `stock` | `warm`, `dracula`, … | Lace's default geometry, nothing set |
-| `classic` | `dark`, `light`, `neutral`, Kilim classic | 4 px, 1.5 px border, inset title bar |
+| `stock` | `dracula`, `monokai`, … | Lace's default geometry, nothing set |
+| `classic` | the basics (`dark`, `light`, …), Kilim classic | 4 px, 1.5 px border, inset title bar |
 | `flat` | `nordic`, `solarized_*` | no border |
-| `square` | `midnight` | square card, 0.5 px hairline |
-| `edge` | `cyberpunk_edge*`, Kilim neo | 10 px, flush title bar with a 1.5 px rule, ringed sidebar tabs |
+| `square` | the former `midnight` | square card, 0.5 px hairline |
+| `edge` | `cyberpunk_edge*`, Kilim neo, the `*_neo` basics | 10 px, flush title bar with a 1.5 px rule, ringed sidebar tabs |
 | `haze` | `violet_haze*`, `midnight_haze*` | 10 px, 2 px frame starting below the title bar, outlined tabs |
 | `neon` | `cyberpunk_neon` | 10 px, glowing border, pill sidebar tabs |
 

@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.8.1
+**Version:** 0.8.2
 
 ---
 
@@ -17,7 +17,7 @@ Lace provides a complete docking system supporting:
 - **Drag-and-drop layout** — intuitive resizing, reordering, and re-docking via overlays
 - **Perspectives** — save/restore complete layout configurations
 - **JSON serialization** — full layout persistence with atomic file I/O
-- **Theming engine** — 14+ built-in themes with dynamic color computation and live switching
+- **Theming engine** — 38 built-in themes with dynamic color computation and live switching
 - **JSON theme files** — validated via Pydantic (`ThemeJson`), applied through the same engine as built-ins
 - **Custom icon provider** — SVG-based icon system with theme-aware tinting
 
@@ -466,13 +466,17 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 
 | Theme | Description |
 |---|---|
-| `dark` | Recessed headers, clean contrast |
-| `light` | High clarity, professional light gray |
-| `midnight` | OLED-friendly, ultra-high contrast |
-| `warm` | Organic, cozy tones |
+| `midnight` | Near-black with a deep blue cast, electric-blue accent |
+| `dark` | VS Code Dark Modern greys (#121314 / #191a1b / #252627), #0078d4 accent |
+| `mocha` | Warm dark browns, orange accent, lifted title bar |
+| `slate` | Mid-tone cool blue-grey, lifted title bar |
+| `caramel` | `slate_amber`'s machine grey and burnt amber, a little more tinted |
+| `neutral` | Light grey workstation, blue accent |
+| `cream` | Warm light, the light end of mocha / caramel |
+| `light` | Near-neutral, very light, white fields (after VS Code Light Modern) |
+| `*_neo` | Each of the eight above on the 10px "neo" card chassis (Kilim's `*_neo` geometry); same colours |
 | `nordic` | Frosty and crisp |
 | `monokai` | Classic dev look |
-| `neutral` | Silver workstation |
 | `tokyo_night` | Clean neon-accented dark |
 | `catppuccin` | Soothing pastel dark |
 | `dracula` | High-contrast dark with purple |
@@ -480,10 +484,10 @@ The `cyberpunk_neon` preset demonstrates the full range of both color and geomet
 | `solarized_light` | Warm cream light palette |
 | `cyberpunk_neon` | Vibrant, ultra-contrasty; sidebar tabs ringed on all four corners, active only (reference preset for `sidebar_tab_flat_edge`) |
 | `cyberpunk_edge` | Amber/violet "night city"; focus-reactive rule under the tab bar (reference preset for `title_border_bottom`); same sidebar ring as `cyberpunk_neon` but on **every** tab — violet inactive, amber active |
-| `slate_amber` | Light industrial grey + burnt amber (`neutral` × `cyberpunk_edge`); the bottom rule on a light palette |
+| `slate_amber` | Light industrial grey + burnt amber (the former `neutral` × `cyberpunk_edge`); the bottom rule on a light palette |
 | `neon_dusk` | Indigo + neon pink (`dracula` × `cyberpunk_neon`); every tab outlined, no card outline (reference preset for `tab_border_width`) |
 | `violet_haze` | Dracula palette, `cyberpunk_edge` geometry; both tab states outlined; area outline limited to three sides (reference preset for `border_below_title`) |
-| `midnight_haze` | `violet_haze` × `midnight`: violet_haze's geometry over a near-black base. Only the focused area's active tab is outlined — everything else is drawn without a line (reference preset for `tab_border_unfocused_color`); its sidebar follows the same rule, ringing the active tab only |
+| `midnight_haze` | `violet_haze` × the former `midnight`: violet_haze's geometry over a near-black base. Only the focused area's active tab is outlined — everything else is drawn without a line (reference preset for `tab_border_unfocused_color`); its sidebar follows the same rule, ringing the active tab only |
 
 ### Counterparts
 
@@ -547,12 +551,13 @@ All stored in `THEME_SPECS` dict and built into `DOCK_THEMES` via `build_theme()
 
 ### Grouping
 
-`THEME_SPECS` is written in four sections and `THEME_GROUPS` names them, both in the order a
-menu should show them:
+`THEME_GROUPS` sorts the presets into five groups, in the order a menu should show them (the
+basics come from a palette table after the hand-written sections of `THEME_SPECS`):
 
 | Group | Members | What it is |
 |---|---|---|
-| Basics | `dark`, `light`, `neutral`, `midnight`, `warm` | The ones with no story attached — pick one when the theme is not meant to be noticed |
+| Basics | `midnight`, `dark`, `mocha`, `slate`, `caramel`, `neutral`, `cream`, `light` | The ones with no story attached — pick one when the theme is not meant to be noticed. Classic 4px chassis |
+| Basics Neo | `midnight_neo`, `dark_neo`, `mocha_neo`, `slate_neo`, `caramel_neo`, `neutral_neo`, `cream_neo`, `light_neo` | The same eight palettes on the 10px neo card chassis |
 | Editor Classics | `dracula`, `monokai`, `nordic`, `catppuccin`, `tokyo_night`, `solarized_dark`, `solarized_light` | Palettes people already know by sight, over Lace's stock chassis; these differ in hue and almost nothing else |
 | Neon | `cyberpunk_neon`, `neon_dusk` | Saturated accents on near-black. Dark by construction — the glow *is* the ground being dark, so neither has a light counterpart |
 | Edge Treatments | the four families above, twelve keys | Designs where the outline carries the meaning. Each ships as a family |
