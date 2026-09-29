@@ -802,6 +802,8 @@ class DockWidgetTab(QFrame, DockStyled):
         weight = styles.get(
             "active_font_weight" if self._is_active_tab else "font_weight", "normal")
         font.setBold(weight in ("bold", 700))
+        font.setItalic(bool(styles.get("font_italic", False)))
+        font.setUnderline(bool(styles.get("font_underline", False)))
         if font != self.font():
             self.setFont(font)
         if self._title_label is not None and self._title_label.font() != font:

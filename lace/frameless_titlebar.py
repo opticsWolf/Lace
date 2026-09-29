@@ -179,6 +179,8 @@ class FramelessTitleBarStyler:
         font_family = sm.get(DockStyleCategory.TITLE_BAR, "font_family", "Segoe UI")
         font_size = sm.get(DockStyleCategory.TITLE_BAR, "font_size", 13)
         font_weight = sm.get(DockStyleCategory.TITLE_BAR, "font_weight", "normal")
+        font_style = "italic" if sm.get(DockStyleCategory.TITLE_BAR, "font_italic", False) else "normal"
+        text_decoration = "underline" if sm.get(DockStyleCategory.TITLE_BAR, "font_underline", False) else "none"
 
         # Map string font weights
         if isinstance(font_weight, str):
@@ -202,6 +204,8 @@ class FramelessTitleBarStyler:
                 font-family: {font_family};
                 font-size: {font_size}px;
                 font-weight: {font_weight};
+                font-style: {font_style};
+                text-decoration: {text_decoration};
             }}
             QLabel#iconLabel {{
                 background: transparent;
@@ -242,6 +246,8 @@ class FramelessTitleBarStyler:
                 QLabel {{
                     background: transparent;
                     font: {font_weight} {font_size}px {font_family};
+                    font-style: {font_style};
+                    text-decoration: {text_decoration};
                     padding: 0 4px;
                     color: {text_hex};
                 }}
