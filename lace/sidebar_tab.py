@@ -97,6 +97,7 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._border_closed = False
         self._icon_size = DEFAULT_ICON_SIZE
         self._icon_gap = 8
+        self._active_bold = False
 
         self.setCheckable(True)
         self.setAutoRaise(True)
@@ -224,8 +225,9 @@ class VerticalTabButton(QToolButton, DockStyled):
         return icon
 
     def sizeHint(self) -> QSize:
-        fm = QFontMetrics(self.font())
-        text_w = fm.horizontalAdvance(self._text)
+        # The wider of the two weights, so opening a tab never changes its length.
+        text_w = max(QFontMetrics(self._label_font(checked)).horizontalAdvance(self._text)
+                     for checked in (False, True))
         icon_space = (self._icon_size + self._icon_gap
                       if not self._resolved_icon().isNull() else 0)
         pad = 22  # FIX: Increased padding slightly to prevent visual clipping
@@ -282,6 +284,7 @@ class VerticalTabButton(QToolButton, DockStyled):
         r_height = self.width()   # Physical width of the sidebar
         
         # Measure content for centering
+        p.setFont(self._label_font(checked))
         fm = p.fontMetrics()
         text_w = fm.horizontalAdvance(self._text)
         icon = self._resolved_icon()
@@ -461,6 +464,18 @@ class VerticalTabButton(QToolButton, DockStyled):
         font.setItalic(s.get("tab_font_italic", False))
         font.setUnderline(s.get("tab_font_underline", False))
         self.setFont(font)
+        active_weight = s.get("tab_active_font_weight")
+        if active_weight is None:
+            active_weight = weight
+        self._active_bold = active_weight in ("bold", 700, QFont.Bold)
 
+        self.updateGeometry()
         self.update()
+
+    def _label_font(self, checked: bool) -> QFont:
+        """The label font for one state: the open tab takes the active weight."""
+        font = QFont(self.font())
+        if checked:
+            font.setBold(self._active_bold)
+        return font
 

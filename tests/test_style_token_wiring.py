@@ -16,6 +16,7 @@ from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.dock_theme import DockStyleCategory
+from lace.sidebar_tab import VerticalTabButton
 
 
 @pytest.fixture
@@ -57,6 +58,41 @@ def test_tab_label_font_follows_italic_and_underline(qapp, desk, token, getter):
 
     # Both states: the active tab's font is rebuilt on its own path.
     assert all(getattr(t._title_label.font(), getter)() for t in tabs)
+
+
+def test_open_sidebar_tab_takes_the_active_font_weight(qapp):
+    # Fonts rather than pixels: the offscreen platform has no font database,
+    # so bold and regular text render alike there.
+    button = VerticalTabButton("Panel")
+    sm = get_dock_style_manager()
+    try:
+        assert not button._label_font(True).bold()
+
+        sm.update(DockStyleCategory.SIDEBAR, tab_active_font_weight="bold")
+        qapp.processEvents()
+
+        assert button._label_font(True).bold(), "the open tab's label is not bold"
+        assert not button._label_font(False).bold(), "the closed tab's label changed too"
+        # Sized for the wider weight in either state, so opening never moves a tab.
+        button.setChecked(True)
+        open_length = button.sizeHint().height()
+        button.setChecked(False)
+        assert button.sizeHint().height() == open_length
+
+        # Unset, the open tab keeps the closed tabs' weight: a theme that made
+        # every sidebar label bold before this token was read stays bold.
+        sm.update(DockStyleCategory.SIDEBAR, tab_font_weight="bold",
+                  tab_active_font_weight=None)
+        qapp.processEvents()
+        assert button._label_font(False).bold()
+        assert button._label_font(True).bold()
+
+        sm.update(DockStyleCategory.SIDEBAR, tab_active_font_weight="normal")
+        qapp.processEvents()
+        assert button._label_font(False).bold()
+        assert not button._label_font(True).bold()
+    finally:
+        button.deleteLater()
 
 
 @pytest.mark.skipif(sys.platform == "darwin" and os.environ.get("QT_QPA_PLATFORM") == "offscreen",

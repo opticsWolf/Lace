@@ -321,7 +321,8 @@ class DockSidebarStyleSchema:
     tab_font_family: str = "Segoe UI"
     tab_font_size: int = 10
     tab_font_weight: Union[str, int, QFont.Weight] = "normal"
-    tab_active_font_weight: Union[str, int, QFont.Weight] = "normal"
+    #: Label weight on the open tab; ``None`` keeps ``tab_font_weight``.
+    tab_active_font_weight: Optional[Union[str, int, QFont.Weight]] = None
     tab_font_italic: bool = False
     tab_font_underline: bool = False
 
