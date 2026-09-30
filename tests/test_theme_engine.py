@@ -337,7 +337,7 @@ def test_theme_bridge_pushes_tooltip_palette_to_qtooltip(qapp):
     # A widget-targeted bridge also updates the global tooltip palette.
     w = QWidget()
     w.show()
-    DockThemeBridge(target=w, style_name="")
+    DockThemeBridge(target=w, install_style=False)
     apply_dock_theme("dark")
     qapp.processEvents()
     assert tip_bg().rgb() == resolve_dock_colors().tooltip_bg.rgb()

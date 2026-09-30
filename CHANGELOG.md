@@ -12,15 +12,22 @@ through a cycle.
 - `DockManager(parent, app_style=...)`: `"lace"` installs LaceStyle app-wide, any other
   name that Qt style. The default (`None`) still leaves the application's style to the host
   app; the dock theme sets the palette either way.
-- `DockThemeBridge(..., install_style=False)`: the explicit spelling of `style_name=""`
-  (colours only, the target keeps its style), which keeps working. `style_name="lace"`
-  names LaceStyle.
+- `DockThemeBridge(..., install_style=False)`: colours only, the target keeps its style.
+  It replaces `style_name=""` (see Removed). `style_name="lace"` names LaceStyle.
 
 ### Changed
 
 - The README screenshot grid is taken from visible native windows (system font rendering,
   the display's own scale) with one dock area active, so the focus highlight shows;
   `dev_smoke/screenshot_themes.py` activates a dock area before each grab.
+
+### Removed
+
+- `DockThemeBridge(style_name="")`: use `install_style=False`. An empty name now raises
+  `ValueError` saying so.
+- `dock_theme_bridge.DOCK_WIDGET_STYLE`, the module-wide default for `style_name=None`.
+  `None` always means LaceStyle; pass `style_name` per bridge, or
+  `DockManager(app_style=...)`.
 
 ## [0.8.3] — 2026-09-30
 

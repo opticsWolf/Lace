@@ -778,7 +778,7 @@ Pushes QPalette to the target widget/app so Qt children match the dock theme.
 
 | Category | Members |
 |---|---|
-| **Constructor** | `__init__(target, style_name, parent, *, install_style=True)` — installs LaceStyle (`style_name` None or `"lace"`) or the named Qt style; `install_style=False` (or the older `style_name=""`) leaves the target's style alone. Registers for CORE/TAB/TITLE_BAR/PANEL/SIDEBAR/SIDEPANEL |
+| **Constructor** | `__init__(target, style_name, parent, *, install_style=True)` — installs LaceStyle (`style_name` None or `"lace"`) or the named Qt style; `install_style=False` leaves the target's style alone. Registers for CORE/TAB/TITLE_BAR/PANEL/SIDEBAR/SIDEPANEL |
 | **Callback** | `on_style_changed(category, changes)` — debounced via QTimer |
 | **Refresh** | `refresh_dock_palette()` — builds palette, applies to target, re-applies to all DockWidgets |
 | **Base** | `_apply_base_style(style_name)` |

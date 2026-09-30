@@ -68,13 +68,17 @@ def test_the_palette_follows_the_theme_either_way(app):
     win.close()
 
 
-@pytest.mark.parametrize("kwargs", [dict(install_style=False), dict(style_name="")])
-def test_bridge_can_leave_the_style_alone(qapp, kwargs):
-    """install_style=False, and the older style_name="" spelling of it."""
+def test_bridge_can_leave_the_style_alone(qapp):
     widget = QWidget()
     before = widget.style()
-    DockThemeBridge(target=widget, parent=widget, **kwargs)
+    DockThemeBridge(target=widget, parent=widget, install_style=False)
     assert widget.style() is before
+
+
+def test_the_old_empty_style_name_is_refused(qapp):
+    """style_name="" used to mean install_style=False; it now says so."""
+    with pytest.raises(ValueError, match="install_style=False"):
+        DockThemeBridge(target=QWidget(), style_name="")
 
 
 def test_bridge_installs_lace_style_by_default_and_by_name(qapp):

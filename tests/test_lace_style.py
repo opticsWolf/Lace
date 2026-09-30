@@ -353,7 +353,7 @@ def test_bridge_keeps_named_style_and_skips_empty(qapp):
     assert w.style().name().lower() == "fusion"
     plain = QWidget()
     before = plain.style()
-    DockThemeBridge(target=plain, style_name="")
+    DockThemeBridge(target=plain, install_style=False)
     assert plain.style() is before
 
 

@@ -24,10 +24,6 @@ from lace.lace_style import LaceStyle
 
 logger = logging.getLogger(__name__)
 
-#: Base style for ``style_name=None``. ``None`` here means LaceStyle; set a
-#: Qt style name (``"Fusion"``) to fall back to a stock style.
-DOCK_WIDGET_STYLE: Optional[str] = None
-
 
 class DockThemeBridge(QObject):
     """Listens to ``DockStyleManager`` and pushes ``QPalette`` updates
@@ -49,7 +45,6 @@ class DockThemeBridge(QObject):
         False leaves the target's style alone and only pushes the palette,
         plus the theme's tokens into a LaceStyle the target already has.
         This is how :class:`DockManager` stays out of the host app's style.
-        (``style_name=""`` means the same and is kept for compatibility.)
     """
 
     def __init__(
@@ -60,6 +55,10 @@ class DockThemeBridge(QObject):
         *,
         install_style: bool = True,
     ) -> None:
+        if style_name == "":
+            raise ValueError(
+                'style_name="" no longer means "install no style"; '
+                "pass install_style=False")
         super().__init__(parent)
 
         self._target: Union[QWidget, QApplication] = (
@@ -76,8 +75,8 @@ class DockThemeBridge(QObject):
         self._style = None
 
         # Apply a palette-friendly base style before setting colours.
-        if install_style and style_name != "":
-            self._apply_base_style(style_name if style_name is not None else DOCK_WIDGET_STYLE)
+        if install_style:
+            self._apply_base_style(style_name)
 
         # Subscribe to the categories that feed the palette.
         sm = get_dock_style_manager()
