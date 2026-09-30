@@ -43,7 +43,10 @@ dock_manager = DockManager(window)
 window.setCentralWidget(dock_manager._root)
 
 # DockManager installs both palette bridges itself (dock tree + app-wide
-# for top-level QMenus) — no manual DockThemeBridge() needed.
+# for top-level QMenus) — no manual DockThemeBridge() needed. They set the
+# colours; the app's QStyle stays yours unless you ask for one:
+#   DockManager(window, app_style="lace")    # LaceStyle, tokens follow the theme
+#   DockManager(window, app_style="Fusion")  # or any Qt style name
 
 # Optional: auto-switch with OS dark/light mode
 theme_manager = ThemeManager(QApplication.instance())

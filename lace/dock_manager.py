@@ -43,6 +43,14 @@ class DockManager(QObject):
     """
     The main Facade for the Advanced Docking System.
     Manages dock containers, floating widgets, sidebars, and state serialization.
+
+    The dock theme always sets the colours (palette) of the docking widgets
+    and of the application, so popup menus and floating windows match.  How
+    widgets are *drawn* -- the application's QStyle -- is the host app's
+    choice, so by default DockManager leaves it alone.  ``app_style`` makes
+    that choice here instead: ``"lace"`` installs :class:`LaceStyle` app-wide
+    (its tokens then follow the theme), and any other name (``"Fusion"``)
+    installs that Qt style.  ``app.setStyle(...)`` works just as well.
     """
     perspective_list_changed = Signal()
     perspectives_removed = Signal()
@@ -51,7 +59,7 @@ class DockManager(QObject):
     opening_perspective = Signal(str)
     perspective_opened = Signal(str)
 
-    def __init__(self, parent: QWidget):
+    def __init__(self, parent: QWidget, *, app_style: Optional[str] = None):
         super().__init__(parent)
 
         # 1. Initialize Styles (Grab the singleton so children can use it)
@@ -100,11 +108,14 @@ class DockManager(QObject):
         #    the active dock theme automatically. Two targets: the root
         #    container tree (dock-panel children) and the QApplication
         #    itself (top-level QMenus read the app palette, not the root's).
-        #    Both skip the base-style application so the host app's style is
-        #    never clobbered.
-        self._theme_bridge = DockThemeBridge(target=self._root, style_name="", parent=self)
+        #    Neither installs a style unless app_style asks for one: the
+        #    application's QStyle is the host app's to choose.
+        self._theme_bridge = DockThemeBridge(
+            target=self._root, parent=self, install_style=False)
         try:
-            self._app_theme_bridge = DockThemeBridge(style_name="", parent=self)
+            self._app_theme_bridge = DockThemeBridge(
+                style_name=app_style, parent=self,
+                install_style=app_style is not None)
         except RuntimeError:
             self._app_theme_bridge = None
 

@@ -40,11 +40,16 @@ class DockThemeBridge(QObject):
         Widget (or app) whose palette is updated.  ``None`` targets
         the running ``QApplication``.
     style_name : str | None
-        Qt style to apply.  ``None`` installs :class:`LaceStyle`, whose
-        tokens then follow the theme; a name (``"Fusion"``) creates that
-        stock style.  ``""`` skips automatic style application.
+        Qt style to apply.  ``None`` (or ``"lace"``) installs
+        :class:`LaceStyle`, whose tokens then follow the theme; a name
+        (``"Fusion"``) creates that stock style.
     parent : QObject | None
         Optional QObject parent for preventing premature GC.
+    install_style : bool
+        False leaves the target's style alone and only pushes the palette,
+        plus the theme's tokens into a LaceStyle the target already has.
+        This is how :class:`DockManager` stays out of the host app's style.
+        (``style_name=""`` means the same and is kept for compatibility.)
     """
 
     def __init__(
@@ -52,6 +57,8 @@ class DockThemeBridge(QObject):
         target: Optional[Union[QWidget, QApplication]] = None,
         style_name: Optional[str] = None,
         parent: Optional[QObject] = None,
+        *,
+        install_style: bool = True,
     ) -> None:
         super().__init__(parent)
 
@@ -69,7 +76,8 @@ class DockThemeBridge(QObject):
         self._style = None
 
         # Apply a palette-friendly base style before setting colours.
-        self._apply_base_style(style_name if style_name is not None else DOCK_WIDGET_STYLE)
+        if install_style and style_name != "":
+            self._apply_base_style(style_name if style_name is not None else DOCK_WIDGET_STYLE)
 
         # Subscribe to the categories that feed the palette.
         sm = get_dock_style_manager()
@@ -90,11 +98,8 @@ class DockThemeBridge(QObject):
     # ──────────────────────────────────────────────────────────────────────
 
     def _apply_base_style(self, style_name: Optional[str]) -> None:
-        """Apply LaceStyle (``None``) or a named Qt style to the target."""
-        if style_name == "":
-            return
-
-        if style_name is None:
+        """Apply LaceStyle (``None`` or ``"lace"``) or a named Qt style to the target."""
+        if style_name is None or style_name.lower() == "lace":
             style = LaceStyle()
         else:
             style = QStyleFactory.create(style_name)

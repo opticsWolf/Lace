@@ -498,6 +498,8 @@ from lace import DockThemeBridge, LaceStyle
 
 DockThemeBridge()                 # installs LaceStyle on the app; tokens follow the theme
 DockThemeBridge(style_name="Fusion")   # or keep a named Qt style instead
+DockThemeBridge(install_style=False)  # colours only; the target keeps its style
+DockManager(window, app_style="lace")  # the same choice, made by the DockManager
 
 app.setStyle(LaceStyle(control_radius=6, scrollbar="expanding"))  # standalone, no Lace theme
 ```

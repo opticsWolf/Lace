@@ -175,7 +175,9 @@ class MainWindow(FramelessLaceMainWindow):
 the parent is frameless), and `DockManager.floating_title_bar` configures
 new floating containers created when dock widgets are torn off.
 `DockManager` also installs both theme bridges itself (dock tree + app-wide
-for top-level `QMenu`s), so no manual `DockThemeBridge()` is needed. See
+for top-level `QMenu`s), so no manual `DockThemeBridge()` is needed. They set
+colours only; pass `DockManager(window, app_style="lace")` (or `"Fusion"`, …) to
+have it install the application's style too. See
 [Quick Reference — Frameless Windows & the Custom Title Bar](docs/QUICK_REFERENCE.md#frameless-windows--the-custom-title-bar)
 for the full API.
 - Insertion order control

@@ -5,6 +5,17 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Added
+
+- `DockManager(parent, app_style=...)`: `"lace"` installs LaceStyle app-wide, any other
+  name that Qt style. The default (`None`) still leaves the application's style to the host
+  app; the dock theme sets the palette either way.
+- `DockThemeBridge(..., install_style=False)`: the explicit spelling of `style_name=""`
+  (colours only, the target keeps its style), which keeps working. `style_name="lace"`
+  names LaceStyle.
+
 ## [0.8.3] — 2026-09-30
 
 ### Fixed
