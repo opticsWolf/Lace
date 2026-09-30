@@ -13,8 +13,10 @@ from pathlib import Path
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage, QPainter
 
-README = ("midnight,dark,mocha,slate,neutral,cream,light,dark_neo,light_neo,"
-          "catppuccin,cyberpunk_neon,violet_haze")
+# The eight basic tones dark to light, each once, alternating neo and classic;
+# then four others.
+README = ("midnight_neo,dark,mocha_neo,slate,caramel_neo,neutral,cream_neo,light,"
+          "catppuccin,tokyo_night,violet_haze,cyberpunk_neon")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("shots")
