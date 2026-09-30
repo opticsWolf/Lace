@@ -5,6 +5,14 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.8.3] — 2026-09-30
+
+### Fixed
+
+- Group boxes and tab-widget panes lost their frame in themes with `field_outline=False`
+  (all the basics). `field_outline` now drops only the outline of fields and views; containers
+  keep theirs.
+
 ## [0.8.2] — 2026-09-30
 
 ### Changed
