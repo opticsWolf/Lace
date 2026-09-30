@@ -67,7 +67,7 @@ def build():
 
 def switch(win):
     sm = get_dock_style_manager()
-    names = [n for n in DOCK_THEMES if n != "default"]
+    names = list(DOCK_THEMES)
     t0 = time.perf_counter()
     for name in names:
         sm.apply_theme_dict(DOCK_THEMES[name])

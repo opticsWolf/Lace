@@ -16,7 +16,7 @@ from PySide6.QtGui import QColor
 
 from lace.dock_custom_theme import DOCK_THEMES
 from lace.dock_style_manager import (
-    _SCHEMA_MAP, BASE_DOCK_DEFAULTS, _color_fields, get_dock_style_manager
+    _SCHEMA_MAP, _color_fields, default_theme_tokens, get_dock_style_manager
 )
 from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 
@@ -52,10 +52,10 @@ def test_build_theme_emits_only_declared_tokens(qapp):
 def test_base_defaults_declare_every_token(qapp):
     ghosts = {
         category.name: sorted(set(tokens) - _declared(category))
-        for category, tokens in BASE_DOCK_DEFAULTS.items()
+        for category, tokens in default_theme_tokens().items()
         if category in _SCHEMA_MAP and set(tokens) - _declared(category)
     }
-    assert not ghosts, f"BASE_DOCK_DEFAULTS seeds tokens that are not schema fields: {ghosts}"
+    assert not ghosts, f"the default theme seeds tokens that are not schema fields: {ghosts}"
 
 
 @pytest.mark.parametrize("theme_name", sorted(DOCK_THEMES))

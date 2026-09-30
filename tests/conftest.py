@@ -57,7 +57,8 @@ def _clean_style_manager():
     DockStyleManager is a process-wide singleton, so tests that call
     ``update()`` / ``apply_theme()`` / ``apply_theme_dict()`` must not leak
     mutations into later tests. ``apply_theme("default")`` resets every
-    category to the hardcoded defaults (DOCK_THEMES["default"] == {}).
+    category to the default theme (``dark`` unless set_default_theme says
+    otherwise).
     """
     from lace.dock_style_manager import get_dock_style_manager
 

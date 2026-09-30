@@ -229,11 +229,22 @@ def test_high_contrast_themes_under_lace_style(qapp, key):
 def test_default_theme_is_the_sleek_reference():
     """The default theme is the M2 reference: subtle depth, expanding scrollbars,
     capped corners -- explicitly, not by accident of whichever defaults."""
-    from lace.dock_theme import BASE_DOCK_DEFAULTS, ThemeSpec
+    from lace.dock_style_manager import default_theme_tokens
+    from lace.dock_theme import ThemeSpec
     spec = ThemeSpec(base=[0, 0, 0], accent=[0, 0, 255], text=[255, 255, 255])
     assert (spec.depth, spec.scrollbar, spec.corner_clip) == ("subtle", "expanding", "cap")
-    core = BASE_DOCK_DEFAULTS[next(c for c in BASE_DOCK_DEFAULTS if c.name == "CORE")]
+    defaults = default_theme_tokens()
+    core = defaults[next(c for c in defaults if c.name == "CORE")]
     assert (core["scrollbar"], core["corner_clip"]) == ("expanding", "cap")
+
+
+def _with_field_outlines(style):
+    """The basics, and so the default theme, turn field outlines off; these
+    tests are about the outline a theme that has them draws.  Set on the
+    manager too, or a theme bridge left by an earlier test pushes it back."""
+    from lace.dock_theme import DockStyleCategory
+    get_dock_style_manager().update(DockStyleCategory.CORE, field_outline=True)
+    style.set_tokens(field_outline=True)
 
 
 def test_dock_content_frame_draws_no_inner_ring(lace_app):
@@ -254,6 +265,7 @@ def test_dock_content_frame_draws_no_inner_ring(lace_app):
         p.end()
         return img.pixelColor(0, 15).alpha()
 
+    _with_field_outlines(lace_app)
     plain, content = QTextEdit(), QTextEdit()
     content.setProperty("dockWidgetContent", True)
     assert edge(plain) > 0
@@ -267,6 +279,7 @@ def test_nested_scroll_area_gets_rounded_corners(lace_app):
     from PySide6.QtWidgets import QComboBox, QStyleFactory, QVBoxLayout, QWidget
     from lace.style import _frame_cap
 
+    _with_field_outlines(lace_app)
     lace_app.set_tokens(control_radius=8)
     host = QWidget()
     host.setAutoFillBackground(True)

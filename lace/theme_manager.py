@@ -147,9 +147,9 @@ class ThemeManager(QObject):
         if not applied and path is None:
             try:
                 from lace.dock_custom_theme import DOCK_THEMES
-                from lace.dock_style_manager import apply_dock_theme
+                from lace.dock_style_manager import DEFAULT_THEME_ALIAS, apply_dock_theme
 
-                if theme_to_apply in DOCK_THEMES:
+                if theme_to_apply in DOCK_THEMES or theme_to_apply == DEFAULT_THEME_ALIAS:
                     if apply_dock_theme(theme_to_apply):
                         applied = True
             except ImportError:

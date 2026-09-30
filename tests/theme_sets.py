@@ -60,7 +60,7 @@ def kilim_keys() -> List[str]:
 
 def all_themes() -> List[str]:
     from lace.dock_custom_theme import DOCK_THEMES
-    return sorted(k for k in DOCK_THEMES if k != "default") + kilim_keys()
+    return sorted(DOCK_THEMES) + kilim_keys()
 
 
 def resolve(stage: str) -> List[str]:

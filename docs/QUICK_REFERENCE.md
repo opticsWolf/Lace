@@ -233,11 +233,11 @@ from lace import apply_dock_theme
 apply_dock_theme("cyberpunk_neon")
 ```
 
-Thirty-eight presets, in five groups:
+Thirty-seven presets, in five groups:
 
 | Group | Presets |
 |---|---|
-| Basics | `default`, `midnight`, `dark`, `mocha`, `slate`, `caramel`, `neutral`, `cream`, `light` |
+| Basics | `midnight`, `dark`, `mocha`, `slate`, `caramel`, `neutral`, `cream`, `light` |
 | Basics Neo | `midnight_neo`, `dark_neo`, `mocha_neo`, `slate_neo`, `caramel_neo`, `neutral_neo`, `cream_neo`, `light_neo` |
 | Editor Classics | `dracula`, `monokai`, `nordic`, `catppuccin`, `tokyo_night`, `solarized_dark`, `solarized_light` |
 | Neon | `cyberpunk_neon`, `neon_dusk` |
@@ -247,6 +247,25 @@ Within a family the order runs dark, neutral, light, where a `*_neutral` is a
 mid tone with flat grey grounds that keeps its parent's accent and focus
 outlines. `slate_amber` was always the light one, so its family runs dark,
 light, lighter.
+
+`"default"` is not a preset of its own but an alias: it names the default
+theme, `dark` unless set otherwise. The default is the look before any theme
+is applied and the floor every theme dict is applied over, and themes menus
+do not list it. Point it at another preset or at a JSON theme file, in code
+or from a settings file:
+
+```python
+from lace import set_default_theme, load_settings
+
+set_default_theme("mocha")              # a preset key
+set_default_theme("themes/house.json")  # or a JSON theme file
+load_settings("lace_settings.json")     # {"default_theme": "mocha"}
+```
+
+In a settings file a relative theme path is taken relative to the settings
+file; other keys are left alone and returned, so an app can keep its own
+settings in the same file. A manager currently showing the default switches
+to the new one at once.
 
 ### Build a Themes Menu
 

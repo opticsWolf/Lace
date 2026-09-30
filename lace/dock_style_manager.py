@@ -9,10 +9,12 @@
 
 
 import copy
+import json
 import logging
 from dataclasses import fields
 from functools import lru_cache
-from typing import Dict, Any, List, Optional, Set, Tuple
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Set, Tuple, Union
 from weakref import WeakSet
 
 from PySide6.QtCore import QObject, Signal
@@ -21,10 +23,90 @@ from lace.dock_theme import (
     DockStyleCategory, DockCoreStyleSchema, DockTabStyleSchema,
     DockTitleBarStyleSchema, DockSidebarStyleSchema,
     DockSidePanelStyleSchema, DockSplitterStyleSchema, DockOverlayStyleSchema,
-    DockPanelStyleSchema, BASE_DOCK_DEFAULTS, deep_to_qcolor
+    DockPanelStyleSchema, deep_to_qcolor
 )
 
 logger = logging.getLogger(__name__)
+
+
+# -------------------------------------------------------------------------
+# The default theme
+# -------------------------------------------------------------------------
+#: The theme name that stands for "whatever the default is" rather than for a
+#: preset of its own.  ``apply_theme("default")`` applies the default theme,
+#: and menus list only the real presets.
+DEFAULT_THEME_ALIAS = "default"
+
+#: What the default resolves to: a preset key or a JSON theme file.  Change it
+#: with :func:`set_default_theme` or a settings file (:func:`load_settings`).
+_default_source: Union[str, Path] = "dark"
+_default_tokens: Optional[Dict[DockStyleCategory, Dict[str, Any]]] = None
+
+
+def _resolve_theme_source(source: Union[str, Path]) -> Dict[DockStyleCategory, Dict[str, Any]]:
+    """Theme tokens for a preset key or a JSON theme file path."""
+    from lace.dock_custom_theme import DOCK_THEMES
+    if isinstance(source, str) and source in DOCK_THEMES:
+        return DOCK_THEMES[source]
+    path = Path(source)
+    if path.suffix.lower() == ".json" and path.is_file():
+        from lace.theme_models import load_theme_json
+        return load_theme_json(path)
+    raise ValueError(
+        f"default theme {str(source)!r} is neither a preset nor a JSON theme file")
+
+
+def default_theme_tokens() -> Dict[DockStyleCategory, Dict[str, Any]]:
+    """The default theme's tokens: the look before any theme is applied, and
+    the floor every theme is applied over, so a partial theme dict takes its
+    missing tokens from here."""
+    global _default_tokens
+    if _default_tokens is None:
+        _default_tokens = _resolve_theme_source(_default_source)
+    return _default_tokens
+
+
+def get_default_theme() -> Union[str, Path]:
+    """The preset key or JSON theme file the default resolves to."""
+    return _default_source
+
+
+def set_default_theme(source: Union[str, Path]) -> None:
+    """Point the default at a preset key (``"mocha"``) or a JSON theme file.
+
+    Raises ``ValueError`` for anything else, leaving the default unchanged.  A
+    manager currently showing the default switches to the new one at once.
+    """
+    global _default_source, _default_tokens
+    tokens = _resolve_theme_source(source)
+    _default_source, _default_tokens = source, tokens
+    manager = DockStyleManager._instance
+    if manager is not None and manager.current_theme == DEFAULT_THEME_ALIAS:
+        manager.apply_theme(DEFAULT_THEME_ALIAS)
+
+
+def load_settings(path: Union[str, Path]) -> Dict[str, Any]:
+    """Read a Lace settings file (JSON) and apply what it sets.
+
+    Recognised keys:
+
+    - ``"default_theme"``: a preset key, or a JSON theme file path; a relative
+      path is taken relative to the settings file.
+
+    Returns the parsed settings, so an app can keep its own keys in the same
+    file.
+    """
+    path = Path(path)
+    settings = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(settings, dict):
+        raise ValueError(f"{path}: settings must be a JSON object")
+    source = settings.get("default_theme")
+    if source is not None:
+        from lace.dock_custom_theme import DOCK_THEMES
+        if source not in DOCK_THEMES and not Path(source).is_absolute():
+            source = path.parent / source
+        set_default_theme(source)
+    return settings
 
 
 _SCHEMA_MAP: Dict[DockStyleCategory, type] = {
@@ -74,8 +156,9 @@ def _coerce(schema: Any, key: str, value: Any) -> Any:
 
 def _create_default_schema(category: DockStyleCategory) -> Any:
     schema = _SCHEMA_MAP[category]()
-    if category in BASE_DOCK_DEFAULTS:
-        for key, val in copy.deepcopy(BASE_DOCK_DEFAULTS[category]).items():
+    defaults = default_theme_tokens()
+    if category in defaults:
+        for key, val in copy.deepcopy(defaults[category]).items():
             # setattr on a non-slotted dataclass *creates* attributes that are
             # not fields, so an undeclared token here would become a "ghost":
             # visible to get(), invisible to get_all(), which iterates fields().
@@ -123,9 +206,12 @@ class DockStyleManager(QObject):
         # resolved colour snapshots and invalidate them cheaply (see
         # dock_palette_bridge.resolve_dock_colors).
         self.generation = 0
+        # The preset last applied by name, "default" at start-up, None after
+        # a theme dict of unknown origin.
+        self.current_theme: Optional[str] = DEFAULT_THEME_ALIAS
 
     def _reset_to_defaults(self) -> None:
-        """Resets all schemas back to the hardcoded defaults."""
+        """Resets all schemas back to the default theme (see set_default_theme)."""
         self._schemas = {
             cat: _create_default_schema(cat) for cat in DockStyleCategory
         }
@@ -139,10 +225,16 @@ class DockStyleManager(QObject):
         Resets to defaults before applying overrides so that missing keys revert cleanly.
         """
         from lace.dock_custom_theme import DOCK_THEMES
-        if theme_name not in DOCK_THEMES:
+        if theme_name == DEFAULT_THEME_ALIAS:
+            # The default is the reset floor itself, so nothing goes on top.
+            ok = self.apply_theme_dict({})
+        elif theme_name in DOCK_THEMES:
+            ok = self.apply_theme_dict(DOCK_THEMES[theme_name])
+        else:
             logger.warning(f"Theme '{theme_name}' not found in DOCK_THEMES.")
             return False
-        return self.apply_theme_dict(DOCK_THEMES[theme_name])
+        self.current_theme = theme_name
+        return ok
 
     def apply_theme_dict(self, theme_data: Dict[DockStyleCategory, Dict[str, Any]]) -> bool:
         """
@@ -150,6 +242,7 @@ class DockStyleManager(QObject):
         those produced by :func:`dock_theme.build_theme` or ``load_theme_json``.
         Resets to defaults before applying overrides so that missing keys revert cleanly.
         """
+        self.current_theme = None  # apply_theme names it again afterwards
         # Suppress signals during the piecemeal update
         self._suppress_signals = True
         try:
@@ -288,7 +381,7 @@ def theme_choices() -> List[Tuple[str, str]]:
 
     The order is ``THEME_GROUPS``' order flattened, so even a flat menu keeps
     each family together and its members in dark-neutral-light order.  Prefer
-    :func:`theme_groups` where submenus are an option: twenty-seven entries in
+    :func:`theme_groups` where submenus are an option: thirty-seven entries in
     one list is a scroll, and it hides which of them are variants of which.
     """
     return [choice for _, choices in theme_groups() for choice in choices]
@@ -301,11 +394,10 @@ def theme_groups() -> List[Tuple[str, List[Tuple[str, str]]]]:
     in order.  See ``THEME_GROUPS`` in ``dock_custom_theme`` for what the
     groups mean and why the order inside them is not alphabetical.
 
-    ``DOCK_THEMES`` carries one key ``THEME_GROUPS`` does not: ``"default"``,
-    which is the stock look rather than a preset and has no ``ThemeSpec``.  It
-    heads the first group.  Anything else ungrouped joins it there rather than
-    being dropped, so a preset added without a group is merely misfiled in the
-    menu instead of missing from it.
+    Only real presets are listed: ``"default"`` is an alias for whichever of
+    them :func:`set_default_theme` chose, not an entry of its own.  A preset in
+    ``DOCK_THEMES`` without a group heads the first group rather than being
+    dropped, so it is merely misfiled in the menu instead of missing from it.
     """
     from lace.dock_custom_theme import DOCK_THEMES, THEME_GROUPS
 
@@ -323,5 +415,7 @@ def theme_groups() -> List[Tuple[str, List[Tuple[str, str]]]]:
 from lace.theme_manager import ThemeManager
 __all__ = [
     "DockStyleCategory", "DockStyleManager", "get_dock_style_manager",
-    "apply_dock_theme", "theme_choices", "theme_groups", "ThemeManager"
+    "apply_dock_theme", "theme_choices", "theme_groups", "ThemeManager",
+    "DEFAULT_THEME_ALIAS", "default_theme_tokens", "get_default_theme",
+    "set_default_theme", "load_settings",
 ]

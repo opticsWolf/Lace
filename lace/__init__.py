@@ -39,7 +39,10 @@ from lace.dock_theme import (
 from lace.dock_style_manager import (
     DockStyleManager,
     apply_dock_theme,
+    get_default_theme,
     get_dock_style_manager,
+    load_settings,
+    set_default_theme,
     theme_choices,
     theme_groups,
 )
@@ -153,6 +156,9 @@ __all__ = [
     "get_dock_style_manager",
     "theme_choices",
     "theme_groups",
+    "set_default_theme",
+    "get_default_theme",
+    "load_settings",
     "DockThemeBridge",
     "LaceStyle",
     "DockMenuBarStyler",

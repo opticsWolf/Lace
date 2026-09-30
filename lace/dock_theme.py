@@ -1153,26 +1153,6 @@ def _adjust_color(col, l_off=0, s_off=0, h_off=0, a_off=0):    # Normalize input
     return [round(x * 255) for x in new_rgb]
 
 # -------------------------------------------------------------------------
-# VS CODE 2026 DARK (Default Theme)
-# -------------------------------------------------------------------------
-BASE_DOCK_DEFAULTS: Dict[DockStyleCategory, Dict[str, Any]] = build_theme(ThemeSpec(
-    base               = [24, 24, 24, 255],
-    accent             = [0, 120, 212, 255],
-    text               = [204, 204, 204, 255],
-    surface            = [31, 31, 31, 255],
-    border             = [24, 24, 24, 0],
-    #focus_border_color = [0, 156, 255, 255],
-    title_mode         = "lighter",
-    hover_mode         = "lighter",
-    corner_radius      = 4,
-    tab_radius         = 4,
-    border_width       = 1.5,
-    title_margin       = 0.0,
-    content_margin     = 0.0,
-))
-
-
-# -------------------------------------------------------------------------
 # Canonical Colour Conversion (formerly dock_colors.py)
 # -------------------------------------------------------------------------
 def to_qcolor(val: Any) -> QColor:

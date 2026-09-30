@@ -25,8 +25,8 @@ COLOR_TOKEN = (
 
 
 def test_dock_themes_registry_matches_specs():
-    assert set(DOCK_THEMES) == {"default"} | set(THEME_SPECS)
-    assert len(DOCK_THEMES) >= 14  # default + 13 named presets
+    assert set(DOCK_THEMES) == set(THEME_SPECS)
+    assert len(DOCK_THEMES) >= 13
 
 
 def test_all_presets_build_all_categories():

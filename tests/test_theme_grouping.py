@@ -54,11 +54,11 @@ def test_the_groups_cover_every_preset_exactly_once():
     assert set(listed) == set(THEME_SPECS)
 
 
-def test_theme_groups_places_default_rather_than_dropping_it():
-    """``default`` is in DOCK_THEMES but has no ThemeSpec, so no group claims it."""
-    assert "default" not in {k for keys in THEME_GROUPS.values() for k in keys}
+def test_menus_list_only_real_presets():
+    """``default`` is an alias for a preset, not an entry of its own."""
+    assert "default" not in DOCK_THEMES
+    assert "default" not in _flat()
     assert set(_flat()) == set(DOCK_THEMES)
-    assert _flat()[0] == "default", "the stock look should head the first group"
 
 
 def test_no_group_is_empty_and_none_is_a_dumping_ground():

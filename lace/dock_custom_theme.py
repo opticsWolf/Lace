@@ -1130,11 +1130,15 @@ _BASIC_PALETTES: Dict[str, Dict[str, Any]] = {
     # about a third more chroma (OKLCH) at the same lightness.
     "caramel": dict(
         base=[197, 194, 189, 255], surface=[217, 214, 207, 255], border=[167, 162, 151, 255],
-        accent=[186, 98, 0, 255], text=[39, 34, 28, 255], is_light=True),
+        accent=[186, 98, 0, 255], text=[39, 34, 28, 255], is_light=True,
+        # Lighter than the derived darker step (192,189,182).
+        title_bg=[207, 204, 197, 255]),
     # The former neutral with its blue cast taken out.
     "neutral": dict(
         base=[190, 191, 194, 255], surface=[210, 211, 214, 255], border=[170, 171, 175, 255],
-        accent=[6, 108, 196, 255], text=[30, 33, 40, 255], is_light=True),
+        accent=[6, 108, 196, 255], text=[30, 33, 40, 255], is_light=True,
+        # A touch lighter than the derived darker step (194,195,198).
+        title_bg=[199, 200, 203, 255]),
     # The warm family's light end.
     "cream": dict(
         base=[240, 235, 225, 255], surface=[252, 249, 243, 255], border=[226, 219, 207, 255],
@@ -1229,10 +1233,10 @@ del _GROUPED
 # THEME DEFINITIONS - Built dictionaries
 # =============================================================================
 
+# Real presets only.  "default" is not one of them: it is an alias the style
+# manager resolves to a preset or JSON theme (dock_style_manager.set_default_theme).
 DOCK_THEMES: Dict[str, Dict[DockStyleCategory, Dict[str, Any]]] = {
-    # Default uses BASE_DOCK_DEFAULTS from dock_theme.py
-    "default": {},
+    name: build_theme(spec) for name, spec in THEME_SPECS.items()
 }
-DOCK_THEMES.update({name: build_theme(spec) for name, spec in THEME_SPECS.items()})
 
 __all__ = ["DOCK_THEMES", "THEME_SPECS", "THEME_GROUPS"]

@@ -17,10 +17,10 @@ from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_manager import DockManager
-from lace.dock_style_manager import _SCHEMA_MAP, get_dock_style_manager
+from lace.dock_style_manager import _SCHEMA_MAP, default_theme_tokens, get_dock_style_manager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
-from lace.dock_theme import BASE_DOCK_DEFAULTS, DockStyleCategory, ThemeSpec, build_theme
+from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 from lace.sidebar_tab import VerticalTabButton
 
 #: Declared up to 0.8.1, read by nothing, and removed.
@@ -42,7 +42,7 @@ def test_removed_tokens_are_gone_from_schema_defaults_and_builder():
         declared = {f.name for f in fields(_SCHEMA_MAP[category])}
         for name in names:
             assert name not in declared, f"{category.name}.{name} is still declared"
-            assert name not in BASE_DOCK_DEFAULTS[category], f"default sets {category.name}.{name}"
+            assert name not in default_theme_tokens()[category], f"default sets {category.name}.{name}"
             assert name not in theme[category], f"build_theme sets {category.name}.{name}"
 
 

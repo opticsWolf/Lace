@@ -26,11 +26,21 @@ through a cycle.
   unfocused outline of input fields and framed views.
 - ThemeSpec `keep_tint`: derived active text stops short of pure white or black, and zebra
   rows off a white input take the panel's tint.
+- **Settable default theme.** `set_default_theme(source)` points `"default"` at a preset key
+  or a JSON theme file; `get_default_theme()` reads it back, and `load_settings(path)` takes
+  it from a JSON settings file (`{"default_theme": "mocha"}`). The default seeds the style
+  schemas and is the floor every theme is applied over. `DockStyleManager.current_theme`
+  names the theme last applied.
 
 ### Removed
 
 - The `warm` preset; `mocha` is its successor. The former `dark`, `light`, `neutral` and
   `midnight` palettes are replaced.
+- **`"default"` is no longer a theme of its own.** It is an alias for the default theme,
+  `dark` unless set otherwise, so `apply_theme("default")` still works but menus
+  (`theme_choices()`, `theme_groups()`) and `DOCK_THEMES` list only real presets.
+  `dock_theme.BASE_DOCK_DEFAULTS`, the separate VS Code-style palette it used to be, is
+  removed; use `dock_style_manager.default_theme_tokens()`.
 
 ## [0.8.1] — 2026-09-29
 

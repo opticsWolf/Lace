@@ -89,9 +89,11 @@ def test_apply_theme_applies_and_resets_missing_keys(qapp):
     # ...reverts when switching to a theme that does not define it
     assert apply_dock_theme("light")
     assert sm.get(DockStyleCategory.CORE, "canvas_bg").name() == "#eeeef1"
-    # "default" resets to the hardcoded BASE_DOCK_DEFAULTS
+    # "default" is an alias for the default theme, dark unless set otherwise
     assert apply_dock_theme("default")
-    assert sm.get(DockStyleCategory.CORE, "canvas_bg").name() == "#181818"
+    dark = sm.get(DockStyleCategory.CORE, "canvas_bg").name()
+    assert apply_dock_theme("dark")
+    assert sm.get(DockStyleCategory.CORE, "canvas_bg").name() == dark
 
 
 def test_apply_theme_unknown_name_returns_false():

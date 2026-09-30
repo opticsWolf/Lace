@@ -315,10 +315,13 @@ def test_theme_bridge_pushes_tooltip_palette_to_qtooltip(qapp):
 
     default_bg = tip_bg()
 
-    apply_dock_theme("dark")
+    apply_dock_theme("monokai")  # the default is dark, so not "dark"
     qapp.processEvents()  # flush the debounced refresh
+    assert tip_bg() != default_bg
+
+    apply_dock_theme("dark")
+    qapp.processEvents()
     dark_bg = tip_bg()
-    assert dark_bg != default_bg
 
     apply_dock_theme("light")
     qapp.processEvents()

@@ -17,7 +17,7 @@ Lace provides a complete docking system supporting:
 - **Drag-and-drop layout** — intuitive resizing, reordering, and re-docking via overlays
 - **Perspectives** — save/restore complete layout configurations
 - **JSON serialization** — full layout persistence with atomic file I/O
-- **Theming engine** — 38 built-in themes with dynamic color computation and live switching
+- **Theming engine** — 37 built-in themes with dynamic color computation and live switching
 - **JSON theme files** — validated via Pydantic (`ThemeJson`), applied through the same engine as built-ins
 - **Custom icon provider** — SVG-based icon system with theme-aware tinting
 
@@ -319,7 +319,6 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | **_build_theme(…)** | Internal: derives all category dicts from base/accent/text + status colors |
 | **_adjust_color(col, l_off, s_off, h_off, a_off)** | HSL color manipulation |
 | **_contrasting_hover(col, amount)** | Hover color that always contrasts with container |
-| **BASE_DOCK_DEFAULTS** | Default "VS Code 2026 Dark" theme |
 | **to_qcolor(val) → QColor** | Converts list/hex/string to QColor |
 | **qcolor_to_list(c) → list** | Inverse |
 | **is_color_list(val) → bool** | Type guard |
@@ -570,10 +569,9 @@ neutrals were near-blacks like their parents, separated by a point either way (`
 files each counterpart away from its parent and puts `midnight_haze_light` above `midnight_haze`.
 
 `theme_groups()` in `dock_style_manager` turns this into `(group label, [(label, key), ...])`
-for a menu; `theme_choices()` is the same order flattened, for a single-level one. `"default"`
-lives in `DOCK_THEMES` but has no `ThemeSpec` and so no group; `theme_groups()` heads the first
-group with it, and with anything else ungrouped, so a preset added without a group is misfiled
-rather than missing. `dock_custom_theme` also asserts full coverage at **import**, because by the
+for a menu; `theme_choices()` is the same order flattened, for a single-level one. Both list
+only real presets: `"default"` is an alias (see below), not a `DOCK_THEMES` entry. A preset in
+`DOCK_THEMES` without a group heads the first group, so it is misfiled rather than missing. `dock_custom_theme` also asserts full coverage at **import**, because by the
 time a test run catches an ungrouped preset the wrong file has already been pushed.
 `tests/test_theme_grouping.py` pins the rest: coverage, that families stay adjacent, and that
 each family ends on its lightest member.
@@ -763,7 +761,10 @@ line on screen belongs to the area you are working in. `midnight_haze` is built 
 |---|---|
 | **Signals** | `style_changed(category, changes)` |
 | **Singleton** | `instance() → DockStyleManager` |
-| **Theme** | `apply_theme(name) → bool`, `apply_theme_dict(theme_data) → bool`, `_reset_to_defaults()` |
+| **Theme** | `apply_theme(name) → bool`, `apply_theme_dict(theme_data) → bool`, `_reset_to_defaults()`, `current_theme` |
+| | `apply_theme("default")` applies the default theme. `current_theme` is the name last applied, `"default"` at start-up, `None` after a bare `apply_theme_dict()` |
+| **Default theme** (module level) | `set_default_theme(source)`, `get_default_theme()`, `default_theme_tokens()`, `load_settings(path)`, `DEFAULT_THEME_ALIAS` |
+| | The default is an alias for a preset key or a JSON theme file, `"dark"` unless set; it seeds the schemas and is the floor every theme is reset to. `load_settings()` reads `{"default_theme": ...}` from a JSON settings file (relative paths against the file). Setting it while the manager shows the default re-applies |
 | | `apply_theme_dict()` applies a raw `{DockStyleCategory: {token: value}}` dict (e.g. from `load_theme_json`) through the same reset-to-defaults + broadcast path as named themes |
 | **Subscribers** | `register(subscriber, category)`, `unregister(subscriber, category?)` |
 | **Get** | `get(category, key, default)`, `get_all(category) → dict` |
