@@ -51,6 +51,10 @@ class DockManager(QObject):
     that choice here instead: ``"lace"`` installs :class:`LaceStyle` app-wide
     (its tokens then follow the theme), and any other name (``"Fusion"``)
     installs that Qt style.  ``app.setStyle(...)`` works just as well.
+
+    Windows with an OS frame -- dialogs, message boxes -- get their title
+    bar themed to match (see :mod:`lace.native_frame`); pass
+    ``native_frames=False`` to leave them to the system.
     """
     perspective_list_changed = Signal()
     perspectives_removed = Signal()
@@ -59,7 +63,8 @@ class DockManager(QObject):
     opening_perspective = Signal(str)
     perspective_opened = Signal(str)
 
-    def __init__(self, parent: QWidget, *, app_style: Optional[str] = None):
+    def __init__(self, parent: QWidget, *, app_style: Optional[str] = None,
+                 native_frames: bool = True):
         super().__init__(parent)
 
         # 1. Initialize Styles (Grab the singleton so children can use it)
@@ -118,6 +123,12 @@ class DockManager(QObject):
                 install_style=app_style is not None)
         except RuntimeError:
             self._app_theme_bridge = None
+
+        #    Native-framed windows (dialogs, message boxes) get their OS
+        #    title bar themed to match; installed once per application.
+        if native_frames:
+            from lace.native_frame import install_native_frame_theme
+            install_native_frame_theme()
 
         # 9. Frameless title bar theme integration — if the parent window
         #    is a FramelessLaceMainWindow, register it with DockStyleManager

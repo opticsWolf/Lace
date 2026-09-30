@@ -30,6 +30,7 @@ from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QMenuBar, QWidget
 
 from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
+from lace.title_bar_colors import title_bar_colors
 
 
 def _color_hex(col, alpha: Optional[float] = None) -> str:
@@ -162,14 +163,11 @@ class FramelessTitleBarStyler:
         # StandardTitleBar is a plain QWidget subclass; Qt only paints
         # QSS backgrounds on such widgets when WA_StyledBackground is set.
         tb.setAttribute(Qt.WA_StyledBackground, True)
-        # Match the sidebar strip (SIDEBAR bg_color = theme base) so the
-        # title bar and menu bar read as the same chrome surface as the
-        # sidebars.  Falls back to the title-bar token if a custom theme
-        # omits the sidebar palette.
-        bg = sm.get(DockStyleCategory.SIDEBAR, "bg_color")
-        if bg is None:
-            bg = sm.get(DockStyleCategory.TITLE_BAR, "bg_normal")
-        text_col = sm.get(DockStyleCategory.TITLE_BAR, "text_normal")
+        # Background and text come from the one source the native window
+        # frame reads too (lace.title_bar_colors), so the two cannot drift.
+        colors = title_bar_colors(sm)
+        bg = colors.background
+        text_col = colors.text
         btn_col = sm.get(DockStyleCategory.TITLE_BAR, "button_color")
         btn_hover = sm.get(DockStyleCategory.TITLE_BAR, "button_hover_bg")
         btn_disable = sm.get(DockStyleCategory.TITLE_BAR, "button_disable_clr")

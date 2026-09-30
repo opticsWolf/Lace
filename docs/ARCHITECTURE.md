@@ -222,9 +222,10 @@ Subclasses supply the chrome-dependent half: `__init__`, `event()`,
 #### `FloatingDockContainer` (`floating_dock_container.py`)
 
 The native-frame variant. Adds `_apply_dock_palette_to_window()` and
-`_apply_dwm_dark_frame(is_dark)`: `setWindowFlags()` recreates the native
-handle without the DWM dark-mode attribute, so the title bar would come back
-light on a dark theme.
+`_apply_native_frame()`: `setWindowFlags()` recreates the native handle
+without the DWM frame attributes, so the title bar would come back in the
+system colours. `_apply_native_frame()` re-applies them through
+`lace.native_frame.apply_native_frame` (see *Native window frames*).
 
 | Category | Members |
 |---|---|
@@ -294,6 +295,21 @@ resize borders, DWM shadow) on Windows, macOS and Linux.
 | **`FramelessTitleBarStyler`** (`frameless_titlebar.py`) | Theme bridge for the custom title bar: subscribes to `DockStyleManager` and applies dock-theme colours (background, title text, min/max/close button colours) to the title bar and optional menu bar(s). Supports multiple menu bars via `add_menu_bar()` / `remove_menu_bar()` — e.g. a menu bar embedded inside a custom title-bar layout plus a separate stacked `menuBar()`. |
 | **`FramelessFloatingDockContainer`** (`floating_dock_container_frameless.py`) | Frameless floating container. Routes title-bar drags through `_handle_titlebar_drag()` so the drop overlay / re-dock machinery works with the custom title bar: on Windows the press is let through to the title bar (the native move loop starts only once the drag threshold is exceeded), `MouseButtonDblClick` cancels any pending drag, and the dock-drag state machine is kept free of stale grabs/filters. Uses `DockManager.floating_title_bar` to resolve its title bar when no explicit one is passed, so floating windows can have different chrome than the main window. |
 | **`FloatingDockContainer`** (`floating_dock_container.py`) | Native (OS title-bar) floating container. Both variants share `FloatingContainerBehaviour` (§2.7), so the drag-state machinery — including the swallowed-release discrimination — has one implementation. The module keeps `FloatingDockContainer` as a deprecated alias for the frameless class, which bore that name until 0.5.50. |
+
+### 2.12 Native window frames (`title_bar_colors.py`, `native_frame.py`)
+
+Windows that keep the OS frame (dialogs, message boxes, tool windows, the
+native floating container) get their title bar themed to match the custom
+bar. Both kinds of title bar read one source:
+
+| Class / Function | Description |
+|---|---|
+| **`title_bar_colors(sm=None)`** (`title_bar_colors.py`) | Returns a frozen `TitleBarColors`: `background` (`SIDEBAR.bg_color` → `TITLE_BAR.bg_normal`), `text` (`TITLE_BAR.text_normal`), `text_inactive` (text at 60 % over the background, opaque), `border` (`CORE.border_color` when the theme draws an outline, else `None`) and `is_dark`. `FramelessTitleBarStyler` reads its background and text from it too, so the two bars cannot drift. |
+| **`apply_native_frame(window, colors=None, active=None)`** (`native_frame.py`) | Sets the DWM attributes on one window: dark mode (20, or 19 on old Win10), border (34; `DWMWA_COLOR_DEFAULT` without an outline), caption (35; alpha composited over the window background) and text (36; dimmed while inactive). 34–36 need Windows 11 and are best effort, so Windows 10 gets dark mode only. No-op off Windows, under a non-`windows` Qt platform (offscreen winIds are not HWNDs), for frameless windows, popups, tooltips and splash screens, and for windows with `laceNativeFrame=False`. The applied values are cached per HWND in the `_lace_frame_key` property; a dark-mode flip on an existing handle sends `SWP_FRAMECHANGED`. |
+| **`NativeFrameTheme`** / **`install_native_frame_theme(app=None)`** (`native_frame.py`) | Application event filter (`Show`, `WinIdChange`, `WindowActivate`/`Deactivate`) plus a debounced style subscription (TITLE_BAR, CORE, SIDEBAR) that re-applies to visible top-level windows. One per application, installed by `DockManager` unless `native_frames=False`; `uninstall_native_frame_theme()` removes it. |
+
+The OS-drawn file and print dialogs have no Qt widget and stay out of reach;
+they follow the system light/dark mode.
 
 ---
 

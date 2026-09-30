@@ -5,6 +5,24 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Added
+
+- Native window frames follow the theme. Dialogs, message boxes, tool windows and the native
+  floating container get the theme's title-bar colour, title text (dimmed while inactive) and
+  outline on Windows 11, and its light/dark mode on Windows 10 (`lace.native_frame`).
+  `DockManager` installs this for the application; `DockManager(native_frames=False)` leaves
+  frames to the system, `install_native_frame_theme()` sets it up without a `DockManager`, and a
+  window opts out with `setProperty("laceNativeFrame", False)`.
+- `title_bar_colors()` / `TitleBarColors`: the title-bar colours of the active theme, read by
+  both the custom title bar and the native frame.
+
+### Changed
+
+- `FloatingDockContainer._apply_dwm_dark_frame(is_dark)` is now `_apply_native_frame()`, which
+  sets caption, text and border colours as well as dark mode.
+
 ## [0.8.4] — 2026-09-30
 
 ### Added

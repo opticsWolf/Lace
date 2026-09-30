@@ -47,6 +47,8 @@ from lace.dock_style_manager import (
     theme_groups,
 )
 from lace.dock_theme_bridge import DockThemeBridge
+from lace.native_frame import apply_native_frame, install_native_frame_theme
+from lace.title_bar_colors import TitleBarColors, title_bar_colors
 from lace.lace_style import LaceStyle
 from lace.dock_menu_bar import DockMenuBarStyler
 from lace.theme_manager import ThemeManager
@@ -160,6 +162,10 @@ __all__ = [
     "get_default_theme",
     "load_settings",
     "DockThemeBridge",
+    "apply_native_frame",
+    "install_native_frame_theme",
+    "TitleBarColors",
+    "title_bar_colors",
     "LaceStyle",
     "DockMenuBarStyler",
     "ThemeManager",
