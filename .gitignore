@@ -205,3 +205,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Screenshot working sets stay local; only the README grid set in screenshots/ is tracked.
+screenshots/*/
