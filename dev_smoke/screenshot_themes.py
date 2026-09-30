@@ -104,6 +104,17 @@ for theme in THEMES:
     flt.move(w.x() + w.width() + 40, w.y() + 60)
     flt.show()
     app.processEvents()
+    # Make one docked area the active one, so the shot shows the focus
+    # highlight the way a window in use does.
+    areas = []
+    for x in w.dock_manager.dock_widgets_map().values():
+        area = x.dock_area_widget()
+        if area is not None and area.isVisible() and area not in areas \
+                and area.window() is w:
+            areas.append(area)
+    if areas:
+        w.dock_manager.set_active_dock_area(random.choice(areas))
+    app.processEvents()
     settle(500)
     save(w.grab(), f"main_{theme}.png")
     save(flt.grab(), f"float_{theme}.png")

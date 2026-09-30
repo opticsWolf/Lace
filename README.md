@@ -186,7 +186,7 @@ for the full API.
 
 ## Screenshots
 
-![Lace frameless main window across 12 themes](https://raw.githubusercontent.com/opticsWolf/Lace/main/screenshots/main_themes_grid.png?v=0.8.2)
+![Lace frameless main window across 12 themes](https://raw.githubusercontent.com/opticsWolf/Lace/main/screenshots/main_themes_grid.png?v=0.8.3)
 
 *The frameless main window (custom title bar, dock panels, splitters) across 12 built-in themes.*
 
