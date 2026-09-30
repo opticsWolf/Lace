@@ -190,7 +190,7 @@ for the full API.
 
 *The frameless main window (custom title bar, dock panels, splitters) across 12 built-in themes.*
 
-Full-size captures (main window + frameless floating containers) are in the
+Full-size captures of the main window, one per theme above, are in the
 [`screenshots/`](https://github.com/opticsWolf/Lace/tree/main/screenshots) folder.
 
 ---
