@@ -5,7 +5,7 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
-## [Unreleased]
+## [0.8.4] — 2026-09-30
 
 ### Added
 
@@ -15,6 +15,12 @@ through a cycle.
 - `DockThemeBridge(..., install_style=False)`: the explicit spelling of `style_name=""`
   (colours only, the target keeps its style), which keeps working. `style_name="lace"`
   names LaceStyle.
+
+### Changed
+
+- The README screenshot grid is taken from visible native windows (system font rendering,
+  the display's own scale) with one dock area active, so the focus highlight shows;
+  `dev_smoke/screenshot_themes.py` activates a dock area before each grab.
 
 ## [0.8.3] — 2026-09-30
 
