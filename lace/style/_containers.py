@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 from lace.style import _chrome
 from lace.style import _paint as P
 from lace.style import _popup
-from lace.style._primitives import frame
+from lace.style._primitives import container_frame
 
 PE = QStyle.PrimitiveElement
 CE = QStyle.ControlElement
@@ -372,14 +372,14 @@ def group_box_frame(style, opt, p, w):
     along its top edge, as Qt intends for a flat group box."""
     features = getattr(opt, "features", None)
     if features is None or not features & QStyleOptionFrame.FrameFeature.Flat:
-        return frame(style, opt, p, w)
+        return container_frame(style, opt, p, w)
     r = opt.rect
     _hline(p, r.left(), r.right() + 1, r.top(), _line(style, opt, P.color(opt, Role.Window)))
     return True
 
 
 PRIMITIVES = {
-    PE.PE_FrameTabWidget: frame,
+    PE.PE_FrameTabWidget: container_frame,
     PE.PE_FrameTabBarBase: tab_bar_base,
     PE.PE_FrameGroupBox: group_box_frame,
     PE.PE_IndicatorHeaderArrow: header_arrow,

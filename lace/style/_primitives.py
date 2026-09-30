@@ -208,6 +208,18 @@ def frame(style, opt, p, w):
         cap.queue_sync()    # framed since the cap last looked: draw here meanwhile
     if not style.field_outline:
         return True     # the theme draws views without an outline
+    return container_frame(style, opt, p, w)
+
+
+def container_frame(style, opt, p, w):
+    """The same outline for a container -- a group box, a tab widget's pane.
+
+    Not subject to ``field_outline``: that drops the ring round fields and
+    views, which their fill already sets apart, whereas a container's frame
+    is the only thing that shows where it starts and ends.
+    """
+    if w is not None and w.property("dockWidgetContent"):
+        return True     # the card is its frame
     with P.Painting(p):
         line = P.legible(opt, P.stroke(opt, P.color(opt, Role.Window), style.outline_strength),
                           style.border_ratio)

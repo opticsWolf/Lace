@@ -272,6 +272,33 @@ def test_dock_content_frame_draws_no_inner_ring(lace_app):
     assert edge(content) == 0
 
 
+def test_field_outline_off_keeps_container_frames(lace_app):
+    """field_outline=False (the basics) drops the ring round fields and views,
+    not the frame of a group box or a tab widget's pane: for a container the
+    frame is what shows where it starts."""
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtWidgets import QGroupBox, QStyleOptionFrame, QTabWidget
+    from lace.dock_theme import DockStyleCategory
+
+    def edge(element, widget):
+        opt = QStyleOptionFrame()
+        opt.initFrom(widget)
+        opt.rect = QRect(0, 0, 40, 30)
+        img = QImage(40, 30, QImage.Format.Format_ARGB32)
+        img.fill(QColor(0, 0, 0, 0))
+        p = QPainter(img)
+        lace_app.drawPrimitive(element, opt, p, widget)
+        p.end()
+        return img.pixelColor(0, 15).alpha()
+
+    get_dock_style_manager().update(DockStyleCategory.CORE, field_outline=False)
+    lace_app.set_tokens(field_outline=False)
+    PE = QStyle.PrimitiveElement
+    assert edge(PE.PE_Frame, QTextEdit()) == 0, "the view kept its outline"
+    assert edge(PE.PE_FrameGroupBox, QGroupBox()) > 0, "the group box lost its frame"
+    assert edge(PE.PE_FrameTabWidget, QTabWidget()) > 0, "the tab pane lost its frame"
+
+
 def test_nested_scroll_area_gets_rounded_corners(lace_app):
     """A text edit inside a form is capped to the control radius: the corner
     pixel shows the backdrop, the edge midpoint the outline. A combo box's
