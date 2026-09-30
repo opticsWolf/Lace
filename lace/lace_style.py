@@ -94,7 +94,8 @@ class LaceStyle(QProxyStyle):
         control's fill for its 1 px outline; the contrast floor still applies.
         ``splitter_length`` is the length of a splitter handle's grip, in px.
         ``field_outline`` False drops the outline of unfocused input fields
-        and framed views; a focused field keeps its accent ring.
+        and framed views; a focused field keeps its accent ring, and
+        containers (group boxes, tab-widget panes) keep their frame.
         """
         if control_radius is not None:
             self.control_radius = max(0, int(control_radius))
