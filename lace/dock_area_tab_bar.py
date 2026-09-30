@@ -332,9 +332,9 @@ class DockAreaTabBar(QScrollArea, DockStyled):
         return self._current_index
 
     def current_tab(self) -> Optional['DockWidgetTab']:
-        if self._current_index < 0:
-            return None
-        return self._tabs_layout.itemAt(self._current_index).widget()
+        # Bounds-checked like tab(): mid-restore the index can run ahead of
+        # the tabs, and a paint that asks then must get None, not raise.
+        return self.tab(self._current_index)
 
     def tab(self, index: int) -> Optional['DockWidgetTab']:
         if index >= self.count() or index < 0:
