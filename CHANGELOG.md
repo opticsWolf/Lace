@@ -5,7 +5,7 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
-## [Unreleased]
+## [0.9.0] — 2026-10-01
 
 ### Added
 
@@ -22,6 +22,12 @@ through a cycle.
 - `FramelessTitleBarStyler.dispose()`: unregisters the styler from the style manager. It runs
   when the styler's parent is destroyed, so closed dialogs and floats no longer leave a
   subscriber behind.
+- The demos' Standard Editor has a "Dialog…" button opening `demos/demo_dialog.py`'s
+  `NewLayerDialog`, a `FramelessLaceDialog` subclass with its own form.
+- `docs/theming_and_geometry.md` §14 "Title Bars": the title-bar tokens, custom and system
+  title bars, a platform table and the opt-outs. `docs/QUICK_REFERENCE.md` lists the
+  dialog helpers.
+- `screenshot_themes.py` captures `dialog_<theme>.png`, a message box over the main window.
 
 ### Changed
 
@@ -30,6 +36,7 @@ through a cycle.
   now logged at debug level instead of raising, as on the floating window.
 - `FramelessLaceMainWindow._register_titlebar_theme()` called twice disposes the first styler.
 - Theme Studio's colour picker and the demos' message boxes and file dialogs use `lace.dialogs`.
+- The README grid is retaken with the demo's new "Dialog…" button.
 
 ## [0.8.5] — 2026-10-01
 

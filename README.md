@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.8.5
+**Version:** 0.9.0
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -82,6 +82,7 @@
 - **Frameless windows** — Custom (PySideSix-Frameless-Window) title bars for the main window and floating containers with a synchronous double-click-to-maximize, DWM shadow, and resize borders; GL children (`QWebEngineView`, `QOpenGLWidget`) auto-heal the native chrome via `WinIdChange` (`ensure_frameless_chrome()`)
 - **Configurable custom title bars** — Set different title-bar classes for the main window and floating dock containers (`title_bar=` constructor arg, live `DockManager.main_title_bar` / `floating_title_bar`); embed menus, search fields, or any widget directly in the frameless chrome — `LaceStandardTitleBar` already vetoes drags from interactive children, paints the theme background, and anchors inserts, so subclasses only add widgets
 - **Chromeless floating windows** — Optional bare floating surfaces without any title bar
+- **Themed dialogs** — `FramelessLaceDialog` and the `lace.dialogs` helpers (message boxes, input, colour and file dialogs, same arguments and results as Qt's) carry the main window's title bar; dialogs that keep the system frame get the theme's caption colour on Windows 11 and its light/dark mode on Windows 10
 
 ---
 
@@ -188,7 +189,7 @@ for the full API.
 
 ## Screenshots
 
-![Lace frameless main window across 12 themes](https://raw.githubusercontent.com/opticsWolf/Lace/main/screenshots/main_themes_grid.png?v=0.8.5)
+![Lace frameless main window across 12 themes](https://raw.githubusercontent.com/opticsWolf/Lace/main/screenshots/main_themes_grid.png?v=0.9.0)
 
 *The frameless main window (custom title bar, dock panels, splitters) across 12 built-in themes.*
 

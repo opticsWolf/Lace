@@ -718,3 +718,77 @@ corner radius are `CORE`'s.
 |---|---|---|---|
 | `frame_color`, `overlay_color` | *derived* | — | drop-area preview outline and fill |
 | `background_color`, `arrow_color`, `shadow_color` | *derived* | — | drop-target cross buttons, their arrows and shadow |
+
+
+---
+
+## 14. Title Bars
+
+Every window an app shows can carry the theme's title bar. There are two
+kinds of title bar, and both read their colours from one function,
+`lace.title_bar_colors()`, so they cannot drift apart.
+
+### The tokens
+
+| Part | Token | Used by |
+|---|---|---|
+| Background | `SIDEBAR.bg_color`, else `TITLE_BAR.bg_normal` | both |
+| Title text | `TITLE_BAR.text_normal` | both |
+| Inactive title text | the title text at 60 % over the background (`INACTIVE_TEXT_ALPHA`) | native frame |
+| Outline | `CORE.border_color` when `CORE.border_width` > 0 and it isn't transparent; otherwise the system's own | native frame |
+| Buttons | `TITLE_BAR.button_color`, `button_hover_bg`, `button_disable_clr`, `button_size`, `button_icon_size`, `button_corner_radius` | custom bar |
+| Font | `TITLE_BAR.font_family`, `font_size`, `font_weight`, `font_italic`, `font_underline` | custom bar |
+
+The custom bar's close button keeps the system red on hover.
+
+### Custom title bars (frameless windows)
+
+`FramelessLaceMainWindow`, the frameless floating containers and
+`FramelessLaceDialog` draw their own bar (`LaceStandardTitleBar`), styled by a
+`FramelessTitleBarStyler` that follows theme switches live.
+
+For dialogs, use `FramelessLaceDialog` directly or the `lace.dialogs` helpers,
+which mirror Qt's static dialog functions:
+
+```python
+from lace import dialogs
+from lace.frameless_dialog import FramelessLaceDialog
+
+if dialogs.question(self, "Close", "Discard changes?") == dialogs.StandardButton.Yes:
+    ...
+name, ok = dialogs.get_text(self, "Rename", "Name:", text="Layer 3")
+
+dlg = FramelessLaceDialog(self, buttons="close", resizable=False)
+dlg.setWindowTitle("New layer")
+dlg.contentLayout().addWidget(my_form)   # don't call dlg.setLayout()
+dlg.exec()
+```
+
+### System title bars (native frames)
+
+Windows that keep the OS frame (`QMessageBox`, `QInputDialog`, your own
+`QDialog`s, tool windows, the native floating container) get the theme's
+colours through the window manager. `DockManager` turns this on for the whole
+application (`install_native_frame_theme()` does it without one). It reapplies
+on every theme switch, and dims the title text of inactive windows.
+
+| Platform | System title bar |
+|---|---|
+| Windows 11 | caption colour, title text (dimmed while inactive) and outline from the theme |
+| Windows 10 | the theme's light or dark mode only; the caption stays black or white |
+| macOS, Linux | the window manager's frame, unchanged |
+
+### What stays out of reach
+
+The OS file and print dialogs (`QFileDialog` in native mode, the default on
+Windows and macOS) are OS windows with no Qt widget behind them. They follow
+the system's light/dark setting, not the theme. To theme a file dialog, use Qt's
+own: `dialogs.get_open_file_name(..., native=False)`.
+
+### Opting out
+
+| To | Use |
+|---|---|
+| leave every system frame alone | `DockManager(window, native_frames=False)` |
+| leave one window's system frame alone | `window.setProperty("laceNativeFrame", False)` |
+| make the `lace.dialogs` helpers open plain Qt dialogs | `dialogs.set_default_frameless(False)` |

@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.8.5
+**Version:** 0.9.0
 
 ---
 
@@ -721,6 +721,48 @@ a manual escape hatch. See `docs/frameless-webengine-findings.md`.
 # (DockFlags.chromeless_float hides the custom title bar entirely)
 dock_manager.config_flags |= DockFlags.chromeless_float
 ```
+
+### Themed Dialogs
+
+`lace.dialogs` mirrors Qt's static dialog functions: same arguments, same
+return values, but each opens a frameless dialog with the theme's title bar.
+
+```python
+from lace import dialogs
+
+dialogs.information(self, "Saved", "Layout saved.")
+if dialogs.question(self, "Close", "Discard changes?") == dialogs.StandardButton.Yes:
+    ...
+name, ok = dialogs.get_text(self, "Rename", "Name:", text="Layer 3")
+color = dialogs.get_color(QColor("red"), self, "Accent")       # invalid on cancel
+path, _ = dialogs.get_open_file_name(self, "Open", "", "JSON (*.json)")  # OS dialog
+path, _ = dialogs.get_open_file_name(self, "Open", "", "JSON (*.json)", native=False)
+```
+
+| Helper | Qt counterpart | Returns |
+|---|---|---|
+| `information`, `question`, `warning`, `critical`, `message(..., icon=)` | `QMessageBox` statics | `QMessageBox.StandardButton` |
+| `about` | `QMessageBox.about` | `None` |
+| `get_text`, `get_multi_line_text`, `get_item`, `get_int`, `get_double` | `QInputDialog` statics | `(value, ok)` |
+| `get_color(initial, parent, title, options)` | `QColorDialog.getColor` | `QColor` (invalid on cancel) |
+| `get_open_file_name`, `get_open_file_names`, `get_save_file_name`, `get_existing_directory` | `QFileDialog` statics; `native=False` for the themed Qt dialog | as Qt |
+
+For your own dialog, subclass or use `FramelessLaceDialog`:
+
+```python
+from lace.frameless_dialog import FramelessLaceDialog
+
+dlg = FramelessLaceDialog(self, buttons="close", resizable=False)  # or "min_close", "all"
+dlg.setWindowTitle("New layer")
+dlg.contentLayout().addWidget(my_form)
+if dlg.exec() == FramelessLaceDialog.DialogCode.Accepted:
+    ...
+```
+
+`dialogs.set_default_frameless(False)` sends every helper back to plain Qt.
+Dialogs that keep the system frame still get the theme's title-bar colours on
+Windows 11 (light/dark only on Windows 10); see `docs/theming_and_geometry.md`
+§14.
 
 ---
 

@@ -10,6 +10,7 @@ Special states (screen grabs show real desktop layering/shadows):
   composite_<theme>.png - floating window in FRONT of the main window
   sidebar_<theme>.png   - right sidebar expanded (a widget pinned to it)
   hover_<theme>.png     - a dock area actively hovered (drop overlay + preview)
+  dialog_<theme>.png    - a lace.dialogs message box over the main window
 """
 import sys, os, time, random, logging, argparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -46,6 +47,7 @@ THEMES = theme_sets.resolve(args.themes)
 COMPOSITE_THEMES = ["cyberpunk_neon", "kilim_light_neo"]
 SIDEBAR_THEMES = ["kilim_dark", "slate_amber"]
 HOVER_THEMES = ["cyberpunk_neon", "kilim_midnight"]
+DIALOG_THEMES = ["cyberpunk_neon", "light"]
 
 OUT = args.out or os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "screenshots")
@@ -199,6 +201,27 @@ for theme in HOVER_THEMES:
     settle(400)
     save(screen_grab([win]), f"hover_{theme}.png")
     overlay.hide_overlay()
+    app.processEvents()
+    settle(200)
+
+# ═══ Part E: a lace.dialogs message box over the main window ═════════
+from lace import dialogs
+
+for theme in DIALOG_THEMES:
+    print(f"[dialog] {theme}", flush=True)
+    set_theme(theme)
+
+    def grab_dialog(theme=theme):
+        settle(500)
+        save(screen_grab([win]), f"dialog_{theme}.png")
+        QApplication.activeModalWidget().reject()
+
+    QTimer.singleShot(0, grab_dialog)
+    dialogs.question(
+        win, "Close project",
+        "Save changes to <b>layout.json</b> before closing?",
+        dialogs.StandardButton.Save | dialogs.StandardButton.Discard
+        | dialogs.StandardButton.Cancel)
     app.processEvents()
     settle(200)
 

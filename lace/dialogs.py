@@ -47,6 +47,8 @@ from PySide6.QtWidgets import (QApplication, QColorDialog, QDialog,
 
 _frameless_default = True
 
+#: ``QMessageBox.StandardButton``, so callers can compare results without
+#: importing it: ``dialogs.question(...) == dialogs.StandardButton.Yes``.
 StandardButton = QMessageBox.StandardButton
 _Buttons = Union[QMessageBox.StandardButton, QDialogButtonBox.StandardButton, int]
 
@@ -536,6 +538,7 @@ def get_existing_directory(parent=None, caption: str = "", dir: str = "",
 
 __all__ = [
     "MESSAGE_ICONS",
+    "StandardButton",
     "about",
     "critical",
     "default_frameless",
