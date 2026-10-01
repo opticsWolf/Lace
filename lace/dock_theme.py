@@ -83,6 +83,10 @@ class DockCoreStyleSchema:
     #: Outline input fields and framed views while unfocused; False leaves
     #: only the fill, and the accent ring a focused field takes.
     field_outline: bool = True
+    #: Contrast level the unfocused outlines (fields, views, buttons,
+    #: containers) are held to: "low" | "normal" | "high", or "auto" to
+    #: follow ``contrast``.  Focus rings and indicators always follow it.
+    outline_contrast: str = "auto"
     #: Length of a splitter handle's grip, in px.
     splitter_length: int = 50
     #: The theme's contrast level ("low" | "normal" | "high"); sets the floor
@@ -425,6 +429,8 @@ class ThemeSpec:
     #: LaceStyle outlines input fields and framed views while unfocused.
     #: False drops that line; a focused field keeps its accent ring.
     field_outline: bool = True
+    #: Contrast level of those unfocused outlines; "auto" follows contrast.
+    outline_contrast: str = "auto"
     #: Derived colours keep the theme's hue: the active text (tabs, title bars,
     #: sidebar) stops short of pure white or black, and zebra rows striped off
     #: a white input take the panel's tint.
@@ -646,6 +652,7 @@ def _spec_kwargs(spec: ThemeSpec) -> Dict[str, Any]:
         focus_width=spec.focus_width,
         outline_strength=spec.outline_strength,
         field_outline=spec.field_outline,
+        outline_contrast=spec.outline_contrast,
         keep_tint=spec.keep_tint,
         splitter_length=spec.splitter_length,
     )
@@ -712,6 +719,7 @@ def _build_theme(
     focus_width: float = 2.0,
     outline_strength: float = 0.22,
     field_outline: bool = True,
+    outline_contrast: str = "auto",
     splitter_length: int = 50,
     keep_tint: bool = False,
     _explicit_out: Optional[set] = None,
@@ -893,7 +901,7 @@ def _build_theme(
     theme[DockStyleCategory.CORE].update(
         contrast=contrast, scrollbar=scrollbar, control_radius=control_radius,
         focus_width=focus_width, outline_strength=outline_strength,
-        field_outline=field_outline,
+        field_outline=field_outline, outline_contrast=outline_contrast,
         splitter_length=splitter_length, corner_clip=corner_clip)
 
     if corner_radius is not None:

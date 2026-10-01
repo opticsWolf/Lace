@@ -78,3 +78,30 @@ def test_every_preset_applies_and_resolves(name, qapp):
     assert colors.text_color.isValid()
     sm = get_dock_style_manager()
     assert sm.get(DockStyleCategory.CORE, "accent_color").isValid()
+
+
+@pytest.mark.parametrize("name", ["midnight", "dark", "caramel", "light"])
+def test_classic_basics_keep_faint_outlines(name):
+    """Classic basics draw inactive edges faint, not absent; neo keeps them full."""
+    classic = DOCK_THEMES[name][DockStyleCategory.CORE]
+    neo = DOCK_THEMES[f"{name}_neo"][DockStyleCategory.CORE]
+    assert 0 < classic["border_color"][3] < 255, "a trace of the unfocused frame"
+    assert classic["focus_border_color"][3] == 255, "the focus frame stays solid"
+    assert classic["field_outline"]
+    assert 0 < classic["outline_strength"] < neo["outline_strength"]
+    assert classic["outline_contrast"] == "low", "or the floor lifts them back"
+    assert neo["border_color"][3] == 255
+    assert neo["outline_contrast"] == "auto"
+
+
+def test_outline_contrast_sets_only_the_outline_floor(qapp):
+    from lace.lace_style import LaceStyle
+    style = LaceStyle(contrast="normal")
+    ui, border = style.ui_ratio, style.border_ratio
+    style.set_tokens(outline_contrast="low")
+    assert style.border_ratio < border
+    assert style.ui_ratio == ui, "focus rings keep the theme's floor"
+    style.set_tokens(outline_contrast="auto")
+    assert style.border_ratio == border
+    with pytest.raises(ValueError):
+        style.set_tokens(outline_contrast="faint")

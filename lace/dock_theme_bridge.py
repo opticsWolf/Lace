@@ -151,6 +151,7 @@ class DockThemeBridge(QObject):
             focus_width=sm.get(DockStyleCategory.CORE, "focus_width", 2.0),
             outline_strength=sm.get(DockStyleCategory.CORE, "outline_strength", 0.22),
             field_outline=sm.get(DockStyleCategory.CORE, "field_outline", True),
+            outline_contrast=sm.get(DockStyleCategory.CORE, "outline_contrast", "auto"),
             splitter_length=sm.get(DockStyleCategory.CORE, "splitter_length", 50),
         )
 

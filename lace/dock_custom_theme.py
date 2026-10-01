@@ -1068,6 +1068,12 @@ THEME_SPECS: Dict[str, ThemeSpec] = {
 # mocha / caramel / cream are the warm family.
 # =============================================================================
 
+#: Classic basics: alpha of the border colour on anything inactive (the
+#: unfocused area frame, rules), out of 255.
+_BASIC_CLASSIC_IDLE_ALPHA = 85
+#: Classic basics: outline_strength of fields, views and containers.
+_BASIC_CLASSIC_OUTLINE = 0.08
+
 _BASIC_CLASSIC = dict(
     corner_radius=4,
     tab_radius=4,
@@ -1077,7 +1083,13 @@ _BASIC_CLASSIC = dict(
     tab_dimming=True,
     title_mode="darker",
     hover_mode="darker",
-    field_outline=False,    # fields and views are told apart by their fill
+    # Fields, views and containers keep an outline, but a faint one: the text
+    # colour mixed in at under half the usual 0.22, so their fill does most
+    # of the work.  Focus rings stay at full accent.
+    outline_strength=_BASIC_CLASSIC_OUTLINE,
+    # ...and held to the low outline floor (1.15:1, not 1.3:1), which on a
+    # light ground would otherwise lift them back to the default weight.
+    outline_contrast="low",
 )
 
 _BASIC_NEO = dict(
@@ -1163,11 +1175,12 @@ def _basic_spec(palette: Dict[str, Any], neo: bool) -> ThemeSpec:
     fields.update(keep_tint=True)       # a palette may opt out (midnight keeps white)
     fields.update(palette, focus_border_color=accent)
     if not neo:
-        # Classic draws no edge on anything inactive: the border goes
-        # transparent, so an unfocused area has no outline and the focused
-        # area's accent frame is the only line on screen.  Neo keeps its
-        # unfocused frame, rule and idle sidebar ring in the border colour.
-        fields.update(border=palette["border"][:3] + [0])
+        # Classic keeps every inactive edge faint: the border goes mostly
+        # transparent, so an unfocused area's outline is a trace and the
+        # focused area's accent frame is the line the eye finds.  Neo keeps
+        # its unfocused frame, rule and idle sidebar ring in the full border
+        # colour.
+        fields.update(border=palette["border"][:3] + [_BASIC_CLASSIC_IDLE_ALPHA])
     if neo:
         fields.update(
             title_border_focus_color=accent,

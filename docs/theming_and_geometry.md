@@ -397,6 +397,7 @@ themes) steer the derivation. Every keyword has a default, so 0.7 themes load un
 | `focus_width` | **2.0** | pen width of LaceStyle's keyboard focus ring; 0 hides it |
 | `outline_strength` | **0.22** | how much text colour is mixed over a control's fill for its 1 px outline |
 | `field_outline` | **True** | outline input fields and framed views while unfocused; False leaves only the fill and a focused field's accent ring. Containers (group boxes, tab-widget panes) keep their frame either way |
+| `outline_contrast` | **"auto"** | contrast level (`"low"` / `"normal"` / `"high"`) the unfocused outlines of fields, views, buttons and containers are held to; `"auto"` follows `contrast`. Focus rings and indicators always follow `contrast`. The classic basics use `"low"` to keep their outlines faint |
 | `keep_tint` | **False** | derived colours keep the theme's hue: the active text (tabs, title bars, sidebar) stops short of pure white or black, and zebra rows striped off a white input take the panel's tint; selected text on a solid accent still uses the full-strength step |
 | `splitter_length` | **50** | length in px of the grip on a LaceStyle splitter handle (clipped to the handle) |
 | `is_light` | **None** | None decides from the base (OKLCH lightness below 0.6 is dark) |
@@ -585,6 +586,7 @@ sm.get_all(DockStyleCategory.SIDEBAR)             # a dict of every token in a c
 | `focus_width` | 2.0 | `focus_width` | LaceStyle focus ring width |
 | `outline_strength` | 0.22 | `outline_strength` | LaceStyle outline strength |
 | `field_outline` | True | `field_outline` | outline unfocused input fields and framed views (not group boxes or tab panes, which always keep theirs) |
+| `outline_contrast` | `"auto"` | `outline_contrast` | contrast floor for unfocused outlines only (`"auto"` = `contrast`) |
 | `splitter_length` | 50 | `splitter_length` | LaceStyle splitter grip length |
 | `contrast` | `"normal"` | `contrast` | contrast floor for LaceStyle's non-text UI |
 

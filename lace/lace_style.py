@@ -62,7 +62,7 @@ class LaceStyle(QProxyStyle):
     def __init__(self, control_radius: int = 4, scrollbar: str = "expanding",
                  contrast: str = "normal", focus_width: float = 2.0,
                  outline_strength: float = 0.22, splitter_length: int = 50,
-                 field_outline: bool = True):
+                 field_outline: bool = True, outline_contrast: str = "auto"):
         # QProxyStyle takes ownership of the base style.
         super().__init__(QStyleFactory.create("Fusion"))
         self.control_radius = 4
@@ -72,11 +72,13 @@ class LaceStyle(QProxyStyle):
         self.outline_strength = 0.22
         self.splitter_length = 50
         self.field_outline = True
+        self.outline_contrast = "auto"
         self._weekend_tint = _chrome.WeekendTint(self)
         self._popup_shift = _popup.ShadowShift(self)
         self.set_tokens(control_radius=control_radius, scrollbar=scrollbar, contrast=contrast,
                         focus_width=focus_width, outline_strength=outline_strength,
-                        splitter_length=splitter_length, field_outline=field_outline)
+                        splitter_length=splitter_length, field_outline=field_outline,
+                        outline_contrast=outline_contrast)
 
     # -- theme knobs -------------------------------------------------------------
     def set_tokens(self, control_radius: Optional[int] = None,
@@ -84,7 +86,8 @@ class LaceStyle(QProxyStyle):
                    focus_width: Optional[float] = None,
                    outline_strength: Optional[float] = None,
                    splitter_length: Optional[int] = None,
-                   field_outline: Optional[bool] = None) -> None:
+                   field_outline: Optional[bool] = None,
+                   outline_contrast: Optional[str] = None) -> None:
         """Update the theme knobs; widgets repaint on their next paint event.
 
         ``contrast`` is the theme's level: it sets the ratio the non-text UI
@@ -96,6 +99,9 @@ class LaceStyle(QProxyStyle):
         ``field_outline`` False drops the outline of unfocused input fields
         and framed views; a focused field keeps its accent ring, and
         containers (group boxes, tab-widget panes) keep their frame.
+        ``outline_contrast`` is the level those unfocused outlines are held
+        to (``"auto"`` follows ``contrast``), so a theme can keep them faint
+        without lowering the focus ring's floor.
         """
         if control_radius is not None:
             self.control_radius = max(0, int(control_radius))
@@ -115,6 +121,11 @@ class LaceStyle(QProxyStyle):
             self.splitter_length = max(0, int(splitter_length))
         if field_outline is not None:
             self.field_outline = bool(field_outline)
+        if outline_contrast is not None:
+            if outline_contrast != "auto" and outline_contrast not in CONTRAST_LEVELS:
+                raise ValueError(f"outline_contrast must be 'auto' or one of {CONTRAST_LEVELS}, "
+                                 f"got {outline_contrast!r}")
+            self.outline_contrast = outline_contrast
 
     @property
     def ui_ratio(self) -> float:
@@ -124,7 +135,8 @@ class LaceStyle(QProxyStyle):
     @property
     def border_ratio(self) -> float:
         """Contrast floor for control outlines and frames at the current level."""
-        return CONTRAST_TARGETS["border"][self.contrast]
+        level = self.contrast if self.outline_contrast == "auto" else self.outline_contrast
+        return CONTRAST_TARGETS["border"][level]
 
     def _own_scrollbar(self) -> bool:
         return self.scrollbar != "fusion"
