@@ -116,9 +116,12 @@ def level_group() -> QGroupBox:
     return box
 
 
-def button_row() -> QVBoxLayout:
+def button_row(on_dialog=None) -> QVBoxLayout:
     """Two rows: push buttons (default, plain, checkable, disabled) and flat
-    buttons; then a tool button with a menu, a combo box and a search field."""
+    buttons; then a tool button with a menu, a combo box and a search field.
+
+    With *on_dialog*, a "Dialog…" button after the toggle calls it.
+    """
     rows = QVBoxLayout()
     row = QHBoxLayout()
     rows.addLayout(row)
@@ -130,6 +133,11 @@ def button_row() -> QVBoxLayout:
     toggle.setCheckable(True)
     toggle.setChecked(True)
     row.addWidget(toggle)
+    if on_dialog is not None:
+        dialog = QPushButton("Dialog…")
+        dialog.setToolTip("Open a custom FramelessLaceDialog")
+        dialog.clicked.connect(lambda: on_dialog())
+        row.addWidget(dialog)
     disabled = QPushButton("Disabled")
     disabled.setEnabled(False)
     row.addWidget(disabled)
@@ -270,13 +278,16 @@ def note_panel(note_text: str) -> QLabel:
     return label
 
 
-def editor_panel(editor: QWidget) -> QWidget:
-    """An editor under a toolbar row of buttons and inputs."""
+def editor_panel(editor: QWidget, on_dialog=None) -> QWidget:
+    """An editor under a toolbar row of buttons and inputs.
+
+    *on_dialog* adds a "Dialog…" button to the row (see :func:`button_row`).
+    """
     w = QWidget()
     col = QVBoxLayout(w)
     col.setContentsMargins(6, 6, 6, 6)
     col.setSpacing(6)
-    col.addLayout(button_row())
+    col.addLayout(button_row(on_dialog))
     col.addWidget(editor, 1)
     return w
 

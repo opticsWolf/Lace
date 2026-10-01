@@ -286,3 +286,43 @@ def test_set_default_frameless_false_calls_qt(qapp, monkeypatch):
     dialogs.information(None, "I", "x")
     assert isinstance(seen["host"], QMessageBox)
     assert not isinstance(seen["host"], FramelessLaceDialog)
+
+
+def test_rich_text_measured_as_rendered(qapp):
+    def check(h):
+        text = h.findChild(QLabel, "laceMessageText")
+        raw = text.fontMetrics().horizontalAdvance(text.text())
+        assert text.minimumWidth() < raw / 2
+        h.reject()
+
+    drive(check)
+    dialogs.information(None, "Rich", "<b>a</b>: 1<br><b>b</b>: 2<br><b>c</b>: 3")
+
+
+# -- the demo's custom dialog -------------------------------------------------------------
+
+def test_demo_new_layer_dialog(qapp):
+    from demos.demo_dialog import NewLayerDialog
+    dlg = NewLayerDialog()
+    assert dlg.titleBar.titleLabel.text() == "New layer"
+    assert not dlg.isResizable()
+    dlg.name_edit.setText("  Shadows ")
+    dlg.blend_group.button(2).setChecked(True)
+    QTimer.singleShot(0, dlg._create)
+    assert dlg.exec() == NewLayerDialog.DialogCode.Accepted
+    values = dlg.values()
+    assert values["name"] == "Shadows"
+    assert values["blend"] == "Screen"
+    assert values["opacity"] == 80
+    dlg.deleteLater()
+
+
+def test_demo_new_layer_dialog_needs_a_name(qapp):
+    from demos.demo_dialog import NewLayerDialog
+    dlg = NewLayerDialog()
+    dlg.name_edit.setText("   ")
+    warned = drive(lambda h: _button(h, SB.Ok).click())
+    dlg._create()
+    assert isinstance(warned["host"], FramelessLaceDialog)
+    assert dlg.result() != NewLayerDialog.DialogCode.Accepted
+    dlg.deleteLater()

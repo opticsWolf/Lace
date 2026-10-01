@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from demo_panels import (calendar_panel, controls_panel, data_panel, design_panel,  # noqa: E402
                          logger_panel, sidebar_layers_panel, sidebar_tree_panel,
                          tabs_panel, editor_panel, note_panel)
+from demo_dialog import open_new_layer_dialog  # noqa: E402
 
 # Adjust these imports if your docking framework is in a subfolder
 from lace import dialogs
@@ -236,7 +237,8 @@ class DemoMainWindow(FramelessLaceMainWindow):
         standard_widget.set_custom_icon_name("pin")
         standard_content = DebugTextEdit()
         standard_content.setPlaceholderText("I can be moved, closed, and floated.")
-        standard_widget.set_widget(editor_panel(standard_content))
+        standard_widget.set_widget(editor_panel(
+            standard_content, on_dialog=lambda: open_new_layer_dialog(self)))
         standard_widget.set_features(DockWidgetFeature.all_features)
         self.dock_manager.add_dock_widget(DockWidgetArea.center, standard_widget)
         self.standard_widget = standard_widget

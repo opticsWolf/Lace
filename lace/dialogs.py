@@ -37,8 +37,9 @@ from __future__ import annotations
 
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
+from PySide6 import QtGui
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QIcon
+from PySide6.QtGui import QColor, QIcon, QTextDocument
 from PySide6.QtWidgets import (QApplication, QColorDialog, QDialog,
                                QDialogButtonBox, QFileDialog, QHBoxLayout,
                                QInputDialog, QLabel, QLineEdit, QMessageBox,
@@ -171,6 +172,24 @@ def _message_icon(icon) -> QMessageBox.Icon:
             f"got {icon!r}") from None
 
 
+def _text_width(label: QLabel) -> int:
+    """The unwrapped width of *label*'s text as it renders.
+
+    Rich text is laid out first, so markup and ``<br>`` don't count as
+    width; plain text is measured line by line.
+    """
+    text = label.text()
+    # PySide6 exposes mightBeRichText on QtGui's Qt namespace only.
+    if QtGui.Qt.mightBeRichText(text):
+        doc = QTextDocument()
+        doc.setDefaultFont(label.font())
+        doc.setDocumentMargin(0)
+        doc.setHtml(text)
+        return int(doc.idealWidth() + 0.5)
+    lines = text.splitlines() or [""]
+    return max(label.fontMetrics().horizontalAdvance(line) for line in lines)
+
+
 def _message_body(host, text: str, icon: QMessageBox.Icon,
                   pixmap_icon: Optional[QIcon] = None) -> QLabel:
     layout = host.contentLayout()
@@ -198,9 +217,7 @@ def _message_body(host, text: str, icon: QMessageBox.Icon,
     label.setWordWrap(True)
     # A wrapping label's size hint is narrow; give it the text's own width,
     # up to a readable measure, so short messages stay on one line.
-    lines = label.text().splitlines() or [""]
-    natural = max(label.fontMetrics().horizontalAdvance(line) for line in lines)
-    label.setMinimumWidth(min(natural + 2, _MESSAGE_TEXT_WIDTH))
+    label.setMinimumWidth(min(_text_width(label) + 2, _MESSAGE_TEXT_WIDTH))
     row.addWidget(label, 1)
     layout.addLayout(row)
     return label
