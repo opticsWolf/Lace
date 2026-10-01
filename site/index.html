@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#08090f">
   <meta property="og:title" content="Lace — Docking for PySide6">
   <meta property="og:description" content="Tabbed dock areas, floating windows, auto-hide sidebars, 37 themes and themed dialogs for Qt desktop apps in Python.">
-  <meta property="og:image" content="img/themes/cyberpunk_neon.webp">
+  <meta property="og:image" content="https://opticswolf.github.io/Lace/img/themes/tokyo_night.webp">
   <meta property="og:type" content="website">
   <link rel="icon" href="img/logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66,10 +66,10 @@
         </div>
         <figure class="hero-shot" aria-label="The Lace demo application">
           <div class="shot-frame">
-            <img id="hero-img" src="img/themes/cyberpunk_neon.webp" width="1500" height="1000"
-                 alt="The Lace demo app: dock areas with tabs, a sidebar and a calendar, in the Cyberpunk Neon theme">
+            <img id="hero-img" src="img/themes/tokyo_night.webp" width="1500" height="1000"
+                 alt="The Lace demo app: dock areas with tabs, a sidebar and a calendar, in the Tokyo Night theme">
           </div>
-          <figcaption><span class="swatch" id="hero-swatch"></span><span id="hero-name">Cyberpunk Neon</span></figcaption>
+          <figcaption><span class="swatch" id="hero-swatch"></span><span id="hero-name">Tokyo Night</span></figcaption>
         </figure>
       </div>
     </section>
@@ -217,7 +217,7 @@ window.resize(1200, 800)
 
 # The dock manager becomes the window's central widget
 dock_manager = DockManager(window)
-apply_dock_theme("cyberpunk_neon")
+apply_dock_theme("tokyo_night")
 
 editor = DockWidget("Editor", window)
 editor.set_widget(QTextEdit())

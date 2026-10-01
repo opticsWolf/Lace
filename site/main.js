@@ -84,7 +84,7 @@
   const heroImg = document.getElementById("hero-img");
   const heroName = document.getElementById("hero-name");
   const heroSwatch = document.getElementById("hero-swatch");
-  const heroOrder = ["cyberpunk_neon", "tokyo_night", "light", "monokai", "nordic", "cream_neo", "dracula", "solarized_light", "mocha_neo"]
+  const heroOrder = ["tokyo_night", "light", "monokai", "nordic", "cream_neo", "dracula", "cyberpunk_neon", "solarized_light", "mocha_neo"]
     .map((k) => THEMES.find((t) => t.key === k));
   let heroIndex = 0;
   let heroTimer = null;
