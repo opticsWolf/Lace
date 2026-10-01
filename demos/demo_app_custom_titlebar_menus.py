@@ -36,7 +36,6 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMenuBar,
-    QMessageBox,
     QSizePolicy,
     QTextEdit,
     QWidget,
@@ -53,6 +52,7 @@ from lace import (
     get_icon_provider,
     theme_groups,
 )
+from lace import dialogs
 from lace.dock_styled import DockStyled
 from lace.dock_theme import DockStyleCategory
 from lace.frameless_titlebar import _color_hex
@@ -165,10 +165,10 @@ class MenuEmbeddedTitleBar(LaceStandardTitleBar, DockStyled):
     def _on_dummy(self) -> None:
         sender = self.sender()
         text = sender.text() if sender else "Action"
-        QMessageBox.information(self.window(), "Demo", f"'{text}' triggered.")
+        dialogs.information(self.window(), "Demo", f"'{text}' triggered.")
 
     def _on_about(self) -> None:
-        QMessageBox.about(
+        dialogs.about(
             self.window(),
             "About",
             "<b>Lace Custom Title Bar Demo</b><br>"

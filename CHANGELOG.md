@@ -14,6 +14,11 @@ through a cycle.
   picks the title-bar buttons (and, on Windows, whether Snap may maximize it);
   `resizable=False` fixes the size to the content. Content goes in `contentLayout()` or
   `setContentWidget()`. Sizes to its content and centres on the parent at first show.
+- `lace.dialogs`: themed drop-ins for Qt's static dialogs, returning what Qt returns.
+  `information`, `question`, `warning`, `critical`, `message` and `about` for message boxes;
+  `get_text`, `get_multi_line_text`, `get_item`, `get_int`, `get_double`; `get_color`; and
+  `get_open_file_name(s)`, `get_save_file_name`, `get_existing_directory`, which open the OS
+  dialog unless `native=False`. `set_default_frameless(False)` routes every helper to Qt.
 - `FramelessTitleBarStyler.dispose()`: unregisters the styler from the style manager. It runs
   when the styler's parent is destroyed, so closed dialogs and floats no longer leave a
   subscriber behind.
@@ -24,6 +29,7 @@ through a cycle.
   constructor step (`_init_lace_chrome`). A failed default title-bar swap on the main window is
   now logged at debug level instead of raising, as on the floating window.
 - `FramelessLaceMainWindow._register_titlebar_theme()` called twice disposes the first styler.
+- Theme Studio's colour picker and the demos' message boxes and file dialogs use `lace.dialogs`.
 
 ## [0.8.5] — 2026-10-01
 

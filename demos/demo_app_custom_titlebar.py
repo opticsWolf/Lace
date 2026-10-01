@@ -11,7 +11,7 @@ import sys
 import logging
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QAction, QActionGroup, QIcon
-from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit, QLabel, QStyle, QMenu, QFileDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit, QLabel, QStyle, QMenu
 
 from pathlib import Path
 
@@ -23,6 +23,7 @@ from demo_panels import (calendar_panel, controls_panel, data_panel, design_pane
                          tabs_panel, editor_panel, note_panel)
 
 # Adjust these imports if your docking framework is in a subfolder
+from lace import dialogs
 from lace import (
     LaceStyle,
     DockManager, DockWidget, DockWidgetArea,
@@ -433,7 +434,7 @@ class DemoMainWindow(FramelessLaceMainWindow):
                 custom_act.setChecked(True)
 
             def on_custom_selected(checked=False):
-                path, _ = QFileDialog.getOpenFileName(
+                path, _ = dialogs.get_open_file_name(
                     self, f"Select QSS File for {'Dark' if is_dark_target else 'Light'} Theme",
                     "", "Stylesheet Files (*.qss *.css);;All Files (*)"
                 )

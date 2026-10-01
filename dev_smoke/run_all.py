@@ -63,6 +63,7 @@ CHECKS = [
     "smoke_insertion_order.py",  # InsertionOrder placement of newly added widgets
     "smoke_lace_style.py",  # LaceStyle: demo + showcase per theme, live tokens, no Qt warnings
     "smoke_corner_clip.py",  # corner_clip cap / inset / none on the demo: margins, caps, no masks
+    "smoke_dialogs.py",     # lace.dialogs per theme: frameless host, title-bar colour, cancel value
 ]
 
 # Checks that cannot run headless, with the reason. Everything else in this

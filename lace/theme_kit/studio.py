@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
+from lace import dialogs
 from lace.dock_theme import ThemeSpec, build_theme
 from lace.theme_contrast import CONTRAST_LEVELS, DEPTH_LEVELS
 from lace.theme_kit import export
@@ -217,8 +218,8 @@ class _SeedRow(QWidget):
 
     def _pick(self) -> None:
         start = QColor(*to_rgba(self.model.seeds[self.name] or self.model.palette().text))
-        c = QColorDialog.getColor(start, self, self.name,
-                                  QColorDialog.ColorDialogOption.ShowAlphaChannel)
+        c = dialogs.get_color(start, self, self.name,
+                              QColorDialog.ColorDialogOption.ShowAlphaChannel)
         if c.isValid():
             self.model.set_seed(self.name, [c.red(), c.green(), c.blue(), c.alpha()])
 
