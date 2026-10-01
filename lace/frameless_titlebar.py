@@ -23,6 +23,7 @@ optional ``QMenuBar``.  It handles the quirks of the frameless library:
 
 from __future__ import annotations
 
+import weakref
 from typing import List, Optional
 
 from PySide6.QtCore import QTimer, Qt
@@ -31,6 +32,12 @@ from PySide6.QtWidgets import QMenuBar, QWidget
 
 from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 from lace.title_bar_colors import title_bar_colors
+
+
+def _dispose_ref(ref: "weakref.ref[FramelessTitleBarStyler]") -> None:
+    styler = ref()
+    if styler is not None:
+        styler.dispose()
 
 
 def _color_hex(col, alpha: Optional[float] = None) -> str:
@@ -87,15 +94,45 @@ class FramelessTitleBarStyler:
         # can re-apply state that styling would otherwise clobber (e.g. a
         # floating container's disabled close-button colour).
         self._after_refresh = None
+        self._disposed = False
 
         # Register with DockStyleManager and apply initial style.
         for category in self._STYLE_CATEGORIES:
             self._style_mgr.register(self, category)
+        # The manager holds subscribers weakly, but the owner's Python
+        # wrapper (and with it this styler) can outlive the C++ window, so
+        # stop listening as soon as the parent is destroyed. The slot holds
+        # only a weak reference; it must not keep the styler alive.
+        if parent is not None:
+            ref = weakref.ref(self)
+            parent.destroyed.connect(lambda *_: _dispose_ref(ref))
         self.refresh_style()
+
+    def dispose(self) -> None:
+        """Unregister from the style manager and drop the widget references.
+
+        Called automatically when *parent* is destroyed; call it yourself
+        when retiring a styler whose parent lives on. Idempotent.
+        """
+        if self._disposed:
+            return
+        self._disposed = True
+        self._style_mgr.unregister(self)
+        self._title_bar = None
+        self._menu_bars = []
+        self._after_refresh = None
+        self._parent = None
+
+    @property
+    def disposed(self) -> bool:
+        """True once :meth:`dispose` has run."""
+        return self._disposed
 
     def on_style_changed(self, category: DockStyleCategory, changes: dict) -> None:
         """Debounce refreshes so several categories changing in one frame
         rebuild the styler only once."""
+        if self._disposed:
+            return
         if not self._refresh_queued:
             self._refresh_queued = True
             QTimer.singleShot(0, self._do_refresh)
@@ -156,6 +193,8 @@ class FramelessTitleBarStyler:
 
     def refresh_style(self) -> None:
         """Apply current dock theme colours to the title bar and menu bar."""
+        if self._disposed or self._title_bar is None:
+            return
         sm = self._style_mgr
 
         # -- Title bar tokens --

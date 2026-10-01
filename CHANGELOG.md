@@ -5,6 +5,26 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Added
+
+- `lace.frameless_dialog.FramelessLaceDialog`: a frameless `QDialog` with the main window's
+  themed title bar, following theme switches live. `buttons="close"` / `"min_close"` / `"all"`
+  picks the title-bar buttons (and, on Windows, whether Snap may maximize it);
+  `resizable=False` fixes the size to the content. Content goes in `contentLayout()` or
+  `setContentWidget()`. Sizes to its content and centres on the parent at first show.
+- `FramelessTitleBarStyler.dispose()`: unregisters the styler from the style manager. It runs
+  when the styler's parent is destroyed, so closed dialogs and floats no longer leave a
+  subscriber behind.
+
+### Changed
+
+- `FramelessLaceMainWindow`, `FramelessLaceWindow` and `FramelessLaceDialog` share one
+  constructor step (`_init_lace_chrome`). A failed default title-bar swap on the main window is
+  now logged at debug level instead of raising, as on the floating window.
+- `FramelessLaceMainWindow._register_titlebar_theme()` called twice disposes the first styler.
+
 ## [0.8.5] — 2026-10-01
 
 ### Added

@@ -1,7 +1,8 @@
 # Dialog title bars: plan
 
-**Status:** D1 built on `dev_dialog` (`lace/title_bar_colors.py`, `lace/native_frame.py`,
-`tests/test_native_frame.py`); D2–D4 open
+**Status:** D1 released in 0.8.5 (`lace/title_bar_colors.py`, `lace/native_frame.py`,
+`tests/test_native_frame.py`); D2 built on `dev_dialog` (`lace/frameless_dialog.py`,
+`tests/test_frameless_dialog.py`); D3–D4 open
 **Target:** 0.8.x / 0.9
 **Scope:** make every window an app shows (dialogs, message boxes, tool windows, Theme Studio)
 match the themed custom title bar of `FramelessLaceMainWindow`.

@@ -180,6 +180,28 @@ class _FramelessChromeHealMixin:
     _frameless_heal_queued: bool = False
     _last_healed_winid: int = 0
 
+    def _init_lace_chrome(self, title_bar: TitleBarDescriptor) -> None:
+        """Constructor step shared by the Lace frameless windows.
+
+        Opts the process into dark native menus, installs the title bar
+        (``None`` upgrades the base default to :class:`LaceStandardTitleBar`:
+        single maximize path, interactive-child ``canDrag`` veto, theme
+        paint; a descriptor resolves via :func:`_resolve_title_bar`) and
+        resets the heal state. Call it right after the frameless base's
+        ``__init__``, once the subclass's own ``setTitleBar`` state exists.
+        """
+        # Let native Win32 popup menus follow the system light/dark theme.
+        _enable_system_dark_mode_menus()
+        if title_bar is not None:
+            self.setTitleBar(_resolve_title_bar(title_bar, self))  # type: ignore[attr-defined]
+        elif not isinstance(getattr(self, "titleBar", None), LaceStandardTitleBar):
+            try:
+                self.setTitleBar(LaceStandardTitleBar(self))  # type: ignore[attr-defined, arg-type]
+            except (RuntimeError, TypeError):
+                logger.debug("default Lace title-bar swap failed", exc_info=True)
+        self._frameless_heal_queued = False
+        self._last_healed_winid = 0
+
     def _schedule_frameless_heal(self) -> None:
         try:
             if getattr(self, "_frameless_heal_queued", False):
@@ -507,24 +529,15 @@ class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
         title_bar: TitleBarDescriptor = None,
     ):
         super().__init__(parent)
-        # Let native Win32 popup menus follow the system light/dark theme.
-        _enable_system_dark_mode_menus()
         self._menu_bar: Optional[QMenuBar] = None
         self._menu_bar_container: Optional[QWidget] = None
         self._titlebar_styler: Optional["FramelessTitleBarStyler"] = None
         # Resolve the title bar before integrating it into the main-window
-        # layout. ``None`` upgrades the base default to LaceStandardTitleBar
-        # (single maximize path, interactive-child canDrag veto, theme
-        # paint); a descriptor resolves via _resolve_title_bar.
-        if title_bar is not None:
-            self.setTitleBar(_resolve_title_bar(title_bar, self))
-        elif not isinstance(self.titleBar, LaceStandardTitleBar):
-            self.setTitleBar(LaceStandardTitleBar(self))
+        # layout.
+        self._init_lace_chrome(title_bar)
         # Integrate title bar into QMainWindow layout so the central
         # widget is positioned below it.
         self.setMenuWidget(self.titleBar)
-        self._frameless_heal_queued = False
-        self._last_healed_winid = 0
 
     def event(self, e: QEvent) -> bool:
         # A GL child (WebEngine first setHtml, QOpenGLWidget, …) recreates
@@ -635,6 +648,9 @@ class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
         except ImportError:
             return
 
+        # A second call replaces the styler; the old one must stop listening.
+        if self._titlebar_styler is not None:
+            self._titlebar_styler.dispose()
         self._titlebar_styler = FramelessTitleBarStyler(
             title_bar=self.titleBar,
             menu_bar=self._menu_bar,
@@ -669,17 +685,7 @@ class FramelessLaceWindow(_FramelessChromeHealMixin, FramelessWindow):
         title_bar: TitleBarDescriptor = None,
     ):
         super().__init__(parent)
-        # Let native Win32 popup menus follow the system light/dark theme.
-        _enable_system_dark_mode_menus()
-        if title_bar is not None:
-            self.setTitleBar(_resolve_title_bar(title_bar, self))
-        elif not isinstance(getattr(self, "titleBar", None), LaceStandardTitleBar):
-            try:
-                self.setTitleBar(LaceStandardTitleBar(self))
-            except (RuntimeError, TypeError):
-                logger.debug("default Lace title-bar swap failed", exc_info=True)
-        self._frameless_heal_queued = False
-        self._last_healed_winid = 0
+        self._init_lace_chrome(title_bar)
 
     def event(self, e: QEvent) -> bool:
         # Same auto-heal as the main window. FramelessFloatingDockContainer
