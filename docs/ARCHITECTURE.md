@@ -25,7 +25,7 @@ Lace provides a complete docking system supporting:
 
 ```
 DockManager (facade)
-├── DockContainerWidget (root + floating)
+├── DockContainerWidget (root)
 │   ├── DockSplitter (nested, orientation-aware)
 │   │   └── DockSplitterHandle (themed resize handles)
 │   └── DockAreaWidget (×N)
@@ -50,8 +50,12 @@ DockManager (facade)
 │   ├── LayoutEngine (dict → UI)
 │   └── LayoutPersistenceManager (atomic file I/O)
 ├── DockStyleManager (singleton, event-driven theme system)
-├── DockThemeBridge (QPalette push to Qt children; installs LaceStyle)
-│   └── LaceStyle (QProxyStyle over Fusion; painters in lace/style/)
+├── DockThemeBridge ×2 (QPalette push: dock tree + application; a style only with app_style)
+├── LaceStyle (QProxyStyle over Fusion; painters in lace/style/)
+├── NativeFrameTheme (OS title bars of native-framed windows; installed once per app)
+├── FramelessLaceMainWindow / FramelessLaceDialog / lace.dialogs
+│   └── FramelessTitleBarStyler (themes the custom title bar)
+├── DockMenuBarStyler (plain QMainWindow menu bars)
 ├── color_science + theme_contrast (OKLCH derivation, contrast floors)
 ├── DockOverlay (×2: container + dock-area drop targets)
 ├── DockSignals (internal event bus)
@@ -83,7 +87,7 @@ The central orchestrator. All public API flows through this class.
 | **Delegated (root)** | `root_container()`, `add_dock_area()`, `remove_dock_area()`, `dock_area(i)`, `dock_area_count()`, `opened_dock_areas()`, `dock_area_at(pos)`, `is_floating()`, `top_level_dock_area()`, `top_level_dock_widget()`, `dock_widgets()`, `features()`, `floating_widget()`, `close_other_areas(area)`, `refresh_style()`, `dump_layout()`, `root_splitter()`, `drop_floating_widget(fw, pos)` |
 | **Internal** | `_handle_request_overlay_show()`, `_handle_request_overlay_hide()`, `_handle_floating_widget_dropped()`, `_on_app_focus_changed()`, `set_active_dock_area(area)`, `ensure_active_dock_area()` |
 
-**Key private state:** `_floating_widgets`, `_containers`, `_dock_widgets_map`, `_perspectives`, `_config_flags`, `_root` (DockContainerWidget), `_serializer`, `_persistence`, `sidebar_manager`, `_theme_bridge`, `_view_menu`, `_dock_area_overlay`, `_container_overlay`, `signals` (DockSignals).
+**Key private state:** `_floating_widgets`, `_containers`, `_dock_widgets_map`, `_perspectives`, `_config_flags`, `_root` (DockContainerWidget), `_serializer`, `_persistence`, `sidebar_manager`, `_theme_bridge`, `_app_theme_bridge`, `_view_menu`, `_dock_area_overlay`, `_container_overlay`, `signals` (DockSignals).
 
 ---
 
@@ -1120,6 +1124,14 @@ Theme-aware SVG icon provider. Preloads SVGs from a filesystem path or `importli
 | `_COLOR_PATTERN` | `re.compile(r'(fill|stroke)="(?!none\b)([^\"]*)"')` |
 
 **Minimize key remap:** `"minimize"` SVG name is internally remapped to `"restore"` (the actual SVG filename).
+
+### 7.3 `dock_menu_bar.py` — `DockMenuBarStyler`
+
+Keeps a plain `QMainWindow` menu bar matching the dock chrome. Fusion draws a 1px shadow row under
+`QMenuBar`, and removing it takes a stylesheet (`QMenuBar { border: none; }`), which makes Qt ignore
+the palette's `Window` role. So the styler pins the background to the sidebar colour and reapplies it
+on every SIDEBAR/CORE theme change; hovered and pressed items keep the theme accent.
+`DockMenuBarStyler(menu_bar, parent=None)`, exported from `lace`.
 
 ---
 

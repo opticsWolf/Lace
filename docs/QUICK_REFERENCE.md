@@ -13,18 +13,17 @@
 ```python
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow
-from lace import DockManager, apply_dock_theme
+from lace import DockManager, LaceStyle, apply_dock_theme
 
 app = QApplication(sys.argv)
-app.setStyle("Fusion")
+app.setStyle(LaceStyle())
 
 window = QMainWindow()
 window.setWindowTitle("My App")
 window.resize(1200, 800)
 
-# 1. Create the dock manager and set it as the central widget
+# 1. Create the dock manager; on a QMainWindow it becomes the central widget
 dock_manager = DockManager(window)
-window.setCentralWidget(dock_manager._root)
 
 # 2. Apply a theme
 apply_dock_theme("cyberpunk_neon")
@@ -40,7 +39,6 @@ from lace import DockManager, ThemeManager, apply_dock_theme
 
 # ... after creating window ...
 dock_manager = DockManager(window)
-window.setCentralWidget(dock_manager._root)
 
 # DockManager installs both palette bridges itself (dock tree + app-wide
 # for top-level QMenus) — no manual DockThemeBridge() needed. They set the
@@ -617,7 +615,6 @@ class MainWindow(FramelessLaceMainWindow):
         super().__init__(title_bar=MyCustomTitleBar)  # class, instance, or callable
         self.dock_manager = DockManager(self)
         self.dock_manager.title_bar_mode = TitleBarMode.custom
-        self.setCentralWidget(self.dock_manager._root)
 ```
 
 `FramelessLaceWindow` (the frameless floating-container base) accepts the
@@ -651,7 +648,6 @@ class MainWindow(FramelessLaceMainWindow):
         self.dock_manager.title_bar_mode = TitleBarMode.custom
         # Every floating dock container gets a different title bar.
         self.dock_manager.floating_title_bar = SearchTitleBar
-        self.setCentralWidget(self.dock_manager._root)
 ```
 
 - `DockManager.main_title_bar` — descriptor for the main window: pass it as

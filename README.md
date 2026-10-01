@@ -26,7 +26,7 @@
 
 ## Features
 
-### 🪑 Docking & Layout
+### ⚓ Docking & Layout
 
 - **Multi-area docking** — Dock widgets to left, right, top, bottom, or center regions within a window
 - **Tabbed dock areas** — Multiple widgets share a single dock area as tabs, with full tab management (reorder, close, float)
@@ -102,18 +102,18 @@ cd lace
 ```python
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit
-from lace import DockManager, DockWidget, DockWidgetArea, apply_dock_theme
+from lace import (DockManager, DockWidget, DockWidgetArea, DockWidgetFeature,
+                  LaceStyle, apply_dock_theme)
 
 app = QApplication(sys.argv)
-app.setStyle("Fusion")
+app.setStyle(LaceStyle())
 
 window = QMainWindow()
 window.setWindowTitle("My App")
 window.resize(1200, 800)
 
-# Create the dock manager
+# Create the dock manager (it becomes the window's central widget)
 dock_manager = DockManager(window)
-window.setCentralWidget(dock_manager._root)
 
 # Apply a theme
 apply_dock_theme("cyberpunk_neon")
@@ -141,12 +141,16 @@ The demo includes:
 - Sidebar setup with notification badges
 - Theme switching menu, grouped into Basics / Editor Classics / Neon / Edge Treatments submenus via `theme_groups()`
 - Global flags menu for live configuration toggling
+- Insertion order control
+- Sidebar focus mode and badge position controls
+- Preset configurations (Default, Minimal, Full)
+- A "Dialog…" button opening a custom `FramelessLaceDialog`
 
 For frameless/custom-title-bar examples, see:
 
 ```bash
-python -m demos.demo_app_custom_titlebar.py          # standard custom title bar
-python -m demos.demo_app_custom_titlebar_menus.py      # menu-embedded main title bar + search bar for floats
+python -m demos.demo_app_custom_titlebar          # standard custom title bar
+python -m demos.demo_app_custom_titlebar_menus    # menu-embedded main title bar + search bar for floats
 ```
 
 The second demo shows **configurable custom title bars**: the main window
@@ -181,9 +185,6 @@ colours only; pass `DockManager(window, app_style="lace")` (or `"Fusion"`, …) 
 have it install the application's style too. See
 [Quick Reference — Frameless Windows & the Custom Title Bar](docs/QUICK_REFERENCE.md#frameless-windows--the-custom-title-bar)
 for the full API.
-- Insertion order control
-- Sidebar focus mode and badge position controls
-- Preset configurations (Default, Minimal, Full)
 
 ---
 
@@ -204,19 +205,28 @@ Lace is built around a clean, modular architecture:
 
 ```
 DockManager (facade)
-├── DockContainerWidget (root + floating windows)
+├── DockContainerWidget (root container)
 │   ├── DockSplitter (nested, orientation-aware)
 │   └── DockAreaWidget (tabbed regions)
 │       ├── DockAreaTitleBar
 │       │   └── DockAreaTabBar → DockWidgetTab (×N)
 │       └── DockWidget → user content (QTextEdit, QWidget, etc.)
+├── FloatingDockContainer (×N, native or frameless; each holds a DockContainerWidget)
+├── DockOverlay (drop targets: dock area + container)
+├── DockSignals (internal event bus)
 ├── SidebarManager (auto-hide panels)
 │   ├── SideTabBar → VerticalTabButton (×N)
 │   └── SideBarContainer (overlay panel)
-├── LayoutSerializer (JSON persistence)
-├── DockStyleManager (theme engine)
-├── DockThemeBridge (QPalette → Qt children)
-└── ThemeManager (OS-aware auto light/dark)
+├── LayoutSerializer + LayoutPersistenceManager (JSON layouts, perspectives)
+└── DockThemeBridge ×2 (QPalette → dock tree, and → application)
+
+Application-wide
+├── DockStyleManager (theme engine, singleton; notifies subscribers)
+├── ThemeManager (OS-aware auto light/dark)
+├── LaceStyle (QStyle drawing the basic widgets)
+├── NativeFrameTheme (OS title bars of dialogs; DockManager installs it)
+└── Frameless chrome: FramelessLaceMainWindow, FramelessLaceDialog
+    and the lace.dialogs helpers (themed title bar via FramelessTitleBarStyler)
 ```
 
 See the [Architecture Documentation](docs/ARCHITECTURE.md) for a complete module-by-module reference with class hierarchies, signals, and method tables.
@@ -242,47 +252,66 @@ lace/
 │   ├── dock_manager.py            # Central orchestrator (facade)
 │   ├── dock_widget.py             # User-facing dock widget wrapper
 │   ├── dock_widget_tab.py         # Painted-chrome tab button
-│   ├── dock_container_widget.py   # Root + floating container
+│   ├── dock_container_widget.py   # Dock container (root, or inside a floating window)
 │   ├── dock_area_widget.py        # Single tabbed region
+│   ├── dock_area_layout.py        # Stacked layout behind a dock area's tabs
+│   ├── dock_area_tab_bar.py       # Scrollable tab strip of a dock area
+│   ├── dock_area_title_bar.py     # Dock area title bar (tabs + buttons)
 │   ├── dock_splitter.py           # Nested splitters + resize handles
 │   ├── floating_dock_container.py # Top-level floating window
 │   ├── floating_dock_container_frameless.py  # Frameless floating window
-│   ├── frameless_window.py       # Frameless main/window + LaceStandardTitleBar
-│   ├── frameless_titlebar.py     # Dock-theme styling for the custom title bar
+│   ├── floating_behaviour.py      # Behaviour shared by both floating containers
+│   ├── frameless_window.py        # Frameless main/window + LaceStandardTitleBar
+│   ├── frameless_titlebar.py      # Dock-theme styling for the custom title bar
+│   ├── frameless_dialog.py        # FramelessLaceDialog
+│   ├── dialogs.py                 # Themed drop-ins for Qt's static dialogs
+│   ├── native_frame.py            # Theme colours for OS title bars (dialogs, tool windows)
+│   ├── title_bar_colors.py        # One source for title-bar colours
 │   ├── dock_overlay.py            # Drop-target visual overlays
 │   ├── dock_chrome.py             # Drag detector, chrome buttons, frames
 │   ├── dock_paint.py              # Painting primitives
+│   ├── dock_menu.py               # Unified context menu system
+│   ├── dock_menu_bar.py           # Theme styling for plain QMainWindow menu bars
+│   ├── lace_style.py              # LaceStyle: a modern, flat Fusion
+│   ├── style/                     # LaceStyle's painters (buttons, inputs, popups, …)
 │   ├── dock_theme.py              # Theme schemas, ThemeSpec, color math
-│   ├── dock_custom_theme.py       # 18 built-in theme presets
+│   ├── dock_custom_theme.py       # 37 built-in theme presets
+│   ├── color_science.py           # Perceptual colour maths for theme derivation
+│   ├── theme_contrast.py          # Contrast rules for each theme token
 │   ├── theme_models.py            # ThemeJson — Pydantic JSON theme loading
+│   ├── theme_kit/                 # Theme Studio and theme tooling (python -m lace.theme_kit)
 │   ├── dock_style_manager.py      # Singleton style manager (subscriber model)
 │   ├── dock_theme_bridge.py       # QPalette push to Qt children
+│   ├── dock_styled.py             # DockStyled mixin (auto-style registration)
 │   ├── theme_manager.py           # OS-aware auto dark/light switching
 │   ├── layout_serializer.py       # JSON save/restore, perspectives
 │   ├── dock_container_state.py    # Low-level tree state save/restore
 │   ├── dock_signals.py            # Internal event bus
-│   ├── dock_menu.py               # Unified context menu system
-│   ├── dock_styled.py             # DockStyled mixin (auto-style registration)
 │   ├── dock_icon_provider.py      # SVG icon provider with tinting
 │   ├── sidebar_manager.py         # Auto-hide sidebar controller
 │   ├── sidebar_tab.py             # Vertical tab button
 │   ├── sidebar_tab_bar.py         # Vertical tab strip
 │   ├── sidebar_container.py       # Animated overlay panel
 │   ├── sidebar_title_bar.py       # Title bar inside overlay panel
-│   ├── sidebar_state.py           # Sidebar state compatibility shim
 │   ├── eliding_label.py           # QLabel with text elision
 │   ├── enums.py                   # All enumerations and flags
 │   ├── util.py                    # Utility functions
-│   └── _trace.py                  # Optional debug tracing
-├── demos/                          # Demo applications (python -m demos.demo_app)
-│   ├── demo_app.py                  # Full-featured demo application
-│   ├── demo_app_custom_titlebar.py  # Custom title-bar demo
-│   └── demo_app_custom_titlebar_menus.py  # Menu-embedded title-bar demo
-├── dev_smoke/                     # Smoke tests for individual features
-├── tests/                         # pytest suite (theme engine, JSON themes, style manager, enums, paint, layout errors, circular-import detector)
+│   ├── _trace.py                  # Optional debug tracing
+│   └── resources/lace_icons/      # SVG icons (close, dock, float, pin, etc.)
+├── demos/                         # Demo applications (python -m demos.demo_app)
+│   ├── demo_app.py                # Full-featured demo application
+│   ├── demo_app_custom_titlebar.py        # Custom title-bar demo
+│   ├── demo_app_custom_titlebar_menus.py  # Menu-embedded title-bar demo
+│   ├── demo_panels.py             # Panel contents shared by the demos
+│   └── demo_dialog.py             # The custom "New layer" FramelessLaceDialog
+├── dev_smoke/                     # Smoke checks (run_all.py) and screenshot tools
+├── tests/                         # pytest suite
 ├── docs/                          # Documentation
-├── lace/resources/lace_icons/     # SVG icons (close, dock, float, pin, etc.)
+├── screenshots/                   # Theme screenshots used by this README
+├── CHANGELOG.md
 ├── LICENSE                        # Apache-2.0
+├── NOTICE
+├── pyproject.toml
 └── README.md                      # This file
 ```
 
