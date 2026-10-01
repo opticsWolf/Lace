@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.8.4
+**Version:** 0.8.5
 
 ---
 
@@ -571,7 +571,7 @@ basics come from a palette table after the hand-written sections of `THEME_SPECS
 
 | Group | Members | What it is |
 |---|---|---|
-| Basics | `midnight`, `dark`, `mocha`, `slate`, `caramel`, `neutral`, `cream`, `light` | The ones with no story attached — pick one when the theme is not meant to be noticed. Classic 4px chassis |
+| Basics | `midnight`, `dark`, `mocha`, `slate`, `caramel`, `neutral`, `cream`, `light` | The ones with no story attached — pick one when the theme is not meant to be noticed. Classic 4px chassis; inactive edges (unfocused area frame, field, view and container outlines) are kept faint (border at alpha 85, `outline_strength` 0.08, `outline_contrast="low"`), focus outlines full |
 | Basics Neo | `midnight_neo`, `dark_neo`, `mocha_neo`, `slate_neo`, `caramel_neo`, `neutral_neo`, `cream_neo`, `light_neo` | The same eight palettes on the 10px neo card chassis |
 | Editor Classics | `dracula`, `monokai`, `nordic`, `catppuccin`, `tokyo_night`, `solarized_dark`, `solarized_light` | Palettes people already know by sight, over Lace's stock chassis; these differ in hue and almost nothing else |
 | Neon | `cyberpunk_neon`, `neon_dusk` | Saturated accents on near-black. Dark by construction — the glow *is* the ground being dark, so neither has a light counterpart |

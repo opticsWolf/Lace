@@ -5,7 +5,7 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
-## [Unreleased]
+## [0.8.5] — 2026-10-01
 
 ### Added
 
@@ -17,11 +17,18 @@ through a cycle.
   window opts out with `setProperty("laceNativeFrame", False)`.
 - `title_bar_colors()` / `TitleBarColors`: the title-bar colours of the active theme, read by
   both the custom title bar and the native frame.
+- `outline_contrast` theme token (ThemeSpec, theme JSON, CORE, `LaceStyle.set_tokens`): the
+  contrast level unfocused outlines are held to, `"auto"` (default) following `contrast`.
+  Lets a theme keep outlines faint without lowering the focus ring's floor.
 
 ### Changed
 
 - `FloatingDockContainer._apply_dwm_dark_frame(is_dark)` is now `_apply_native_frame()`, which
   sets caption, text and border colours as well as dark mode.
+- Classic basics (`midnight` … `light`, not `*_neo`) keep their inactive outlines, faint, instead
+  of dropping them: an unfocused area's frame is the border colour at alpha 85, and fields,
+  views, buttons and containers are outlined at `outline_strength` 0.08 with
+  `outline_contrast="low"` (was `field_outline` False). Focus outlines are unchanged.
 
 ## [0.8.4] — 2026-09-30
 
