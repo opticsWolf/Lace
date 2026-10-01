@@ -3,19 +3,25 @@
   "use strict";
 
   // Canvas and accent colours straight from lace's DOCK_THEMES (CORE.canvas_bg / accent_color).
+  // Grouped as lace's theme_groups() groups them.
   const THEMES = [
-    { key: "midnight_neo",   name: "Midnight Neo",   bg: "#0b0d14", accent: "#375fe2" },
-    { key: "dark",           name: "Dark",           bg: "#121314", accent: "#0078d4" },
-    { key: "mocha_neo",      name: "Mocha Neo",      bg: "#241e1b", accent: "#c86e3c" },
-    { key: "slate",          name: "Slate",          bg: "#969ca6", accent: "#164696" },
-    { key: "caramel_neo",    name: "Caramel Neo",    bg: "#c5c2bd", accent: "#aa5900" },
-    { key: "neutral",        name: "Neutral",        bg: "#bebfc2", accent: "#0068c0" },
-    { key: "cream_neo",      name: "Cream Neo",      bg: "#f0ebe1", accent: "#b05c00" },
-    { key: "light",          name: "Light",          bg: "#eeeef1", accent: "#0066c0" },
-    { key: "catppuccin",     name: "Catppuccin",     bg: "#1e1e2e", accent: "#cba6f7" },
-    { key: "tokyo_night",    name: "Tokyo Night",    bg: "#1a1b26", accent: "#7aa2f7" },
-    { key: "violet_haze",    name: "Violet Haze",    bg: "#282a36", accent: "#bd93f9" },
-    { key: "cyberpunk_neon", name: "Cyberpunk Neon", bg: "#0e0b1c", accent: "#ff007f" },
+    { group: "Basics",          key: "midnight_neo",    name: "Midnight Neo",    bg: "#0b0d14", accent: "#375fe2" },
+    { group: "Basics",          key: "dark",            name: "Dark",            bg: "#121314", accent: "#0078d4" },
+    { group: "Basics",          key: "mocha_neo",       name: "Mocha Neo",       bg: "#241e1b", accent: "#c86e3c" },
+    { group: "Basics",          key: "slate",           name: "Slate",           bg: "#969ca6", accent: "#164696" },
+    { group: "Basics",          key: "caramel_neo",     name: "Caramel Neo",     bg: "#c5c2bd", accent: "#aa5900" },
+    { group: "Basics",          key: "neutral",         name: "Neutral",         bg: "#bebfc2", accent: "#0068c0" },
+    { group: "Basics",          key: "cream_neo",       name: "Cream Neo",       bg: "#f0ebe1", accent: "#b05c00" },
+    { group: "Basics",          key: "light",           name: "Light",           bg: "#eeeef1", accent: "#0066c0" },
+    { group: "Editor Classics", key: "dracula",         name: "Dracula",         bg: "#282a36", accent: "#bd93f9" },
+    { group: "Editor Classics", key: "monokai",         name: "Monokai",         bg: "#1c1a1d", accent: "#ffd866" },
+    { group: "Editor Classics", key: "nordic",          name: "Nordic",          bg: "#282e3a", accent: "#88c0d0" },
+    { group: "Editor Classics", key: "catppuccin",      name: "Catppuccin",      bg: "#1e1e2e", accent: "#cba6f7" },
+    { group: "Editor Classics", key: "tokyo_night",     name: "Tokyo Night",     bg: "#1a1b26", accent: "#7aa2f7" },
+    { group: "Editor Classics", key: "solarized_dark",  name: "Solarized Dark",  bg: "#002b36", accent: "#268bd2" },
+    { group: "Editor Classics", key: "solarized_light", name: "Solarized Light", bg: "#fdf6e3", accent: "#137fc6" },
+    { group: "Neon & Edge",     key: "cyberpunk_neon",  name: "Cyberpunk Neon",  bg: "#0e0b1c", accent: "#ff007f" },
+    { group: "Neon & Edge",     key: "violet_haze",     name: "Violet Haze",     bg: "#282a36", accent: "#bd93f9" },
   ];
   const src = (t) => `img/themes/${t.key}.webp`;
   const root = document.documentElement;
@@ -44,7 +50,15 @@
   // Theme picker
   const picker = document.getElementById("theme-picker");
   const stage = document.getElementById("theme-img");
+  const rows = {};
   const chips = THEMES.map((t, i) => {
+    if (!rows[t.group]) {
+      const row = document.createElement("div");
+      row.className = "picker-group";
+      row.innerHTML = `<span class="picker-label">${t.group}</span>`;
+      picker.appendChild(row);
+      rows[t.group] = row;
+    }
     const b = document.createElement("button");
     b.type = "button";
     b.className = "theme-chip";
@@ -54,7 +68,7 @@
     b.style.setProperty("--chip-accent", t.accent);
     b.innerHTML = `<span class="chip-dot" aria-hidden="true"></span>${t.name}`;
     b.addEventListener("click", () => select(i, true));
-    picker.appendChild(b);
+    rows[t.group].appendChild(b);
     return b;
   });
 
@@ -70,7 +84,7 @@
   const heroImg = document.getElementById("hero-img");
   const heroName = document.getElementById("hero-name");
   const heroSwatch = document.getElementById("hero-swatch");
-  const heroOrder = ["cyberpunk_neon", "tokyo_night", "light", "mocha_neo", "catppuccin", "cream_neo", "midnight_neo", "violet_haze"]
+  const heroOrder = ["cyberpunk_neon", "tokyo_night", "light", "monokai", "nordic", "cream_neo", "dracula", "solarized_light", "mocha_neo"]
     .map((k) => THEMES.find((t) => t.key === k));
   let heroIndex = 0;
   let heroTimer = null;

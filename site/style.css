@@ -123,11 +123,14 @@ h1 { font-size: clamp(38px, 4.4vw, 58px); font-weight: 800; margin: 22px 0 20px;
 .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; padding: 0; margin: 26px 0 0; color: var(--faint); font-size: 13.5px; }
 .meta li::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 2px; }
 
+/* Screenshots are 1500x1000 and the window in them has an 8px corner: the
+   percentages keep the clip at exactly that radius at any rendered size. */
 .shot-frame {
-  position: relative; border-radius: var(--radius); overflow: hidden;
-  border: 1px solid var(--line-strong); background: var(--surface);
+  position: relative; border-radius: 0.534% / 0.8%; overflow: hidden;
+  background: var(--surface);
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
+.shot-frame img { display: block; width: 100%; height: auto; }
 .hero-shot { margin: 0; position: relative; }
 .hero-shot .shot-frame {
   box-shadow:
@@ -195,7 +198,12 @@ h1 { font-size: clamp(38px, 4.4vw, 58px); font-weight: 800; margin: 22px 0 20px;
 
 /* Themes */
 .themes { background: linear-gradient(180deg, transparent, var(--bg-2) 30%, var(--bg-2) 70%, transparent); }
-.theme-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+.theme-picker { display: grid; gap: 10px; margin-bottom: 26px; }
+.picker-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.picker-label {
+  flex: 0 0 136px; color: var(--faint); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
 .theme-chip {
   display: inline-flex; align-items: center; gap: 9px;
   height: 38px; padding: 0 14px 0 8px; border-radius: 10px; cursor: pointer;
@@ -303,6 +311,7 @@ h1 { font-size: clamp(38px, 4.4vw, 58px); font-weight: 800; margin: 22px 0 20px;
   .section { padding: 72px 0; }
   .cards, .doc-links { grid-template-columns: 1fr; }
   .stats { width: calc(100% - 32px); }
+  .picker-label { flex-basis: 100%; margin-top: 6px; }
   .stats div { padding: 20px 18px; }
   .stats strong { font-size: 26px; }
   .install code { font-size: 13px; }
