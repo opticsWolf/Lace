@@ -9,6 +9,7 @@
 [![Tests & Publish](https://github.com/opticsWolf/Lace/actions/workflows/publish.yml/badge.svg)](https://github.com/opticsWolf/Lace/actions/workflows/publish.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Framework](https://img.shields.io/badge/framework-PySide6%20%2F%20Qt6-purple)](https://pypi.org/project/PySide6/)
+[![Website](https://img.shields.io/badge/website-opticswolf.github.io%2FLace-ff3d9a)](https://opticswolf.github.io/Lace/)
 
 ---
 
