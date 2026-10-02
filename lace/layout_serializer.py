@@ -562,10 +562,13 @@ class SidebarState:
 
 
 class SidebarStateManager:
-    """Manages persistence of sidebar states."""
-    
-    def __init__(self, save_path: str = None):
-        self._save_path = Path(save_path) if save_path else None
+    """Per-widget and per-area overlay sizes, kept in memory.
+
+    They are saved and restored with the rest of the layout:
+    SidebarManager.save_state() puts export_all() under "overlay_sizes".
+    """
+
+    def __init__(self):
         self._states: Dict[str, SidebarState] = {}
     
     def save_state(self, key, state: SidebarState):
@@ -588,24 +591,3 @@ class SidebarStateManager:
                 self._states[k] = SidebarState.from_dict(v)
             except Exception as e:
                 logger.warning(f"Failed to import sidebar state for '{k}': {e}")
-    
-    def _persist(self):
-        if not self._save_path:
-            return
-        
-        try:
-            data = {k: v.to_dict() for k, v in self._states.items()}
-            self._save_path.write_text(json.dumps(data, indent=2))
-        except Exception as e:
-            logger.error(f"Failed to save sidebar state: {e}")
-    
-    def restore(self):
-        if not self._save_path or not self._save_path.exists():
-            return
-        
-        try:
-            data = json.loads(self._save_path.read_text())
-            for k, v in data.items():
-                self._states[k] = SidebarState.from_dict(v)
-        except Exception as e:
-            logger.error(f"Failed to restore sidebar state: {e}")
