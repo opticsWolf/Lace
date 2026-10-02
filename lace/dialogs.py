@@ -440,16 +440,31 @@ def get_color(initial: QColor = QColor(Qt.GlobalColor.white),
 # -- files --------------------------------------------------------------------------
 
 def _file_dialog(parent, caption: str, directory: str, filter: str,
-                 selected_filter: str, options, setup) -> Tuple[Optional[QFileDialog], bool]:
+                 selected_filter: str, options,
+                 file_mode: QFileDialog.FileMode,
+                 accept_mode: QFileDialog.AcceptMode = QFileDialog.AcceptMode.AcceptOpen
+                 ) -> Optional[QFileDialog]:
+    """Run Qt's file dialog in a themed frame; the dialog if accepted, else None."""
     host = _host(parent, caption, resizable=True)
     inner = QFileDialog(host, caption, directory, filter)
     inner.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
     if selected_filter:
         inner.selectNameFilter(selected_filter)
-    setup(inner)
+    inner.setAcceptMode(accept_mode)
+    inner.setFileMode(file_mode)
     _embed(host, inner)
-    ok = _exec(host) == QDialog.DialogCode.Accepted
-    return inner, ok
+    return inner if _exec(host) == QDialog.DialogCode.Accepted else None
+
+
+def _one_file(parent, caption: str, directory: str, filter: str,
+              selected_filter: str, options, file_mode: QFileDialog.FileMode,
+              accept_mode: QFileDialog.AcceptMode) -> Tuple[str, str]:
+    """``(path, filter)`` of a single-file dialog, ``("", "")`` on cancel."""
+    inner = _file_dialog(parent, caption, directory, filter, selected_filter,
+                         options, file_mode, accept_mode)
+    if inner is None or not inner.selectedFiles():
+        return "", ""
+    return inner.selectedFiles()[0], inner.selectedNameFilter()
 
 
 def _use_qt_files(native: bool) -> bool:
@@ -468,16 +483,9 @@ def get_open_file_name(parent=None, caption: str = "", dir: str = "",
     if _use_qt_files(native):
         return QFileDialog.getOpenFileName(parent, caption, dir, filter,
                                            selected_filter, options)
-
-    def setup(d):
-        d.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
-        d.setFileMode(QFileDialog.FileMode.ExistingFile)
-
-    inner, ok = _file_dialog(parent, caption, dir, filter, selected_filter,
-                             options, setup)
-    if not ok or not inner.selectedFiles():
-        return "", ""
-    return inner.selectedFiles()[0], inner.selectedNameFilter()
+    return _one_file(parent, caption, dir, filter, selected_filter, options,
+                     QFileDialog.FileMode.ExistingFile,
+                     QFileDialog.AcceptMode.AcceptOpen)
 
 
 def get_open_file_names(parent=None, caption: str = "", dir: str = "",
@@ -488,14 +496,9 @@ def get_open_file_names(parent=None, caption: str = "", dir: str = "",
     if _use_qt_files(native):
         return QFileDialog.getOpenFileNames(parent, caption, dir, filter,
                                             selected_filter, options)
-
-    def setup(d):
-        d.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
-        d.setFileMode(QFileDialog.FileMode.ExistingFiles)
-
-    inner, ok = _file_dialog(parent, caption, dir, filter, selected_filter,
-                             options, setup)
-    if not ok:
+    inner = _file_dialog(parent, caption, dir, filter, selected_filter, options,
+                         QFileDialog.FileMode.ExistingFiles)
+    if inner is None:
         return [], ""
     return list(inner.selectedFiles()), inner.selectedNameFilter()
 
@@ -508,16 +511,9 @@ def get_save_file_name(parent=None, caption: str = "", dir: str = "",
     if _use_qt_files(native):
         return QFileDialog.getSaveFileName(parent, caption, dir, filter,
                                            selected_filter, options)
-
-    def setup(d):
-        d.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        d.setFileMode(QFileDialog.FileMode.AnyFile)
-
-    inner, ok = _file_dialog(parent, caption, dir, filter, selected_filter,
-                             options, setup)
-    if not ok or not inner.selectedFiles():
-        return "", ""
-    return inner.selectedFiles()[0], inner.selectedNameFilter()
+    return _one_file(parent, caption, dir, filter, selected_filter, options,
+                     QFileDialog.FileMode.AnyFile,
+                     QFileDialog.AcceptMode.AcceptSave)
 
 
 def get_existing_directory(parent=None, caption: str = "", dir: str = "",
@@ -526,12 +522,9 @@ def get_existing_directory(parent=None, caption: str = "", dir: str = "",
     """``QFileDialog.getExistingDirectory``: the path, ``""`` on cancel."""
     if _use_qt_files(native):
         return QFileDialog.getExistingDirectory(parent, caption, dir, options)
-
-    def setup(d):
-        d.setFileMode(QFileDialog.FileMode.Directory)
-
-    inner, ok = _file_dialog(parent, caption, dir, "", "", options, setup)
-    if not ok or not inner.selectedFiles():
+    inner = _file_dialog(parent, caption, dir, "", "", options,
+                         QFileDialog.FileMode.Directory)
+    if inner is None or not inner.selectedFiles():
         return ""
     return inner.selectedFiles()[0]
 

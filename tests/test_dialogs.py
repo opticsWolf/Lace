@@ -266,6 +266,30 @@ def test_file_dialog_embedded_when_not_native(qapp, tmp_path):
     assert dialogs.get_existing_directory(None, "Dir", str(tmp_path), native=False) == ""
 
 
+@pytest.mark.parametrize("call, accept_mode, file_mode", [
+    (dialogs.get_open_file_name, QFileDialog.AcceptMode.AcceptOpen,
+     QFileDialog.FileMode.ExistingFile),
+    (dialogs.get_open_file_names, QFileDialog.AcceptMode.AcceptOpen,
+     QFileDialog.FileMode.ExistingFiles),
+    (dialogs.get_save_file_name, QFileDialog.AcceptMode.AcceptSave,
+     QFileDialog.FileMode.AnyFile),
+    (dialogs.get_existing_directory, QFileDialog.AcceptMode.AcceptOpen,
+     QFileDialog.FileMode.Directory),
+])
+def test_file_dialog_modes(qapp, tmp_path, call, accept_mode, file_mode):
+    """Each helper opens Qt's dialog in the mode its Qt static counterpart uses."""
+    seen = []
+
+    def check(h):
+        inner = _inner(h, QFileDialog)
+        seen.append((inner.acceptMode(), inner.fileMode()))
+        inner.reject()
+
+    drive(check)
+    call(None, "Files", str(tmp_path), native=False)
+    assert seen == [(accept_mode, file_mode)]
+
+
 def test_native_files_call_qt_static(qapp, monkeypatch):
     calls = []
     monkeypatch.setattr(QFileDialog, "getOpenFileName",
