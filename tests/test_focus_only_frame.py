@@ -14,42 +14,26 @@ exactly the failure this is guarding against.
 
 import pytest
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_chrome import (resolve_below_title_frame_color,
                               resolve_tab_outline_color,
                               resolve_title_bar_bottom_rule)
 from lace.dock_custom_theme import THEME_SPECS
-from lace.dock_manager import DockManager
 from lace.dock_style_manager import get_dock_style_manager
-from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
-from lace.dock_widget import DockWidget
+from lace.dock_theme import ThemeSpec, build_theme
 from lace.enums import DockWidgetArea
 
 
 @pytest.fixture
-def pair(qapp):
+def pair(make_desk):
     """Two areas of two tabs each, so both focus states are on screen."""
-    win = QMainWindow()
-    win.resize(800, 600)
-    dock_manager = DockManager(win)
-
-    def mk(name):
-        dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return dock_widget
-
-    top = dock_manager.add_dock_widget(DockWidgetArea.center, mk("Alpha"))
-    dock_manager.add_dock_widget(DockWidgetArea.center, mk("Beta"), top)
-    bottom = dock_manager.add_dock_widget(DockWidgetArea.bottom, mk("Gamma"))
-    dock_manager.add_dock_widget(DockWidgetArea.center, mk("Delta"), bottom)
-    win.show()
-    qapp.processEvents()
-
-    yield dock_manager, top, bottom
-
-    win.close()
-    get_dock_style_manager().apply_theme("default")
+    desk = make_desk(800, 600)
+    top = desk.add(DockWidgetArea.center, "Alpha")
+    desk.add(DockWidgetArea.center, "Beta", top)
+    bottom = desk.add(DockWidgetArea.bottom, "Gamma")
+    desk.add(DockWidgetArea.center, "Delta", bottom)
+    desk.show()
+    return desk.manager, top, bottom
 
 
 def _spec(**overrides):

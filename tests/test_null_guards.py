@@ -8,24 +8,19 @@ nested area, and clearing a tab's icon.
 """
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow, QSplitter, QWidget
+from PySide6.QtWidgets import QLabel, QSplitter
 from PySide6.QtGui import QIcon, QPixmap
 
-from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.util import emit_top_level_event_for_widget
 
 
 @pytest.fixture
-def desk(qapp):
-    win = QMainWindow()
-    win.resize(900, 600)
-    dock_manager = DockManager(win)
-    win.show()
-    qapp.processEvents()
-    yield win, dock_manager
-    win.close()
+def desk(make_desk):
+    desk = make_desk()
+    desk.show()
+    return desk.win, desk.manager
 
 
 def _mk(name):

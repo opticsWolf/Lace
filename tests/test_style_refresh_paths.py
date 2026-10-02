@@ -9,10 +9,8 @@ the expensive one does not, and the visible result is the same either way.
 """
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_area_title_bar import DockAreaTitleBar
-from lace.dock_manager import DockManager
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 from lace.dock_widget import DockWidget
@@ -21,26 +19,13 @@ from lace.enums import DockWidgetArea
 
 
 @pytest.fixture
-def desk(qapp):
-    win = QMainWindow()
-    win.resize(900, 600)
-    dock_manager = DockManager(win)
-
-    def mk(name):
-        dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return dock_widget
-
-    area = dock_manager.add_dock_widget(DockWidgetArea.left, mk("Alpha"))
-    dock_manager.add_dock_widget(DockWidgetArea.center, mk("Beta"), area)
-    other = dock_manager.add_dock_widget(DockWidgetArea.bottom, mk("Gamma"))
-    win.show()
-    qapp.processEvents()
-
-    yield dock_manager, area, other
-
-    win.close()
-    get_dock_style_manager().apply_theme("default")
+def desk(make_desk):
+    desk = make_desk()
+    area = desk.add(DockWidgetArea.left, "Alpha")
+    desk.add(DockWidgetArea.center, "Beta", area)
+    other = desk.add(DockWidgetArea.bottom, "Gamma")
+    desk.show()
+    return desk.manager, area, other
 
 
 @pytest.fixture

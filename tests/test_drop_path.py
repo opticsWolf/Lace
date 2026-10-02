@@ -11,24 +11,19 @@
 """
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow, QMenu, QSplitter
+from PySide6.QtWidgets import QLabel, QMenu
 
 from lace.dock_container_widget import dock_area_insert_parameters
-from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.floating_dock_container import FloatingDockContainer
 
 
 @pytest.fixture
-def desk(qapp):
-    win = QMainWindow()
-    win.resize(900, 600)
-    dock_manager = DockManager(win)
-    win.show()
-    qapp.processEvents()
-    yield win, dock_manager
-    win.close()
+def desk(make_desk):
+    desk = make_desk()
+    desk.show()
+    return desk.win, desk.manager
 
 
 def _mk(name):

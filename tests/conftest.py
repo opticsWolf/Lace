@@ -5,6 +5,8 @@
 - Provides a session-scoped offscreen ``qapp`` fixture.
 - Resets the DockStyleManager singleton before every test so theme state
   never leaks between tests.
+- Provides ``make_desk``: a shown main window with a DockManager to dock
+  labelled widgets into, closed after the test.
 """
 
 import os
@@ -64,3 +66,48 @@ def _clean_style_manager():
 
     get_dock_style_manager().apply_theme("default")
     yield
+
+
+class Desk:
+    """A QMainWindow holding a DockManager, for tests that need real dock areas."""
+
+    def __init__(self, qapp, width: int, height: int):
+        from PySide6.QtWidgets import QMainWindow
+        from lace.dock_manager import DockManager
+
+        self._qapp = qapp
+        self.win = QMainWindow()
+        self.win.resize(width, height)
+        self.manager = DockManager(self.win)
+
+    def add(self, area, name: str, target=None):
+        """Dock a widget titled *name*, a QLabel inside; returns its dock area."""
+        from PySide6.QtWidgets import QLabel
+        from lace.dock_widget import DockWidget
+
+        dock_widget = DockWidget(name)
+        dock_widget.set_widget(QLabel(name))
+        return self.manager.add_dock_widget(area, dock_widget, target)
+
+    def show(self, active=None) -> None:
+        """Show the window, then make *active* the active dock area, if given."""
+        self.win.show()
+        self._qapp.processEvents()
+        if active is not None:
+            self.manager.set_active_dock_area(active)
+            self._qapp.processEvents()
+
+
+@pytest.fixture
+def make_desk(qapp):
+    """``make_desk(width=900, height=600)`` -> a :class:`Desk`; closed after the test."""
+    desks = []
+
+    def make(width: int = 900, height: int = 600) -> Desk:
+        desk = Desk(qapp, width, height)
+        desks.append(desk)
+        return desk
+
+    yield make
+    for desk in desks:
+        desk.win.close()

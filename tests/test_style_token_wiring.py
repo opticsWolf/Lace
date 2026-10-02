@@ -14,11 +14,9 @@ from dataclasses import fields
 
 import pytest
 from PySide6.QtGui import QColor, QImage
-from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_manager import DockManager
 from lace.dock_style_manager import _SCHEMA_MAP, default_theme_tokens, get_dock_style_manager
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
 from lace.sidebar_tab import VerticalTabButton
@@ -66,24 +64,12 @@ def test_old_theme_dict_with_removed_tokens_still_applies(qapp, caplog):
 
 
 @pytest.fixture
-def desk(qapp):
-    win = QMainWindow()
-    win.resize(900, 600)
-    dock_manager = DockManager(win)
-
-    def mk(name):
-        dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return dock_widget
-
-    area = dock_manager.add_dock_widget(DockWidgetArea.left, mk("Alpha"))
-    dock_manager.add_dock_widget(DockWidgetArea.center, mk("Beta"), area)
-    win.show()
-    qapp.processEvents()
-
-    yield dock_manager, area
-
-    win.close()
+def desk(make_desk):
+    desk = make_desk()
+    area = desk.add(DockWidgetArea.left, "Alpha")
+    desk.add(DockWidgetArea.center, "Beta", area)
+    desk.show()
+    return desk.manager, area
 
 
 def _tabs(area):
@@ -107,26 +93,12 @@ def test_tab_label_font_follows_italic_and_underline(qapp, desk, token, getter):
 
 
 @pytest.fixture
-def two_areas(qapp):
-    win = QMainWindow()
-    win.resize(900, 600)
-    dock_manager = DockManager(win)
-
-    def mk(name):
-        dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return dock_widget
-
-    area = dock_manager.add_dock_widget(DockWidgetArea.left, mk("Alpha"))
-    other = dock_manager.add_dock_widget(DockWidgetArea.right, mk("Beta"))
-    win.show()
-    qapp.processEvents()
-    dock_manager.set_active_dock_area(area)
-    qapp.processEvents()
-
-    yield dock_manager, area, other
-
-    win.close()
+def two_areas(make_desk):
+    desk = make_desk()
+    area = desk.add(DockWidgetArea.left, "Alpha")
+    other = desk.add(DockWidgetArea.right, "Beta")
+    desk.show(active=area)
+    return desk.manager, area, other
 
 
 def _top_pixel_over_first_tab(title_bar, qapp):
