@@ -17,6 +17,21 @@ DEMOS = ("demos.demo_app",
          "demos.demo_app_custom_titlebar_menus")
 
 
+def _demo_source(module_name):
+    """The demo's source, plus demo_common's when it builds on that.
+
+    demo_app and demo_app_custom_titlebar share their window and menus
+    through demo_common, so their menu code is there, not in their own file.
+    """
+    import importlib
+    import inspect
+
+    source = inspect.getsource(importlib.import_module(module_name))
+    if "from demo_common import" in source:
+        source += "\n" + inspect.getsource(importlib.import_module("demo_common"))
+    return source
+
+
 def test_every_theme_is_offered():
     assert {key for _, key in theme_choices()} == set(DOCK_THEMES)
 
@@ -38,12 +53,8 @@ def test_demo_runs_as_a_script(module_name):
     ever opens — which is exactly how these demos are meant to be run. Shared
     helpers therefore have to come from lace, not from the demos package.
     """
-    import importlib
-    import inspect
-
-    module = importlib.import_module(module_name)
     offenders = [
-        line for line in inspect.getsource(module).splitlines()
+        line for line in _demo_source(module_name).splitlines()
         if line.startswith(("from demos", "import demos"))
     ]
     assert not offenders, \
@@ -54,11 +65,7 @@ def test_demo_runs_as_a_script(module_name):
 @pytest.mark.parametrize("module_name", DEMOS)
 def test_demo_hardcodes_no_theme_list(module_name):
     """A literal theme key in a demo's menu code is how this went stale."""
-    import importlib
-    import inspect
-
-    module = importlib.import_module(module_name)
-    source = inspect.getsource(module)
+    source = _demo_source(module_name)
     # The initial apply_dock_theme("...") call is a deliberate starting theme,
     # not a menu; everything else naming a preset is a list going stale.
     menu_lines = [
@@ -78,10 +85,7 @@ def test_demo_builds_grouped_submenus(module_name):
     theme_choices() still exists and still works; what a demo must not do is
     iterate it straight into addAction() and call that a menu.
     """
-    import importlib
-    import inspect
-
-    source = inspect.getsource(importlib.import_module(module_name))
+    source = _demo_source(module_name)
     assert "theme_groups()" in source,         f"{module_name} builds a flat themes menu"
     assert "for name, key in theme_choices()" not in source
 
