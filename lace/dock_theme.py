@@ -10,7 +10,7 @@
 
 import colorsys
 import enum
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Optional, List, Dict, Any, Union, Tuple
 from PySide6.QtGui import QFont, QColor, QPalette
 
@@ -596,66 +596,55 @@ def explicit_tokens(spec: ThemeSpec) -> set:
 
 
 def _spec_kwargs(spec: ThemeSpec) -> Dict[str, Any]:
-    return dict(base=_as_rgba(spec.base), accent=_as_rgba(spec.accent), text=_as_rgba(spec.text),
-        is_light=spec.is_light, title_mode=spec.title_mode, hover_mode=spec.hover_mode,
-        surface=_as_rgba(spec.surface) if spec.surface is not None else None,
-        border=_as_rgba(spec.border) if spec.border is not None else None,
-        focus_border_color=_as_rgba(spec.focus_border_color) if spec.focus_border_color is not None else None,
-        success_color=_as_rgba(spec.success_color) if spec.success_color is not None else None,
-        warning_color=_as_rgba(spec.warning_color) if spec.warning_color is not None else None,
-        error_color=_as_rgba(spec.error_color) if spec.error_color is not None else None,
-        info_color=_as_rgba(spec.info_color) if spec.info_color is not None else None,
-        corner_radius=spec.corner_radius,
-        border_width=spec.border_width,
-        title_height=spec.title_height,
-        title_padding_left=spec.title_padding_left,
-        title_padding_right=spec.title_padding_right,
-        title_button_spacing=spec.title_button_spacing,
-        title_margin=spec.title_margin,
-        title_bg=_as_rgba(spec.title_bg) if spec.title_bg is not None else None,
-        title_border_width=spec.title_border_width,
-        title_border_bottom=spec.title_border_bottom,
-        title_border_color=_as_rgba(spec.title_border_color) if spec.title_border_color is not None else None,
-        title_border_focus_color=_as_rgba(spec.title_border_focus_color) if spec.title_border_focus_color is not None else None,
-        border_below_title=spec.border_below_title,
-        tab_radius=spec.tab_radius,
-        tab_margin=spec.tab_margin,
-        tab_border_width=spec.tab_border_width,
-        tab_border_color=_as_rgba(spec.tab_border_color) if spec.tab_border_color is not None else None,
-        tab_border_active_color=_as_rgba(spec.tab_border_active_color) if spec.tab_border_active_color is not None else None,
-        tab_border_unfocused_color=_as_rgba(spec.tab_border_unfocused_color) if spec.tab_border_unfocused_color is not None else None,
-        content_margin=spec.content_margin,
-        tab_dimming=spec.tab_dimming,
-        indicator_width=spec.indicator_width,
-        indicator_position=spec.indicator_position,
-        sidebar_tab_flat_edge=spec.sidebar_tab_flat_edge,
-        sidebar_tab_radius=spec.sidebar_tab_radius,
-        sidebar_tab_bg_normal=_as_rgba(spec.sidebar_tab_bg_normal) if spec.sidebar_tab_bg_normal is not None else None,
-        sidebar_tab_bg_hover_start=_as_rgba(spec.sidebar_tab_bg_hover_start) if spec.sidebar_tab_bg_hover_start is not None else None,
-        sidebar_tab_bg_hover_end=_as_rgba(spec.sidebar_tab_bg_hover_end) if spec.sidebar_tab_bg_hover_end is not None else None,
-        sidebar_tab_bg_active=_as_rgba(spec.sidebar_tab_bg_active) if spec.sidebar_tab_bg_active is not None else None,
-        sidebar_tab_border_width=spec.sidebar_tab_border_width,
-        sidebar_tab_border_color=_as_rgba(spec.sidebar_tab_border_color) if spec.sidebar_tab_border_color is not None else None,
-        sidebar_tab_border_active_color=_as_rgba(spec.sidebar_tab_border_active_color) if spec.sidebar_tab_border_active_color is not None else None,
-        sidebar_tab_border_hover_color=_as_rgba(spec.sidebar_tab_border_hover_color) if spec.sidebar_tab_border_hover_color is not None else None,
-        sidebar_tab_border_closed=spec.sidebar_tab_border_closed,
-        sidebar_indicator_width=spec.sidebar_indicator_width,
-        sidebar_indicator_position=spec.sidebar_indicator_position,
-        tooltip_bg=_as_rgba(spec.tooltip_bg) if spec.tooltip_bg is not None else None,
-        tooltip_text=_as_rgba(spec.tooltip_text) if spec.tooltip_text is not None else None,
-        contrast=spec.contrast,
-        depth=spec.depth,
-        selection=spec.selection,
-        scrollbar=spec.scrollbar,
-        corner_clip=spec.corner_clip,
-        control_radius=spec.control_radius,
-        focus_width=spec.focus_width,
-        outline_strength=spec.outline_strength,
-        field_outline=spec.field_outline,
-        outline_contrast=spec.outline_contrast,
-        keep_tint=spec.keep_tint,
-        splitter_length=spec.splitter_length,
-    )
+    # ThemeSpec's fields are _build_theme's parameters, one for one;
+    # _build_theme turns every colour (QColor or list) into its own list.
+    return {f.name: getattr(spec, f.name) for f in fields(spec)}
+
+
+#: Optional ThemeSpec fields and the tokens each one sets when given
+#: (tab_dimming is a bool, so it is always given). Applied in this order,
+#: which is also the order the keys land in within each category.
+_TOKEN_OVERRIDES: Tuple[Tuple[str, Tuple[Tuple[DockStyleCategory, str], ...]], ...] = (
+    ("corner_radius", ((DockStyleCategory.CORE, "corner_radius"), (DockStyleCategory.SIDEPANEL, "corner_radius"))),
+    ("border_width", ((DockStyleCategory.CORE, "border_width"), (DockStyleCategory.SIDEPANEL, "border_width"))),
+    ("title_height", ((DockStyleCategory.TITLE_BAR, "height"),)),
+    ("title_padding_left", ((DockStyleCategory.TITLE_BAR, "padding_left"),)),
+    ("title_padding_right", ((DockStyleCategory.TITLE_BAR, "padding_right"),)),
+    ("title_button_spacing", ((DockStyleCategory.TITLE_BAR, "button_spacing"),)),
+    ("title_margin", ((DockStyleCategory.TITLE_BAR, "margin"),)),
+    ("title_border_width", ((DockStyleCategory.TITLE_BAR, "border_width"),)),
+    ("title_border_bottom", ((DockStyleCategory.TITLE_BAR, "border_bottom"),)),
+    ("title_border_color", ((DockStyleCategory.TITLE_BAR, "border_color"),)),
+    ("title_border_focus_color", ((DockStyleCategory.TITLE_BAR, "focus_border_color"),)),
+    ("tab_radius", ((DockStyleCategory.TAB, "corner_radius"),)),
+    ("tab_margin", ((DockStyleCategory.TAB, "margin"),)),
+    ("border_below_title", ((DockStyleCategory.CORE, "border_below_title"),)),
+    ("tab_border_width", ((DockStyleCategory.TAB, "border_width"),)),
+    ("tab_border_color", ((DockStyleCategory.TAB, "border_normal_color"),)),
+    ("tab_border_active_color", ((DockStyleCategory.TAB, "border_active_color"),)),
+    ("tab_border_unfocused_color", ((DockStyleCategory.TAB, "border_unfocused_color"),)),
+    ("content_margin", ((DockStyleCategory.PANEL, "content_margin"),)),
+    ("tab_dimming", ((DockStyleCategory.TAB, "tab_dimming"),)),
+    ("indicator_width", ((DockStyleCategory.TAB, "indicator_width"),)),
+    ("indicator_position", ((DockStyleCategory.TAB, "indicator_position"),)),
+    # Sidebar tabs. The radius is deliberately *not* defaulted: left unset
+    # the token stays None, which the tab resolves against TAB.corner_radius
+    # at paint time, so the two kinds of tab keep the same roundness even
+    # when a theme changes only tab_radius.
+    ("sidebar_tab_flat_edge", ((DockStyleCategory.SIDEBAR, "tab_flat_edge"),)),
+    ("sidebar_tab_radius", ((DockStyleCategory.SIDEBAR, "tab_corner_radius"),)),
+    ("sidebar_tab_bg_normal", ((DockStyleCategory.SIDEBAR, "tab_bg_normal"),)),
+    ("sidebar_tab_bg_hover_start", ((DockStyleCategory.SIDEBAR, "tab_bg_hover_start"),)),
+    ("sidebar_tab_bg_hover_end", ((DockStyleCategory.SIDEBAR, "tab_bg_hover_end"),)),
+    ("sidebar_tab_bg_active", ((DockStyleCategory.SIDEBAR, "tab_bg_active"),)),
+    ("sidebar_tab_border_width", ((DockStyleCategory.SIDEBAR, "tab_border_width"),)),
+    ("sidebar_tab_border_color", ((DockStyleCategory.SIDEBAR, "tab_border_normal_color"),)),
+    ("sidebar_tab_border_active_color", ((DockStyleCategory.SIDEBAR, "tab_border_active_color"),)),
+    ("sidebar_tab_border_hover_color", ((DockStyleCategory.SIDEBAR, "tab_border_hover_color"),)),
+    ("sidebar_tab_border_closed", ((DockStyleCategory.SIDEBAR, "tab_border_closed"),)),
+    ("sidebar_indicator_width", ((DockStyleCategory.SIDEBAR, "indicator_width"),)),
+    ("sidebar_indicator_position", ((DockStyleCategory.SIDEBAR, "indicator_position"),)),
+)
 
 
 def _build_theme(
@@ -778,6 +767,9 @@ def _build_theme(
         sidebar_tab_border_color, sidebar_tab_border_active_color,
         sidebar_tab_border_hover_color,
     ) if c is not None)
+
+    # The parameters as given (colours already copied), for _TOKEN_OVERRIDES.
+    given = dict(locals())
 
     # Unset, light or dark follows the base colour's perceptual lightness.
     if is_light is None:
@@ -904,83 +896,11 @@ def _build_theme(
         field_outline=field_outline, outline_contrast=outline_contrast,
         splitter_length=splitter_length, corner_clip=corner_clip)
 
-    if corner_radius is not None:
-        theme[DockStyleCategory.CORE]["corner_radius"] = corner_radius
-        theme[DockStyleCategory.SIDEPANEL]["corner_radius"] = corner_radius
-    if border_width is not None:
-        theme[DockStyleCategory.CORE]["border_width"] = border_width
-        theme[DockStyleCategory.SIDEPANEL]["border_width"] = border_width
-    if title_height is not None:
-        theme[DockStyleCategory.TITLE_BAR]["height"] = title_height
-    if title_padding_left is not None:
-        theme[DockStyleCategory.TITLE_BAR]["padding_left"] = title_padding_left
-    if title_padding_right is not None:
-        theme[DockStyleCategory.TITLE_BAR]["padding_right"] = title_padding_right
-    if title_button_spacing is not None:
-        theme[DockStyleCategory.TITLE_BAR]["button_spacing"] = title_button_spacing
-    if title_margin is not None:
-        theme[DockStyleCategory.TITLE_BAR]["margin"] = title_margin
-    if title_border_width is not None:
-        theme[DockStyleCategory.TITLE_BAR]["border_width"] = title_border_width
-    if title_border_bottom is not None:
-        theme[DockStyleCategory.TITLE_BAR]["border_bottom"] = title_border_bottom
-    if title_border_color is not None:
-        theme[DockStyleCategory.TITLE_BAR]["border_color"] = title_border_color
-    if title_border_focus_color is not None:
-        theme[DockStyleCategory.TITLE_BAR]["focus_border_color"] = title_border_focus_color
-    if tab_radius is not None:
-        theme[DockStyleCategory.TAB]["corner_radius"] = tab_radius
-    if tab_margin is not None:
-        theme[DockStyleCategory.TAB]["margin"] = tab_margin
-    if border_below_title is not None:
-        theme[DockStyleCategory.CORE]["border_below_title"] = border_below_title
-    if tab_border_width is not None:
-        theme[DockStyleCategory.TAB]["border_width"] = tab_border_width
-    if tab_border_color is not None:
-        theme[DockStyleCategory.TAB]["border_normal_color"] = tab_border_color
-    if tab_border_active_color is not None:
-        theme[DockStyleCategory.TAB]["border_active_color"] = tab_border_active_color
-    if tab_border_unfocused_color is not None:
-        theme[DockStyleCategory.TAB]["border_unfocused_color"] = tab_border_unfocused_color
-    if content_margin is not None:
-        theme[DockStyleCategory.PANEL]["content_margin"] = content_margin
-
-    theme[DockStyleCategory.TAB]["tab_dimming"] = tab_dimming
-    if indicator_width is not None:
-        theme[DockStyleCategory.TAB]["indicator_width"] = indicator_width
-    if indicator_position is not None:
-        theme[DockStyleCategory.TAB]["indicator_position"] = indicator_position
-
-    # Sidebar tabs. The radius is deliberately *not* defaulted here: left
-    # unset the token stays None, which the tab resolves against
-    # TAB.corner_radius at paint time, so the two kinds of tab keep the same
-    # roundness even when a theme changes only tab_radius.
-    if sidebar_tab_flat_edge is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_flat_edge"] = sidebar_tab_flat_edge
-    if sidebar_tab_radius is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_corner_radius"] = sidebar_tab_radius
-    if sidebar_tab_bg_normal is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_bg_normal"] = sidebar_tab_bg_normal
-    if sidebar_tab_bg_hover_start is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_bg_hover_start"] = sidebar_tab_bg_hover_start
-    if sidebar_tab_bg_hover_end is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_bg_hover_end"] = sidebar_tab_bg_hover_end
-    if sidebar_tab_bg_active is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_bg_active"] = sidebar_tab_bg_active
-    if sidebar_tab_border_width is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_border_width"] = sidebar_tab_border_width
-    if sidebar_tab_border_color is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_border_normal_color"] = sidebar_tab_border_color
-    if sidebar_tab_border_active_color is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_border_active_color"] = sidebar_tab_border_active_color
-    if sidebar_tab_border_hover_color is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_border_hover_color"] = sidebar_tab_border_hover_color
-    if sidebar_tab_border_closed is not None:
-        theme[DockStyleCategory.SIDEBAR]["tab_border_closed"] = sidebar_tab_border_closed
-    if sidebar_indicator_width is not None:
-        theme[DockStyleCategory.SIDEBAR]["indicator_width"] = sidebar_indicator_width
-    if sidebar_indicator_position is not None:
-        theme[DockStyleCategory.SIDEBAR]["indicator_position"] = sidebar_indicator_position
+    for param, targets in _TOKEN_OVERRIDES:
+        value = given[param]
+        if value is not None:
+            for category, key in targets:
+                theme[category][key] = value
 
     theme[DockStyleCategory.PANEL]["highlight"] = _highlight
     theme[DockStyleCategory.PANEL]["highlighted_text"] = list(_highlighted_text)
