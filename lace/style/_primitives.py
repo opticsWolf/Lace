@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QPushButton, QMenu, QStyle, QToolButton,
 )
 
-from lace.style import _rounded_area
 from lace.style import _paint as P
 
 PE = QStyle.PrimitiveElement
