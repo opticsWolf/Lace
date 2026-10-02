@@ -300,11 +300,12 @@ def test_field_outline_off_keeps_container_frames(lace_app):
 
 
 def test_nested_scroll_area_gets_rounded_corners(lace_app):
-    """A text edit inside a form is capped to the control radius: the corner
-    pixel shows the backdrop, the edge midpoint the outline. A combo box's
-    popup list gets no cap, and switching style away removes it."""
+    """A text edit inside a form is rounded to the control radius: the corner
+    pixel shows the backdrop, the edge midpoint the outline. The area paints
+    the viewport's fill itself; a combo box's popup list is left alone, and
+    switching style away hands the fill back."""
     from PySide6.QtWidgets import QComboBox, QStyleFactory, QVBoxLayout, QWidget
-    from lace.style import _frame_cap
+    from lace.style import _rounded_area
 
     _with_field_outlines(lace_app)
     lace_app.set_tokens(control_radius=8)
@@ -320,20 +321,26 @@ def test_nested_scroll_area_gets_rounded_corners(lace_app):
     host.show()
     QApplication.processEvents()
 
-    cap = _frame_cap.cap_of(edit)
-    assert cap is not None and cap.geometry() == edit.rect()
-    assert _frame_cap.cap_of(combo.view()) is None
+    rounding = _rounded_area.rounding_of(edit)
+    assert rounding is not None and rounding.is_active()
+    assert not edit.viewport().autoFillBackground()      # the area fills instead
+    assert _rounded_area.rounding_of(combo.view()) is None
 
     img = host.grab().toImage()
     o = edit.geometry().topLeft()
     backdrop = host.palette().color(host.backgroundRole())
-    assert img.pixelColor(o) == backdrop                                  # corner capped
+    assert img.pixelColor(o) == backdrop                                  # corner rounded
     assert img.pixelColor(o.x(), o.y() + edit.height() // 2) != backdrop  # outline drawn
+    centre = edit.geometry().center()
+    assert img.pixelColor(centre.x() + 30, centre.y()) == edit.palette().color(Role.Base)
 
     fusion = QStyleFactory.create("Fusion")
     edit.setStyle(fusion)
-    assert _frame_cap.cap_of(edit) is None
+    assert _rounded_area.rounding_of(edit) is None
+    assert edit.viewport().autoFillBackground()
+    assert edit.viewport().mask().isEmpty()
     host.close()
+
 
 
 @pytest.mark.parametrize("order", ["style_first", "manager_first"])
@@ -366,15 +373,88 @@ def test_theme_tokens_reach_an_app_set_lace_style(qapp, order):
         QApplication.processEvents()
 
 
+def test_rounded_corners_show_whatever_is_behind(lace_app):
+    """Nothing is painted over the corners, so a backdrop no single colour
+    describes -- a gradient -- shows through them as it is."""
+    from PySide6.QtGui import QLinearGradient, QPainter
+    from PySide6.QtWidgets import QVBoxLayout, QWidget
+
+    class Gradient(QWidget):
+        def paintEvent(self, _e):
+            p = QPainter(self)
+            g = QLinearGradient(0, 0, self.width(), self.height())
+            g.setColorAt(0, QColor(220, 40, 40))
+            g.setColorAt(1, QColor(40, 80, 220))
+            p.fillRect(self.rect(), g)
+
+    lace_app.set_tokens(control_radius=8)
+    host = Gradient()
+    lay = QVBoxLayout(host)
+    edit = QTextEdit("x")
+    lay.addWidget(edit)
+    host.resize(220, 160)
+    host.show()
+    QApplication.processEvents()
+    try:
+        with_edit = host.grab().toImage()
+        edit.hide()
+        QApplication.processEvents()
+        bare = host.grab().toImage()
+        o = edit.geometry().topLeft()
+        assert with_edit.pixelColor(o) == bare.pixelColor(o)
+    finally:
+        host.close()
+
+
+def test_rounded_corners_in_a_graphics_scene_are_not_black(lace_app):
+    """A text edit embedded in a QGraphicsScene through a proxy whose root is
+    a translucent window -- a node editor's node. The scene's surface has no
+    alpha, so corners cleared to transparent came out black; rounded by fill,
+    they show the item painted beneath the proxy."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QBrush
+    from PySide6.QtWidgets import (QGraphicsProxyWidget, QGraphicsRectItem, QGraphicsScene,
+                                   QGraphicsView, QVBoxLayout, QWidget)
+
+    lace_app.set_tokens(control_radius=8)
+    body = QColor(120, 60, 160)
+    scene = QGraphicsScene()
+    card = QGraphicsRectItem(0, 0, 240, 180)
+    card.setBrush(QBrush(body))
+    card.setPen(Qt.PenStyle.NoPen)
+    scene.addItem(card)
+    root = QWidget()
+    root.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+    root.setAutoFillBackground(False)
+    lay = QVBoxLayout(root)
+    edit = QTextEdit("x")
+    lay.addWidget(edit)
+    root.resize(240, 180)
+    proxy = QGraphicsProxyWidget(card)
+    proxy.setWidget(root)
+    view = QGraphicsView(scene)
+    view.resize(300, 240)
+    view.show()
+    QApplication.processEvents()
+    try:
+        img = view.viewport().grab().toImage()
+        at = view.mapFromScene(proxy.mapToScene(QPointF(edit.mapTo(root, QPoint(0, 0)))))
+        got = img.pixelColor(at)
+        assert got != QColor(0, 0, 0)
+        assert got == body, got.name()
+    finally:
+        view.close()
+
+
 @pytest.mark.parametrize("theme, rounded", [("cyberpunk_neon", True), ("dark", False)])
 def test_dock_content_is_rounded_only_when_inset(lace_app, theme, rounded):
     """A text edit set as a dock's content: inset by the content margin it is
-    a box of its own and its viewport corner shows the backdrop; flush with
-    the card (margin 0) it is left to the card."""
+    a box of its own and its viewport corner shows the card behind it; flush
+    with the card (margin 0) it is left to the card."""
     from lace import DockManager, DockWidget
     from lace.dock_chrome import backdrop_color
     from lace.enums import DockWidgetArea
-    from lace.style import _frame_cap
+    from lace.style import _rounded_area
 
     win = QMainWindow()
     win.resize(320, 240)
@@ -389,7 +469,9 @@ def test_dock_content_is_rounded_only_when_inset(lace_app, theme, rounded):
         QApplication.processEvents()
     try:
         assert lace_app.control_radius > 0
-        assert _frame_cap.cap_of(edit)._mode() == ("cap" if rounded else None)
+        rounding = _rounded_area.rounding_of(edit)
+        assert rounding.mode() == ("cap" if rounded else None)
+        assert rounding.is_active() == rounded
         img = win.grab().toImage()
         corner = edit.mapTo(win, edit.contentsRect().topLeft())
         fill = img.pixelColor(corner.x() + 10, corner.y() + 10)
@@ -403,15 +485,15 @@ def test_dock_content_is_rounded_only_when_inset(lace_app, theme, rounded):
         get_dock_style_manager().apply_theme_dict(build_theme(spec_for("dark")))
 
 
-def test_frame_cap_is_hidden_when_idle_and_masked_when_shown(lace_app):
-    """A cap only exists on screen where it paints: hidden on an unframed
-    scroll area, masked to corners and edges on a framed one, so updates in
-    the middle of the viewport never repaint it. Framing the area later
-    brings the cap up."""
+def test_rounding_masks_only_framed_areas(lace_app):
+    """A framed area masks its viewport to the rounded shape and paints the
+    fill; an unframed one keeps its square, self-filling viewport. Framing an
+    area later rounds it, unframing it hands the fill back."""
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
-    from lace.style import _frame_cap
+    from lace.style import _rounded_area
 
+    lace_app.set_tokens(control_radius=8)
     host = QWidget()
     lay = QVBoxLayout(host)
     framed, bare = QTextEdit(), QTextEdit()
@@ -422,31 +504,63 @@ def test_frame_cap_is_hidden_when_idle_and_masked_when_shown(lace_app):
     host.show()
     QApplication.processEvents()
     try:
-        cap, idle = _frame_cap.cap_of(framed), _frame_cap.cap_of(bare)
-        assert cap.isVisible() and not idle.isVisible()
-        mask = cap.mask()
-        centre = framed.rect().center()
-        assert not mask.contains(centre)
-        assert mask.contains(QPoint(0, 0)) and mask.contains(QPoint(0, centre.y()))
+        on, off = _rounded_area.rounding_of(framed), _rounded_area.rounding_of(bare)
+        assert on.is_active() and not off.is_active()
+        mask = framed.viewport().mask()
+        assert not mask.isEmpty()
+        assert not mask.contains(QPoint(0, 0))
+        assert mask.contains(framed.viewport().rect().center())
+        assert bare.viewport().mask().isEmpty() and bare.viewport().autoFillBackground()
 
         bare.setFrameShape(QFrame.Shape.StyledPanel)
         bare.update()
         for _ in range(3):
             QApplication.processEvents()
-        assert idle.isVisible()
+        assert off.is_active() and not bare.viewport().autoFillBackground()
+
+        framed.setFrameShape(QFrame.Shape.NoFrame)
+        framed.update()
+        for _ in range(3):
+            QApplication.processEvents()
+        assert not on.is_active()
+        assert framed.viewport().autoFillBackground() and framed.viewport().mask().isEmpty()
     finally:
         host.close()
 
 
-def test_frame_cap_survives_a_transient_area_wrapper(lace_app):
+def test_a_transparent_viewport_gets_no_fill(lace_app):
+    """An app's see-through view (viewport not filling) stays see-through:
+    rounded by the mask only, and left so when the style goes away."""
+    from PySide6.QtWidgets import QStyleFactory, QVBoxLayout, QWidget
+    from lace.style import _rounded_area
+
+    lace_app.set_tokens(control_radius=8)
+    host = QWidget()
+    lay = QVBoxLayout(host)
+    edit = QTextEdit()
+    edit.viewport().setAutoFillBackground(False)
+    lay.addWidget(edit)
+    host.resize(200, 160)
+    host.show()
+    QApplication.processEvents()
+    try:
+        rounding = _rounded_area.rounding_of(edit)
+        assert rounding.is_active() and not rounding._fills
+        edit.setStyle(QStyleFactory.create("Fusion"))
+        assert not edit.viewport().autoFillBackground()
+    finally:
+        host.close()
+
+
+def test_rounding_survives_a_transient_area_wrapper(lace_app):
     """A scroll area Qt creates in C++ (a calendar's table view) has only a
-    transient Python wrapper. Its cap must outlive that wrapper: after a
-    collection, palette changes and repaints reach a live cap (no calls into
-    an empty wrapper), and a repolish never adds a second one."""
+    transient Python wrapper. Its controller must outlive that wrapper: after
+    a collection, palette changes and repaints reach a live controller (no
+    calls into an empty wrapper), and a repolish never adds a second one."""
     import gc
     from PySide6.QtCore import qInstallMessageHandler
     from PySide6.QtWidgets import QAbstractItemView, QCalendarWidget
-    from lace.style import _frame_cap
+    from lace.style import _rounded_area
 
     errors = []
     previous = qInstallMessageHandler(lambda mode, ctx, msg: errors.append(msg))
@@ -465,10 +579,10 @@ def test_frame_cap_survives_a_transient_area_wrapper(lace_app):
         cal.setStyle(lace_app)          # repolish
         QApplication.processEvents()
         view = cal.findChild(QAbstractItemView)
-        caps = view.findChildren(_frame_cap.FrameCap,
-                                 options=Qt.FindChildOption.FindDirectChildrenOnly)
-        assert len(caps) == 1
-        assert not [e for e in errors if "FrameCap" in e or "no attribute" in e], errors
+        controllers = view.findChildren(_rounded_area.RoundedArea,
+                                        options=Qt.FindChildOption.FindDirectChildrenOnly)
+        assert len(controllers) == 1
+        assert not [e for e in errors if "RoundedArea" in e or "no attribute" in e], errors
     finally:
         cal.close()
         qInstallMessageHandler(previous)

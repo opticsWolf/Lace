@@ -20,7 +20,6 @@ from PySide6.QtCore import QObject, QEvent, QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QPalette, QTextCharFormat
 from PySide6.QtWidgets import QCalendarWidget, QFrame, QStyle, QStyleOption, QStyleOptionFrame
 
-from lace.style import _frame_cap
 from lace.style import _paint as P
 from lace.style import _popup
 from lace.style._primitives import EXPANDING_REST
@@ -163,9 +162,6 @@ def shaped_frame(style, opt, p, w):
     if shape in (Shape.Box, Shape.Panel, Shape.WinPanel):
         if w is not None and w.property("dockWidgetContent"):
             return True     # the card is its frame
-        cap = _frame_cap.cap_of(w)
-        if cap is not None and cap.isVisible():
-            return True     # the area's FrameCap draws the outline
         inset = lw / 2
         box = r.adjusted(inset, inset, -inset, -inset)
         with P.Painting(p):

@@ -5,6 +5,19 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Changed
+
+- Framed scroll areas are rounded without painting over their corners. The old `FrameCap`
+  overlay (`lace/style/_frame_cap.py`, removed) painted the corners with a guessed backdrop
+  colour. That guess failed over gradients, and under a translucent window such as a
+  `QGraphicsProxyWidget`'s root, where the corners came out black. `RoundedArea`
+  (`lace/style/_rounded_area.py`) turns off the viewport's own fill and paints it as a rounded
+  shape beneath. It then masks the viewport, scroll bars and corner widget to the rounded inside,
+  so the corners show whatever is really behind the area. The viewport's fill comes back on
+  unpolish.
+
 ## [0.9.0] — 2026-10-01
 
 ### Added

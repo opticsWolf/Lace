@@ -177,7 +177,7 @@ public: `lace.install_native_frame_theme(app)` for apps that theme without a `Do
 Theme Studio installs it itself.
 
 **Cost.** The filter sees every event, so it tests the type first (two int compares). `Show` on
-top-level windows is rare. This matches how the FrameCap filters were measured in Phase 7.
+top-level windows is rare. This matches how the FrameCap (now RoundedArea) filters were measured in Phase 7.
 
 ### 5.4 What Layer A can't reach
 
@@ -261,7 +261,7 @@ three classes. It's a small refactor that keeps the three consistent from then o
   the same theme.
 - `exec()` returns on `accept()`/`reject()` driven by a `QTimer`. Escape rejects.
 - Disposal: after `deleteLater` plus `sendPostedEvents(None, 52)`, the styler is unregistered and
-  the style manager holds no reference to it (the same pattern as the FrameCap registry test).
+  the style manager holds no reference to it (the same pattern as the FrameCap, now RoundedArea, registry test).
 - Heal: a simulated `WinIdChange` calls `ensure_frameless_chrome` once, coalesced.
 - Placement: centred on the parent and clamped to the screen.
 

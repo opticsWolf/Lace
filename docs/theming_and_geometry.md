@@ -485,8 +485,12 @@ chrome (`lace/style/_chrome.py`) is flat too:
 
 **Framed scroll areas** (text edits and list, tree and table views) get rounded corners at
 `control_radius`. Their viewport is a square child that would paint over the arc. So LaceStyle's
-`polish()` adds a transparent overlay (`lace/style/_frame_cap.py`) that caps the corners with the
-backdrop and then draws the outline, the same way the dock card uses `cap`.
+`polish()` attaches a `RoundedArea` (`lace/style/_rounded_area.py`) that never paints the corners
+at all. The viewport stops filling itself, and the area paints the viewport's fill as a
+rounded shape beneath it, with the outline on top. The viewport, scroll bars and corner widget are
+masked to the rounded inside, so whatever lies behind the area shows through the corners as it
+is: a gradient, a translucent window, or an item under a `QGraphicsProxyWidget`. A viewport the
+app made see-through is only masked, never filled. Switching to another style hands the fill back.
 - A dock widget's own content gets no outline, because the card already frames it. When the
   theme's `content_margin` insets it on every side, it is a box of its own and gets rounded
   corners. When it sits flush, the card's corners round it.

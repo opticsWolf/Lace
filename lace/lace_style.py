@@ -30,8 +30,8 @@ from typing import Callable, Dict, Optional
 from PySide6.QtWidgets import (QCalendarWidget, QComboBox, QProxyStyle, QStyle, QStyleFactory,
                                QWidget)
 
-from lace.style import (_buttons, _chrome, _containers, _frame_cap, _inputs, _popup, _primitives,
-                        _range)
+from lace.style import (_buttons, _chrome, _containers, _inputs, _popup, _primitives,
+                        _range, _rounded_area)
 from lace.theme_contrast import CONTRAST_TARGETS
 
 SCROLLBAR_MODES = ("thin", "expanding", "fusion")
@@ -144,11 +144,12 @@ class LaceStyle(QProxyStyle):
     # -- widgets -----------------------------------------------------------------
     def polish(self, *args):
         # QStyle.polish is overloaded (QWidget, QApplication, QPalette); only
-        # widgets get a frame cap, weekend tint or rounded popup window.
+        # widgets get rounded corners, a weekend tint or a rounded popup window.
         result = super().polish(*args)
         w = args[0] if args else None
-        if isinstance(w, QWidget) and _frame_cap.wants_cap(w) and _frame_cap.cap_of(w) is None:
-            _frame_cap.FrameCap(w, self)
+        if (isinstance(w, QWidget) and _rounded_area.wants_rounding(w)
+                and _rounded_area.rounding_of(w) is None):
+            _rounded_area.RoundedArea(w, self)
         if isinstance(w, QCalendarWidget):
             self._weekend_tint.attach(w)
         if _popup.is_popup(w):
@@ -157,9 +158,9 @@ class LaceStyle(QProxyStyle):
 
     def unpolish(self, *args):
         w = args[0] if args else None
-        cap = _frame_cap.cap_of(w) if isinstance(w, QWidget) else None
-        if cap is not None:
-            cap.detach()
+        rounding = _rounded_area.rounding_of(w) if isinstance(w, QWidget) else None
+        if rounding is not None:
+            rounding.detach()
         if isinstance(w, QCalendarWidget):
             self._weekend_tint.detach(w)
         if _popup.is_popup(w):

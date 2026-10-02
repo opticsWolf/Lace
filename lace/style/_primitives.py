@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QPushButton, QMenu, QStyle, QToolButton,
 )
 
-from lace.style import _frame_cap
+from lace.style import _rounded_area
 from lace.style import _paint as P
 
 PE = QStyle.PrimitiveElement
@@ -201,11 +201,8 @@ def frame(style, opt, p, w):
     """
     if w is not None and w.property("dockWidgetContent"):
         return True     # the card is its frame
-    cap = _frame_cap.cap_of(w)
-    if cap is not None:
-        if cap.isVisible():
-            return True     # the area's FrameCap draws the outline above the viewport
-        cap.queue_sync()    # framed since the cap last looked: draw here meanwhile
+    # A rounded area has already painted its fill beneath (see _rounded_area);
+    # the outline goes on top of it, and the masked viewport leaves its arcs clear.
     if not style.field_outline:
         return True     # the theme draws views without an outline
     return container_frame(style, opt, p, w)
