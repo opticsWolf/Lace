@@ -9,19 +9,15 @@ flipped its whole theme, so toggling one dock flag strobed the entire UI.
 """
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow
 
-from lace.dock_manager import DockManager
-from lace.dock_widget import DockWidget
 from lace.floating_dock_container import FloatingDockContainer
 
 
 @pytest.fixture
-def floating(qapp):
-    win = QMainWindow()
-    dock_manager = DockManager(win)
-    dock_widget = DockWidget("Alpha")
-    dock_widget.set_widget(QLabel("x"))
+def floating(qapp, make_desk):
+    desk = make_desk()
+    dock_manager = desk.manager
+    dock_widget = desk.widget("Alpha", text="x")
     dock_widget.set_dock_manager(dock_manager)
     dock_manager.dock_widgets_map()[dock_widget.objectName()] = dock_widget
     container = FloatingDockContainer(dock_widget=dock_widget)
@@ -29,7 +25,6 @@ def floating(qapp):
     qapp.processEvents()
     yield container
     container.close()
-    win.close()
 
 
 def test_palette_push_does_not_touch_the_application(floating, qapp):

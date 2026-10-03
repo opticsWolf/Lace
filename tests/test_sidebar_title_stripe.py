@@ -13,7 +13,6 @@ line nothing else in the theme echoes.
 
 import pytest
 from PySide6.QtCore import QSize
-from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_chrome import (
     resolve_sidebar_title_bar_rule,
@@ -21,26 +20,20 @@ from lace.dock_chrome import (
     tab_has_bottom_indicator,
 )
 from lace.dock_custom_theme import DOCK_THEMES
-from lace.dock_manager import DockManager
 from lace.dock_style_manager import get_dock_style_manager
-from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
-from lace.dock_widget import DockWidget
+from lace.dock_theme import ThemeSpec, build_theme
 from lace.enums import DockWidgetArea
 
 
 @pytest.fixture
-def overlay(qapp):
+def overlay(qapp, make_desk):
     """A pinned widget shown in the sidebar overlay, so its title bar exists."""
-    win = QMainWindow()
-    win.resize(900, 600)
-    dock_manager = DockManager(win)
-    dock_widget = DockWidget("Alpha")
-    dock_widget.set_widget(QLabel("x"))
-    dock_manager.add_dock_widget(DockWidgetArea.left, dock_widget)
-    win.show()
-    qapp.processEvents()
+    desk = make_desk()
+    dock_widget = desk.widget("Alpha", text="x")
+    desk.add(DockWidgetArea.left, dock_widget)
+    desk.show()
 
-    sidebar = dock_manager.sidebar_manager
+    sidebar = desk.manager.sidebar_manager
 
     def show(theme, area=DockWidgetArea.left):
         get_dock_style_manager().apply_theme(theme)
@@ -53,10 +46,7 @@ def overlay(qapp):
         qapp.processEvents()
         return panel._title_bar
 
-    yield show
-
-    win.close()
-    get_dock_style_manager().apply_theme("default")
+    return show
 
 
 def _panel(title_bar):

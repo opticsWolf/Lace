@@ -165,13 +165,10 @@ def test_popups_and_opted_out_windows_are_ignored_by_the_filter(dwm):
     opted.close()
 
 
-def test_dock_manager_installs_it_unless_told_not_to(dwm):
-    from PySide6.QtWidgets import QMainWindow
-    from lace.dock_manager import DockManager
-
-    DockManager(QMainWindow(), native_frames=False)
+def test_dock_manager_installs_it_unless_told_not_to(dwm, make_desk):
+    make_desk(native_frames=False)
     assert nf._installed is None
-    DockManager(QMainWindow())
+    make_desk()
     assert nf._installed is not None
 
 

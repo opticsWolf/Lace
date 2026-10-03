@@ -21,9 +21,8 @@ import sys
 import textwrap
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow
+from PySide6.QtWidgets import QLabel
 
-from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import TitleBarMode
 from lace.floating_behaviour import FloatingContainerBehaviour
@@ -55,14 +54,10 @@ def _skip_if_unbuildable(cls):
 
 
 @pytest.fixture
-def manager(qapp):
-    win = QMainWindow()
-    win.resize(800, 600)
-    dock_manager = DockManager(win)
-    win.show()
-    qapp.processEvents()
-    yield win, dock_manager
-    win.close()
+def manager(make_desk):
+    desk = make_desk(800, 600)
+    desk.show()
+    return desk.win, desk.manager
 
 
 def _mk(name):

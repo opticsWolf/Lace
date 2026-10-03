@@ -14,9 +14,8 @@ centre of a one-area container, 0.6.8 — the two collided.
 
 import pytest
 from PySide6.QtGui import QCursor
-from PySide6.QtWidgets import QLabel, QMainWindow
+from PySide6.QtWidgets import QLabel
 
-from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.floating_dock_container import FloatingDockContainer
@@ -36,12 +35,11 @@ def _shown(overlay):
 
 
 @pytest.fixture
-def float_over_float(qapp):
+def float_over_float(qapp, make_desk):
     """A one-area float being dragged over another one-area float."""
-    win = QMainWindow()
-    win.resize(900, 700)
-    manager = DockManager(win)
-    manager.add_dock_widget(DockWidgetArea.left, _mk("Anchor"))
+    desk = make_desk(900, 700)
+    manager, win = desk.manager, desk.win
+    desk.add(DockWidgetArea.left, "Anchor")
     win.show()
 
     target_float = FloatingDockContainer(dock_widget=_mk("Unpinnable Data"),
@@ -57,9 +55,7 @@ def float_over_float(qapp):
     dragged_float.move(700, 100)
     qapp.processEvents()
 
-    yield manager, win, target_float, dragged_float
-
-    win.close()
+    return manager, win, target_float, dragged_float
 
 
 def _hover_centre_of(floating):

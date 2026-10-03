@@ -12,38 +12,24 @@ Two hygiene contracts that only show up under load or under a bug:
 """
 
 import pytest
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow
+from PySide6.QtWidgets import QLabel
 
 from lace.dock_area_widget import DockAreaWidget
-from lace.dock_manager import DockManager
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DockStyleCategory
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 
 
 @pytest.fixture
-def four_areas(qapp):
-    win = QMainWindow()
-    win.resize(900, 700)
-    manager = DockManager(win)
-
-    def mk(name):
-        dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return dock_widget
-
-    widgets = [mk(n) for n in ("Alpha", "Beta", "Gamma", "Delta")]
-    manager.add_dock_widget(DockWidgetArea.left, widgets[0])
-    manager.add_dock_widget(DockWidgetArea.right, widgets[1])
-    manager.add_dock_widget(DockWidgetArea.bottom, widgets[2])
-    manager.add_dock_widget(DockWidgetArea.top, widgets[3])
-    win.show()
-    qapp.processEvents()
-
-    yield manager, win, widgets
-
-    win.close()
+def four_areas(make_desk):
+    desk = make_desk(900, 700)
+    widgets = [desk.widget(n) for n in ("Alpha", "Beta", "Gamma", "Delta")]
+    desk.add(DockWidgetArea.left, widgets[0])
+    desk.add(DockWidgetArea.right, widgets[1])
+    desk.add(DockWidgetArea.bottom, widgets[2])
+    desk.add(DockWidgetArea.top, widgets[3])
+    desk.show()
+    return desk.manager, desk.win, widgets
 
 
 def test_areas_do_not_connect_to_focus_changed_themselves(four_areas):

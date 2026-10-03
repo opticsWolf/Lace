@@ -11,25 +11,16 @@ widget. Renamed rather than given the hide case it never wanted.
 import warnings
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow
 
-from lace.dock_manager import DockManager
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 
 
 @pytest.fixture
-def area(qapp):
-    win = QMainWindow()
-    win.resize(800, 600)
-    dock_manager = DockManager(win)
-    dock_widget = DockWidget("Alpha")
-    dock_widget.set_widget(QLabel("Alpha"))
-    dock_area = dock_manager.add_dock_widget(DockWidgetArea.center, dock_widget)
-    win.show()
-    qapp.processEvents()
-    yield dock_area
-    win.close()
+def area(make_desk):
+    desk = make_desk(800, 600)
+    dock_area = desk.add(DockWidgetArea.center, "Alpha")
+    desk.show()
+    return dock_area
 
 
 def test_it_shows_the_title_bar(area, qapp):

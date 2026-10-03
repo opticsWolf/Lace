@@ -6,9 +6,8 @@ import json
 import logging
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-from lace.dock_manager import DockManager
 from lace.dock_paint import chrome_content_margin
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_widget import DockWidget
@@ -26,15 +25,11 @@ def _apply(qapp, **overrides):
 
 
 @pytest.fixture
-def manager(qapp):
+def manager(qapp, make_desk):
     _apply(qapp)
-    win = QMainWindow()
-    dm = DockManager(win)
-    win.resize(800, 600)
-    win.show()
-    qapp.processEvents()
-    yield dm
-    win.close()
+    desk = make_desk(800, 600)
+    desk.show()
+    return desk.manager
 
 
 def _mk(name, widget=None):

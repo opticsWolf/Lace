@@ -16,13 +16,10 @@ Three separate bugs live in here, and each has its own test below:
 
 import pytest
 from PySide6.QtGui import QColor, QIcon, QPixmap
-from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_icon_provider import get_icon_provider
-from lace.dock_manager import DockManager
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DockStyleCategory
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.sidebar_tab import VerticalTabButton
 
@@ -47,27 +44,15 @@ def _dominant(icon: QIcon, size: int = 16) -> str:
 
 
 @pytest.fixture
-def tabbed(qapp):
+def tabbed(make_desk):
     """Two dock widgets tabbed into one area, so a tab switch is possible."""
-    win = QMainWindow()
-    win.resize(800, 600)
-    manager = DockManager(win)
-
-    def mk(name):
-        dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return dock_widget
-
-    first = mk("Alpha")
-    area = manager.add_dock_widget(DockWidgetArea.left, first)
-    second = mk("Beta")
-    manager.add_dock_widget(DockWidgetArea.center, second, area)
-    win.show()
-    qapp.processEvents()
-
-    yield manager, win, first, second
-
-    win.close()
+    desk = make_desk(800, 600)
+    first = desk.widget("Alpha")
+    area = desk.add(DockWidgetArea.left, first)
+    second = desk.widget("Beta")
+    desk.add(DockWidgetArea.center, second, area)
+    desk.show()
+    return desk.manager, desk.win, first, second
 
 
 # --- The provider's explicit-colour override ------------------------------

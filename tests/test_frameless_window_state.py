@@ -32,9 +32,8 @@ import sys
 import pytest
 from PySide6.QtCore import QEvent, QPoint, Qt
 from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow
+from PySide6.QtWidgets import QApplication, QLabel
 
-from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockFlags, DragState, TitleBarMode
 from lace.frameless_window import LaceStandardTitleBar
@@ -67,15 +66,11 @@ GRIP = QPoint(60, 16)
 
 # ── fixtures ──────────────────────────────────────────────────────────────
 @pytest.fixture
-def desk(qapp):
-    win = QMainWindow()
-    win.resize(900, 600)
-    dock_manager = DockManager(win)
-    dock_manager.title_bar_mode = TitleBarMode.custom
-    win.show()
-    qapp.processEvents()
-    yield win, dock_manager
-    win.close()
+def desk(make_desk):
+    desk = make_desk()
+    desk.manager.title_bar_mode = TitleBarMode.custom
+    desk.show()
+    return desk.win, desk.manager
 
 
 def _make_float(dock_manager, qapp):

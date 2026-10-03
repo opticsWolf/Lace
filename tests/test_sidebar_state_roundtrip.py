@@ -9,42 +9,28 @@ restore_state() must bring all of that back in a fresh manager.
 import json
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow
 
-from lace.dock_manager import DockManager
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea, DockWidgetFeature
 from lace.layout_serializer import SidebarState
 
 
 @pytest.fixture
-def build(qapp):
-    windows = []
-
+def build(make_desk):
     def _build():
-        win = QMainWindow()
-        win.resize(1000, 700)
-        manager = DockManager(win)
+        desk = make_desk(1000, 700)
         widgets = {}
         for name, area in (("A", DockWidgetArea.center),
                            ("B", DockWidgetArea.right),
                            ("C", DockWidgetArea.bottom)):
-            widget = DockWidget(name, win)
+            widget = desk.widget(name)
             widget.setObjectName(name)
-            widget.set_widget(QLabel(name))
             widget.set_features(DockWidgetFeature.all_features)
-            manager.add_dock_widget(area, widget)
+            desk.add(area, widget)
             widgets[name] = widget
-        win.show()
-        qapp.processEvents()
-        windows.append(win)
-        return manager, widgets
+        desk.show()
+        return desk.manager, widgets
 
-    yield _build
-    for win in windows:
-        win.close()
-        win.deleteLater()
-    qapp.processEvents()
+    return _build
 
 
 def test_sidebar_state_survives_save_and_restore(qapp, build):

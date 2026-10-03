@@ -129,15 +129,12 @@ def test_studio_controls_keep_their_palette(qapp):
     settle(qapp)
 
 
-def test_launch_leaves_the_host_alone(qapp, monkeypatch):
+def test_launch_leaves_the_host_alone(qapp, monkeypatch, make_desk):
     """From a Lace app, the Studio opens in its own process: the host's
     palette, tooltips and style manager do not change."""
-    from PySide6.QtWidgets import QMainWindow
-    from lace.dock_manager import DockManager
     from lace.dock_style_manager import get_dock_style_manager
 
-    host = QMainWindow()
-    DockManager(host)
+    make_desk()
     get_dock_style_manager().apply_theme_dict(build_theme(THEME_SPECS["dark"]))
     settle(qapp)
     before = (palette_key(QApplication.palette()), palette_key(QToolTip.palette()),
@@ -151,7 +148,6 @@ def test_launch_leaves_the_host_alone(qapp, monkeypatch):
     after = (palette_key(QApplication.palette()), palette_key(QToolTip.palette()),
              get_dock_style_manager().generation)
     assert after == before
-    host.close()
 
 
 def test_studio_cli_runs(tmp_path):

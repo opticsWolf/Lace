@@ -149,21 +149,14 @@ def test_content_margin_is_not_coerced_to_a_colour(manager):
         assert stored == margin
 
 
-def test_every_content_margin_form_reaches_the_layout(manager, qapp):
+def test_every_content_margin_form_reaches_the_layout(manager, qapp, make_desk):
     """A four-sided margin used to be truncated to its first two entries."""
-    from PySide6.QtWidgets import QLabel, QMainWindow
-
-    from lace.dock_manager import DockManager
-    from lace.dock_widget import DockWidget
     from lace.enums import DockWidgetArea
 
-    win = QMainWindow()
-    dock_manager = DockManager(win)
-    dock_widget = DockWidget("Alpha")
-    dock_widget.set_widget(QLabel("x"))
-    dock_manager.add_dock_widget(DockWidgetArea.left, dock_widget)
-    win.show()
-    qapp.processEvents()
+    desk = make_desk()
+    dock_widget = desk.widget("Alpha", text="x")
+    desk.add(DockWidgetArea.left, dock_widget)
+    desk.show()
 
     cases = {
         6: (6, 6, 6, 6),
@@ -171,17 +164,14 @@ def test_every_content_margin_form_reaches_the_layout(manager, qapp):
         (6, 4, 6): (6, 4, 6, 4),
         (6, 4, 6, 4): (6, 4, 6, 4),
     }
-    try:
-        for margin, expected in cases.items():
-            manager.apply_theme_dict(build_theme(ThemeSpec(
-                base=[24, 24, 24, 255],
-                accent=[0, 120, 212, 255],
-                text=[204, 204, 204, 255],
-                content_margin=margin,
-            )))
-            qapp.processEvents()
-            m = dock_widget.layout().contentsMargins()
-            assert (m.left(), m.top(), m.right(), m.bottom()) == expected, \
-                f"content_margin={margin!r}"
-    finally:
-        win.close()
+    for margin, expected in cases.items():
+        manager.apply_theme_dict(build_theme(ThemeSpec(
+            base=[24, 24, 24, 255],
+            accent=[0, 120, 212, 255],
+            text=[204, 204, 204, 255],
+            content_margin=margin,
+        )))
+        qapp.processEvents()
+        m = dock_widget.layout().contentsMargins()
+        assert (m.left(), m.top(), m.right(), m.bottom()) == expected, \
+            f"content_margin={margin!r}"

@@ -13,7 +13,7 @@ import sys
 
 import pytest
 from PySide6.QtCore import QPoint
-from PySide6.QtWidgets import QApplication, QLineEdit, QMainWindow, QMenuBar
+from PySide6.QtWidgets import QApplication, QLineEdit, QMenuBar
 
 from lace.dock_manager import DockManager
 from lace.frameless_window import (
@@ -77,15 +77,11 @@ def test_anchored_insert_after_title(qapp, main_win):
     assert idx == bar.hBoxLayout.indexOf(bar.titleLabel) + 1
 
 
-def test_manager_installs_app_bridge_without_style_clobber(qapp):
+def test_manager_installs_app_bridge_without_style_clobber(make_desk):
     style_before = QApplication.instance().style().objectName()
-    win = QMainWindow()
-    manager = DockManager(win)
-    try:
-        assert manager._app_theme_bridge is not None
-        assert QApplication.instance().style().objectName() == style_before
-    finally:
-        win.close()
+    manager = make_desk().manager
+    assert manager._app_theme_bridge is not None
+    assert QApplication.instance().style().objectName() == style_before
 
 
 def test_main_title_bar_live_swap(qapp):

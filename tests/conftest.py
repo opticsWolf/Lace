@@ -71,23 +71,30 @@ def _clean_style_manager():
 class Desk:
     """A QMainWindow holding a DockManager, for tests that need real dock areas."""
 
-    def __init__(self, qapp, width: int, height: int):
+    def __init__(self, qapp, width: int, height: int, **manager_kwargs):
         from PySide6.QtWidgets import QMainWindow
         from lace.dock_manager import DockManager
 
         self._qapp = qapp
         self.win = QMainWindow()
         self.win.resize(width, height)
-        self.manager = DockManager(self.win)
+        self.manager = DockManager(self.win, **manager_kwargs)
 
-    def add(self, area, name: str, target=None):
-        """Dock a widget titled *name*, a QLabel inside; returns its dock area."""
+    @staticmethod
+    def widget(name: str, text: str = None):
+        """A DockWidget titled *name* holding a QLabel (text: *text*, else *name*)."""
         from PySide6.QtWidgets import QLabel
         from lace.dock_widget import DockWidget
 
         dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return self.manager.add_dock_widget(area, dock_widget, target)
+        dock_widget.set_widget(QLabel(name if text is None else text))
+        return dock_widget
+
+    def add(self, area, widget, target=None, text: str = None):
+        """Dock *widget* (a DockWidget, or a name for :meth:`widget`); its dock area."""
+        if isinstance(widget, str):
+            widget = self.widget(widget, text)
+        return self.manager.add_dock_widget(area, widget, target)
 
     def show(self, active=None) -> None:
         """Show the window, then make *active* the active dock area, if given."""
@@ -100,11 +107,14 @@ class Desk:
 
 @pytest.fixture
 def make_desk(qapp):
-    """``make_desk(width=900, height=600)`` -> a :class:`Desk`; closed after the test."""
+    """``make_desk(width=900, height=600, **DockManager kwargs)`` -> a :class:`Desk`.
+
+    Every desk's window is closed after the test.
+    """
     desks = []
 
-    def make(width: int = 900, height: int = 600) -> Desk:
-        desk = Desk(qapp, width, height)
+    def make(width: int = 900, height: int = 600, **manager_kwargs) -> Desk:
+        desk = Desk(qapp, width, height, **manager_kwargs)
         desks.append(desk)
         return desk
 

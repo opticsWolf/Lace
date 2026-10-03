@@ -9,35 +9,20 @@ halves: the cache is used, and it does not go stale.
 """
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow
 
-from lace.dock_manager import DockManager
 from lace.dock_splitter import DockSplitterHandle
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 
 
 @pytest.fixture
-def grid(qapp):
+def grid(make_desk):
     """A 2x2-ish layout, so several splitters (and handles) exist."""
-    win = QMainWindow()
-    win.resize(900, 700)
-    dock_manager = DockManager(win)
-
-    def mk(name):
-        dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return dock_widget
-
-    dock_manager.add_dock_widget(DockWidgetArea.left, mk("Alpha"))
-    dock_manager.add_dock_widget(DockWidgetArea.right, mk("Beta"))
-    dock_manager.add_dock_widget(DockWidgetArea.bottom, mk("Gamma"))
-    win.show()
-    qapp.processEvents()
-
-    yield dock_manager, win, mk
-
-    win.close()
+    desk = make_desk(900, 700)
+    desk.add(DockWidgetArea.left, "Alpha")
+    desk.add(DockWidgetArea.right, "Beta")
+    desk.add(DockWidgetArea.bottom, "Gamma")
+    desk.show()
+    return desk.manager, desk.win, desk.widget
 
 
 def _container(dock_manager):

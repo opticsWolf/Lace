@@ -13,30 +13,23 @@ Covers the gate in both directions plus the functional key-press case.
 import pytest
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow
+from PySide6.QtWidgets import QApplication
 
-from lace.dock_manager import DockManager
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 
 
 @pytest.fixture
-def stage(qapp):
+def stage(qapp, make_desk):
     """Main window with a pinned widget and animations off (deterministic)."""
-    win = QMainWindow()
-    win.resize(900, 600)
-    dock_manager = DockManager(win)
-    dock_widget = DockWidget("Alpha")
-    dock_widget.set_widget(QLabel("x"))
-    dock_manager.add_dock_widget(DockWidgetArea.left, dock_widget)
-    win.show()
-    qapp.processEvents()
-    sidebar = dock_manager.sidebar_manager
+    desk = make_desk()
+    dock_widget = desk.widget("Alpha", text="x")
+    desk.add(DockWidgetArea.left, dock_widget)
+    desk.show()
+    sidebar = desk.manager.sidebar_manager
     sidebar.set_animations_enabled(False)
     sidebar.pin_widget(dock_widget, area=DockWidgetArea.left)
     qapp.processEvents()
-    yield win, dock_manager, dock_widget
-    win.close()
+    return desk.win, desk.manager, dock_widget
 
 
 def _escape_shortcut(dock_manager):

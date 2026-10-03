@@ -21,31 +21,21 @@ legitimately stays maximized.
 """
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow, QSplitter
+from PySide6.QtWidgets import QSplitter
 
-from lace.dock_manager import DockManager
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.floating_dock_container import FloatingDockContainer
 
 
 @pytest.fixture
-def maximized(qapp):
+def maximized(qapp, make_desk):
     """A/B/C in a container, with A maximized."""
-    win = QMainWindow()
-    win.resize(1000, 700)
-    dock_manager = DockManager(win)
-
-    def mk(name):
-        dock_widget = DockWidget(name)
-        dock_widget.set_widget(QLabel(name))
-        return dock_widget
-
-    a = dock_manager.add_dock_widget(DockWidgetArea.left, mk("A"))
-    b = dock_manager.add_dock_widget(DockWidgetArea.right, mk("B"))
-    c = dock_manager.add_dock_widget(DockWidgetArea.bottom, mk("C"))
-    win.show()
-    qapp.processEvents()
+    desk = make_desk(1000, 700)
+    dock_manager = desk.manager
+    a = desk.add(DockWidgetArea.left, "A")
+    b = desk.add(DockWidgetArea.right, "B")
+    c = desk.add(DockWidgetArea.bottom, "C")
+    desk.show()
 
     container = dock_manager.root_container()
     container.toggle_maximize_dock_area(a)
@@ -53,9 +43,7 @@ def maximized(qapp):
     assert container._maximized_dock_area is a, "fixture failed to maximize"
     assert not b.isVisible() and not c.isVisible(), "fixture did not hide siblings"
 
-    yield dock_manager, container, a, b, c, mk
-
-    win.close()
+    return dock_manager, container, a, b, c, desk.widget
 
 
 def _float(dock_manager, mk, name):

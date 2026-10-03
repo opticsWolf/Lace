@@ -16,9 +16,8 @@ import pathlib
 
 import pytest
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QLabel, QMainWindow
+from PySide6.QtWidgets import QLabel
 
-from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.sidebar_container import SideBarContainer
@@ -83,14 +82,11 @@ def test_nothing_reaches_into_the_private_root():
     assert not offenders, offenders
 
 
-def test_root_container_is_the_widget_the_layout_lives_in(qapp):
-    win = QMainWindow()
-    dock_manager = DockManager(win)
-    try:
-        assert dock_manager.root_container() is dock_manager._root
-        assert dock_manager.root_container() is win.centralWidget()
-    finally:
-        win.close()
+def test_root_container_is_the_widget_the_layout_lives_in(make_desk):
+    desk = make_desk()
+    dock_manager = desk.manager
+    assert dock_manager.root_container() is dock_manager._root
+    assert dock_manager.root_container() is desk.win.centralWidget()
 
 
 def test_a_managerless_dock_widget_unassigns_without_a_parent(qapp):
@@ -104,19 +100,12 @@ def test_a_managerless_dock_widget_unassigns_without_a_parent(qapp):
     assert dock_widget.parentWidget() is None
 
 
-def test_an_assigned_dock_widget_parks_on_the_root(qapp):
-    win = QMainWindow()
-    win.resize(600, 400)
-    dock_manager = DockManager(win)
-    dock_widget = DockWidget("Alpha")
-    dock_widget.set_widget(QLabel("Alpha"))
-    dock_manager.add_dock_widget(DockWidgetArea.center, dock_widget)
-    win.show()
-    qapp.processEvents()
+def test_an_assigned_dock_widget_parks_on_the_root(make_desk):
+    desk = make_desk(600, 400)
+    dock_widget = desk.widget("Alpha")
+    desk.add(DockWidgetArea.center, dock_widget)
+    desk.show()
 
-    try:
-        dock_widget.flag_as_unassigned()
-        assert dock_widget.parentWidget() is dock_manager.root_container()
-        assert not dock_widget.isVisible()
-    finally:
-        win.close()
+    dock_widget.flag_as_unassigned()
+    assert dock_widget.parentWidget() is desk.manager.root_container()
+    assert not dock_widget.isVisible()

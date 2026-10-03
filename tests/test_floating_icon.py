@@ -11,9 +11,8 @@ import sys
 
 import pytest
 from PySide6.QtGui import QColor, QIcon, QPixmap
-from PySide6.QtWidgets import QMainWindow
 
-from lace import DockManager, DockWidget, DockWidgetArea, TitleBarMode
+from lace import TitleBarMode
 from lace.floating_dock_container import FloatingDockContainer
 
 
@@ -27,9 +26,8 @@ def _top_left(icon: QIcon) -> str:
     return icon.pixmap(16, 16).toImage().pixelColor(0, 0).name()
 
 
-def test_floating_window_icon_applies_to_new_windows(qapp):
-    win = QMainWindow()
-    dm = DockManager(win)
+def test_floating_window_icon_applies_to_new_windows(qapp, make_desk):
+    dm = make_desk().manager
     dm.set_floating_window_icon(_solid_icon("#ff00ff"))
     fc = FloatingDockContainer(dock_manager=dm)
     fc.show()
@@ -38,9 +36,8 @@ def test_floating_window_icon_applies_to_new_windows(qapp):
     fc.close()
 
 
-def test_set_floating_window_icon_updates_existing_windows(qapp):
-    win = QMainWindow()
-    dm = DockManager(win)
+def test_set_floating_window_icon_updates_existing_windows(qapp, make_desk):
+    dm = make_desk().manager
     fc = FloatingDockContainer(dock_manager=dm)
     fc.show()
     qapp.processEvents()
@@ -59,13 +56,12 @@ def test_set_floating_window_icon_updates_existing_windows(qapp):
     sys.platform == "darwin" and os.environ.get("QT_QPA_PLATFORM") == "offscreen",
     reason="qframelesswindow's macOS backend dereferences a null NSWindow under "
            "offscreen — a segfault, not an exception, so it cannot be guarded")
-def test_frameless_floating_window_uses_dedicated_icon(qapp):
+def test_frameless_floating_window_uses_dedicated_icon(qapp, make_desk):
     from lace.floating_dock_container_frameless import (
         FramelessFloatingDockContainer,
     )
 
-    win = QMainWindow()
-    dm = DockManager(win)
+    dm = make_desk().manager
     dm.title_bar_mode = TitleBarMode.custom
     dm.set_floating_window_icon(_solid_icon("#0000ff"))
     fc = FramelessFloatingDockContainer(dock_manager=dm)
@@ -75,10 +71,9 @@ def test_frameless_floating_window_uses_dedicated_icon(qapp):
     fc.close()
 
 
-def test_floating_icon_priority_over_app_icon(qapp):
+def test_floating_icon_priority_over_app_icon(qapp, make_desk):
     """The dedicated floating icon wins even when the app icon is set."""
-    win = QMainWindow()
-    dm = DockManager(win)
+    dm = make_desk().manager
     qapp.setWindowIcon(_solid_icon("#111111"))
     dm.set_floating_window_icon(_solid_icon("#222222"))
     fc = FloatingDockContainer(dock_manager=dm)

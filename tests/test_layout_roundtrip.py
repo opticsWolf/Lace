@@ -10,23 +10,18 @@ asserting that boolean) passed on the broken build.
 import json
 
 import pytest
-from PySide6.QtWidgets import QLabel, QMainWindow
+from PySide6.QtWidgets import QLabel
 
-from lace.dock_manager import DockManager
 from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 from lace.floating_dock_container import FloatingDockContainer
 
 
 @pytest.fixture
-def manager(qapp):
-    win = QMainWindow()
-    dm = DockManager(win)
-    win.resize(1000, 700)
-    win.show()
-    qapp.processEvents()
-    yield dm
-    win.close()
+def manager(make_desk):
+    desk = make_desk(1000, 700)
+    desk.show()
+    return desk.manager
 
 
 def _mk(name):

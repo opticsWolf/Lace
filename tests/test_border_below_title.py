@@ -14,36 +14,22 @@ token-level check.
 import pytest
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QImage, QPainter
-from PySide6.QtWidgets import QLabel, QMainWindow
 
 from lace.dock_chrome import resolve_below_title_frame_color
 from lace.dock_custom_theme import THEME_SPECS
-from lace.dock_manager import DockManager
 from lace.dock_paint import (ChromeTokens, bottom_open_path,
                              paint_panel_border, top_rounded_path)
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DockStyleCategory, ThemeSpec, build_theme
-from lace.dock_widget import DockWidget
 from lace.enums import DockWidgetArea
 
 
 @pytest.fixture
-def area(qapp):
-    win = QMainWindow()
-    win.resize(800, 600)
-    dock_manager = DockManager(win)
-    first = DockWidget("Alpha")
-    first.set_widget(QLabel("x"))
-    dock_area = dock_manager.add_dock_widget(DockWidgetArea.center, first)
-    win.show()
-    qapp.processEvents()
-    dock_manager.set_active_dock_area(dock_area)
-    qapp.processEvents()
-
-    yield dock_manager, dock_area
-
-    win.close()
-    get_dock_style_manager().apply_theme("default")
+def area(make_desk):
+    desk = make_desk(800, 600)
+    dock_area = desk.add(DockWidgetArea.center, "Alpha", text="x")
+    desk.show(active=dock_area)
+    return desk.manager, dock_area
 
 
 def _spec(**overrides):
@@ -293,27 +279,14 @@ def test_bottom_open_path_omits_the_top_segment():
 
 # ── Colour: the frame and the tab strip are one line ──────────────────────
 @pytest.fixture
-def pair(qapp):
+def pair(make_desk):
     """Two areas, so one of them can be the unfocused one."""
-    win = QMainWindow()
-    win.resize(800, 600)
-    dock_manager = DockManager(win)
-    first = DockWidget("Alpha")
-    first.set_widget(QLabel("x"))
-    top = dock_manager.add_dock_widget(DockWidgetArea.center, first)
-    second = DockWidget("Beta")
-    second.set_widget(QLabel("y"))
-    dock_manager.add_dock_widget(DockWidgetArea.center, second, top)
-    third = DockWidget("Gamma")
-    third.set_widget(QLabel("z"))
-    bottom = dock_manager.add_dock_widget(DockWidgetArea.bottom, third)
-    win.show()
-    qapp.processEvents()
-
-    yield dock_manager, top, bottom
-
-    win.close()
-    get_dock_style_manager().apply_theme("default")
+    desk = make_desk(800, 600)
+    top = desk.add(DockWidgetArea.center, "Alpha", text="x")
+    desk.add(DockWidgetArea.center, "Beta", top, text="y")
+    bottom = desk.add(DockWidgetArea.bottom, "Gamma", text="z")
+    desk.show()
+    return desk.manager, top, bottom
 
 
 def _side_color(dock_area, qapp, x=None):
