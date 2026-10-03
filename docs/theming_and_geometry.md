@@ -776,6 +776,13 @@ colours through the window manager. `DockManager` turns this on for the whole
 application (`install_native_frame_theme()` does it without one). It reapplies
 on every theme switch, and dims the title text of inactive windows.
 
+A window is themed when it is shown; `apply_native_frame()` on a window that
+was never shown does nothing and returns False, because it never creates a
+native handle. Showing a widget before giving it a parent is safe: before
+0.9.2 the frame theme could turn such a widget, and the docks around it, into
+native windows, after which the dock title bars took no clicks. Widgets
+embedded in a `QGraphicsScene` are skipped; they have no OS frame.
+
 | Platform | System title bar |
 |---|---|
 | Windows 11 | caption colour, title text (dimmed while inactive) and outline from the theme |
@@ -793,6 +800,6 @@ own: `dialogs.get_open_file_name(..., native=False)`.
 
 | To | Use |
 |---|---|
-| leave every system frame alone | `DockManager(window, native_frames=False)` |
+| leave every system frame alone, floating docks' included | `DockManager(window, native_frames=False)` |
 | leave one window's system frame alone | `window.setProperty("laceNativeFrame", False)` |
 | make the `lace.dialogs` helpers open plain Qt dialogs | `dialogs.set_default_frameless(False)` |

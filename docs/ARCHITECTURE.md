@@ -229,7 +229,12 @@ The native-frame variant. Adds `_apply_dock_palette_to_window()` and
 `_apply_native_frame()`: `setWindowFlags()` recreates the native handle
 without the DWM frame attributes, so the title bar would come back in the
 system colours. `_apply_native_frame()` re-applies them through
-`lace.native_frame.apply_native_frame` (see *Native window frames*).
+`lace.native_frame.apply_native_frame` (see *Native window frames*), only while
+the frame theme is installed (`native_frame_theme_installed()`), so
+`DockManager(native_frames=False)` leaves the float's frame alone too. It never
+creates a handle: a float hidden across the flag change has none, and creating
+one there made the host window's widgets native; the frame theme themes it when
+it is shown again.
 
 | Category | Members |
 |---|---|
@@ -311,8 +316,8 @@ bar. Both kinds of title bar read one source:
 | Class / Function | Description |
 |---|---|
 | **`title_bar_colors(sm=None)`** (`title_bar_colors.py`) | Returns a frozen `TitleBarColors`: `background` (`SIDEBAR.bg_color` → `TITLE_BAR.bg_normal`), `text` (`TITLE_BAR.text_normal`), `text_inactive` (text at 60 % over the background, opaque), `border` (`CORE.border_color` when the theme draws an outline, else `None`) and `is_dark`. `FramelessTitleBarStyler` reads its background and text from it too, so the two bars cannot drift. |
-| **`apply_native_frame(window, colors=None, active=None)`** (`native_frame.py`) | Sets the DWM attributes on one window: dark mode (20, or 19 on old Win10), border (34; `DWMWA_COLOR_DEFAULT` without an outline), caption (35; alpha composited over the window background) and text (36; dimmed while inactive). 34–36 need Windows 11 and are best effort, so Windows 10 gets dark mode only. No-op off Windows, under a non-`windows` Qt platform (offscreen winIds are not HWNDs), for frameless windows, popups, tooltips and splash screens, and for windows with `laceNativeFrame=False`. The applied values are cached per HWND in the `_lace_frame_key` property; a dark-mode flip on an existing handle sends `SWP_FRAMECHANGED`. |
-| **`NativeFrameTheme`** / **`install_native_frame_theme(app=None)`** (`native_frame.py`) | Application event filter (`Show`, `WinIdChange`, `WindowActivate`/`Deactivate`) plus a debounced style subscription (TITLE_BAR, CORE, SIDEBAR) that re-applies to visible top-level windows. One per application, installed by `DockManager` unless `native_frames=False`; `uninstall_native_frame_theme()` removes it. |
+| **`apply_native_frame(window, colors=None, active=None)`** (`native_frame.py`) | Sets the DWM attributes on one window: dark mode (20, or 19 on old Win10), border (34; `DWMWA_COLOR_DEFAULT` without an outline), caption (35; alpha composited over the window background) and text (36; dimmed while inactive). 34–36 need Windows 11 and are best effort, so Windows 10 gets dark mode only. No-op off Windows, under a non-`windows` Qt platform (offscreen winIds are not HWNDs), for frameless windows, popups, tooltips and splash screens, widgets embedded in a `QGraphicsScene`, and for windows with `laceNativeFrame=False`. The handle is read with `internalWinId()`, never created: a window without one (never shown) is left alone and returns False. `winId()` would create it and mark the widget `WA_NativeWindow` for good; Qt sends `WinIdChange` while reparenting a widget that was shown without a parent, and a native child there made its ancestors and their siblings native, so dock title bars stopped taking clicks. The applied values are cached per HWND in the `_lace_frame_key` property; a dark-mode flip on an existing handle sends `SWP_FRAMECHANGED`. |
+| **`NativeFrameTheme`** / **`install_native_frame_theme(app=None)`** (`native_frame.py`) | Application event filter (`Show`, `WinIdChange`, `WindowActivate`/`Deactivate`) plus a debounced style subscription (TITLE_BAR, CORE, SIDEBAR) that re-applies to visible top-level windows. One per application, installed by `DockManager` unless `native_frames=False`; `uninstall_native_frame_theme()` removes it, and `native_frame_theme_installed()` says whether it is in effect. |
 
 The OS-drawn file and print dialogs have no Qt widget and stay out of reach;
 they follow the system light/dark mode.
