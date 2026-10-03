@@ -63,6 +63,9 @@ def test_dock_manager_sets_the_attribute(qapp, make_desk, native_frames):
 
 def test_a_frameless_dialog_leaves_the_docks_alien(desk):
     dialog = FramelessLaceDialog(desk.win)
+    # qframelesswindow asks for the handle in the constructor on Windows only;
+    # ask here so every platform takes the same path.
+    dialog.winId()
     assert dialog.testAttribute(Qt.WidgetAttribute.WA_NativeWindow)
     assert native_children(desk.win, besides=FramelessLaceDialog) == []
     dialog.deleteLater()

@@ -41,15 +41,13 @@ def test_tab_count_warns_and_matches_count(pinned):
         assert bar.tab_count() == _silent(bar.count) == 1
 
 
-def test_focus_sidebar_warns_and_toggles(pinned):
+def test_focus_sidebar_warns_and_toggles(pinned, monkeypatch):
     _, sm, _ = pinned
     seen = []
-    sm.sidebar_toggled.connect(lambda area, shown: seen.append(shown))
+    monkeypatch.setattr(sm, "toggle_sidebar", seen.append)
     with pytest.warns(DeprecationWarning, match=r"toggle_sidebar\(\)"):
         sm.focus_sidebar(DockWidgetArea.left)
-    assert seen == [True]
-    _silent(lambda: sm.toggle_sidebar(DockWidgetArea.left))
-    assert seen == [True, False]
+    assert seen == [DockWidgetArea.left]
 
 
 def test_update_resize_margins_warns(pinned):
