@@ -38,3 +38,11 @@ class DockSignals(QObject):
     #:       target_container (DockContainerWidget),
     #:       target_pos (QPoint, global)
     floating_widget_dropped = Signal(object, object, object)
+
+    #: A dock was pinned to a sidebar, moved to another one, or unpinned.
+    #: args: dock_widget (DockWidget),
+    #:       area (DockWidgetArea it is pinned to, or None once unpinned)
+    #: Emitted once the sidebar's bookkeeping is consistent, so a handler may
+    #: query ``DockManager.is_dock_widget_pinned``. A layout restore emits it
+    #: once per dock whose pin changed, when the restore is done.
+    dock_pinned_changed = Signal(object, object)

@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.9.2
+**Version:** 0.9.3
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -39,7 +39,9 @@
 ### 📌 Sidebars
 
 - **Auto-hide panels** — VS Code-style slide-out sidebars that appear on hover
-- **Pinned widgets** — Pin dock widgets to sidebars with visual tab buttons
+- **Pinned widgets** — Pin dock widgets to sidebars with visual tab buttons; pinned docks, and whether each is closed, are saved with the layout
+- **Allowed sides** — Limit sidebars to the edges you want (say left and right only); pinning never creates one elsewhere
+- **Pin API and signal** — `pin_dock_widget()`, `unpin_dock_widget()`, `is_dock_widget_pinned()`, `pinned_dock_widgets()`, and `signals.dock_pinned_changed` to follow pin changes
 - **Notification badges** — Numerical or symbolic badges on sidebar tabs
 - **Shaped tabs** — Sidebar tabs take the dock widget tabs' corner radius, flat on the window-facing or content-facing side (or rounded on all four), with an outline that closes all the way round or leaves the flat edge open
 - **Per-state outlines and fills** — Inactive, hovered and active each get their own outline colour and background, so a theme can outline only the selected tab, ring one under the cursor, or tint every tab with the highlight colour
@@ -128,6 +130,33 @@ dock_manager.add_dock_widget(DockWidgetArea.center, editor)
 window.show()
 app.exec()
 ```
+
+### Sidebars and Pinning
+
+Pinning is offered once a sidebar exists. `set_sidebar_areas()` creates the
+sidebars and limits pinning to those sides:
+
+```python
+dock_manager.set_sidebar_areas({DockWidgetArea.left, DockWidgetArea.right})
+
+dock_manager.pin_dock_widget(editor)                       # closest allowed side
+dock_manager.pin_dock_widget(editor, DockWidgetArea.left)
+dock_manager.is_dock_widget_pinned(editor)                 # True
+dock_manager.unpin_dock_widget(editor)                     # back into the layout
+
+dock_manager.signals.dock_pinned_changed.connect(
+    lambda dock, area: print(dock.objectName(), area))      # area is None once unpinned
+```
+
+- Only docks with `DockWidgetFeature.pinnable` can be pinned. A dock added with
+  `add_sidebar_widget(area, dock)` without that feature is locked in its sidebar.
+- For a pinned dock, `is_closed()` means its tab is hidden; an open pinned dock
+  shows its tab, whether or not its panel is slid out.
+- `save_state()` / `restore_state()` carry the pins. Restoring a layout puts
+  every dock where the layout has it, pinned or docked.
+
+See the [Quick Reference](docs/QUICK_REFERENCE.md) for badges, focus behaviour
+and the rest of the sidebar API.
 
 ### Full Example
 

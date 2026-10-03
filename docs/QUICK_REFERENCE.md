@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.9.2
+**Version:** 0.9.3
 
 ---
 
@@ -170,11 +170,39 @@ dock_manager.add_dock_widget(DockWidgetArea.center, console)  # becomes a tab
 ```python
 from lace import DockWidgetArea
 
-# Add sidebar overlays to left and right edges
-sm = dock_manager.sidebar_manager
-sm.add_sidebar(DockWidgetArea.left)
-sm.add_sidebar(DockWidgetArea.right)
+# Sidebars on the left and right edges only. This also turns pinning on:
+# the Pin buttons and menu entries appear once a sidebar exists.
+dock_manager.set_sidebar_areas({DockWidgetArea.left, DockWidgetArea.right})
 ```
+
+The default allows all four sides, and a sidebar is made the first time a dock
+is pinned there. With an allow-list, pinning never makes a sidebar outside it:
+a dock is pinned to the closest allowed side, and a layout that pins one to a
+side that isn't allowed restores it to the closest one that is.
+
+### Pinning
+
+```python
+dock_manager.pin_dock_widget(dock)                       # closest allowed side
+dock_manager.pin_dock_widget(dock, DockWidgetArea.left)
+dock_manager.is_dock_widget_pinned(dock)                 # True
+dock_manager.pinned_dock_widgets()                       # {dock: DockWidgetArea.left}
+dock_manager.unpin_dock_widget(dock)                     # back into the layout
+
+# (dock_widget, area), or (dock_widget, None) once unpinned. A layout
+# restore emits it once per dock whose pin changed.
+dock_manager.signals.dock_pinned_changed.connect(on_pin_changed)
+```
+
+- Only docks with `DockWidgetFeature.pinnable` are pinned. A pinned dock
+  without it is locked in its sidebar and can't be unpinned. Only the host
+  puts one there, with `add_sidebar_widget()` below or by dropping the
+  feature from a pinned dock.
+- For a pinned dock, `is_closed()` means its tab is hidden; an open pinned
+  dock shows its tab, whether or not the overlay is out.
+- Pinned docks, and whether each is closed, are saved with the layout.
+  Restoring a layout moves every dock to where the layout has it, pinned or
+  docked.
 
 ### Adding Sidebar Widgets
 

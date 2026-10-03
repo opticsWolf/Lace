@@ -239,7 +239,7 @@ class SideTabBar(QFrame, DockStyled):
 
         other_closable = sum(
             1 for btn in self._buttons
-            if (dw := btn.property("_dock_widget")) and dw != widget and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden()
+            if (dw := btn.dock_widget()) and dw != widget and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden()
         )
 
         return MenuContext(
@@ -310,7 +310,14 @@ class SideTabBar(QFrame, DockStyled):
 
     # ─────────────────────────────────────────────────────────────────────
 
-    def add_tab(self, dock_widget: 'DockWidget') -> VerticalTabButton:
+    def add_tab(self, dock_widget: 'DockWidget', visible: bool = True) -> VerticalTabButton:
+        """The tab for *dock_widget*, made if it has none yet.
+
+        With *visible* False the tab starts hidden, as for a closed dock.
+        """
+        existing = self._widget_map.get(dock_widget)
+        if existing is not None:
+            return existing
         icon = dock_widget.icon() if hasattr(dock_widget, 'icon') else None
         
         btn = VerticalTabButton(
@@ -323,7 +330,7 @@ class SideTabBar(QFrame, DockStyled):
         if name:
             btn.set_icon_name(name)
         btn.set_area(self._area)
-        btn.setProperty("_dock_widget", dock_widget)
+        btn.set_dock_widget(dock_widget)
         btn.setAttribute(Qt.WA_Hover, True)
         btn.installEventFilter(self)
         btn.clicked.connect(lambda checked, b=btn: self.tab_clicked.emit(b))
@@ -342,14 +349,15 @@ class SideTabBar(QFrame, DockStyled):
         self._buttons.append(btn)
         self._widget_map[dock_widget] = btn
         
-        # FIX: Only show the sidebar if we are not in the middle of a startup
-        if not self.isVisible() and self.parentWidget() and self.parentWidget().isVisible():
-            self.show()
-        
-        # FIX: Defer showing the sidebar until the layout engine has positioned it.
-        # This prevents the "ghost" rendering at (0,0) during app startup.
-        if not self.isVisible():
-            QTimer.singleShot(0, self.show)
+        if visible:
+            # FIX: Only show the sidebar if we are not in the middle of a startup
+            if not self.isVisible() and self.parentWidget() and self.parentWidget().isVisible():
+                self.show()
+
+            # FIX: Defer showing the sidebar until the layout engine has positioned it.
+            # This prevents the "ghost" rendering at (0,0) during app startup.
+            if not self.isVisible():
+                QTimer.singleShot(0, self._show_if_any_tab)
             
         target_size = self._get_button_max_size(btn)
         
@@ -362,24 +370,33 @@ class SideTabBar(QFrame, DockStyled):
         anim.finished.connect(self._update_scroll_visibility)
         anim.finished.connect(self.updateGeometry) 
         # FIX: Show the button only when the animation starts
-        btn.show() 
+        if visible:
+            btn.show()
         anim.start()
-        
+
         self._update_scroll_visibility()
-        self.updateGeometry() 
+        self.updateGeometry()
         return btn
+
+    def _show_if_any_tab(self):
+        # Deferred: by now the tab may have been removed or hidden again.
+        if any(not b.isHidden() for b in self._buttons):
+            self.show()
     
     def _get_button_max_size(self, btn: VerticalTabButton) -> QSize:
         """Allow sufficient space based on the button's own text content hint."""
         hint = btn.sizeHint()
         return QSize(16777215, max(40, hint.height() + 10))
     
-    def remove_tab(self, dock_widget: 'DockWidget'):
-        try:
-            dock_widget.view_toggled.disconnect(self._on_widget_view_toggled)
-        except (RuntimeError, TypeError):
-            pass
-            
+    def remove_tab(self, dock_widget: 'DockWidget', disconnect: bool = True):
+        """Drop *dock_widget*'s tab. *disconnect* False leaves the dock's
+        signals alone, for a dock that is being destroyed."""
+        if disconnect:
+            try:
+                dock_widget.view_toggled.disconnect(self._on_widget_view_toggled)
+            except (RuntimeError, TypeError, SystemError):
+                pass
+
         btn = self._widget_map.pop(dock_widget, None)
         if btn is None:
             return
@@ -399,12 +416,12 @@ class SideTabBar(QFrame, DockStyled):
         anim.start()
         
         self._update_scroll_visibility()
-        if not self._buttons:
+        if not any(not b.isHidden() for b in self._buttons):
             self.hide()
     
     def _unpin_tab(self, button: VerticalTabButton):
         """Unpin specific tab (move to main area without closing)."""
-        dock_widget = button.property("_dock_widget")
+        dock_widget = button.dock_widget()
         if dock_widget and (dock_widget.features() & DockWidgetFeature.pinnable):
             manager = self._find_manager()
             if manager and hasattr(manager, 'sidebar_manager'):
@@ -414,7 +431,7 @@ class SideTabBar(QFrame, DockStyled):
     def _on_tab_context_menu(self, button: VerticalTabButton, global_pos: QPoint):
         """Show the unified context menu for the tab under *pos*."""
         # Store the widget context so the mixin knows which widget to act on
-        self._context_menu_widget = button.property("_dock_widget")
+        self._context_menu_widget = button.dock_widget()
         if not self._context_menu_widget:
             return
 
@@ -453,20 +470,20 @@ class SideTabBar(QFrame, DockStyled):
         dock_widget.toggle_view(False)
 
     def _close_tab_button(self, button: VerticalTabButton):
-        dock_widget = button.property("_dock_widget")
+        dock_widget = button.dock_widget()
         if dock_widget:
             self._close_dock_widget(dock_widget)
     
     def _close_others(self, keep_button: VerticalTabButton):
-        keep_widget = keep_button.property("_dock_widget")
+        keep_widget = keep_button.dock_widget()
         for btn in list(self._buttons):
-            dw = btn.property("_dock_widget")
+            dw = btn.dock_widget()
             if dw and dw != keep_widget and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden():
                 self._close_dock_widget(dw)
     
     def _close_all(self):
         for btn in list(self._buttons):
-            dw = btn.property("_dock_widget")
+            dw = btn.dock_widget()
             if dw and (dw.features() & DockWidgetFeature.closable) and not btn.isHidden():
                 self._close_dock_widget(dw)
     
@@ -512,7 +529,7 @@ class SideTabBar(QFrame, DockStyled):
         if self._context_menu_widget and hasattr(self._context_menu_widget, 'dock_manager'):
             return self._context_menu_widget.dock_manager()
         for btn in self._buttons:
-            dw = btn.property("_dock_widget")
+            dw = btn.dock_widget()
             if dw and hasattr(dw, 'dock_manager'):
                 return dw.dock_manager()
         w = self.parent()

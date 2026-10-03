@@ -10,9 +10,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional, Dict, Any
+from typing import TYPE_CHECKING, Optional, Dict, Any, FrozenSet, Iterable
 
-from PySide6.QtCore import QObject, Signal, QTimer, QPoint, QEvent, QSize, QRect, Qt
+import shiboken6
+from PySide6.QtCore import QObject, Signal, QTimer, QPoint, QEvent, QSize, Qt
 from PySide6.QtGui import QKeySequence, QShortcut, QCursor
 from PySide6.QtWidgets import QApplication, QMainWindow
 
@@ -31,6 +32,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _HIDE_DELAY_MS = 400
+
+#: The sides a sidebar can run along, in the order ties are broken.
+_AREA_ORDER = (DockWidgetArea.left, DockWidgetArea.bottom,
+               DockWidgetArea.right, DockWidgetArea.top)
+_SIDEBAR_AREAS = frozenset(_AREA_ORDER)
+_OPPOSITE_AREA = {
+    DockWidgetArea.left: DockWidgetArea.right,
+    DockWidgetArea.right: DockWidgetArea.left,
+    DockWidgetArea.top: DockWidgetArea.bottom,
+    DockWidgetArea.bottom: DockWidgetArea.top,
+}
 
 
 class SidebarKeyboardHandler(QObject):
@@ -111,7 +123,7 @@ class SidebarHoverController(QObject):
         button.setChecked(True)
         
         self._pending_button = button
-        dw = button.property("_dock_widget")
+        dw = button.dock_widget()
         trace("sidebar.hover", action="enter", button=dw.objectName() if dw else "button")
         
         if self._manager._overlay.isVisible() and self._manager._animations_enabled:
@@ -122,7 +134,7 @@ class SidebarHoverController(QObject):
     def on_tab_hover_leave(self, button: VerticalTabButton):
         if not self._manager._auto_show_on_hover or self._manager._keep_open:
             return
-        dw = button.property("_dock_widget")
+        dw = button.dock_widget()
         trace("sidebar.hover", action="leave", button=dw.objectName() if dw else "button")
         self._hide_timer.start()
 
@@ -133,11 +145,12 @@ class SidebarHoverController(QObject):
         trace("sidebar.timer", kind="switch", fire=True)
         self._pending_button = None
 
-        dock_widget = button.property("_dock_widget")
-        if not dock_widget:
-            return
+        dock_widget = button.dock_widget()
+        sidebar = self._manager._pinned.get(dock_widget) if dock_widget else None
+        if sidebar is None:
+            return      # a stale tab: its dock was unpinned meanwhile
 
-        area = self._manager._pinned[dock_widget].area
+        area = sidebar.area
 
         if self._manager._overlay.isVisible() and self._manager._last_active_area and self._manager._last_active_area != area:
             self._manager._overlay.hide_widget(animate=False)
@@ -178,11 +191,12 @@ class SidebarOverlayController(QObject):
         self._manager = manager
 
     def show_for_button(self, button: VerticalTabButton):
-        dock_widget = button.property("_dock_widget")
-        if dock_widget is None:
+        dock_widget = button.dock_widget()
+        sidebar = self._manager._pinned.get(dock_widget) if dock_widget else None
+        if sidebar is None:
             return
-        
-        area = self._manager._pinned[dock_widget].area
+
+        area = sidebar.area
         
         state = self._manager._state_manager.load_state(dock_widget.objectName())
         if state.width <= 0:
@@ -206,7 +220,7 @@ class SidebarOverlayController(QObject):
         
         if self._manager._overlay.isVisible():
             if self._manager._active_button:
-                dw = self._manager._active_button.property("_dock_widget")
+                dw = self._manager._active_button.dock_widget()
                 if dw:
                     dw.set_widget_state(WidgetState.pinned_hidden)
 
@@ -228,7 +242,7 @@ class SidebarOverlayController(QObject):
     def on_resize_finished(self):
         trace("sidebar.overlay", action="resize", area="overlay", size=self._manager._overlay.width() if self._manager._overlay else 0)
         if self._manager._active_button:
-            dock_widget = self._manager._active_button.property("_dock_widget")
+            dock_widget = self._manager._active_button.dock_widget()
             if dock_widget:
                 state = SidebarState(
                     width=self._manager._overlay.width(),
@@ -244,7 +258,7 @@ class SidebarDragController(QObject):
         self._manager = manager
 
     def on_tab_drag_started(self, button: VerticalTabButton):
-        dock_widget = button.property("_dock_widget")
+        dock_widget = button.dock_widget()
         if dock_widget:
             if not (dock_widget.features() & DockWidgetFeature.movable):
                 return
@@ -263,26 +277,22 @@ class SidebarDragController(QObject):
         if not (dock_widget.features() & DockWidgetFeature.floatable):
             return
         
-        sidebar = self._manager._pinned.pop(dock_widget)
-        
+        sidebar = self._manager._pinned[dock_widget]
+
         is_visible = self._manager._overlay.isVisible() and dock_widget in self._manager._overlay._current_widgets
-        
+
         if is_visible:
             size = self._manager._overlay.size()
             origin = self._manager._overlay.mapToGlobal(QPoint(0, 0))
-            self._manager._detach_from_overlay(dock_widget)
         else:
             state = self._manager._state_manager.load_state(sidebar.area)
             size = QSize(state.width, state.height)
             origin = QCursor.pos() - QPoint(10, 10)
-        
-        sidebar.remove_tab(dock_widget)
+
+        self._manager.release_widget(dock_widget)
         dock_widget.hide()
-        dock_widget.set_dock_area(None)
         trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="pinned", to_state="floating")
 
-        self._manager._detach_tab_widget(dock_widget)
-        
         floating_cls = self._manager._dock_manager.floating_container_class()
         dock_widget.set_dock_manager(self._manager._dock_manager)
         floating = floating_cls(
@@ -332,6 +342,10 @@ class SidebarManager(QObject):
         self._overlay.resize_finished.connect(self._on_resize_finished)
         
         self._pinned: Dict['DockWidget', SideTabBar] = {}
+        self._destroyed_hooks: Dict['DockWidget', Any] = {}
+        self._allowed_areas: FrozenSet[DockWidgetArea] = _SIDEBAR_AREAS
+        self._restoring = False
+        self._pins_before: Dict['DockWidget', DockWidgetArea] = {}
         self._active_button: Optional[VerticalTabButton] = None
         self._last_active_area: Optional[DockWidgetArea] = None
         self._badge_position: TabBadgePosition = TabBadgePosition.top_right
@@ -411,115 +425,239 @@ class SidebarManager(QObject):
         
         return bar
     
-    # def pin_widget(self, dock_widget: 'DockWidget', 
-    #                sidebar: Optional[SideTabBar] = None,
-    #                area: Optional[DockWidgetArea] = None):
-    #     if dock_widget in self._pinned:
-    #         return
-        
-    #     if sidebar is None:
-    #         if area is None:
-    #             area = DockWidgetArea.left
-    #         sidebar = self._sidebars.get(area)
-    #         if not sidebar:
-    #             return
-        
-    #     dock_area = dock_widget.dock_area_widget()
-    #     if dock_area is not None:
-    #         dock_area.remove_dock_widget(dock_widget)
-        
-    #     # FIX: Protect the tab from being destroyed if the old area was deleted
-    #     tab_widget = getattr(dock_widget, 'tab_widget', lambda: None)()
-    #     if tab_widget is not None:
-    #         try:
-    #             tab_widget.setParent(None)
-    #         except RuntimeError:
-    #             pass
-        
-    #     dock_widget.set_dock_area(None)
-    #     sidebar.add_tab(dock_widget)
-    #     dock_widget.hide()
-    #     self._pinned[dock_widget] = sidebar
-    #     self.update_badge(dock_widget, 0)
+    # ─────────────────────────────────────────────────────────────────────
+    #  Which sides sidebars may use
+    # ─────────────────────────────────────────────────────────────────────
 
-    def pin_widget(self, dock_widget: 'DockWidget', 
+    def set_sidebar_areas(self, areas: Iterable[DockWidgetArea]) -> None:
+        """Allow sidebars on *areas* only, and create those sidebars.
+
+        A dock pinned to a side that is no longer allowed moves to the
+        closest allowed one. The default allows all four sides.
+        """
+        allowed = frozenset(DockWidgetArea(a) for a in areas) & _SIDEBAR_AREAS
+        if not allowed:
+            raise ValueError("set_sidebar_areas needs at least one of left, right, top, bottom")
+        self._allowed_areas = allowed
+        for area in sorted(allowed, key=_AREA_ORDER.index):
+            self.add_sidebar(area)
+        for dock_widget, sidebar in list(self._pinned.items()):
+            if sidebar.area not in allowed:
+                self.pin_widget(dock_widget, area=self._allowed_area(sidebar.area, dock_widget),
+                                force=True)
+
+    def sidebar_areas(self) -> FrozenSet[DockWidgetArea]:
+        """The sides sidebars may use (see :meth:`set_sidebar_areas`)."""
+        return self._allowed_areas
+
+    def _usable_sidebars(self) -> Dict[DockWidgetArea, SideTabBar]:
+        return {a: bar for a, bar in self._sidebars.items() if a in self._allowed_areas}
+
+    def _allowed_area(self, area: DockWidgetArea, dock_widget: 'DockWidget') -> DockWidgetArea:
+        """*area* if it is allowed, else the allowed side closest to it.
+
+        Left and right stand in for each other; otherwise the side closest
+        to the dock wins.
+        """
+        if area in self._allowed_areas:
+            return area
+        opposite = _OPPOSITE_AREA.get(area)
+        if area in (DockWidgetArea.left, DockWidgetArea.right) and opposite in self._allowed_areas:
+            chosen = opposite
+        else:
+            chosen = self._closest_area(dock_widget, self._allowed_areas)
+        logger.debug("Sidebar %s is not allowed; using %s", area.name, chosen.name)
+        return chosen
+
+    def _closest_area(self, dock_widget: 'DockWidget', candidates) -> DockWidgetArea:
+        """The side in *candidates* whose window edge is closest to the dock."""
+        order = [a for a in _AREA_ORDER if a in candidates]
+        try:
+            # The dock area gives steadier geometry than the dock itself.
+            dock_area = dock_widget.dock_area_widget()
+            source = dock_area if dock_area is not None else dock_widget
+            center = self._dock_manager.mapFromGlobal(source.mapToGlobal(source.rect().center()))
+            rect = self._dock_manager.rect()
+            if rect.width() <= 10:          # not laid out yet
+                rect = self._dock_manager.window().rect()
+            # abs(): a centre that drifted outside during a layout pass must
+            # not win with a negative distance.
+            distance = {
+                DockWidgetArea.left: abs(center.x()),
+                DockWidgetArea.right: abs(rect.width() - center.x()),
+                DockWidgetArea.top: abs(center.y()),
+                DockWidgetArea.bottom: abs(rect.height() - center.y()),
+            }
+            return min(order, key=distance.__getitem__)
+        except Exception:
+            return order[0]
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  Pinning
+    # ─────────────────────────────────────────────────────────────────────
+
+    def pin_widget(self, dock_widget: 'DockWidget',
                    sidebar: Optional['SideTabBar'] = None,
-                   area: Optional[DockWidgetArea] = None):
+                   area: Optional[DockWidgetArea] = None,
+                   *, force: bool = False) -> bool:
+        """Pin *dock_widget* to a sidebar; whether it is pinned afterwards.
+
+        With neither *sidebar* nor *area*, the closest allowed side is used,
+        or the dock stays where it is if it is pinned already. A dock without
+        ``DockWidgetFeature.pinnable`` is refused unless *force* is set.
+        Pinning a pinned dock to another side moves its tab.
+        """
         if self._dock_manager and DockFlags.pinnable_tabs not in self._dock_manager.config_flags:
-            return
+            return False
+        if not force and not (dock_widget.features() & DockWidgetFeature.pinnable):
+            logger.debug("pin_widget: %s is not pinnable", dock_widget.objectName())
+            return False
+        current = self._pinned.get(dock_widget)
+        if current is not None and sidebar is None and area is None:
+            return True                     # already pinned, no side asked for
+
         if self._dock_manager:
             dock_widget.set_dock_manager(self._dock_manager)
         if dock_widget.objectName():
             self._dock_manager._dock_widgets_map[dock_widget.objectName()] = dock_widget
-        
-        # 1. Intelligent Area Detection based on closest screen edge
-        if area is None and sidebar is None:
-            # Use the parent dock area if available for more stable geometry
-            dock_area = dock_widget.dock_area_widget()
-            if dock_area is not None:
-                widget_center_global = dock_area.mapToGlobal(dock_area.rect().center())
-            else:
-                widget_center_global = dock_widget.mapToGlobal(dock_widget.rect().center())
-                
-            center_in_manager = self._dock_manager.mapFromGlobal(widget_center_global)
-            
-            manager_rect = self._dock_manager.rect()
-            # Fallback to main window geometry if the manager hasn't been fully laid out yet
-            if manager_rect.width() <= 10:
-                manager_rect = self._dock_manager.window().rect()
-            
-            # Calculate distance to valid sidebar edges.
-            # abs() prevents negative distances from hijacking the min() check
-            # if coordinates drift out of bounds during layout passes.
-            dist_left = abs(center_in_manager.x())
-            dist_right = abs(manager_rect.width() - center_in_manager.x())
-            dist_bottom = abs(manager_rect.height() - center_in_manager.y())
-            
-            # Assign to the edge with the shortest absolute distance
-            min_dist = min(dist_left, dist_right, dist_bottom)
-            if min_dist == dist_left:
-                area = DockWidgetArea.left
-            elif min_dist == dist_bottom:
-                area = DockWidgetArea.bottom
-            else:
-                area = DockWidgetArea.right
-                
-        # 2. Ensure sidebar exists for the target area
+
         if sidebar is None:
-            if area not in self._sidebars:
-                self.add_sidebar(area)
-            sidebar = self._sidebars[area]
-            
-        # 3. Detach from current dock area
+            if area is None:
+                # Left, right and bottom: a top sidebar is used only when asked for.
+                auto = (self._allowed_areas - {DockWidgetArea.top}) or self._allowed_areas
+                area = self._closest_area(dock_widget, auto)
+            else:
+                area = self._allowed_area(area, dock_widget)
+            sidebar = self.add_sidebar(area)
+        if current is sidebar:
+            return True
+        if current is not None:
+            self.release_widget(dock_widget, notify=False)   # moving sides
+
+        # Detach from the current dock area
         dock_area = dock_widget.dock_area_widget()
         if dock_area is not None:
             dock_area.remove_dock_widget(dock_widget)
-        
+
         self._detach_tab_widget(dock_widget)
-        
         dock_widget.set_dock_area(None)
-        
-        # 4. Hide the widget to prevent (0,0) layout ghosting
-        dock_widget.hide() 
-        dock_widget.set_widget_state(WidgetState.pinned_hidden) # <-- NEW STAT
-        
-        # 5. Add to the correct sidebar
-        btn = sidebar.add_tab(dock_widget)
+
+        # Hidden until the overlay shows it, so it doesn't ghost at (0, 0)
+        dock_widget.hide()
+        dock_widget.set_widget_state(WidgetState.pinned_hidden)
+
+        # A closed dock keeps its tab hidden until it is opened
+        btn = sidebar.add_tab(dock_widget, visible=not dock_widget.is_closed())
         if btn:
             btn.set_badge_position(self._badge_position)
         self._pinned[dock_widget] = sidebar
+        self._destroyed_hooks[dock_widget] = dock_widget.destroyed.connect(
+            lambda *_, d=dock_widget: self._on_pinned_destroyed(d))
         dock_widget.set_toggle_view_action_checked(not dock_widget.is_closed())
         trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="docked", to_state="pinned")
         self.update_badge(dock_widget, 0)
-    
-    def unpin_widget(self, dock_widget: 'DockWidget', 
-                     area: Optional[DockWidgetArea] = None):
+        self._notify_pinned(dock_widget, sidebar.area)
+        return True
+
+    def release_widget(self, dock_widget: 'DockWidget', *, notify: bool = True) -> bool:
+        """Take *dock_widget* out of its sidebar without docking it anywhere.
+
+        The dock is left hidden, with no dock area, for the caller to place
+        or delete. Returns whether it was pinned.
+        """
         if dock_widget not in self._pinned:
+            return False
+        if dock_widget in self._overlay._current_widgets:
+            # Synchronously, so the overlay's delayed hide can't rip the
+            # widget out of wherever it goes next.
+            self._detach_from_overlay(dock_widget, hide=True)
+        self._forget(dock_widget)
+        self._detach_tab_widget(dock_widget)
+        dock_widget.set_dock_area(None)
+        dock_widget.set_widget_state(WidgetState.docked)
+        trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="pinned", to_state="released")
+        if notify:
+            self._notify_pinned(dock_widget, None)
+        return True
+
+    def _forget(self, dock_widget: 'DockWidget', dying: bool = False) -> Optional[SideTabBar]:
+        """Drop the sidebar's bookkeeping for *dock_widget*: its entry, its tab
+        and its ``destroyed`` hook. Doesn't touch the dock itself, and with
+        *dying* not even its signals."""
+        sidebar = self._pinned.pop(dock_widget, None)
+        if sidebar is None:
+            return None
+        hook = self._destroyed_hooks.pop(dock_widget, None)
+        if hook is not None:
+            try:
+                QObject.disconnect(hook)
+            except (RuntimeError, TypeError):
+                pass
+        if not shiboken6.isValid(sidebar):
+            return sidebar          # the window is being torn down
+        button = sidebar.button_for(dock_widget)
+        if button is not None:
+            if self._active_button is button:
+                self._active_button = None
+            if self._pending_button is button:
+                self._pending_button = None
+        sidebar.remove_tab(dock_widget, disconnect=not dying)
+        return sidebar
+
+    def _on_pinned_destroyed(self, dock_widget: 'DockWidget') -> None:
+        # Deleted while pinned, by a path that didn't release it first.
+        if not shiboken6.isValid(self):
+            return                  # the manager went first, at shutdown
+        if shiboken6.isValid(self._overlay) and dock_widget in self._overlay._current_widgets:
+            self._overlay._current_widgets.remove(dock_widget)
+        self._forget(dock_widget, dying=True)
+
+    def _notify_pinned(self, dock_widget: 'DockWidget', area: Optional[DockWidgetArea]) -> None:
+        if self._restoring:
+            return      # end_restore() reports the net change once per dock
+        signals = getattr(self._dock_manager, "signals", None)
+        if signals is not None:
+            signals.dock_pinned_changed.emit(dock_widget, area)
+
+    def pinned_widgets(self) -> Dict['DockWidget', DockWidgetArea]:
+        """Every pinned dock and the side it is pinned to."""
+        return {dock: bar.area for dock, bar in self._pinned.items()}
+
+    def begin_restore(self) -> None:
+        """Start a layout restore: release every pinned dock.
+
+        The layout being restored says where each dock goes, sidebars
+        included, so nothing stays pinned from before. Pin changes are
+        reported by :meth:`end_restore`.
+        """
+        self._pins_before = self.pinned_widgets()
+        self._restoring = True
+        for dock_widget in list(self._pinned):
+            self.release_widget(dock_widget)
+
+    def end_restore(self) -> None:
+        """Finish a restore: report each dock whose pin changed, once."""
+        self._restoring = False
+        before, self._pins_before = self._pins_before, {}
+        after = self.pinned_widgets()
+        for dock_widget in list(before) + [d for d in after if d not in before]:
+            if before.get(dock_widget) != after.get(dock_widget) and shiboken6.isValid(dock_widget):
+                self._notify_pinned(dock_widget, after.get(dock_widget))
+
+    def unpin_widget(self, dock_widget: 'DockWidget',
+                     area: Optional[DockWidgetArea] = None):
+        """Move a pinned dock back into the dock layout.
+
+        A pinned dock without ``DockWidgetFeature.pinnable`` is locked in its
+        sidebar and stays. Only the host puts one there, with
+        :meth:`DockManager.add_sidebar_widget` or by dropping the feature
+        from a pinned dock; :meth:`pin_widget` refuses it.
+        """
+        sidebar = self._pinned.get(dock_widget)
+        if sidebar is None:
             return
         if not (dock_widget.features() & DockWidgetFeature.pinnable):
             return
-        
-        sidebar = self._pinned.pop(dock_widget)
 
         # Capture the overlay geometry BEFORE we start hiding/detaching,
         # so we can determine the closest dock edge from where the panel
@@ -534,18 +672,8 @@ class SidebarManager(QObject):
                        self._overlay.height() // 2)
             )
 
-        if overlay_visible:
-            # Synchronously detach from the overlay to prevent the delayed
-            # animation cleanup from ripping the widget out of its new home.
-            self._detach_from_overlay(dock_widget, hide=True)
+        self.release_widget(dock_widget, notify=False)
 
-        sidebar.remove_tab(dock_widget)
-        dock_widget.set_dock_area(None)
-        trace("sidebar.transition", widget=dock_widget.objectName() or dock_widget.__class__.__name__, from_state="pinned", to_state="docked")
-
-        # FIX: Protect the tab from being destroyed
-        self._detach_tab_widget(dock_widget)
-        
         # Determine the closest dock edge.
         if area is not None:
             # Explicit area requested by caller — honour it.
@@ -560,20 +688,18 @@ class SidebarManager(QObject):
         else:
             # Overlay not visible — use the sidebar's own edge.
             target_area = sidebar.area
-        
-        dock_widget.set_widget_state(WidgetState.docked) # <-- RESTORE STATE
-        
+
         # Capture the new area created by the manager
         new_area = self._dock_manager.add_dock_widget(target_area, dock_widget)
-        
+
         # Explicitly show the area and the widget
         if new_area:
             new_area.show()
-        
+
         dock_widget.show()
         dock_widget.toggle_view(True)
-        
-    
+        self._notify_pinned(dock_widget, None)
+
     def unpin_widget_floating(self, dock_widget: 'DockWidget'):
         self._drag_controller.unpin_widget_floating(dock_widget)
 
@@ -594,19 +720,26 @@ class SidebarManager(QObject):
             return
         
         old_sidebar = self._pinned[dock_widget]
-        new_sidebar = self._sidebars.get(new_area)
+        new_sidebar = self._usable_sidebars().get(new_area)
         
         if not new_sidebar or old_sidebar == new_sidebar:
             return
         
+        old_button = old_sidebar.button_for(dock_widget)
         old_sidebar.remove_tab(dock_widget)
-        btn = new_sidebar.add_tab(dock_widget)
+        btn = new_sidebar.add_tab(dock_widget, visible=not dock_widget.is_closed())
         if btn:
             btn.set_badge_position(self._badge_position)
         self._pinned[dock_widget] = new_sidebar
-        
+        if self._active_button is old_button:
+            self._active_button = btn
+            btn.setChecked(True)
+        if self._pending_button is old_button:
+            self._pending_button = None
+
         if self._overlay.isVisible() and dock_widget in self._overlay._current_widgets:
             self._overlay.show_widget(dock_widget, new_area, animate=False)
+        self._notify_pinned(dock_widget, new_area)
     
     def update_badge(self, dock_widget: 'DockWidget', value: Any):
         if dock_widget in self._pinned:
@@ -700,36 +833,11 @@ class SidebarManager(QObject):
     def pin_to_closest_sidebar(self, dock_widget: 'DockWidget'):
         if self._dock_manager and DockFlags.pinnable_tabs not in self._dock_manager.config_flags:
             return
-        if not self._sidebars:
+        sidebars = self._usable_sidebars()
+        if not sidebars:
             logger.warning('pin_to_closest_sidebar: no sidebars registered')
             return
-
-        dock_area = dock_widget.dock_area_widget()
-        main_widget = self._dock_manager.root_container()
-
-        if dock_area is not None and main_widget is not None:
-            try:
-                area_center = dock_area.mapToGlobal(dock_area.rect().center())
-                # FIX: Convert manager rect to global coordinates so both
-                # sides of the distance calculation use the same frame.
-                main_top_left = main_widget.mapToGlobal(QPoint(0, 0))
-                main_rect = QRect(main_top_left, main_widget.size())
-
-                edge_distances = {
-                    DockWidgetArea.left:   abs(area_center.x() - main_rect.left()),
-                    DockWidgetArea.right:  abs(area_center.x() - main_rect.right()),
-                    DockWidgetArea.top:    abs(area_center.y() - main_rect.top()),
-                    DockWidgetArea.bottom: abs(area_center.y() - main_rect.bottom()),
-                }
-
-                available = {a: d for a, d in edge_distances.items() if a in self._sidebars}
-                closest_area = min(available, key=available.get)
-            except Exception:
-                closest_area = next(iter(self._sidebars))
-        else:
-            closest_area = next(iter(self._sidebars))
-
-        self.pin_widget(dock_widget, area=closest_area)
+        self.pin_widget(dock_widget, area=self._closest_area(dock_widget, sidebars))
 
     def raise_overlays(self):
         """Ensure the sidebar overlay container and tab bars stay on top in the central Z-order."""
@@ -750,6 +858,10 @@ class SidebarManager(QObject):
                 root = self._dock_manager.root_container()
                 if root and root.layout():
                     root.layout().activate()
+                if self._restoring:
+                    # A restore opens a pinned dock by showing its tab; the
+                    # overlay opens only for the layout's active widget.
+                    return
                 self._show_for_button(btn)
         self.raise_overlays()
 
@@ -792,7 +904,7 @@ class SidebarManager(QObject):
 
     @property
     def has_sidebars(self) -> bool:
-        return len(self._sidebars) > 0
+        return bool(self._usable_sidebars())
 
     # ─────────────────────────────────────────────────────────────────────
     #  State Serialization
@@ -826,12 +938,12 @@ class SidebarManager(QObject):
         
         # Save active widget if overlay is visible
         if self._active_button and self._overlay.isVisible():
-            dock_widget = self._active_button.property("_dock_widget")
+            dock_widget = self._active_button.dock_widget()
             if dock_widget:
                 state["active_widget"] = dock_widget.objectName()
         
         # Save which sidebar areas exist
-        for area in self._sidebars.keys():
+        for area in self._usable_sidebars():
             area_name = area.name if hasattr(area, 'name') else str(area)
             state["sidebar_areas"].append(area_name)
         
@@ -859,10 +971,10 @@ class SidebarManager(QObject):
             overlay_sizes = state.get("overlay_sizes", {})
             self._state_manager.import_all(overlay_sizes)
             
-            # Ensure sidebars exist for all saved areas
+            # Ensure sidebars exist for all saved areas that are allowed
             for area_name in state.get("sidebar_areas", []):
                 area = self._area_from_name(area_name)
-                if area and area not in self._sidebars:
+                if area in self._allowed_areas:
                     self.add_sidebar(area)
             
             # Restore pinned widgets
@@ -878,25 +990,34 @@ class SidebarManager(QObject):
                     logger.warning(f"restore_state: invalid area '{area_name}'")
                     continue
                 
-                # Pin the widget (this handles detaching from dock areas)
-                self.pin_widget(dock_widget, area=area)
-            
+                # Pin the widget (this handles detaching from dock areas).
+                # force: a dock locked in its sidebar (no pinnable) goes back
+                # there too.
+                self.pin_widget(dock_widget, area=self._allowed_area(area, dock_widget),
+                                force=True)
+
             # Restore active widget (show overlay)
             active_name = state.get("active_widget")
             if active_name:
                 dock_widget = self._dock_manager.find_dock_widget(active_name)
                 if dock_widget and dock_widget in self._pinned:
-                    sidebar = self._pinned[dock_widget]
-                    button = sidebar.button_for(dock_widget)
-                    if button:
-                        # Defer showing to avoid layout issues during restore
-                        QTimer.singleShot(0, lambda b=button: self._show_for_button(b))
+                    # Deferred to avoid layout issues during restore
+                    QTimer.singleShot(0, lambda d=dock_widget: self._show_pinned(d))
             
             return True
             
         except Exception as e:
             logger.error(f"Failed to restore sidebar state: {e}")
             return False
+
+    def _show_pinned(self, dock_widget: 'DockWidget') -> None:
+        """Open the overlay for *dock_widget* if it is still pinned and open."""
+        if not shiboken6.isValid(dock_widget) or dock_widget.is_closed():
+            return
+        sidebar = self._pinned.get(dock_widget)
+        button = sidebar.button_for(dock_widget) if sidebar is not None else None
+        if button is not None:
+            self._show_for_button(button)
 
     def _area_from_name(self, name: str) -> Optional[DockWidgetArea]:
         """Convert area name string back to DockWidgetArea enum."""

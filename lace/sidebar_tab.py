@@ -10,6 +10,8 @@
 
 from typing import Any, Optional
 from enum import Enum, auto
+
+import shiboken6
 from PySide6.QtCore import Qt, Signal, QPoint, QSize, QRect, QRectF
 from PySide6.QtGui import (
     QPainter, QFontMetrics, QIcon, QColor, QPen, QMouseEvent, QFont
@@ -75,7 +77,8 @@ class VerticalTabButton(QToolButton, DockStyled):
         self._badge_position: TabBadgePosition = badge_position
         self._is_hovered = False
         self._area: DockWidgetArea = DockWidgetArea.left  # Which sidebar this tab belongs to
-        
+        self._dock_widget = None    # the pinned dock; read it with dock_widget()
+
         # --- Cached style values (overwritten by refresh_style) ---
         self._badge_color = QColor("#ff6b6b")
         self._badge_text_color = QColor(Qt.white)
@@ -123,6 +126,20 @@ class VerticalTabButton(QToolButton, DockStyled):
         """Returns the text of the tab so the context menu can read it."""
         return self._text
     
+    def dock_widget(self):
+        """The dock this tab stands for, or None once that dock is deleted.
+
+        Held as a Python reference, not a ``QObject*`` property: a property
+        dangles when the dock is deleted, and reading it then crashes.
+        """
+        dock_widget = self._dock_widget
+        if dock_widget is not None and not shiboken6.isValid(dock_widget):
+            return None
+        return dock_widget
+
+    def set_dock_widget(self, dock_widget) -> None:
+        self._dock_widget = dock_widget
+
     def set_area(self, area: DockWidgetArea):
         """Set which sidebar this tab belongs to (for indicator mirroring)."""
         self._area = area

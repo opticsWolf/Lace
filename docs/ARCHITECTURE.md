@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.9.2
+**Version:** 0.9.3
 
 ---
 
@@ -75,7 +75,7 @@ The central orchestrator. All public API flows through this class.
 |---|---|
 | **Signals** | `perspective_list_changed`, `perspectives_removed`, `restoring_state`, `state_restored`, `opening_perspective`, `perspective_opened` |
 | **Core Docking** | `add_dock_widget(area, widget, target_area)`, `remove_dock_widget(widget)`, `find_dock_widget(name)` |
-| **Sidebars** | `add_sidebar_widget(area, widget)`, `sidebar_focus_behavior` (prop), `tab_badge_position` (prop) |
+| **Sidebars** | `add_sidebar_widget(area, widget)`, `set_sidebar_areas(areas)`, `sidebar_areas()`, `pin_dock_widget(widget, area?) → bool`, `unpin_dock_widget(widget, area?)`, `is_dock_widget_pinned(widget)`, `pinned_dock_widgets() → {widget: area}`, `sidebar_focus_behavior` (prop), `tab_badge_position` (prop) |
 | **State** | `save_state(version)`, `restore_state(json, version)`, `save_layout_to_file(path)`, `load_layout_from_file(path)` |
 | **Themes** | `set_theme(name)` |
 | **Perspectives** | `add_perspective(name)`, `remove_perspective(name)`, `perspective_names()`, `open_perspective(name)` |
@@ -917,8 +917,9 @@ VS Code-style auto-hide sidebar with hover, animations, badges, and drag-to-floa
 | Category | Members |
 |---|---|
 | **Signals** | `sidebar_toggled(area, bool)`, `widget_unpinned` |
-| **Setup** | `setup_shortcuts(window)`, `add_sidebar(area) → SideTabBar` |
-| **Pin/Unpin** | `pin_widget(widget, sidebar?, area?)`, `unpin_widget(widget, area?)`, `unpin_widget_floating(widget)`, `pin_to_closest_sidebar(widget)`, `move_widget_to_area(widget, area)` |
+| **Setup** | `setup_shortcuts(window)`, `add_sidebar(area) → SideTabBar`, `set_sidebar_areas(areas)`, `sidebar_areas()` |
+| **Pin/Unpin** | `pin_widget(widget, sidebar?, area?, *, force=False) → bool`, `release_widget(widget) → bool`, `unpin_widget(widget, area?)`, `unpin_widget_floating(widget)`, `pin_to_closest_sidebar(widget)`, `move_widget_to_area(widget, area)`, `pinned_widgets() → {widget: area}` |
+| **Restore** | `begin_restore()` (releases every pinned dock), `end_restore()` (reports net pin changes) |
 | **Toggle** | `toggle_sidebar(area)`, `focus_sidebar(area)` |
 | **Overlay** | `close_overlay()`, `raise_overlays()`, `show_widget(widget)`, `hide_widget(widget)` |
 | **Badges** | `update_badge(widget, value)`, `badge_position` (prop), `set_badge_position(position)` |
@@ -1078,6 +1079,7 @@ properties written in one module and read in another.
 | `request_overlay_show` | `(target_container)` |
 | `request_overlay_hide` | `()` |
 | `floating_widget_dropped` | `(floating_widget, target_pos)` |
+| `dock_pinned_changed` | `(dock_widget, area or None)`: pinned, moved to another sidebar, or unpinned; once per changed dock after a restore |
 
 ### 6.2 `dock_menu.py` — Unified context menu system
 

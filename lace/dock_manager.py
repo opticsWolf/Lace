@@ -12,7 +12,7 @@
 
 import logging
 import pathlib
-from typing import Dict, List, Optional
+from typing import Dict, FrozenSet, Iterable, List, Optional
 
 from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QWidget
@@ -184,6 +184,9 @@ class DockManager(QObject):
 
     def remove_dock_widget(self, widget: 'DockWidget'):
         trace("manager.remove_dock_widget", widget=widget.objectName())
+        # A pinned dock has no dock area, so the container below can't drop
+        # it; its sidebar tab would outlive it.
+        self.sidebar_manager.release_widget(widget)
         self._dock_widgets_map.pop(widget.objectName(), None)
         action = widget.toggle_view_action()
         if action:
@@ -207,8 +210,43 @@ class DockManager(QObject):
         dock_widget.set_dock_manager(self)
         self._dock_widgets_map[dock_widget.objectName()] = dock_widget
         self.add_toggle_view_action_to_menu(dock_widget.toggle_view_action())
-        sidebar = self.sidebar_manager.add_sidebar(area)
-        self.sidebar_manager.pin_widget(dock_widget, sidebar)
+        # force: the host asked for this dock in a sidebar, pinnable or not
+        self.sidebar_manager.pin_widget(dock_widget, area=area, force=True)
+
+    def set_sidebar_areas(self, areas: Iterable[DockWidgetArea]) -> None:
+        """Allow sidebars on *areas* only, and create them.
+
+        Pinning is offered once a sidebar exists, so this is also how a host
+        turns pinning on. The default allows all four sides; a dock pinned to
+        a side that is no longer allowed moves to the closest allowed one.
+        """
+        self.sidebar_manager.set_sidebar_areas(areas)
+
+    def sidebar_areas(self) -> FrozenSet[DockWidgetArea]:
+        """The sides sidebars may use."""
+        return self.sidebar_manager.sidebar_areas()
+
+    def pin_dock_widget(self, dock_widget: 'DockWidget',
+                        area: Optional[DockWidgetArea] = None) -> bool:
+        """Pin *dock_widget* to the sidebar on *area* (default: the closest
+        allowed side); whether it is pinned afterwards.
+
+        Refused for a dock without ``DockWidgetFeature.pinnable``. A
+        disallowed *area* falls back to the closest allowed side.
+        """
+        return self.sidebar_manager.pin_widget(dock_widget, area=area)
+
+    def unpin_dock_widget(self, dock_widget: 'DockWidget',
+                          area: Optional[DockWidgetArea] = None) -> None:
+        """Dock a pinned *dock_widget* on *area* (default: its sidebar's side)."""
+        self.sidebar_manager.unpin_widget(dock_widget, area)
+
+    def is_dock_widget_pinned(self, dock_widget: 'DockWidget') -> bool:
+        return self.sidebar_manager.is_pinned(dock_widget)
+
+    def pinned_dock_widgets(self) -> Dict['DockWidget', DockWidgetArea]:
+        """Every pinned dock and the side it is pinned to."""
+        return self.sidebar_manager.pinned_widgets()
 
     @property
     def title_bar_mode(self) -> TitleBarMode:

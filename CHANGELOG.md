@@ -5,6 +5,43 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.9.3] — 2026-10-03
+
+### Fixed
+
+- Removing a pinned dock with `remove_dock_widget()` left its sidebar tab behind, holding a
+  dangling pointer to the deleted dock; the next layout restore could crash on it. The dock is
+  now released from its sidebar first, a pinned dock deleted any other way cleans up after
+  itself, and sidebar tabs no longer read a deleted dock.
+- Restoring a layout that has a pinned dock docked left it docked *and* pinned. The layout's
+  sidebar state is now authoritative: every pinned dock is released before the restore, and
+  only the docks the layout pins are pinned again.
+- `pin_widget()` added another tab on each call, and pinning to the other side left the old
+  tab; restoring a pinned layout repeatedly piled up tabs the same way. Pinning a pinned dock
+  again is a no-op, and pinning it to another side moves its tab.
+- A pinned dock's closed flag was saved but not restored. A closed pinned dock now comes back
+  closed, with its tab hidden; pinning a closed dock keeps its tab hidden.
+- `pin_widget()` pinned docks without `DockWidgetFeature.pinnable`, which `unpin_widget()` then
+  refused to unpin. It now refuses them too; the host can still put one in a sidebar with
+  `add_sidebar_widget()`, where it stays locked.
+
+### Added
+
+- `DockManager.set_sidebar_areas(areas)` / `sidebar_areas()`: the sides sidebars may use.
+  Pinning never makes a sidebar outside the allow-list, and a layout restores a pin on a
+  disallowed side to the closest allowed one. Setting it also creates the sidebars, which
+  turns pinning on. The default allows all four sides.
+- `DockManager.pin_dock_widget()`, `unpin_dock_widget()`, `is_dock_widget_pinned()` and
+  `pinned_dock_widgets()`.
+- `DockSignals.dock_pinned_changed(dock_widget, area or None)`, emitted when a dock is pinned,
+  moved to another sidebar or unpinned, and once per changed dock after a layout restore.
+- `SidebarManager.release_widget()` takes a dock out of its sidebar without docking it.
+
+### Changed
+
+- `SidebarManager.pin_widget()` returns whether the dock is pinned, and takes `force=True` to
+  pin a dock without `pinnable`.
+
 ## [0.9.2] — 2026-10-03
 
 ### Fixed

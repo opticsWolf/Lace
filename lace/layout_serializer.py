@@ -17,7 +17,7 @@ import uuid
 import errno
 from pathlib import Path
 from dataclasses import dataclass, asdict
-from typing import TYPE_CHECKING, Dict, Any, List, Tuple
+from typing import TYPE_CHECKING, Dict, Any, List, Optional, Tuple
 
 from PySide6.QtGui import QGuiApplication
 
@@ -262,6 +262,20 @@ class LayoutEngine:
         self._hide_floating_widgets()
         self._close_sidebar_overlay()
 
+        # The layout says where every dock goes, sidebars included: release
+        # every pinned dock first, so one the layout docks isn't left pinned
+        # as well, and one it pins isn't pinned twice.
+        sidebar_manager = getattr(self._manager, 'sidebar_manager', None)
+        if sidebar_manager is None:
+            self._apply_containers(state_dict)
+            return
+        sidebar_manager.begin_restore()
+        try:
+            self._apply_containers(state_dict)
+        finally:
+            sidebar_manager.end_restore()
+
+    def _apply_containers(self, state_dict: Dict[str, Any]) -> None:
         # Existing floating widgets are treated as an anonymous reusable pool to prevent UI flicker
         floating_pool = list(self._manager.floating_widgets())
         to_maximize = []
@@ -293,11 +307,12 @@ class LayoutEngine:
             self._manager.remove_dock_container(orphan_fw.dock_container())
             orphan_fw.deleteLater()
 
-        # Sidebars first: a pinned widget lives in no dock area, so the rebuild
-        # above leaves it marked unassigned.  Pinning it here re-homes it before
-        # the open-state pass, which would otherwise close it permanently.
-        self._restore_sidebar_state(state_dict.get("sidebars", {}))
-        self._restore_dock_widgets_open_state(assigned)
+        # Sidebars after the containers: a pinned widget lives in no dock
+        # area, so the rebuild above leaves it unassigned. Pinning it here,
+        # before the open-state pass, re-homes it; that pass would otherwise
+        # close it for good.
+        self._restore_sidebar_state(state_dict.get("sidebars") or {})
+        self._restore_dock_widgets_open_state(assigned, state_dict.get("widget_states", {}))
         self._restore_dock_areas_indices()
         self._emit_top_level_events()
 
@@ -415,18 +430,24 @@ class LayoutEngine:
         except Exception:
             return False
 
-    def _restore_dock_widgets_open_state(self, assigned: Dict['DockWidget', bool]) -> None:
+    def _restore_dock_widgets_open_state(self, assigned: Dict['DockWidget', bool],
+                                         widget_states: Optional[Dict[str, Any]] = None) -> None:
         """Show or hide each widget according to where the rebuild put it.
 
         *assigned* comes straight from the container rebuild, so membership is
         the authoritative answer to "did this layout mention the widget?".
+        A pinned widget takes its closed flag from *widget_states*.
         """
+        widget_states = widget_states or {}
         for dock_widget in self._manager.dock_widgets_map().values():
             if self._is_pinned(dock_widget):
-                # Already re-homed into a sidebar by _restore_sidebar_state().
-                # It has no dock area by design, so neither branch below applies:
-                # flag_as_unassigned() would close it and toggle_view_internal()
-                # would try to show it outside the overlay.
+                # Re-homed into a sidebar by _restore_sidebar_state(). It has no
+                # dock area by design: flag_as_unassigned() would close it for
+                # good. Its closed flag shows or hides its tab; the sidebar
+                # doesn't open the overlay during a restore.
+                closed = widget_states.get(dock_widget.objectName(), {}).get("closed", False)
+                if dock_widget.is_closed() != closed:
+                    dock_widget.toggle_view_internal(not closed)
                 continue
             if dock_widget in assigned:
                 dock_widget.toggle_view_internal(not assigned[dock_widget])
