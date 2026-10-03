@@ -290,10 +290,9 @@ class FloatingDockContainer(FloatingContainerBehaviour, QWidget, DockStyled):
             return
         try:
             from lace.native_frame import apply_native_frame
-            # apply_native_frame never creates a handle, so a float still hidden
-            # after setWindowFlags() would go unthemed under native_frames=False.
-            # Creating it here is safe: this is always a real top-level window.
-            self.winId()
+            # No winId() here: on a float without a handle (hidden across a
+            # setWindowFlags) it made the host window's widgets native too. A
+            # float without a handle is themed when it is shown.
             apply_native_frame(self)
         except Exception:
             logger.debug("Native frame update unavailable", exc_info=True)

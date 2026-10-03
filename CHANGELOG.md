@@ -21,8 +21,11 @@ through a cycle.
 ### Changed
 
 - `apply_native_frame` on a window that has no native handle yet (never shown) returns False
-  and does nothing; the window is themed when it is shown. Floating dock containers still
-  create their own handle first, so their frame is themed even while hidden.
+  and does nothing; the window is themed when it is shown. This includes a floating dock
+  hidden across a window-flag change: it is themed when shown again (by the frame theme, so
+  not under `native_frames=False`). Creating its handle there instead made the host
+  window's widgets native, the same fault as above; toggling `chromeless_float` on a float
+  did this in 0.9.1.
 
 ## [0.9.1] — 2026-10-02
 

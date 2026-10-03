@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QGraphicsScene, QGraphicsV
 
 import lace.native_frame as nf
 from lace.dock_style_manager import get_dock_style_manager
+from lace.enums import DockWidgetArea
 from lace.title_bar_colors import TitleBarColors, title_bar_colors
 from tests.theme_sets import QUICK
 
@@ -181,6 +182,29 @@ def test_a_widget_shown_before_it_has_a_parent_does_not_go_native(dwm):
     assert not later.testAttribute(native)
     assert not any(w.testAttribute(native) for w in window.findChildren(QWidget))
     window.close()
+
+
+def test_a_hidden_float_without_a_handle_does_not_make_its_host_native(dwm, make_desk):
+    # A float hidden across setWindowFlags() has no handle when it re-themes
+    # its frame. Creating one there made the host window's widgets native.
+    from lace.floating_dock_container import FloatingDockContainer
+
+    desk = make_desk()
+    desk.add(DockWidgetArea.right, "Stay")
+    floating = desk.widget("Float")
+    desk.manager.dock_widgets_map()[floating.objectName()] = floating
+    floating.set_dock_manager(desk.manager)
+    desk.show()
+    float_window = FloatingDockContainer(dock_widget=floating)
+    float_window.show()
+    QApplication.processEvents()
+    float_window.hide()
+    float_window.destroy()
+    float_window._apply_native_frame()
+    native = Qt.WidgetAttribute.WA_NativeWindow
+    assert not [type(w).__name__ for w in desk.win.findChildren(QWidget)
+                if w.testAttribute(native)]
+    float_window.close()
 
 
 def test_install_is_idempotent(dwm):
