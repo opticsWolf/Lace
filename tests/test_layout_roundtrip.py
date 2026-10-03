@@ -37,7 +37,7 @@ def _snapshot(dm):
             dw.is_closed(),
             dw.dock_area_widget() is not None,
             dw.dock_area_widget().index(dw) if dw.dock_area_widget() else -1,
-            dw.is_pinned(),
+            dw.is_in_sidebar(),
         )
         for name, dw in dm.dock_widgets_map().items()
     }

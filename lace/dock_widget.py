@@ -11,6 +11,7 @@
 
 
 import logging
+import warnings
 from typing import TYPE_CHECKING, Optional, Union
 
 from PySide6.QtCore import QEvent, QSize, Qt, Signal, QRectF
@@ -393,6 +394,11 @@ class DockWidget(QFrame, DockStyled):
         return False
 
     def is_pinned(self) -> bool:
+        """Deprecated alias for :meth:`is_in_sidebar`."""
+        warnings.warn(
+            "DockWidget.is_pinned() is deprecated and will be removed; "
+            "use is_in_sidebar().",
+            DeprecationWarning, stacklevel=2)
         return self.is_in_sidebar()
 
     def is_closed(self) -> bool:

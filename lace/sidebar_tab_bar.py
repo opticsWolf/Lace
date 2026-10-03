@@ -8,6 +8,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 
+import warnings
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import shiboken6
@@ -206,7 +207,7 @@ class SideTabBar(QFrame, DockStyled):
             self._counter_lbl.hide()
             return
 
-        self._counter_lbl.setText(str(self.tab_count()))
+        self._counter_lbl.setText(str(self.count()))
 
         # Determine required size vs actual physical allowance
         required = self._scroll_container.minimumSizeHint().height()
@@ -510,7 +511,12 @@ class SideTabBar(QFrame, DockStyled):
         return self._widget_map.get(dock_widget)
     
     def tab_count(self) -> int:
-        return len(self._buttons)
+        """Deprecated alias for :meth:`count`."""
+        warnings.warn(
+            "SideTabBar.tab_count() is deprecated and will be removed; "
+            "use count().",
+            DeprecationWarning, stacklevel=2)
+        return self.count()
 
     def count(self) -> int:
         return len(self._buttons)

@@ -5,6 +5,18 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Deprecated
+
+Duplicate names for the same call. Each still works but warns with a
+`DeprecationWarning` naming its replacement, and will be removed in a later version.
+
+- `DockWidget.is_pinned()`: use `is_in_sidebar()`.
+- `SideTabBar.tab_count()`: use `count()`, as on `DockAreaTabBar`.
+- `SidebarManager.focus_sidebar(area)`: use `toggle_sidebar(area)`; it only ever toggled.
+- `SideBarContainer._update_resize_margins()`: use `_update_layout_margins()`.
+
 ## [0.9.4] — 2026-10-03
 
 ### Fixed

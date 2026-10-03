@@ -102,7 +102,7 @@ The user-facing widget wrapper. Each `DockWidget` owns a user `QWidget` and a `D
 | **Tab** | `tab_widget() → DockWidgetTab`, `set_icon(icon)`, `icon()`, `set_default_icon_name(name)`, `default_icon_name()`, `set_custom_icon(icon)`, `custom_icon()`, `set_custom_icon_name(name)`, `custom_icon_name()`, `set_tab_tool_tip(text)` |
 | **Toolbar** | `tool_bar() → QToolBar`, `create_default_tool_bar()`, `set_tool_bar(toolbar)`, `set_tool_bar_style(style, state)`, `tool_bar_style(state)`, `set_tool_bar_icon_size(size, state)`, `tool_bar_icon_size(state)`, `set_toolbar_floating_style(floating)` |
 | **Features** | `set_features(flags)`, `set_feature(flag, on)`, `features() → DockWidgetFeature`, `locked_to_area` (property to assign a named lock area) |
-| **State** | `widget_state() → WidgetState`, `set_widget_state(state)`, `is_floating()`, `is_in_floating_container()`, `is_in_sidebar()`, `is_pinned()`, `is_closed()`, `toggle_view(open_)`, `toggle_view_internal(open_)` |
+| **State** | `widget_state() → WidgetState`, `set_widget_state(state)`, `is_floating()`, `is_in_floating_container()`, `is_in_sidebar()`, `is_pinned()` *(deprecated)*, `is_closed()`, `toggle_view(open_)`, `toggle_view_internal(open_)` |
 | **References** | `dock_manager()`, `dock_container() → DockContainerWidget`, `dock_area_widget() → DockAreaWidget` |
 | **Toggle Action** | `toggle_view_action() → QAction`, `set_toggle_view_action_checked(checked)`, `set_toggle_view_action_mode(mode)` |
 | **Styling** | `refresh_style()`, `paintEvent(event)`, `_update_bottom_mask()`, `_apply_bottom_mask()`, `on_style_changed(category, changes)`, `showEvent(event)` |
@@ -920,7 +920,7 @@ VS Code-style auto-hide sidebar with hover, animations, badges, and drag-to-floa
 | **Setup** | `setup_shortcuts(window)`, `add_sidebar(area) → SideTabBar`, `set_sidebar_areas(areas)`, `sidebar_areas()` |
 | **Pin/Unpin** | `pin_widget(widget, sidebar?, area?, *, force=False) → bool`, `release_widget(widget) → bool`, `unpin_widget(widget, area?)`, `unpin_widget_floating(widget)`, `pin_to_closest_sidebar(widget)`, `move_widget_to_area(widget, area)`, `pinned_widgets() → {widget: area}` |
 | **Restore** | `begin_restore()` (releases every pinned dock), `end_restore()` (reports net pin changes) |
-| **Toggle** | `toggle_sidebar(area)`, `focus_sidebar(area)` |
+| **Toggle** | `toggle_sidebar(area)`, `focus_sidebar(area)` *(deprecated: use `toggle_sidebar`)* |
 | **Overlay** | `close_overlay()`, `raise_overlays()`, `show_widget(widget)`, `hide_widget(widget)` |
 | **Badges** | `update_badge(widget, value)`, `badge_position` (prop), `set_badge_position(position)` |
 | **Toggles** | `set_auto_show_on_hover(enable)`, `set_animations_enabled(enable)`, `set_keep_open(keep)` |
@@ -959,7 +959,7 @@ Vertical tab strip with scroll, overflow counter, drag-drop reordering.
 | Category | Members |
 |---|---|
 | **Signals** | `tab_hover_enter/leave/clicked/drag_started/moved`, `sidebar_activated` |
-| **Tabs** | `add_tab(widget) → VerticalTabButton`, `remove_tab(widget)`, `count()`, `current_index()`, `is_tab_open(i)`, `tab(i)`, `button_for(widget)`, `uncheck_all()`, `tab_count()` |
+| **Tabs** | `add_tab(widget) → VerticalTabButton`, `remove_tab(widget)`, `count()`, `current_index()`, `is_tab_open(i)`, `tab(i)`, `button_for(widget)`, `uncheck_all()`, `tab_count()` *(deprecated: use `count`)* |
 | **Scroll** | `_scroll_by(delta)`, `wheelEvent()`, `_update_scroll_visibility()` |
 | **Drop** | `dragEnterEvent()`, `dragMoveEvent()`, `dragLeaveEvent()`, `dropEvent()`, `_show/update/hide_drop_indicator()` |
 | **Menu** | `build_dock_menu(menu, tab_bar?)`, `dispatch_dock_action(action)`, `_on_tab_context_menu(btn, pos)` |
@@ -980,7 +980,7 @@ Animated overlay panel hosting a pinned widget.
 | **Resize** | `mousePressEvent()`, `mouseMoveEvent()`, `mouseReleaseEvent()`, `_is_in_resize_zone(pos)`, `_do_resize(global_pos)`, `resizeEvent()` |
 | **Focus** | `focus_behavior` (prop), `_focus_inner_widget()`, `_restore_previous_focus()`, `_on_app_focus_changed(old, new)` |
 | **Shadow** | `_update_shadow_direction()` |
-| **Layout** | `_update_layout_margins()`, `_update_resize_margins()`, `eventFilter(obj, event)` — parent resize clamping |
+| **Layout** | `_update_layout_margins()`, `_update_resize_margins()` *(deprecated)*, `eventFilter(obj, event)` — parent resize clamping |
 | **Style** | `refresh_style()`, `paintEvent(event)` |
 | **Focus behavior** | `SideBarFocusBehavior.take_focus_and_restore`, `no_focus_transfer`, `take_focus_only` |
 

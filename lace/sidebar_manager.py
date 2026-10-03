@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import TYPE_CHECKING, Optional, Dict, Any, FrozenSet, Iterable
 
 import shiboken6
@@ -386,7 +387,7 @@ class SidebarManager(QObject):
     def setup_shortcuts(self, window: QMainWindow):
         self._keyboard.register_shortcuts(window)
         self._keyboard.toggle_sidebar.connect(self.toggle_sidebar)
-        self._keyboard.focus_sidebar.connect(self.focus_sidebar)
+        self._keyboard.focus_sidebar.connect(self.toggle_sidebar)
         self._keyboard.close_current.connect(self.close_overlay)
         # Registration starts Escape disabled; sync with reality in case an
         # overlay is somehow already up.
@@ -770,7 +771,7 @@ class SidebarManager(QObject):
             self.close_overlay()
             self.sidebar_toggled.emit(area, False)
         else:
-            if sidebar.tab_count() > 0:
+            if sidebar.count() > 0:
                 buttons = sidebar._buttons
                 if self._last_active_area == area and self._active_button in buttons:
                     self._show_for_button(self._active_button)
@@ -779,6 +780,11 @@ class SidebarManager(QObject):
                 self.sidebar_toggled.emit(area, True)
     
     def focus_sidebar(self, area: DockWidgetArea):
+        """Deprecated alias for :meth:`toggle_sidebar`."""
+        warnings.warn(
+            "SidebarManager.focus_sidebar() is deprecated and will be removed; "
+            "use toggle_sidebar().",
+            DeprecationWarning, stacklevel=2)
         self.toggle_sidebar(area)
 
     def _uncheck_all(self):

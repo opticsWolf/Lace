@@ -944,7 +944,7 @@ class ThemeSwitcher:
 | `pin_widget(widget, sidebar?, area?)` | Pin widget to sidebar |
 | `unpin_widget(widget, area?)` | Unpin widget back to main layout |
 | `toggle_sidebar(area)` | Slide sidebar in/out |
-| `focus_sidebar(area)` | Focus sidebar overlay |
+| `focus_sidebar(area)` | Deprecated: same as `toggle_sidebar(area)` |
 | `update_badge(widget, value)` | Set badge on sidebar tab |
 | `clear_badge(widget)` | Clear badge from sidebar tab |
 | `save_state()` | Serialize sidebar state |

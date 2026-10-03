@@ -8,6 +8,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 
+import warnings
 from typing import TYPE_CHECKING, List, Optional
 
 from PySide6.QtCore import (Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QRect,
@@ -534,6 +535,11 @@ class SideBarContainer(QFrame, DockStyled):
         self._content_layout.setContentsMargins(left, top, right, bottom)
 
     def _update_resize_margins(self):
+        """Deprecated alias for :meth:`_update_layout_margins`."""
+        warnings.warn(
+            "SideBarContainer._update_resize_margins() is deprecated and will "
+            "be removed; use _update_layout_margins().",
+            DeprecationWarning, stacklevel=2)
         self._update_layout_margins()
 
     def _update_shadow_direction(self):
