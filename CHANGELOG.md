@@ -17,15 +17,21 @@ through a cycle.
   `apply_native_frame` now reads the handle with `internalWinId()` and never creates one.
 - Widgets embedded in a `QGraphicsScene` are no longer themed: they are windows only to Qt and
   have no OS frame.
+- Toggling `chromeless_float` on a floating dock no longer makes the host window's widgets
+  native. The float re-themed its frame after the window-flag change through `winId()`,
+  which hit the same fault as above.
+- `DockManager(native_frames=False)` now leaves floating docks' frames alone too, as
+  documented. A float used to theme its own title bar after a window-flag change (such as
+  turning `chromeless_float` off), so its frame changed colour although the option was off.
+
+### Added
+
+- `lace.native_frame.native_frame_theme_installed()`: whether the frame theme is in effect.
 
 ### Changed
 
 - `apply_native_frame` on a window that has no native handle yet (never shown) returns False
-  and does nothing; the window is themed when it is shown. This includes a floating dock
-  hidden across a window-flag change: it is themed when shown again (by the frame theme, so
-  not under `native_frames=False`). Creating its handle there instead made the host
-  window's widgets native, the same fault as above; toggling `chromeless_float` on a float
-  did this in 0.9.1.
+  and does nothing; the window is themed when it is shown.
 
 ## [0.9.1] — 2026-10-02
 

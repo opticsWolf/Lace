@@ -207,6 +207,29 @@ def test_a_hidden_float_without_a_handle_does_not_make_its_host_native(dwm, make
     float_window.close()
 
 
+@pytest.mark.parametrize("native_frames", [True, False])
+def test_a_float_themes_its_own_frame_only_with_the_frame_theme(dwm, make_desk,
+                                                                native_frames):
+    # native_frames=False leaves every system frame alone, the floats' too.
+    from lace.floating_dock_container import FloatingDockContainer
+
+    desk = make_desk(native_frames=native_frames)
+    desk.add(DockWidgetArea.right, "Stay")
+    floating = desk.widget("Float")
+    desk.manager.dock_widgets_map()[floating.objectName()] = floating
+    floating.set_dock_manager(desk.manager)
+    desk.show()
+    float_window = FloatingDockContainer(dock_widget=floating)
+    float_window.show()
+    QApplication.processEvents()
+    hwnd = int(float_window.internalWinId())
+    float_window.setProperty(nf._KEY_PROPERTY, None)      # forget any earlier theming
+    dwm.clear()
+    float_window._apply_native_frame()
+    assert bool([c for c in dwm if c[0] == hwnd]) is native_frames
+    float_window.close()
+
+
 def test_install_is_idempotent(dwm):
     assert nf.install_native_frame_theme() is nf.install_native_frame_theme()
 

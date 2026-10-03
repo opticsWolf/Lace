@@ -281,7 +281,9 @@ class FloatingDockContainer(FloatingContainerBehaviour, QWidget, DockStyled):
         """Theme *this* window's OS frame (dark mode, caption, text, border).
 
         Frameless (chromeless) windows draw their own title bar and are
-        skipped by :func:`lace.native_frame.apply_native_frame`.
+        skipped by :func:`lace.native_frame.apply_native_frame`. Nothing is
+        done unless the frame theme is installed: ``DockManager(native_frames=
+        False)`` leaves every system frame alone, this one included.
         """
         if sys.platform != "win32":
             handle = self.windowHandle()
@@ -289,7 +291,9 @@ class FloatingDockContainer(FloatingContainerBehaviour, QWidget, DockStyled):
                 handle.requestUpdate()
             return
         try:
-            from lace.native_frame import apply_native_frame
+            from lace.native_frame import apply_native_frame, native_frame_theme_installed
+            if not native_frame_theme_installed():
+                return
             # No winId() here: on a float without a handle (hidden across a
             # setWindowFlags) it made the host window's widgets native too. A
             # float without a handle is themed when it is shown.

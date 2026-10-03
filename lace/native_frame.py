@@ -306,8 +306,18 @@ def uninstall_native_frame_theme() -> None:
         _installed = None
 
 
+def native_frame_theme_installed() -> bool:
+    """Whether :func:`install_native_frame_theme` is in effect.
+
+    Lace's own windows theme their frame only when it is, so
+    ``DockManager(native_frames=False)`` leaves every system frame alone.
+    """
+    return _installed is not None
+
+
 __all__ = [
     "apply_native_frame", "wants_native_frame", "frame_values", "colorref",
     "NativeFrameTheme", "install_native_frame_theme", "uninstall_native_frame_theme",
+    "native_frame_theme_installed",
     "OPT_OUT_PROPERTY", "DWMWA_COLOR_DEFAULT",
 ]
