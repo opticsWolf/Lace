@@ -23,8 +23,10 @@ from lace.style import _paint as P
 Role = QPalette.ColorRole
 WA = Qt.WidgetAttribute
 
-#: How much rounder a popup is than the controls inside it.
-RADIUS_EXTRA = 2
+#: Where a popup's radius sits between its controls' (0) and the dock
+#: cards' (1): a popup is a floating panel holding controls, rounder than
+#: the controls but not as round as a card.
+RADIUS_BLEND = 1 / 3
 #: Transparent margin around a rounded popup's panel, where its shadow falls.
 SHADOW = 5
 #: How far the shadow drops below the panel.
@@ -43,8 +45,17 @@ _HINTS = (Qt.WindowType.FramelessWindowHint, Qt.WindowType.NoDropShadowWindowHin
 
 
 def radius(style) -> float:
-    """Corner radius of a popup; square when controls are."""
-    return style.control_radius + RADIUS_EXTRA if style.control_radius > 0 else 0.0
+    """Corner radius of a popup; square when controls are.
+
+    ``control + (corner - control) * RADIUS_BLEND``, rounded to whole
+    pixels and never below the controls' own radius: 4 px on the classic
+    chassis (4 / 4), 6 px on neo (control 4, cards 10).
+    """
+    control = style.control_radius
+    if control <= 0:
+        return 0.0
+    blended = control + (style.corner_radius - control) * RADIUS_BLEND
+    return float(max(control, round(blended)))
 
 
 def is_combo_popup(w) -> bool:

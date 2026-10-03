@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.9.5
+**Version:** 0.9.6
 
 ---
 
@@ -888,7 +888,7 @@ property tests pin the round trip and the contrast guarantees.
 
 `LaceStyle` is a `QProxyStyle` over Fusion that paints flat, vector controls from the palette.
 `DockThemeBridge` installs it by default and forwards the theme keywords (`control_radius`,
-`scrollbar`, `contrast`, `focus_width`, `outline_strength`, `splitter_length`) through
+`corner_radius`, `scrollbar`, `contrast`, `focus_width`, `outline_strength`, `splitter_length`) through
 `set_tokens()`. The painters are split by control family:
 - `_primitives` (frames, check and radio indicators, focus, scroll bars)
 - `_buttons`

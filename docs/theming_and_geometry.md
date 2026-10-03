@@ -472,14 +472,18 @@ chrome (`lace/style/_chrome.py`) is flat too:
 - **`QFrame` lines** (`HLine`, `VLine`) are one line in the border colour, and boxes and panels a
   flat rounded outline, whatever their shadow.
 - **Toolbar handles and separators and size grips** are flat lines in the muted text colour.
-- **Menus and combo box popups** get rounded corners (`control_radius` + 2) and a few pixels of
-  top and bottom padding, over a soft painted shadow (`lace/style/_popup.py`). `polish()` makes
+- **Menus and combo box popups** get rounded corners and a few pixels of top and bottom
+  padding, over a soft painted shadow (`lace/style/_popup.py`). `polish()` makes
   each popup window translucent and frameless before it is created, and swaps the native square
   drop shadow for a painted one: the window grows by 5 px on every side for the shadow, and on
   show it moves back by as much, so the panel sits exactly where Qt placed it (at the cursor, under
   its menu-bar item, beside its parent menu, or at its combo's width). With `control_radius=0`, a
   popup the app already made translucent, or one whose window existed before LaceStyle arrived,
   the popup stays square with no shadow.
+  A popup's radius sits a third of the way from the controls' to the dock cards':
+  `control_radius + (corner_radius - control_radius) / 3`, rounded to whole pixels and never
+  below `control_radius` (`_popup.RADIUS_BLEND`). That is 4 px on the classic chassis
+  (4 / 4) and 6 px on neo (4 / 10).
 - **`QCalendarWidget`** weekends use the accent (held to the text floor) instead of Qt's red,
   re-tinted on each theme switch.
 
@@ -509,9 +513,10 @@ DockManager(window, app_style="lace")  # the same choice, made by the DockManage
 app.setStyle(LaceStyle(control_radius=6, scrollbar="expanding"))  # standalone, no Lace theme
 ```
 
-`LaceStyle.set_tokens(control_radius=, scrollbar=, contrast=, focus_width=, outline_strength=,
-splitter_length=, field_outline=)`
-updates the knobs live. The bridge calls it on every theme switch.
+`LaceStyle.set_tokens(control_radius=, corner_radius=, scrollbar=, contrast=, focus_width=,
+outline_strength=, splitter_length=, field_outline=, outline_contrast=)`
+updates the knobs live. The bridge calls it on every theme switch. `corner_radius` is the dock
+cards' radius; LaceStyle only uses it to place the popup radius between it and `control_radius`.
 
 **Use case: widgets in a `QGraphicsView`.** A node editor such as Weave embeds ordinary widgets in
 a scene through `QGraphicsProxyWidget`. Native styles draw those poorly: they are scaled as bitmaps,

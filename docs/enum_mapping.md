@@ -1,6 +1,6 @@
 # Lace: Enumerations & Flags
 
-**Version:** 0.9.5
+**Version:** 0.9.6
 
 Every enumeration and flag class in Lace: what it is for, each member, and where the
 code reads it. References name the function (`Class.method()`) rather than a line

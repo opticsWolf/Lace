@@ -5,6 +5,17 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.9.6] — 2026-10-04
+
+### Changed
+
+- Menu and combo-box popup corners follow the chassis. Their radius sits a third of the way
+  from `control_radius` to the dock cards' `corner_radius`,
+  `control + (corner - control) / 3`, rounded to whole pixels and never below
+  `control_radius`: 4 px on the classic basics (4 / 4), 6 px on the neo ones (4 / 10).
+  Popups were `control_radius + 2`, 6 px on every theme. `LaceStyle` takes a new
+  `corner_radius` token, which `DockThemeBridge` passes from the theme.
+
 ## [0.9.5] — 2026-10-03
 
 ### Fixed

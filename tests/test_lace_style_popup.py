@@ -64,6 +64,32 @@ def test_square_controls_keep_square_popups(qapp):
     assert not menu.testAttribute(WA.WA_TranslucentBackground)
 
 
+@pytest.mark.parametrize("control, corner, expected", [
+    (4, 4, 4),      # classic chassis
+    (4, 10, 6),     # neo chassis
+    (6, 12, 8),
+    (4, 0, 4),      # square cards: never less round than the controls
+    (0, 10, 0),     # square controls: square popups
+])
+def test_popup_radius_sits_a_third_of_the_way_to_the_cards(qapp, control, corner, expected):
+    assert _popup.radius(LaceStyle(control_radius=control, corner_radius=corner)) == expected
+
+
+@pytest.mark.parametrize("neo, expected", [(False, 4), (True, 6)])
+def test_basic_themes_menu_radius(qapp, neo, expected):
+    """Every classic basic theme gets 4 px menus, every neo one 6 px, through
+    the tokens the theme bridge hands LaceStyle."""
+    from lace.dock_custom_theme import _BASIC_PALETTES
+    from lace.dock_theme import DockStyleCategory as C
+
+    sm = get_dock_style_manager()
+    for name in _BASIC_PALETTES:
+        sm.apply_theme(f"{name}_neo" if neo else name)
+        style = LaceStyle(control_radius=sm.get(C.CORE, "control_radius", 4),
+                          corner_radius=sm.get(C.CORE, "corner_radius", 4))
+        assert _popup.radius(style) == expected, name
+
+
 def test_an_apps_own_translucent_popup_is_left_alone(qapp):
     menu = QMenu()
     menu.setAttribute(WA.WA_TranslucentBackground)

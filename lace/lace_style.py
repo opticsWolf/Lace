@@ -62,10 +62,12 @@ class LaceStyle(QProxyStyle):
     def __init__(self, control_radius: int = 4, scrollbar: str = "expanding",
                  contrast: str = "normal", focus_width: float = 2.0,
                  outline_strength: float = 0.22, splitter_length: int = 50,
-                 field_outline: bool = True, outline_contrast: str = "auto"):
+                 field_outline: bool = True, outline_contrast: str = "auto",
+                 corner_radius: int = 4):
         # QProxyStyle takes ownership of the base style.
         super().__init__(QStyleFactory.create("Fusion"))
         self.control_radius = 4
+        self.corner_radius = 4
         self.scrollbar = "expanding"
         self.contrast = "normal"
         self.focus_width = 2.0
@@ -78,7 +80,7 @@ class LaceStyle(QProxyStyle):
         self.set_tokens(control_radius=control_radius, scrollbar=scrollbar, contrast=contrast,
                         focus_width=focus_width, outline_strength=outline_strength,
                         splitter_length=splitter_length, field_outline=field_outline,
-                        outline_contrast=outline_contrast)
+                        outline_contrast=outline_contrast, corner_radius=corner_radius)
 
     # -- theme knobs -------------------------------------------------------------
     def set_tokens(self, control_radius: Optional[int] = None,
@@ -87,7 +89,8 @@ class LaceStyle(QProxyStyle):
                    outline_strength: Optional[float] = None,
                    splitter_length: Optional[int] = None,
                    field_outline: Optional[bool] = None,
-                   outline_contrast: Optional[str] = None) -> None:
+                   outline_contrast: Optional[str] = None,
+                   corner_radius: Optional[int] = None) -> None:
         """Update the theme knobs; widgets repaint on their next paint event.
 
         ``contrast`` is the theme's level: it sets the ratio the non-text UI
@@ -102,9 +105,13 @@ class LaceStyle(QProxyStyle):
         ``outline_contrast`` is the level those unfocused outlines are held
         to (``"auto"`` follows ``contrast``), so a theme can keep them faint
         without lowering the focus ring's floor.
+        ``corner_radius`` is the dock cards' radius; popups (menus, combo
+        lists) take a radius between it and ``control_radius``.
         """
         if control_radius is not None:
             self.control_radius = max(0, int(control_radius))
+        if corner_radius is not None:
+            self.corner_radius = max(0, int(corner_radius))
         if scrollbar is not None:
             if scrollbar not in SCROLLBAR_MODES:
                 raise ValueError(f"scrollbar must be one of {SCROLLBAR_MODES}, got {scrollbar!r}")
