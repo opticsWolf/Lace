@@ -208,9 +208,10 @@ def test_a_hidden_float_without_a_handle_does_not_make_its_host_native(dwm, make
 
 
 @pytest.mark.parametrize("native_frames", [True, False])
-def test_a_float_themes_its_own_frame_only_with_the_frame_theme(dwm, make_desk,
+def test_a_float_themes_its_own_frame_only_with_the_frame_theme(dwm, make_desk, monkeypatch,
                                                                 native_frames):
     # native_frames=False leaves every system frame alone, the floats' too.
+    import lace.floating_dock_container as fdc
     from lace.floating_dock_container import FloatingDockContainer
 
     desk = make_desk(native_frames=native_frames)
@@ -225,7 +226,11 @@ def test_a_float_themes_its_own_frame_only_with_the_frame_theme(dwm, make_desk,
     hwnd = int(float_window.internalWinId())
     float_window.setProperty(nf._KEY_PROPERTY, None)      # forget any earlier theming
     dwm.clear()
-    float_window._apply_native_frame()
+    with monkeypatch.context() as m:
+        # Off Windows the float only asks for a repaint; take the Windows path,
+        # with DWM mocked by the fixture, as the other tests here do.
+        m.setattr(fdc.sys, "platform", "win32")
+        float_window._apply_native_frame()
     assert bool([c for c in dwm if c[0] == hwnd]) is native_frames
     float_window.close()
 
