@@ -10,6 +10,7 @@
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
+import shiboken6
 from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer, QRectF
 from PySide6.QtGui import QAction, QColor, QPainter, QPen, QPalette, QPainterPath
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
@@ -177,6 +178,13 @@ class SideTabBar(QFrame, DockStyled):
         
         # Accept drops
         self.setAcceptDrops(True)
+
+        # Shows the bar once the layout has placed it (see add_tab). Parented
+        # to the bar, so it dies with it instead of firing on a deleted bar.
+        self._show_timer = QTimer(self)
+        self._show_timer.setSingleShot(True)
+        self._show_timer.setInterval(0)
+        self._show_timer.timeout.connect(self._show_if_any_tab)
 
         # --- Style Manager Integration ---
         self._drop_indicator_color = QColor("#007acc")
@@ -357,7 +365,7 @@ class SideTabBar(QFrame, DockStyled):
             # FIX: Defer showing the sidebar until the layout engine has positioned it.
             # This prevents the "ghost" rendering at (0,0) during app startup.
             if not self.isVisible():
-                QTimer.singleShot(0, self._show_if_any_tab)
+                self._show_timer.start()
             
         target_size = self._get_button_max_size(btn)
         
@@ -379,8 +387,9 @@ class SideTabBar(QFrame, DockStyled):
         return btn
 
     def _show_if_any_tab(self):
-        # Deferred: by now the tab may have been removed or hidden again.
-        if any(not b.isHidden() for b in self._buttons):
+        # Deferred: by now the tab may have been removed or hidden again, or
+        # its button deleted along with the window.
+        if any(shiboken6.isValid(b) and not b.isHidden() for b in self._buttons):
             self.show()
     
     def _get_button_max_size(self, btn: VerticalTabButton) -> QSize:

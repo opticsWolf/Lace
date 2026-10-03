@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.9.3
+**Version:** 0.9.4
 
 ---
 

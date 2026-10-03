@@ -5,6 +5,14 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.9.4] — 2026-10-03
+
+### Fixed
+
+- A sidebar whose window was deleted before the sidebar first showed no longer raises
+  `RuntimeError` ("Internal C++ object (VerticalTabButton) already deleted") from its deferred
+  show.
+
 ## [0.9.3] — 2026-10-03
 
 ### Fixed

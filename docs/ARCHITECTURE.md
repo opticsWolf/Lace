@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.9.3
+**Version:** 0.9.4
 
 ---
 

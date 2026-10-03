@@ -150,6 +150,39 @@ def test_restore_after_removing_a_pinned_dock_does_not_crash():
     assert out.stdout.strip().endswith("ok")
 
 
+def _pinned_in_a_hidden_window():
+    from PySide6.QtWidgets import QLabel, QMainWindow
+    from lace.dock_manager import DockManager
+    from lace.dock_widget import DockWidget
+
+    win = QMainWindow()
+    manager = DockManager(win)
+    dock = DockWidget("A")
+    dock.set_widget(QLabel("a"))
+    manager.add_dock_widget(LEFT, dock)
+    manager.sidebar_manager.pin_widget(dock, area=LEFT)   # the bar's show is deferred
+    return win, manager.sidebar_manager._sidebars[LEFT]
+
+
+def test_a_bar_deleted_before_its_deferred_show_stays_quiet(qapp, monkeypatch):
+    # §10: the deferred show used to run on the deleted tab buttons.
+    errors = []
+    monkeypatch.setattr(sys, "excepthook", lambda *exc: errors.append(exc[1]))
+    win, _ = _pinned_in_a_hidden_window()
+    win.deleteLater()
+    qapp.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qapp.processEvents()
+    assert errors == []
+
+
+def test_a_bar_pinned_to_before_its_window_shows_appears_with_it(qapp):
+    win, bar = _pinned_in_a_hidden_window()
+    win.show()
+    qapp.processEvents()
+    assert bar.isVisible()
+    win.close()
+
+
 # ── §3 pinning is idempotent ────────────────────────────────────────────────
 
 def test_pin_widget_twice_keeps_one_tab(pins):
