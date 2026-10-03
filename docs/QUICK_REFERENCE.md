@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.9.4
+**Version:** 0.9.5
 
 ---
 
@@ -750,6 +750,10 @@ dock_manager.config_flags |= DockFlags.chromeless_float
 
 `lace.dialogs` mirrors Qt's static dialog functions: same arguments, same
 return values, but each opens a frameless dialog with the theme's title bar.
+
+Opening these on a dock window is safe: `DockManager` sets
+`Qt.AA_DontCreateNativeWidgetSiblings`, so a dialog's native handle doesn't spread
+to the dock container.
 
 ```python
 from lace import dialogs

@@ -5,7 +5,15 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
-## [Unreleased]
+## [0.9.5] — 2026-10-03
+
+### Fixed
+
+- Opening any Lace dialog on a dock window (`dialogs.get_text`, `information` and the
+  other helpers, or a `FramelessLaceDialog(parent)`) no longer freezes the docks until
+  restart. The dialog's `winId()` made its sibling, the root dock container, a native
+  window, which loses the docks' mouse input. `DockManager` now sets
+  `Qt.AA_DontCreateNativeWidgetSiblings`, also with `native_frames=False`.
 
 ### Deprecated
 

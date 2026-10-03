@@ -2,7 +2,7 @@
 
 **Advanced Docking System for PySide6** — a comprehensive, themeable, multi-window docking framework built on top of PySide6 (Qt6 via Python).
 
-**Version:** 0.9.4
+**Version:** 0.9.5
 
 ---
 
@@ -70,6 +70,13 @@ DockManager (facade)
 ### 2.1 `dock_manager.py` — `DockManager` (Main Facade)
 
 The central orchestrator. All public API flows through this class.
+
+Its constructor sets `Qt.AA_DontCreateNativeWidgetSiblings` on the application,
+whatever `native_frames` says. Docking assumes alien children: without the
+attribute, any widget that takes a native handle under the main window (a
+`FramelessLaceDialog`, which calls `winId()` while it is built, an OpenGL view, a
+`winId()` in host code) makes its siblings native too, the root
+`DockContainerWidget` among them, and the docks stop taking mouse input.
 
 | Category | Members |
 |---|---|

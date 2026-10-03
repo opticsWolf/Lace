@@ -14,7 +14,7 @@ import logging
 import pathlib
 from typing import Dict, FrozenSet, Iterable, List, Optional
 
-from PySide6.QtCore import QObject, Signal, QPoint, QRect, QEvent
+from PySide6.QtCore import QObject, Qt, Signal, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QWidget
 from PySide6.QtGui import QAction, QIcon
 
@@ -66,6 +66,13 @@ class DockManager(QObject):
     def __init__(self, parent: QWidget, *, app_style: Optional[str] = None,
                  native_frames: bool = True):
         super().__init__(parent)
+
+        # Docking assumes alien children. Without this, any widget that takes
+        # a native handle (a frameless dialog's winId(), an OpenGL view) makes
+        # its siblings native too, the root container among them, and the
+        # docks stop taking clicks for good.
+        QApplication.setAttribute(
+            Qt.ApplicationAttribute.AA_DontCreateNativeWidgetSiblings)
 
         # 1. Initialize Styles (Grab the singleton so children can use it)
         self.style_manager = get_dock_style_manager()
@@ -143,7 +150,6 @@ class DockManager(QObject):
         # when the main window is closed (even if containers have unclosable widgets).
         parent.installEventFilter(self)
 
-        from PySide6.QtWidgets import QApplication
         qapp = QApplication.instance()
         if qapp:
             qapp.focusChanged.connect(self._on_app_focus_changed)
