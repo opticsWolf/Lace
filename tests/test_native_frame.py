@@ -10,7 +10,8 @@ import re
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QApplication, QDialog, QMenu, QWidget
+from PySide6.QtWidgets import (QApplication, QDialog, QGraphicsScene, QGraphicsView,
+                               QLabel, QMenu, QVBoxLayout, QWidget)
 
 import lace.native_frame as nf
 from lace.dock_style_manager import get_dock_style_manager
@@ -41,12 +42,19 @@ def _attrs(calls, hwnd=None):
     return {a: v for h, a, v in calls if hwnd is None or h == hwnd}
 
 
+def _dialog():
+    """A dialog with its native handle, as once shown."""
+    w = QDialog()
+    w.winId()
+    return w
+
+
 def test_colorref_packs_bgr():
     assert nf.colorref(QColor(0x12, 0x34, 0x56)) == 0x563412
 
 
 def test_apply_sets_the_four_attributes(dwm):
-    w = QDialog()
+    w = _dialog()
     assert nf.apply_native_frame(w, _colors(), active=True)
     attrs = _attrs(dwm)
     assert attrs[nf.DWMWA_USE_IMMERSIVE_DARK_MODE] == 1
@@ -56,7 +64,7 @@ def test_apply_sets_the_four_attributes(dwm):
 
 
 def test_border_and_inactive_text(dwm):
-    w = QDialog()
+    w = _dialog()
     nf.apply_native_frame(w, _colors(border=QColor(1, 2, 3), is_dark=False), active=False)
     attrs = _attrs(dwm)
     assert attrs[nf.DWMWA_BORDER_COLOR] == 0x030201
@@ -65,7 +73,7 @@ def test_border_and_inactive_text(dwm):
 
 
 def test_caption_alpha_is_composited(dwm):
-    w = QDialog()
+    w = _dialog()
     see_through = QColor(255, 0, 0, 0)     # fully transparent: the backdrop shows
     nf.apply_native_frame(w, _colors(background=see_through), active=True)
     backdrop = w.palette().color(w.backgroundRole())
@@ -73,7 +81,7 @@ def test_caption_alpha_is_composited(dwm):
 
 
 def test_second_call_with_the_same_theme_is_cached(dwm):
-    w = QDialog()
+    w = _dialog()
     assert nf.apply_native_frame(w, _colors(), active=True)
     n = len(dwm)
     assert not nf.apply_native_frame(w, _colors(), active=True)
@@ -81,7 +89,7 @@ def test_second_call_with_the_same_theme_is_cached(dwm):
 
 
 def test_dark_flip_forces_a_frame_repaint(dwm):
-    w = QDialog()
+    w = _dialog()
     nf.apply_native_frame(w, _colors(is_dark=True), active=True)
     assert not any(a == "changed" for _, a, _ in dwm)
     nf.apply_native_frame(w, _colors(is_dark=False), active=True)
@@ -90,7 +98,7 @@ def test_dark_flip_forces_a_frame_repaint(dwm):
 
 def test_no_op_off_windows(dwm, monkeypatch):
     monkeypatch.setattr(nf, "_has_dwm", lambda: False)
-    assert not nf.apply_native_frame(QDialog(), _colors())
+    assert not nf.apply_native_frame(_dialog(), _colors())
     assert dwm == []
 
 
@@ -107,6 +115,27 @@ def test_windows_without_a_native_frame_are_skipped(dwm, make):
     assert not nf.wants_native_frame(w)
     assert not nf.apply_native_frame(w, _colors())
     assert dwm == []
+
+
+def test_a_window_without_a_handle_is_not_given_one(dwm):
+    w = QDialog()
+    assert not nf.apply_native_frame(w, _colors())
+    assert not w.internalWinId()
+    assert not w.testAttribute(Qt.WidgetAttribute.WA_NativeWindow)
+    assert dwm == []
+
+
+def test_a_widget_in_a_scene_is_not_themed(dwm):
+    scene = QGraphicsScene()
+    view = QGraphicsView(scene)
+    body = QWidget()
+    scene.addWidget(body)
+    view.show()
+    QApplication.processEvents()
+    assert body.isWindow()
+    assert not nf.wants_native_frame(body)
+    assert not nf.apply_native_frame(body, _colors())
+    view.close()
 
 
 def test_opt_out_property(dwm):
@@ -128,6 +157,30 @@ def test_dialog_shown_after_install_is_themed_once(dwm):
     assert _attrs(ours)[nf.DWMWA_CAPTION_COLOR] == nf.colorref(
         title_bar_colors().opaque_background(d.palette().color(d.backgroundRole())))
     d.close()
+
+
+def test_a_widget_shown_before_it_has_a_parent_does_not_go_native(dwm):
+    # Shown with no parent, it is a window for a moment; reparented, it must
+    # not keep a native handle (it would make its new ancestors and their
+    # siblings native, which stops docks' title bars taking clicks).
+    nf.install_native_frame_theme()
+    window = QWidget()
+    column = QVBoxLayout(window)
+    window.show()
+    QApplication.processEvents()
+    caption = QWidget()
+    QVBoxLayout(caption).addWidget(QLabel("caption"))
+    caption.show()
+    column.addWidget(caption)
+    QApplication.processEvents()
+    later = QLabel("added later")
+    column.addWidget(later)
+    QApplication.processEvents()
+    native = Qt.WidgetAttribute.WA_NativeWindow
+    assert not caption.testAttribute(native)
+    assert not later.testAttribute(native)
+    assert not any(w.testAttribute(native) for w in window.findChildren(QWidget))
+    window.close()
 
 
 def test_install_is_idempotent(dwm):

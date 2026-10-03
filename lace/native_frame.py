@@ -122,10 +122,13 @@ def wants_native_frame(window: QWidget) -> bool:
     """Whether *window* has an OS frame Lace should theme.
 
     Top-level windows, dialogs and tool windows with a native frame; not
-    popups, tooltips, splash screens, frameless windows, or a window whose
-    ``laceNativeFrame`` property is False.
+    popups, tooltips, splash screens, frameless windows, a widget embedded in
+    a ``QGraphicsScene`` (a window only to Qt: it has no OS frame), or a
+    window whose ``laceNativeFrame`` property is False.
     """
     if not window.isWindow():
+        return False
+    if window.graphicsProxyWidget() is not None:
         return False
     if window.windowType() not in (Qt.WindowType.Window, Qt.WindowType.Dialog,
                                    Qt.WindowType.Tool):
@@ -162,10 +165,19 @@ def apply_native_frame(window: QWidget, colors: Optional[TitleBarColors] = None,
     Windows, a window without a native frame (see :func:`wants_native_frame`),
     or values unchanged since the last call for this native handle.
     *active* defaults to ``window.isActiveWindow()``.
+
+    A window without a native handle yet is left alone (False): it is themed
+    when it is shown.  The handle is read with ``internalWinId()``, never
+    created: ``winId()`` on a widget without one creates it and marks the
+    widget ``WA_NativeWindow`` for good.  Qt sends ``WinIdChange`` while it
+    reparents a top-level widget into a parent, after the old handle is gone
+    and while the widget still reports ``isWindow()``; a ``winId()`` there
+    left a native child window behind, and a native child makes its
+    ancestors and their siblings native too.
     """
     if not _has_dwm() or not wants_native_frame(window):
         return False
-    hwnd = int(window.winId())
+    hwnd = int(window.internalWinId())
     if not hwnd:
         return False
     if colors is None:

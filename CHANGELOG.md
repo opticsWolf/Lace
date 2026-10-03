@@ -5,6 +5,25 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.9.2] — 2026-10-03
+
+### Fixed
+
+- The native-frame theme no longer turns widgets into native windows. A widget shown before it
+  had a parent was a window for a moment; when it was put into a layout, Qt sent it
+  `WinIdChange` after its handle was gone, and `apply_native_frame` called `winId()`, which
+  created a native handle for good. Qt then made the widget's ancestors and their siblings
+  native, and the dock title bars stopped taking clicks for the rest of the session.
+  `apply_native_frame` now reads the handle with `internalWinId()` and never creates one.
+- Widgets embedded in a `QGraphicsScene` are no longer themed: they are windows only to Qt and
+  have no OS frame.
+
+### Changed
+
+- `apply_native_frame` on a window that has no native handle yet (never shown) returns False
+  and does nothing; the window is themed when it is shown. Floating dock containers still
+  create their own handle first, so their frame is themed even while hidden.
+
 ## [0.9.1] — 2026-10-02
 
 ### Changed
