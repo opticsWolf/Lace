@@ -34,7 +34,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/opticsWolf/Lace"
+Homepage = "https://opticswolf.github.io/Lace/"
 Documentation = "https://github.com/opticsWolf/Lace#readme"
 Repository = "https://github.com/opticsWolf/Lace"
 Issues = "https://github.com/opticsWolf/Lace/issues"
