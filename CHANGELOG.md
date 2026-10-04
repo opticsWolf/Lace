@@ -5,13 +5,20 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
-## [Unreleased]
+## [0.9.7] — 2026-10-04
 
 ### Changed
 
 - `QCompleter` popups are rounded with a soft shadow, like menus and combo lists. The panel
   keeps the field's left edge and width, is placed again as the list grows and shrinks while
   typing, and grows upward when the popup opens above the field.
+
+### Fixed
+
+- Deleting a dock that never reached a `DockManager` after giving it an icon no longer
+  corrupts the heap when it is garbage-collected (Windows `0xc0000374`). The gap beside a
+  tab's icon is now a fixed-width widget instead of a layout-created `QSpacerItem` that the tab
+  held a Python wrapper on. The tab's layout is unchanged.
 
 ## [0.9.6] — 2026-10-04
 

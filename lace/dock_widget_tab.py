@@ -64,7 +64,7 @@ class DockWidgetTab(QFrame, DockStyled):
         # Flattened private properties
         self._dock_widget = dock_widget
         self._icon_label = None
-        self._icon_spacer = None  # the gap inserted beside _icon_label
+        self._icon_spacer = None  # the gap widget beside _icon_label
         self._title_label = None
         self._drag_start_mouse_position = QPoint()
         self._is_active_tab = False
@@ -557,18 +557,19 @@ class DockWidgetTab(QFrame, DockStyled):
             self._icon_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
             self._icon_label.setToolTip(self._title_label.toolTip())
             layout.insertWidget(0, self._icon_label, Qt.AlignVCenter)
-            layout.insertSpacing(1, round(1.5 * layout.contentsMargins().left() / 2.0))
-            # Held, not re-derived: removing it by position (itemAt(0)) took
-            # whatever happened to be first, which is only the spacer while
-            # the icon label is also being removed in the same breath.
-            self._icon_spacer = layout.itemAt(1)
+            # The gap is a widget, not insertSpacing(): a Python wrapper held
+            # on a layout-created QSpacerItem is never told when C++ frees it,
+            # and collecting a parentless tab then corrupted the heap.
+            self._icon_spacer = QWidget(self)
+            self._icon_spacer.setFixedWidth(round(1.5 * layout.contentsMargins().left() / 2.0))
+            self._icon_spacer.setAttribute(Qt.WA_TransparentForMouseEvents)
+            layout.insertWidget(1, self._icon_spacer)
         elif icon.isNull():
-            layout.removeWidget(self._icon_label)
-            if self._icon_spacer is not None:
-                layout.removeItem(self._icon_spacer)
-                self._icon_spacer = None
-            self._icon_label.deleteLater()
+            for w in (self._icon_label, self._icon_spacer):
+                layout.removeWidget(w)
+                w.deleteLater()
             self._icon_label = None
+            self._icon_spacer = None
 
         self._icon = icon
         if self._icon_label:
