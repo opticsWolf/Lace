@@ -5,6 +5,14 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Changed
+
+- `QCompleter` popups are rounded with a soft shadow, like menus and combo lists. The panel
+  keeps the field's left edge and width, is placed again as the list grows and shrinks while
+  typing, and grows upward when the popup opens above the field.
+
 ## [0.9.6] — 2026-10-04
 
 ### Changed

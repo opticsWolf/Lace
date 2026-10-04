@@ -225,6 +225,11 @@ class LaceStyle(QProxyStyle):
         if metric == PM.PM_MenuVMargin and _popup.is_rounded(widget):
             # Room for the shadow, and rows that clear the panel's arcs.
             return super().pixelMetric(metric, option, widget) + _popup.SHADOW + _popup.pad(self)
+        if (metric == PM.PM_DefaultFrameWidth and _popup.is_list_popup(widget)
+                and _popup.is_rounded(widget)):
+            # A rounded list popup's frame takes in the shadow margin, so the
+            # viewport and scroll bar sit inside the panel.
+            return super().pixelMetric(metric, option, widget) + _popup.SHADOW
         return super().pixelMetric(metric, option, widget)
 
 

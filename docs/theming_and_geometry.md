@@ -484,6 +484,11 @@ chrome (`lace/style/_chrome.py`) is flat too:
   `control_radius + (corner_radius - control_radius) / 3`, rounded to whole pixels and never
   below `control_radius` (`_popup.RADIUS_BLEND`). That is 4 px on the classic chassis
   (4 / 4) and 6 px on neo (4 / 10).
+  A **`QCompleter` popup** is rounded the same way. Its list view takes the shadow margin into
+  its frame width and the top and bottom padding as viewport margins, so the rows and scroll bar
+  sit inside the panel. Qt re-sizes the popup on every keystroke, so it is placed again on each
+  move or resize: the panel keeps the field's left edge and width, and grows up instead of down
+  when Qt opened it above the field.
 - **`QCalendarWidget`** weekends use the accent (held to the text floor) instead of Qt's red,
   re-tinted on each theme switch.
 

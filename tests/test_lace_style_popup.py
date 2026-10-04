@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""LaceStyle rounds menus and combo box popups: the window turns translucent
+"""LaceStyle rounds menus, combo box and completer popups: the window turns translucent
 and frameless before it exists, and the panel paints a rounded fill."""
 
 import pytest
@@ -214,3 +214,140 @@ def test_a_shown_menu_puts_its_panel_on_the_anchor(qapp):
         assert menu.geometry().topLeft() == at - QPoint(_popup.SHADOW, _popup.SHADOW)
     finally:
         menu.hide()
+
+
+# -- completer popups ------------------------------------------------------------
+WORDS = ["alpha", "alphabet", "alpine", "altitude", "aluminium"]
+
+
+@pytest.fixture
+def completer_field(qapp):
+    """A line edit with a completer, on a LaceStyle app; the field is shown
+    at ``place`` (a top-left point) and focused."""
+    from PySide6.QtCore import QStringListModel
+    from PySide6.QtWidgets import QCompleter, QLineEdit
+
+    previous = qapp.style().name()
+    qapp.setStyle(LaceStyle())
+    fields = []
+
+    def make(place, words=WORDS):
+        line = QLineEdit()
+        line.setCompleter(QCompleter(QStringListModel(words, line), line))
+        line.setGeometry(QRect(place.x(), place.y(), 240, 24))
+        line.show()
+        line.activateWindow()
+        line.setFocus()
+        qapp.processEvents()
+        fields.append(line)
+        return line
+
+    yield make
+    for line in fields:
+        line.completer().popup().hide()
+        line.deleteLater()
+    qapp.setStyle(previous)
+    qapp.processEvents()
+
+
+def _type(qapp, line, text):
+    from PySide6.QtTest import QTest
+    QTest.keyClicks(line, text)
+    qapp.processEvents()
+    return line.completer().popup()
+
+
+def _panel_rect(popup):
+    """The popup's panel in global coordinates: the window less its shadow."""
+    g = popup.geometry()
+    return g.adjusted(_popup.SHADOW, _popup.SHADOW, -_popup.SHADOW, -_popup.SHADOW)
+
+
+def test_a_completer_popup_is_rounded_and_padded(qapp, completer_field):
+    from PySide6.QtCore import QPoint
+    line = completer_field(QPoint(100, 100))
+    popup = _type(qapp, line, "al")
+    style = qapp.style()
+    assert popup.isVisible()
+    assert _popup.is_list_popup(popup) and _popup.is_rounded(popup)
+    assert popup.testAttribute(WA.WA_TranslucentBackground)
+    assert popup.windowFlags() & WT.NoDropShadowWindowHint
+    fusion = QStyleFactory.create("Fusion")
+    assert popup.frameWidth() == fusion.pixelMetric(PM.PM_DefaultFrameWidth) + _popup.SHADOW
+    m = popup.viewportMargins()
+    assert m.top() == m.bottom() == _popup.pad(style)
+    assert not popup.viewport().autoFillBackground()     # the panel shows through
+
+
+def test_a_completer_panel_lines_up_under_its_field(qapp, completer_field):
+    from PySide6.QtCore import QPoint
+    line = completer_field(QPoint(100, 100))
+    popup = _type(qapp, line, "al")
+    field = QRect(line.mapToGlobal(QPoint(0, 0)), line.size())
+    panel = _panel_rect(popup)
+    # Qt anchors a completer two pixels up into its field; the panel keeps that spot.
+    assert panel.left() == field.left()
+    assert panel.width() == field.width()
+    assert panel.top() == field.bottom() - 1
+    assert not popup.verticalScrollBar().isVisible()     # five rows fit
+
+    # Narrowing the match re-sizes the popup; it is placed again.
+    popup = _type(qapp, line, "p")
+    panel = _panel_rect(popup)
+    assert popup.model().rowCount() == 3
+    assert (panel.left(), panel.width()) == (field.left(), field.width())
+    assert panel.top() == field.bottom() - 1
+    assert not popup.verticalScrollBar().isVisible()
+
+
+def test_a_completer_popup_opens_above_when_there_is_no_room_below(qapp, completer_field):
+    from PySide6.QtCore import QPoint
+    screen = qapp.primaryScreen().availableGeometry()
+    line = completer_field(QPoint(100, screen.bottom() - 30))
+    popup = _type(qapp, line, "al")
+    field = QRect(line.mapToGlobal(QPoint(0, 0)), line.size())
+    panel = _panel_rect(popup)
+    assert panel.bottom() < field.top()
+    assert panel.left() == field.left()
+
+
+def test_a_long_completer_list_scrolls_inside_its_panel(qapp, completer_field):
+    from PySide6.QtCore import QPoint
+    line = completer_field(QPoint(100, 100), [f"al{i:02d}" for i in range(30)])
+    popup = _type(qapp, line, "al")
+    bar = popup.verticalScrollBar()
+    assert bar.isVisible()
+    inside = QRect(bar.mapTo(popup, QPoint(0, 0)), bar.size())
+    assert popup.rect().adjusted(_popup.SHADOW, _popup.SHADOW,
+                                 -_popup.SHADOW, -_popup.SHADOW).contains(inside)
+
+
+def test_a_completer_popup_is_restored_off_lace_style(qapp):
+    from PySide6.QtWidgets import QCompleter, QLineEdit
+    fusion = QStyleFactory.create("Fusion")
+    line = QLineEdit()
+    completer = QCompleter(WORDS, line)
+    popup = completer.popup()
+    popup.setStyle(fusion)
+    popup.ensurePolished()
+    frame, margins = popup.frameWidth(), popup.viewportMargins()
+    autofill = popup.viewport().autoFillBackground()
+
+    popup.setStyle(LaceStyle())
+    assert _popup.is_rounded(popup)
+    popup.setStyle(fusion)
+    assert not _popup.is_rounded(popup)
+    assert not popup.testAttribute(WA.WA_TranslucentBackground)
+    assert popup.frameWidth() == frame
+    assert popup.viewportMargins() == margins
+    assert popup.viewport().autoFillBackground() == autofill
+
+
+def test_square_controls_keep_a_square_completer_popup(qapp):
+    from PySide6.QtWidgets import QCompleter, QLineEdit
+    line = QLineEdit()
+    popup = QCompleter(WORDS, line).popup()
+    popup.setStyle(LaceStyle(control_radius=0))
+    popup.ensurePolished()
+    assert not _popup.is_rounded(popup)
+    assert not popup.testAttribute(WA.WA_TranslucentBackground)

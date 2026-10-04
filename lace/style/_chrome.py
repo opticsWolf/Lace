@@ -147,6 +147,12 @@ def shaped_frame(style, opt, p, w):
         whole.rect = w.rect()
         _popup.paint(style, whole, p, w, _popup.combo_fill(w, opt))   # the rows' own colour
         return True
+    # A completer's list: the panel under its (unfilled) viewport.
+    if _popup.is_list_popup(w) and _popup.is_rounded(w) and shape != Shape.NoFrame:
+        whole = QStyleOptionFrame(opt)
+        whole.rect = w.rect()
+        _popup.paint(style, whole, p, w, _popup.list_fill(w, opt))
+        return True
     lw = max(1, opt.lineWidth)
     r = QRectF(opt.rect)
     if shape in (Shape.HLine, Shape.VLine):

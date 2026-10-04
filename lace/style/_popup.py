@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Rounded popups with a soft shadow: menus and combo box drop-down lists.
+"""Rounded popups with a soft shadow: menus, combo box drop-down lists and
+list popups such as a ``QCompleter``'s.
 
 A top-level window is square unless it is translucent, so ``LaceStyle.polish``
 makes each popup translucent and frameless before its native window exists,
@@ -38,6 +39,13 @@ SHADOW_DARK, SHADOW_LIGHT = 0.26, 0.09
 _ROUNDED = "_laceRoundedPopup"
 #: The margins a combo popup was given, taken back exactly on ``unpolish``.
 _PAD = "_laceRoundedPopupPad"
+#: The padding this style added to a list popup's viewport margins.
+_VIEWPORT_PAD = "_laceRoundedPopupViewportPad"
+#: A list popup's viewport filled itself before this style turned that off.
+_VIEWPORT_FILL = "_laceRoundedPopupViewportFill"
+#: The geometry ``ShadowShift`` last gave a list popup, to tell its own
+#: moves from the ones Qt makes as the list grows and shrinks.
+_PLACED = "_laceRoundedPopupPlaced"
 #: The window hints this style added, taken back exactly on ``unpolish``.
 _ADDED = "_laceRoundedPopupHints"
 #: A rounded popup has no native frame or (square) native shadow.
@@ -81,8 +89,21 @@ def combo_fill(w, opt) -> QColor:
     return view.palette().color(group, Role.Base)
 
 
+def is_list_popup(w) -> bool:
+    """An item view that is its own popup window: a ``QCompleter``'s list
+    (Qt reparents it to no parent with ``Qt.Popup``), or an app's drop-down
+    list made the same way."""
+    return (isinstance(w, QAbstractItemView) and w.isWindow()
+            and (w.windowType() == Qt.WindowType.Popup))
+
+
+def list_fill(w, opt) -> QColor:
+    """The colour a list popup's rows sit on: its viewport's Base."""
+    return w.palette().color(opt.palette.currentColorGroup(), Role.Base)
+
+
 def is_popup(w) -> bool:
-    return (isinstance(w, QMenu) or is_combo_popup(w)) and w.isWindow()
+    return (isinstance(w, QMenu) or is_combo_popup(w) or is_list_popup(w)) and w.isWindow()
 
 
 def is_rounded(w) -> bool:
@@ -121,6 +142,18 @@ def round_popup(style, w: QWidget, shift: "ShadowShift") -> None:
         m = w.contentsMargins()
         w.setContentsMargins(m.left() + side, m.top() + ends, m.right() + side, m.bottom() + ends)
         w.setProperty(_PAD, [side, ends])
+    if is_list_popup(w):
+        # A QFrame keeps its frame width as its contents margins, so a list
+        # popup takes the shadow margin through its frame width
+        # (PM_DefaultFrameWidth) and the padding at its ends through its
+        # viewport margins.
+        _sync_list_pad(w, pad(style))
+        w.setFrameStyle(w.frameStyle())     # re-reads the frame width
+        if w.viewport().autoFillBackground():
+            # The panel paints the rows' ground, rounded; a square viewport
+            # fill would cover its corners.
+            w.viewport().setAutoFillBackground(False)
+            w.setProperty(_VIEWPORT_FILL, True)
     w.installEventFilter(shift)
 
 
@@ -141,14 +174,64 @@ def unround_popup(style, w: QWidget, shift: "ShadowShift") -> None:
         w.setContentsMargins(max(0, m.left() - side), max(0, m.top() - ends),
                              max(0, m.right() - side), max(0, m.bottom() - ends))
         w.setProperty(_PAD, None)
+    if is_list_popup(w):
+        _sync_list_pad(w, 0)
+        w.setFrameStyle(w.frameStyle())     # back to the plain frame width
+    if w.property(_VIEWPORT_FILL):
+        w.viewport().setAutoFillBackground(True)
+        w.setProperty(_VIEWPORT_FILL, None)
+    w.setProperty(_PLACED, None)
+
+
+def _sync_list_pad(w, ends: int) -> None:
+    """Set the padding this style keeps in a list popup's viewport margins
+    (above and below its rows) to ``ends``, keeping the app's own margins."""
+    old = w.property(_VIEWPORT_PAD) or 0
+    if ends == old:
+        return
+    m = w.viewportMargins()
+    w.setViewportMargins(m.left(), max(0, m.top() - old) + ends,
+                         m.right(), max(0, m.bottom() - old) + ends)
+    w.setProperty(_VIEWPORT_PAD, ends or None)
+
+
+def _place_list_popup(w) -> None:
+    """Grow a list popup around the rect Qt gave it, so its panel covers that
+    rect: wider by the shadow on each side, taller by the shadow and padding
+    at each end. Below its anchor the panel's top stays on Qt's; above it
+    (no room below), its bottom does."""
+    g = w.geometry()
+    if g == w.property(_PLACED):
+        return      # this filter's own move, or Qt hasn't moved it since
+    _sync_list_pad(w, pad(w.style()))     # the theme may have changed the radius
+    s, ends = SHADOW, SHADOW + pad(w.style())
+    y = g.y() - s
+    anchor = QApplication.focusWidget()
+    if anchor is not None and anchor is not w:
+        if g.bottom() <= anchor.mapToGlobal(anchor.rect().center()).y():
+            y = g.y() - s - 2 * (ends - s)
+    placed = QRect(g.x() - s, y, g.width() + 2 * s, g.height() + 2 * ends)
+    w.setProperty(_PLACED, placed)
+    w.setGeometry(placed)
 
 
 class ShadowShift(QObject):
     """Moves a rounded popup back by its shadow margin as it shows, so its
     panel lands where Qt placed the window. Qt sends Show before the native
-    window appears, so the move never flickers."""
+    window appears, so the move never flickers.
+
+    A list popup (``QCompleter``) is placed again whenever Qt moves or
+    resizes it, which it does on every keystroke as the matches change."""
+
+    _LIST_EVENTS = (QEvent.Type.Show, QEvent.Type.Move, QEvent.Type.Resize)
 
     def eventFilter(self, obj, event):
+        if is_list_popup(obj) and is_rounded(obj):
+            if event.type() == QEvent.Type.Hide:
+                obj.setProperty(_PLACED, None)
+            elif event.type() in self._LIST_EVENTS and obj.isVisible():
+                _place_list_popup(obj)
+            return False
         if event.type() == QEvent.Type.Show and is_rounded(obj):
             s = SHADOW
             if is_combo_popup(obj):
