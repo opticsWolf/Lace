@@ -1044,10 +1044,10 @@ See `demos/demo_app.py` for a comprehensive example demonstrating:
 python -m demos.demo_app
 ```
 
-Frameless / custom-title-bar demos (see [§5 Frameless Windows & the Custom
-Title Bar](#frameless-windows--the-custom-title-bar)):
+Focused demos:
 
 ```bash
+python -m demos.demo_app_calendar.py                 # calendar popup rounding testbed
 python -m demos.demo_app_custom_titlebar.py          # standard custom title bar
-python -m demos.demo_app_custom_titlebar_menus.py      # menu-embedded main title bar + search bar for floats
+python -m demos.demo_app_custom_titlebar_menus.py    # menu-embedded main title bar + search bar for floats
 ```

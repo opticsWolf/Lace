@@ -183,9 +183,10 @@ The demo includes:
 - Preset configurations (Default, Minimal, Full)
 - A "Dialog…" button opening a custom `FramelessLaceDialog`
 
-For frameless/custom-title-bar examples, see:
+For focused tests, see:
 
 ```bash
+python -m demos.demo_app_calendar                 # calendar popup rounding testbed
 python -m demos.demo_app_custom_titlebar          # standard custom title bar
 python -m demos.demo_app_custom_titlebar_menus    # menu-embedded main title bar + search bar for floats
 ```
@@ -337,6 +338,7 @@ lace/
 │   └── resources/lace_icons/      # SVG icons (close, dock, float, pin, etc.)
 ├── demos/                         # Demo applications (python -m demos.demo_app)
 │   ├── demo_app.py                # Full-featured demo application
+│   ├── demo_app_calendar.py       # Calendar popup rounding testbed
 │   ├── demo_app_custom_titlebar.py        # Custom title-bar demo
 │   ├── demo_app_custom_titlebar_menus.py  # Menu-embedded title-bar demo
 │   ├── demo_panels.py             # Panel contents shared by the demos
