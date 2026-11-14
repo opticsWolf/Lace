@@ -19,7 +19,7 @@ import math
 import shiboken6
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen, QRegion
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCalendarWidget,
                                QMenu, QStyleOption, QWidget)
 
@@ -45,6 +45,10 @@ _ROUNDED = "_laceRoundedPopup"
 _PAD = "_laceRoundedPopupPad"
 #: The layout margins a calendar popup was given, taken back on ``unpolish``.
 _CALENDAR_PAD = "_laceRoundedCalendarLayoutPad"
+#: The antialiased corner painter laid over the opaque calendar child.
+_CALENDAR_CORNERS = "laceCalendarCorners"
+#: The calendar's navigation bar, restyled to match the rounded panel.
+_CALENDAR_NAV = "_laceRoundedCalendarNav"
 #: The padding this style added to a list popup's viewport margins.
 _VIEWPORT_PAD = "_laceRoundedPopupViewportPad"
 #: A list popup's viewport filled itself before this style turned that off.
@@ -180,13 +184,13 @@ def round_popup(style, w: QWidget, shift: "ShadowShift") -> None:
 
 
 def _round_calendar_popup(style, w: QWidget, shift: "ShadowShift") -> None:
-    """Grow the calendar popup for its panel and mask the calendar itself.
+    """Grow the calendar popup and round its navigation bar.
 
     ``QCalendarPopup`` is a plain widget, so the shadow margin and the
     padding that keeps its content clear of the arcs have to come from its
-    layout.  The calendar child is opaque and square; mask it to a radius
-    one padding step larger than the panel, so the nav bar and day grid
-    cannot paint over the rounded corners.
+    layout.  The accent month/year bar is a plain child widget; it gets a
+    stylesheet radius so its top corners are antialiased and use the same
+    radius as the panel instead of a one-bit widget mask.
     """
     layout = w.layout()
     if layout is not None:
@@ -199,15 +203,57 @@ def _round_calendar_popup(style, w: QWidget, shift: "ShadowShift") -> None:
     calendar = w.findChild(QCalendarWidget)
     if calendar is not None:
         calendar.installEventFilter(shift)
-        _mask_calendar_popup(w)
+        _style_calendar_nav(style, w)
+        _sync_calendar_corners(w)
+
+
+def _style_calendar_nav(style, w: QWidget) -> None:
+    """Give the accent navigation bar an antialiased, panel-matching radius.
+
+    QCalendarWidget fills the bar itself; its child widget is a plain
+    QWidget.  A stylesheet radius on that child is antialiased, unlike
+    ``setMask``, and uses exactly the panel radius.
+    """
+    calendar = w.findChild(QCalendarWidget)
+    if calendar is None:
+        return
+    nav = calendar.findChild(QWidget, "qt_calendar_navigationbar")
+    if nav is None:
+        return
+    if w.property(_CALENDAR_NAV) is None:
+        w.setProperty(_CALENDAR_NAV, [nav, nav.autoFillBackground(),
+                                      nav.styleSheet(),
+                                      nav.testAttribute(WA.WA_StyledBackground)])
+    opt = QStyleOption()
+    opt.initFrom(calendar)
+    accent = P.accent(opt)
+    r = int(round(radius(style)))
+    nav.setAutoFillBackground(False)
+    nav.setAttribute(WA.WA_StyledBackground, True)
+    nav.setStyleSheet(
+        "#qt_calendar_navigationbar {"
+        f" background-color: rgb({accent.red()},{accent.green()},{accent.blue()});"
+        f" border-top-left-radius: {r}px; border-top-right-radius: {r}px; }}")
 
 
 def _unround_calendar_popup(w: QWidget, shift: "ShadowShift") -> None:
-    """Undo the calendar popup's layout margins and child mask."""
+    """Undo the calendar popup's layout margins and child styling."""
     calendar = w.findChild(QCalendarWidget)
     if calendar is not None:
         calendar.removeEventFilter(shift)
         calendar.clearMask()
+    nav_data = w.property(_CALENDAR_NAV)
+    if nav_data:
+        nav, autofill, sheet, styled = nav_data
+        if shiboken6.isValid(nav):
+            nav.setStyleSheet(sheet)
+            nav.setAutoFillBackground(autofill)
+            nav.setAttribute(WA.WA_StyledBackground, styled)
+        w.setProperty(_CALENDAR_NAV, None)
+    corners = w.findChild(_CalendarCorners)
+    if corners is not None:
+        corners.hide()
+        corners.deleteLater()
     before = w.property(_CALENDAR_PAD)
     layout = w.layout()
     if before and layout is not None:
@@ -216,24 +262,76 @@ def _unround_calendar_popup(w: QWidget, shift: "ShadowShift") -> None:
         w.setProperty(_CALENDAR_PAD, None)
 
 
-def _mask_calendar_popup(w: QWidget) -> None:
-    """Clip the calendar child to the rounded panel inside the popup."""
+class _CalendarCorners(QWidget):
+    """Paint antialiased panel corners over the opaque calendar child.
+
+    A widget mask is one bit deep and cannot antialias.  This transparent
+    overlay sits above the calendar, takes no mouse events, and fills the
+    bottom corner areas between the day grid's square corners and the
+    panel's rounded shape.  The top corners are handled by the navigation
+    bar's stylesheet radius.
+    """
+
+    def __init__(self, popup: QWidget):
+        super().__init__(popup)
+        self.setObjectName(_CALENDAR_CORNERS)
+        self.setAttribute(WA.WA_TransparentForMouseEvents, True)
+        self.setAttribute(WA.WA_NoSystemBackground, True)
+        self.setAttribute(WA.WA_TranslucentBackground, True)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setAutoFillBackground(False)
+        self._radius = 0.0
+        self._fill = QColor()
+
+    def set_shape(self, radius: float, fill: QColor) -> None:
+        self._radius = max(0.0, float(radius))
+        self._fill = QColor(fill)
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        if self._radius <= 0 or not self._fill.isValid():
+            return
+        rect = QRectF(self.rect())
+        r = min(self._radius, rect.width() / 2, rect.height() / 2)
+        if r <= 0:
+            return
+        square = QPainterPath()
+        square.addRect(rect)
+        rounded = QPainterPath()
+        rounded.addRoundedRect(rect, r, r)
+        painter = QPainter(self)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setClipRect(QRectF(rect.left(), rect.bottom() - r,
+                                       rect.width(), r))
+            painter.fillPath(square.subtracted(rounded), self._fill)
+        finally:
+            painter.end()
+
+
+def _sync_calendar_corners(w: QWidget) -> None:
+    """Lay the antialiased corner overlay over the calendar child."""
     calendar = w.findChild(QCalendarWidget)
     if calendar is None:
         return
-    calendar.clearMask()
+    corners = w.findChild(_CalendarCorners)
+    if corners is None:
+        corners = _CalendarCorners(w)
     if not is_rounded(w):
+        corners.hide()
         return
     style = w.style()
     if not hasattr(style, "control_radius"):
+        corners.hide()
         return
     r = radius(style)
-    if r <= 0 or calendar.width() <= 0 or calendar.height() <= 0:
+    if r <= 0:
+        corners.hide()
         return
-    path = QPainterPath()
-    r += pad(style)
-    path.addRoundedRect(QRectF(calendar.rect()), r, r)
-    calendar.setMask(QRegion(path.toFillPolygon().toPolygon()))
+    corners.set_shape(r, w.palette().color(Role.Window))
+    corners.setGeometry(calendar.geometry())
+    corners.show()
+    corners.raise_()
 
 
 def _paint_calendar_popup(w: QWidget) -> bool:
@@ -330,16 +428,17 @@ class ShadowShift(QObject):
             if (shiboken6.isValid(popup) and is_calendar_popup(popup)
                     and is_rounded(popup)
                     and event.type() in (QEvent.Type.Show, QEvent.Type.Resize)):
-                _mask_calendar_popup(popup)
+                _sync_calendar_corners(popup)
             return False
         if is_calendar_popup(obj) and is_rounded(obj):
             if event.type() == QEvent.Type.Paint:
                 return _paint_calendar_popup(obj)
             if event.type() == QEvent.Type.Show:
-                _mask_calendar_popup(obj)
+                _style_calendar_nav(obj.style(), obj)
+                _sync_calendar_corners(obj)
                 obj.move(obj.pos() - QPoint(SHADOW, SHADOW))
             elif event.type() == QEvent.Type.Resize:
-                _mask_calendar_popup(obj)
+                _sync_calendar_corners(obj)
             return False
         if is_list_popup(obj) and is_rounded(obj):
             if event.type() == QEvent.Type.Hide:

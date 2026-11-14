@@ -35,7 +35,7 @@ The reports live next to the checkout (`..\*.md`), not in `docs/`. Status as of 
 
 | Report | Status | Evidence |
 |---|---|---|
-| `calendar-popup-rounding.md` | **CLOSED in 0.10.0** | `_popup.is_calendar_popup()` rounds the private `QCalendarPopup`, paints its panel/shadow and masks the opaque calendar child; `tests/test_lace_style_popup.py` |
+| `calendar-popup-rounding.md` | **CLOSED in 0.10.0** | `_popup.is_calendar_popup()` rounds the private `QCalendarPopup`, paints its panel/shadow, restyles the accent nav bar with the panel radius and antialiases the calendar's bottom corners; `tests/test_lace_style_popup.py` |
 | `native-frame-native-child-bug.md` | **CLOSED in 0.9.2** | `apply_native_frame()` reads `internalWinId()` (`lace/native_frame.py`); `tests/test_native_frame.py` |
 | `native-sibling-freeze.md` | **CLOSED in 0.9.5** | `DockManager.__init__` sets `AA_DontCreateNativeWidgetSiblings`; `tests/test_native_siblings.py` |
 | `sidebar-pinning-fixes.md` (incl. §10) | **CLOSED in 0.9.3 / 0.9.4** | pin/unpin/restore, allow-list API, signal, deleted-button guard; `tests/test_sidebar_pinning.py` |

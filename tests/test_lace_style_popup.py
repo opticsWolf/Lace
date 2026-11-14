@@ -401,10 +401,15 @@ def test_a_calendar_popup_is_rounded_and_padded(qapp):
     m = popup.layout().contentsMargins()
     assert (m.left(), m.top(), m.right(), m.bottom()) == (inset, inset, inset, inset)
 
-    mask = calendar.mask()
-    assert not mask.isEmpty()
-    assert not mask.contains(QPoint(0, 0))
-    assert mask.contains(calendar.rect().center())
+    nav = calendar.findChild(QWidget, "qt_calendar_navigationbar")
+    r = int(round(_popup.radius(style)))
+    assert not nav.autoFillBackground()
+    assert f"border-top-left-radius: {r}px" in nav.styleSheet()
+    assert calendar.mask().isEmpty()      # no one-bit, stair-stepped mask
+
+    corners = popup.findChild(_popup._CalendarCorners)
+    assert corners is not None
+    assert corners.geometry() == calendar.geometry()
 
     # The Paint filter supplies the panel and shadow behind the opaque child.
     image = popup.grab().toImage()
@@ -443,19 +448,26 @@ def test_a_calendar_panel_opens_above_when_there_is_no_room_below(qapp):
 def test_a_calendar_popup_is_restored_off_lace_style(qapp):
     fusion = QStyleFactory.create("Fusion")
     _date, calendar, popup = _calendar_popup(LaceStyle())
+    nav = calendar.findChild(QWidget, "qt_calendar_navigationbar")
 
     popup.setStyle(fusion)
 
     assert not _popup.is_rounded(popup)
     assert not popup.testAttribute(WA.WA_TranslucentBackground)
     assert popup.layout().contentsMargins().isNull()
-    assert calendar.mask().isEmpty()
+    assert nav.autoFillBackground()
+    assert nav.styleSheet() == ""
+    corners = popup.findChild(_popup._CalendarCorners)
+    assert corners is None or corners.isHidden()
 
 
 def test_square_controls_keep_a_square_calendar_popup(qapp):
     _date, calendar, popup = _calendar_popup(LaceStyle(control_radius=0))
+    nav = calendar.findChild(QWidget, "qt_calendar_navigationbar")
 
     assert not _popup.is_rounded(popup)
     assert not popup.testAttribute(WA.WA_TranslucentBackground)
     assert popup.layout().contentsMargins().isNull()
-    assert calendar.mask().isEmpty()
+    assert nav.autoFillBackground()
+    assert nav.styleSheet() == ""
+    assert popup.findChild(_popup._CalendarCorners) is None

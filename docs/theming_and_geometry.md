@@ -490,9 +490,9 @@ chrome (`lace/style/_chrome.py`) is flat too:
   move or resize: the panel keeps the field's left edge and width, and grows up instead of down
   when Qt opened it above the field.
   A **calendar popup** (`QDateEdit`/`QDateTimeEdit`) is the private `QCalendarPopup` widget. Its
-  layout takes the shadow margin plus padding on every side, and the opaque `QCalendarWidget`
-  child is masked to the rounded panel, so the accent navigation bar and day grid cannot paint
-  over the corners. It opens above the field when there is no room below, like the completer.
+  layout takes the shadow margin plus padding on every side; the accent navigation bar gets
+  the same antialiased radius as the panel, and an overlay paints the day grid's bottom corners
+  to the panel shape. It opens above the field when there is no room below, like the completer.
 - **`QCalendarWidget`** weekends use the accent (held to the text floor) instead of Qt's red,
   re-tinted on each theme switch.
 

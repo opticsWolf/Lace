@@ -898,7 +898,7 @@ property tests pin the round trip and the contrast guarantees.
   separators, size grips, calendar weekend tint)
 - `_popup` (rounded, shadowed menus, combo, completer and calendar popups: translucent
   frameless windows set up in `polish()`, moved back by the shadow margin on show by
-  `ShadowShift`; the calendar's opaque child is masked to the rounded panel)
+  `ShadowShift`; the calendar's nav bar is rounded with the panel radius)
 - `_containers` (tabs, headers, menus, item views, tooltips, tool box)
 - `_paint`, with memoised colour helpers shared by the others
 
