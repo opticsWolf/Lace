@@ -104,7 +104,6 @@ class VerticalTabButton(QToolButton, DockStyled):
 
         self.setCheckable(True)
         self.setAutoRaise(True)
-        self.setToolTip(text)
         self.setObjectName("sideTabButton")
         self.setAttribute(Qt.WA_Hover, True)
         
@@ -138,7 +137,68 @@ class VerticalTabButton(QToolButton, DockStyled):
         return dock_widget
 
     def set_dock_widget(self, dock_widget) -> None:
+        current = self._dock_widget
+        if current is dock_widget:
+            return
+        if current is not None and shiboken6.isValid(current):
+            for signal, slot in (
+                    (current.title_changed, self.set_text),
+                    (current.description_changed, self._on_description_changed)):
+                try:
+                    signal.disconnect(slot)
+                except (RuntimeError, TypeError):
+                    pass
         self._dock_widget = dock_widget
+        if dock_widget is not None and shiboken6.isValid(dock_widget):
+            try:
+                dock_widget.title_changed.connect(self.set_text, Qt.UniqueConnection)
+                dock_widget.description_changed.connect(
+                    self._on_description_changed, Qt.UniqueConnection)
+            except (RuntimeError, TypeError):
+                pass
+        self.refresh_tooltip()
+
+    def set_text(self, text: str) -> None:
+        text = "" if text is None else str(text)
+        if text == self._text:
+            return
+        self._text = text
+        self.updateGeometry()
+        self.update()
+        self.refresh_tooltip()
+
+    def _on_description_changed(self, _text: str) -> None:
+        self.refresh_tooltip()
+
+    def is_text_clipped(self) -> bool:
+        """Whether the painted (non-eliding) label runs past the tab length."""
+        if not self._text.strip():
+            return False
+        fm = QFontMetrics(self._label_font(self.isChecked()))
+        icon = self._resolved_icon()
+        icon_size = self._icon_size if not icon.isNull() else 0
+        gap = self._icon_gap if icon_size > 0 else 0
+        return (icon_size + gap + fm.horizontalAdvance(self._text)
+                > self.height())
+
+    def refresh_tooltip(self) -> None:
+        """Show a tooltip only for clipped text, a description, or an override."""
+        dock = self.dock_widget()
+        if dock is not None:
+            text = dock._composed_tab_tool_tip()
+            show = (dock._has_tab_tool_tip_override()
+                    or bool(dock.description().strip())
+                    or self.is_text_clipped())
+        else:
+            text = self._text
+            show = self.is_text_clipped()
+        tip = text if show else ""
+        if self.toolTip() != tip:
+            self.setToolTip(tip)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.refresh_tooltip()
 
     def set_area(self, area: DockWidgetArea):
         """Set which sidebar this tab belongs to (for indicator mirroring)."""

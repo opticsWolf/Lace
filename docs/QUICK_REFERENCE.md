@@ -459,6 +459,7 @@ dock_manager.config_flags = DockFlags.default_config  # restore defaults
 | `dock_area_has_pin_button` | Pin button on title bar |
 | `dock_area_has_maximize_button` | Maximize/restore button on title bar |
 | `dock_area_has_tabs_menu_button` | Tabs list menu button on title bar |
+| `dock_area_has_tab_scroll_buttons` | Auto-show `‹` / `›` arrows when tabs overflow (default on) |
 | `middle_mouse_button_closes_tab` | Middle-click on tab closes it |
 | `floatable_tabs` | Tabs can be dragged to float |
 | `pinnable_tabs` | Tabs can be pinned to sidebars |
@@ -943,7 +944,8 @@ class ThemeSwitcher:
 | `set_features(flags)` | Set interaction capabilities |
 | `set_default_icon_name(name)` | Set default tab icon |
 | `set_custom_icon_name(name)` | Set custom tab icon |
-| `set_tab_tool_tip(text)` | Set tab tooltip |
+| `set_tab_tool_tip(text)` | Set an explicit tab tooltip; empty clears back to title/description |
+| `description()` / `set_description(text)` | Get/set the optional second tooltip line |
 | `toggle_view(open_)` | Show/hide widget |
 | `is_closed()` | Check if widget is hidden |
 | `dock_area_widget()` | Get parent dock area |
@@ -956,6 +958,16 @@ class ThemeSwitcher:
 | `tool_bar()` | Get/set the dock widget's QToolBar |
 | `set_toolbar_floating_style(floating)` | Style toolbar for floating vs docked |
 | `save_state()` | Serialize widget state to dict |
+
+```python
+log = DockWidget("Log", description="Build output and diagnostics")
+log.set_description("Updated at runtime")   # refreshes the tab/sidebar tooltip
+log.set_tab_tool_tip("Explicit override")   # empty string clears the override
+```
+
+A tab tooltip is automatic only when the title is elided or a description is set. A short title
+with no description has no tooltip. An icon-only tab (empty title) follows the same rule: the
+description can still provide a tooltip, but there is no title to elide.
 
 ### SidebarManager
 
@@ -1048,6 +1060,7 @@ Focused demos:
 
 ```bash
 python -m demos.demo_app_calendar.py                 # calendar popup rounding testbed
+python -m demos.demo_app_overflow.py                 # tab overflow, arrows, descriptions
 python -m demos.demo_app_custom_titlebar.py          # standard custom title bar
 python -m demos.demo_app_custom_titlebar_menus.py    # menu-embedded main title bar + search bar for floats
 ```

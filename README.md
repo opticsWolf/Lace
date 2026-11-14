@@ -31,6 +31,8 @@
 
 - **Multi-area docking** — Dock widgets to left, right, top, bottom, or center regions within a window
 - **Tabbed dock areas** — Multiple widgets share a single dock area as tabs, with full tab management (reorder, close, float)
+- **Tab overflow** — Automatic `‹` / `›` arrows appear before tabs reach their two-character minimum, with wheel scrolling and a flag to disable them
+- **Tab descriptions** — `DockWidget(description=...)` adds a second tooltip line; short titles stay tooltip-free until they actually elide
 - **Floating windows** — Detach any dock widget into its own top-level window; drag it back to dock
 - **Drag-and-drop layout** — Intuitive resize, re-order, and re-dock via visual drop indicators
 - **Nested splitters** — Arbitrary nesting of horizontal and vertical split panes
@@ -67,7 +69,7 @@
 
 ### ⚙️ Configuration
 
-- **19 global flags** — Control tab visibility, button visibility, drag behavior, floating window chrome, icon styling, and more
+- **20 global flags** — Control tab visibility, button visibility, tab scrolling, drag behavior, floating window chrome, icon styling, and more
 - **Per-widget feature flags** — Granular control over what each dock widget can do: closable, movable, floatable, pinnable
 - **Insertion order** — Sort "Show View" menu items alphabetically or chronologically
 - **Toggle view actions** — Integrate dock widget show/hide into menu bars or toolbars as checkable toggles or one-way show buttons
@@ -187,6 +189,7 @@ For focused tests, see:
 
 ```bash
 python -m demos.demo_app_calendar                 # calendar popup rounding testbed
+python -m demos.demo_app_overflow                 # tab overflow, arrows, descriptions
 python -m demos.demo_app_custom_titlebar          # standard custom title bar
 python -m demos.demo_app_custom_titlebar_menus    # menu-embedded main title bar + search bar for floats
 ```
@@ -339,6 +342,7 @@ lace/
 ├── demos/                         # Demo applications (python -m demos.demo_app)
 │   ├── demo_app.py                # Full-featured demo application
 │   ├── demo_app_calendar.py       # Calendar popup rounding testbed
+│   ├── demo_app_overflow.py       # Tab overflow/arrows testbed
 │   ├── demo_app_custom_titlebar.py        # Custom title-bar demo
 │   ├── demo_app_custom_titlebar_menus.py  # Menu-embedded title-bar demo
 │   ├── demo_panels.py             # Panel contents shared by the demos

@@ -51,6 +51,12 @@ class DockWidgetTab(QFrame, DockStyled):
                         DockStyleCategory.CORE)
     _menu_sections = MenuSection.TAB
 
+    #: A tab may shrink to this multiple of the width at which its title starts
+    #: to elide (the first two characters plus an ellipsis).  Keeping the
+    #: multiplier on the *text* minimum, then adding the unscaled chrome,
+    #: means the active tab's close button does not inflate the threshold.
+    CRAMPED_FACTOR = 2.0
+
     active_tab_changed = Signal()
     clicked = Signal()
     close_requested = Signal()
@@ -106,12 +112,15 @@ class DockWidgetTab(QFrame, DockStyled):
         if self._dock_widget and hasattr(self._dock_widget, 'features_changed'):
             self._dock_widget.features_changed.connect(lambda f: self.update_close_button_visibility())
         self.update_icon()
+        self.update_cramped_minimum()
+        self.refresh_tooltip()
 
     def _create_layout(self):
         self._title_label = ElidingLabel(text=self._dock_widget.windowTitle())
         self._title_label.set_elide_mode(Qt.ElideRight)
         self._title_label.setObjectName("dockWidgetTabLabel")
         self._title_label.setAlignment(Qt.AlignCenter)
+        self._title_label.elided_changed.connect(self._on_title_elided)
         
         # Use dock_icon for proper Normal/Disabled state handling.
         # ChromeToolButton paints its own rounded hover (no :hover QSS); it is
@@ -408,6 +417,7 @@ class DockWidgetTab(QFrame, DockStyled):
             self._close_button.setVisible(False)
         else:
             self._close_button.setVisible(not active_tab_only or self.is_active_tab())
+        self.update_cramped_minimum()
 
     def set_active_tab(self, active: bool):
         if self._is_active_tab == active:
@@ -576,6 +586,8 @@ class DockWidgetTab(QFrame, DockStyled):
             pix = icon.pixmap(self.windowHandle(), QSize(size, size)) if self.windowHandle() else icon.pixmap(QSize(size, size))
             self._icon_label.setPixmap(pix)
             self._icon_label.setVisible(True)
+        self.update_cramped_minimum()
+        self.refresh_tooltip()
 
     def icon(self) -> QIcon:
         return self._icon
@@ -585,14 +597,75 @@ class DockWidgetTab(QFrame, DockStyled):
 
     def set_text(self, title: str):
         self._title_label.setText(title)
+        self.update_cramped_minimum()
+        self.refresh_tooltip()
+
+    def _on_title_elided(self, _elided: bool):
+        self.refresh_tooltip()
+
+    def update_cramped_minimum(self, enabled: Optional[bool] = None) -> None:
+        """Keep a tab from shrinking below the cramped threshold.
+
+        The threshold is a multiple of the width at which the title starts to
+        elide, not a hard-coded pixel width.  The fixed chrome (margins, icon,
+        close button) is added unscaled, so the active tab's close button does
+        not inflate it.  With the scroll-button flag off, the old behaviour is
+        restored and the tab can collapse to the two-character minimum.
+        """
+        if self._title_label is None or self.layout() is None:
+            return
+        if enabled is None:
+            enabled = self._test_config_flag(
+                DockFlags.dock_area_has_tab_scroll_buttons)
+        if not enabled:
+            if self.minimumWidth() != 0:
+                self.setMinimumWidth(0)
+            return
+
+        base_min = self.layout().minimumSize().width()
+        preferred = self.layout().sizeHint().width()
+        has_text = bool(self.text().strip())
+        title_min = (self._title_label.minimumSizeHint().width()
+                     if has_text else 0)
+        chrome = max(0, base_min - title_min)
+        comfort = min(preferred,
+                      chrome + round(self.CRAMPED_FACTOR * title_min))
+        comfort = max(base_min, comfort)
+        if self.minimumWidth() != comfort:
+            self.setMinimumWidth(comfort)
+
+    def refresh_tooltip(self) -> None:
+        """Install the composed tooltip only when it is useful.
+
+        A short title with no description gets no tooltip at all; a title that
+        is actually elided gets the full title; a description forces the
+        composed tooltip even while the title fits.  An explicit
+        ``set_tab_tool_tip`` remains visible because the caller asked for it.
+        """
+        dock = self._dock_widget
+        if dock is None:
+            return
+        text = dock._composed_tab_tool_tip()
+        show = (dock._has_tab_tool_tip_override()
+                or bool(dock.description().strip())
+                or self._title_label.is_elided())
+        tip = text if show else ""
+        if self.toolTip() != tip:
+            self.setToolTip(tip)
+        if self._title_label.toolTip() != tip:
+            self._title_label.setToolTip(tip)
+        if self._icon_label is not None and self._icon_label.toolTip() != tip:
+            self._icon_label.setToolTip(tip)
 
     def is_closable(self) -> bool:
         return bool(self._dock_widget and (self._dock_widget.features() & DockWidgetFeature.closable))
 
     def event(self, e: QEvent) -> bool:
-        if e.type() == QEvent.ToolTipChange:
+        if e.type() == QEvent.ToolTipChange and self._title_label is not None:
             text = self.toolTip()
             self._title_label.setToolTip(text)
+            if self._icon_label is not None:
+                self._icon_label.setToolTip(text)
         return super().event(e)
 
     # ── Focus-dependent styling ───────────────────────────────────────────
@@ -809,6 +882,7 @@ class DockWidgetTab(QFrame, DockStyled):
             self.setFont(font)
         if self._title_label is not None and self._title_label.font() != font:
             self._title_label.setFont(font)
+        self.update_cramped_minimum()
 
     def paintEvent(self, event):
         if self._bg_active is None:

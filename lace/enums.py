@@ -117,6 +117,14 @@ class DockFlags(enum.IntFlag):
     
     dock_area_has_tabs_menu_button = enum.auto()
     """The dock area title bar displays a menu button listing all tabs."""
+
+    dock_area_has_tab_scroll_buttons = enum.auto()
+    """The dock area title bar shows tab scroll arrows when the tabs overflow.
+
+    On (the default), the arrows appear automatically once the tab strip is
+    too narrow; off disables them even when tabs overflow. The arrows are
+    never permanently visible.
+    """
     
     middle_mouse_button_closes_tab = enum.auto()
     """Clicking a tab with the middle mouse button closes it."""
@@ -153,7 +161,8 @@ class DockFlags(enum.IntFlag):
         opaque_splitter_resize | opaque_undocking | always_show_tabs |
         show_tab_close_button | active_tab_has_close_button | hide_disabled_title_bar_icons |
         dock_area_has_close_button | dock_area_has_undock_button | dock_area_has_maximize_button |
-        dock_area_has_tabs_menu_button | dock_area_has_pin_button | middle_mouse_button_closes_tab |
+        dock_area_has_tabs_menu_button | dock_area_has_tab_scroll_buttons |
+        dock_area_has_pin_button | middle_mouse_button_closes_tab |
         pinnable_tabs | floatable_tabs | sidebar_area_has_maximize_button
     )
     """The default configuration flags applied to a new DockManager."""
@@ -164,6 +173,8 @@ class TitleBarButton(enum.Enum):
     Identifiers for the standard buttons in a dock area title bar.
     """
     tabs_menu = enum.auto()
+    tab_scroll_left = enum.auto()
+    tab_scroll_right = enum.auto()
     undock = enum.auto()
     close = enum.auto()
     pin = enum.auto()

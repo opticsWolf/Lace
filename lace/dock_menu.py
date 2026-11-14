@@ -61,6 +61,8 @@ _ICON_SPECS: Dict[str, tuple] = {
     "close_others": ("window-close",    QStyle.SP_TitleBarCloseButton),
     "close_tab":    ("tab-close",       QStyle.SP_TitleBarCloseButton),
     "tabs_menu":    ("view-list",       QStyle.SP_TitleBarUnshadeButton),
+    "chevron_left": ("go-previous",     QStyle.SP_ArrowLeft),
+    "chevron_right": ("go-next",        QStyle.SP_ArrowRight),
     "maximize":     ("window-maximize", QStyle.SP_TitleBarMaxButton),
     "restore":      ("window-restore",  QStyle.SP_TitleBarNormalButton),
     "minimize":     ("window-restore",  QStyle.SP_TitleBarNormalButton),

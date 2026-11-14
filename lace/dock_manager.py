@@ -595,6 +595,7 @@ class DockManager(QObject):
                     tab_bar = dock_area._title_bar.tab_bar()
                     if tab_bar:
                         tab_bar._update_tab_bar_visibility()
+                        dock_area._title_bar._schedule_tab_scroll_sync()
                         for i in range(tab_bar.count()):
                             tab = tab_bar.tab(i)
                             if tab:

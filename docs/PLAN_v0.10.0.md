@@ -296,6 +296,11 @@ Details:
 
 ## 5. (E) Cramped title bar: full hover text, descriptions and tab scrolling
 
+> **Implemented in 0.10.0.** `DockWidget.description`, the conditional tab/sidebar tooltips,
+> the deferred current-tab reveal, the auto `‹`/`›` arrows with the cramped minimum, wheel
+> scrolling, and `demos/demo_app_overflow.py` are in the working tree. Tests:
+> `tests/test_dock_title_hover.py` and `tests/test_tab_overflow.py`.
+
 ### 5.1 Current behavior
 
 - `DockWidgetTab` uses an `ElidingLabel`; a long title elides to `…`.
@@ -358,6 +363,22 @@ Precedence, lowest to highest:
 2. `set_tab_tool_tip(text)` — explicit override, kept for backward compatibility; setting an
    empty string clears the override and returns to the composed text;
 3. a caller that deliberately calls `tab.setToolTip()` still wins for that tab.
+
+**When the automatic tooltip is shown:**
+
+- A title that fits and has no description gets **no tooltip** on either the tab frame or the
+  title label. `ElidingLabel` must stop setting a tooltip unconditionally.
+- A title that is actually elided gets the full title — plus the description when one is set.
+- A description that is set makes the composed tooltip available even when the title fits.
+- An empty or whitespace-only title is never elided. With no description it gets no tooltip;
+  with a description the tooltip is the description alone, with no leading newline.
+- Elision is re-evaluated when the label is resized or the title changes. Add
+  `ElidingLabel.is_elided()` and an `elision_changed` signal (or equivalent) so the tab can
+  install/clear the tooltip at the right time.
+- Sidebar `VerticalTabButton` titles are painted, not elided with `…`; use the painted text
+  width against its available length to decide whether the title is clipped.
+- `set_tab_tool_tip()` and a direct `tab.setToolTip()` remain explicit requests and still show
+  their text when set; only the automatic composed tooltip follows the rule above.
 
 `DockWidgetTab` gets one refresh method:
 
@@ -464,18 +485,81 @@ def _scroll_to_previous_hidden_tab(self) -> None:
 - create the buttons after `_create_tab_bar()` and before `_create_buttons()` so the layout order
   above is explicit;
 - connect `horizontalScrollBar().rangeChanged` / `valueChanged` to `_sync_tab_scroll_buttons()`;
-- `_sync_tab_scroll_buttons()` shows both buttons only when
-  `maximum > minimum`, enables/disables them at the ends, and calls
-  `QTimer.singleShot(0, ...)` once after construction/layout;
-- on `tab_inserted`, `tab_closed`, `tab_moved`, `current_changed` and title-bar resize, resync;
+- `_sync_tab_scroll_buttons()` uses the auto rule:
+
+  ```python
+  enabled = self._test_config_flag(DockFlags.dock_area_has_tab_scroll_buttons)
+  bar = self._tab_bar.horizontalScrollBar()
+  overflow = bar.maximum() > bar.minimum()
+  visible = enabled and overflow
+  self._tab_scroll_left.setVisible(visible)
+  self._tab_scroll_right.setVisible(visible)
+  if visible:
+      self._tab_scroll_left.setEnabled(bar.value() > bar.minimum())
+      self._tab_scroll_right.setEnabled(bar.value() < bar.maximum())
+  ```
+
+  In words: **visible only when enabled and the tab strip overflows; each arrow is enabled only
+  when there is content in that direction.** No overflow -> both hidden. At the left end -> left
+  disabled; at the right end -> right disabled. The flag itself never forces the arrows visible.
+- **Overflow detection:** use `horizontalScrollBar().maximum() > horizontalScrollBar().minimum()`
+  after layout. Equivalently, the tab container's `minimumSizeHint().width()` is wider than the
+  scroll area's viewport. Do **not** compare `DockWidgetTab.sizeHint()` (the full, unelided title
+  width): tabs are allowed to compress to their minimum before scrolling starts. `QScrollArea`
+  already computes this from the layout, so no separate width sum is needed.
+- **Minimum tab width:** there is no fixed minimum and no `setMinimumWidth()`. Qt derives it from
+  the tab layout:
+  - `ElidingLabel.minimumSizeHint()` is the width of the title's first two characters plus `…`;
+  - plus the tab margins and spacing items;
+  - plus the icon/spacer when the tab has an icon;
+  - plus the close button when the active tab shows it.
+
+  With the default theme/font this measured about **52 px for an inactive tab** and **73 px for
+  the active tab with its close button**. Those numbers are font/theme dependent; never hardcode
+  them. A long title therefore does not increase a tab's minimum width — it only elides sooner.
+- **Cramped minimum:** showing the arrows before true minimum overflow only works if there is
+  actually somewhere to scroll. So the threshold raises the tab's *effective* minimum while the
+  flag is on, as a multiple of the width at which eliding begins:
+
+  ```python
+  base_min   = tab.layout().minimumSize().width()
+  preferred  = tab.layout().sizeHint().width()
+  has_text   = bool(tab.text().strip())
+  title      = (tab._title_label.minimumSizeHint().width()  # first 2 chars + "…"
+                if has_text else 0)
+  chrome     = max(0, base_min - title)                     # margins, icon, close
+  comfort    = min(preferred, chrome + round(2.0 * title))
+  tab.setMinimumWidth(comfort)
+  ```
+
+  The factor is a named constant (`CRAMPED_FACTOR = 2.0`), not a pixel value. At 2× the title
+  area can still elide, but a tab may no longer collapse all the way to the two-character
+  minimum. The tab's fixed chrome (margins, icon, close button) is added unscaled, so an active
+  tab's close button does not multiply the threshold. Clamp to `preferred` so a short title is
+  never forced wider than its full width.
+- **Icon-only tabs:** with no title text there is nothing to elide, so `title == 0` and
+  `comfort == base_min`. The factor has no effect; those tabs keep their icon + chrome width and
+  the arrows appear only at real overflow. This also covers a title that is empty or whitespace
+  only. If a title exists but the tab is configured to paint only its icon, use the same
+  `base_min` behavior because there is no painted text to elide.
+- With the flag off, `tab.setMinimumWidth(0)` restores the old compress-to-two-characters
+  behavior. Recompute after title/style/icon/close-button changes, since they alter
+  `sizeHint()` and the title minimum.
+- call `QTimer.singleShot(0, ...)` once after construction/layout so the first range is valid;
+- on `tab_inserted`, `tab_closed`, `tab_moved`, `current_changed`, `rangeChanged`, `valueChanged`
+  and title-bar resize, resync. Showing the arrows narrows the tab bar, which can only increase
+  overflow; hiding them widens it, which cannot create overflow, so the rule does not oscillate;
 - set `setAutoRepeat(True)` with a ~100 ms interval so holding an arrow scrolls continuously;
 - tooltips: “Scroll tabs left” / “Scroll tabs right”.
 
-Flag: add `DockFlags.dock_area_has_tab_scroll_buttons` (default **on**, but the buttons still
-appear only on overflow). Update `default_config`, `docs/enum_mapping.md`,
-`docs/QUICK_REFERENCE.md`, `docs/ARCHITECTURE.md` (19 -> 20 flags) and the enum tests. If we want
-zero API surface, omit the flag and always auto-show on overflow; the flag is the better
-long-term choice because it gives hosts an escape hatch.
+Flag policy. Keep one flag:
+
+- `dock_area_has_tab_scroll_buttons` — default **on**;
+- on = **auto** (arrows visible only while the tabs overflow);
+- off = **disabled** (no arrows, even on overflow).
+
+Update `default_config`, `docs/enum_mapping.md`, `docs/QUICK_REFERENCE.md`,
+`docs/ARCHITECTURE.md` (19 -> 20 flags) and the enum tests.
 
 `TitleBarButton` (enum) gains `tab_scroll_left` / `tab_scroll_right` if callers need
 `titleBar.button(TitleBarButton.tab_scroll_left)`.
@@ -533,13 +617,16 @@ def wheelEvent(self, event):
 
 `tests/test_dock_title_hover.py`:
 
-- tab with a long title -> tooltip equals the full title; tab and label both carry it;
-- `description` set -> tooltip equals `"Title\nDescription"`; updating description updates both
-  the tab and the sidebar tab;
+- short title with no description -> no tooltip on the tab frame or title label;
+- long title that is elided -> tooltip equals the full title; tab and label both carry it;
+- widen the tab until the title fits -> the automatic tooltip is cleared again;
+- `description` set -> tooltip equals `"Title\nDescription"`, even when the title fits;
+- updating description updates both the tab and the sidebar tab;
 - title change -> description survives in the tooltip;
 - `set_tab_tool_tip("explicit")` wins; clearing it restores the composed text;
-- empty description -> title-only tooltip;
-- sidebar `VerticalTabButton` tooltip follows description changes;
+- unset, empty, or whitespace-only description -> title-only tooltip when elided;
+- sidebar `VerticalTabButton` tooltip follows description changes and clipped titles;
+- a short sidebar title with no description has no tooltip;
 - tooltip is not truncated by elision.
 
 `tests/test_tab_overflow.py`:
@@ -550,7 +637,12 @@ def wheelEvent(self, event):
 - selecting the last tab programmatically scrolls it into view after the event loop;
 - wheel up/down advances by roughly one tab; no overflow -> wheel ignored;
 - flag cleared -> arrows stay hidden even on overflow;
+- flag on and no overflow -> arrows hidden;
+- flag on and overflow -> arrows visible, disabled at the appropriate ends;
 - tab close/move updates the arrow visibility.
+
+Wheel scrolling remains available when the flag is off, matching the existing behavior; only the
+buttons are disabled. If the wheel should be disabled too, gate `wheelEvent` on the same flag.
 
 ---
 
@@ -757,10 +849,13 @@ Resolved for B/C/D:
 4. **C facade:** `DockManager.sidebar_hover_delay`, `sidebar_hide_delay` and
    `sidebar_switch_delay` all proxy the corresponding `SidebarManager` properties.
 
-Still open for E/F:
+Resolved for E:
 
-- Add `DockFlags.dock_area_has_tab_scroll_buttons` (default on, visible on overflow) or always
-  show the tab arrows on overflow with no flag?
+- Scroll arrows use one flag: `dock_area_has_tab_scroll_buttons` (default on). On = auto:
+  visible only on overflow, each arrow enabled only when it can scroll. Off = disabled: no
+  arrows even on overflow. No always mode and no second flag.
+- The automatic tab tooltip appears only when the title is actually elided or a description is
+  set; a short title with no description has no tooltip.
 
 Resolved for A:
 

@@ -5,6 +5,23 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [Unreleased]
+
+### Added
+
+- `DockWidget.description` and `description_changed`, composed into tab and sidebar tooltips.
+  A tab tooltip appears automatically only when the title is elided or a description is set.
+- Automatic `‹` / `›` tab scroll arrows (`DockFlags.dock_area_has_tab_scroll_buttons`, default
+  on). Tabs stop shrinking at twice their eliding width so the arrows become useful before the
+  two-character layout minimum.
+- `demos/demo_app_overflow.py` for exercising overflow arrows, descriptions, icon-only tabs and
+  live flag changes.
+
+### Fixed
+
+- Selecting a tab beyond the visible strip now scrolls it into view after layout.
+- Sidebar tab tooltips follow title and description changes.
+
 ## [0.9.7] — 2026-10-04
 
 ### Changed

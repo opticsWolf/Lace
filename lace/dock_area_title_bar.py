@@ -13,7 +13,9 @@
 from typing import TYPE_CHECKING, Optional
 import logging
 
-from PySide6.QtCore import QPoint, QPointF, Qt, Signal, QSize, QRectF
+import shiboken6
+
+from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal, QSize, QRectF
 from PySide6.QtGui import QAction, QColor, QCursor, QMouseEvent, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (QAbstractButton, QBoxLayout, QFrame, QMenu, QSizePolicy,
                                QToolButton, QWidget)
@@ -101,6 +103,10 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._pin_button: QToolButton = None
         self._maximize_button: QToolButton = None
         self._tab_bar: 'DockAreaTabBar' = None
+        self._tab_scroll_left: Optional[ChromeToolButton] = None
+        self._tab_scroll_right: Optional[ChromeToolButton] = None
+        self._tab_scroll_sync_queued = False
+        self._syncing_tab_scroll = False
         self._menu_outdated = True
         self._tabs_menu: QMenu = None
 
@@ -118,6 +124,7 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         self._create_tab_bar()
+        self._create_scroll_buttons()
         self._create_buttons()
         # Created last so it stacks above the tabs and buttons.
         self._active_edge = _ActiveEdge(self)
@@ -132,9 +139,32 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
         # Style Manager Integration
         self._init_dock_style()
+        self._schedule_tab_scroll_sync()
 
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
+
+    def _create_scroll_buttons(self):
+        for attr, key, name, tip, direction in (
+                ("_tab_scroll_left", "chevron_left", "tabScrollLeftButton",
+                 "Scroll tabs left", -1),
+                ("_tab_scroll_right", "chevron_right", "tabScrollRightButton",
+                 "Scroll tabs right", 1)):
+            button = ChromeToolButton()
+            button.setObjectName(name)
+            button.setAutoRaise(True)
+            button.setToolTip(tip)
+            button.setIcon(dock_icon(key, DockStyleCategory.TITLE_BAR,
+                                     size=self._button_icon_size()))
+            button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+            button.setAutoRepeat(True)
+            button.setAutoRepeatDelay(300)
+            button.setAutoRepeatInterval(100)
+            button.clicked.connect(
+                lambda checked=False, d=direction: self._tab_bar.scroll_tabs(d))
+            button.hide()
+            self._top_layout.addWidget(button, 0)
+            setattr(self, attr, button)
 
     def _create_buttons(self):
         # ── Tabs menu button (always visible) ─────────────────────────
@@ -224,6 +254,13 @@ class DockAreaTitleBar(QFrame, DockStyled):
         self._tab_bar.removing_tab.connect(self.mark_tabs_menu_outdated)
         self._tab_bar.tab_moved.connect(self.mark_tabs_menu_outdated)
         self._tab_bar.current_changed.connect(self.mark_tabs_menu_outdated)
+        for signal in (self._tab_bar.tab_inserted, self._tab_bar.tab_closed,
+                       self._tab_bar.tab_opened, self._tab_bar.tab_moved,
+                       self._tab_bar.current_changed, self._tab_bar.removing_tab):
+            signal.connect(self._schedule_tab_scroll_sync)
+        scroll_bar = self._tab_bar.horizontalScrollBar()
+        scroll_bar.rangeChanged.connect(self._schedule_tab_scroll_sync)
+        scroll_bar.valueChanged.connect(self._schedule_tab_scroll_sync)
         
         # --- FIX: Sync to the Area's index signal, not the Tab Bar's! ---
         # Ensures internal layout widget swap is complete before evaluating states.
@@ -485,6 +522,49 @@ class DockAreaTitleBar(QFrame, DockStyled):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._active_edge.setGeometry(self.rect())
+        self._schedule_tab_scroll_sync()
+
+    def wheelEvent(self, event):
+        """Let the wheel scroll the tabs over empty title-bar space too."""
+        if self._tab_bar is not None and self._tab_bar.isVisible():
+            self._tab_bar.wheelEvent(event)
+            if event.isAccepted():
+                return
+        super().wheelEvent(event)
+
+    def _schedule_tab_scroll_sync(self) -> None:
+        if not shiboken6.isValid(self):
+            return
+        if self._tab_scroll_sync_queued:
+            return
+        self._tab_scroll_sync_queued = True
+        QTimer.singleShot(0, self._sync_tab_scroll_buttons)
+
+    def _sync_tab_scroll_buttons(self) -> None:
+        if not shiboken6.isValid(self):
+            return
+        self._tab_scroll_sync_queued = False
+        if (self._tab_bar is None or self._syncing_tab_scroll
+                or not shiboken6.isValid(self._tab_bar)):
+            return
+        self._syncing_tab_scroll = True
+        try:
+            enabled = self._test_config_flag(
+                DockFlags.dock_area_has_tab_scroll_buttons)
+            self._tab_bar.apply_cramped_minimums(enabled)
+            bar = self._tab_bar.horizontalScrollBar()
+            visible = enabled and bar.maximum() > bar.minimum()
+            for button in (self._tab_scroll_left, self._tab_scroll_right):
+                if button is not None:
+                    button.setVisible(visible)
+            if self._tab_scroll_left is not None:
+                self._tab_scroll_left.setEnabled(
+                    visible and bar.value() > bar.minimum())
+            if self._tab_scroll_right is not None:
+                self._tab_scroll_right.setEnabled(
+                    visible and bar.value() < bar.maximum())
+        finally:
+            self._syncing_tab_scroll = False
 
     def _resolve_border(self) -> tuple:
         """``(bottom rule width, border colour)`` for the current focus state.
@@ -571,7 +651,8 @@ class DockAreaTitleBar(QFrame, DockStyled):
 
         # Shared icon-button styling (see sidebar_title_bar — same call).
         style_title_bar_buttons(
-            (self._tabs_menu_button, self._pin_button, self._maximize_button,
+            (self._tab_scroll_left, self._tab_scroll_right,
+             self._tabs_menu_button, self._pin_button, self._maximize_button,
              self._undock_button, self._close_button),
             hover_bg=btn_hover,
             radius=styles.get("button_corner_radius", 3),
@@ -581,9 +662,19 @@ class DockAreaTitleBar(QFrame, DockStyled):
             expand_vertical=styles.get("button_expand_vertical", True),
         )
 
+        icon_dim = self._button_icon_size()
+        icon_size = QSize(icon_dim, icon_dim)
+        for button, key in ((self._tab_scroll_left, "chevron_left"),
+                            (self._tab_scroll_right, "chevron_right")):
+            if button is not None:
+                button.setIcon(dock_icon(key, DockStyleCategory.TITLE_BAR,
+                                         size=icon_dim))
+                button.setIconSize(icon_size)
+
         # Trigger an update of the icons to ensure they reflect
         # any changes in 'button_color'
         self.update_button_states()
+        self._schedule_tab_scroll_sync()
 
     def paintEvent(self, event):
         bg = self._bg_color
@@ -672,6 +763,10 @@ class DockAreaTitleBar(QFrame, DockStyled):
     def button(self, which: TitleBarButton) -> Optional[QAbstractButton]:
         if which == TitleBarButton.tabs_menu:
             return self._tabs_menu_button
+        if which == TitleBarButton.tab_scroll_left:
+            return self._tab_scroll_left
+        if which == TitleBarButton.tab_scroll_right:
+            return self._tab_scroll_right
         if which == TitleBarButton.undock:
             return self._undock_button
         if which == TitleBarButton.close:

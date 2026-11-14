@@ -13,7 +13,7 @@ number, so they stay valid as files change; search for the name to find the spot
 | Enum / Flag | Type | Module | Members | Purpose |
 | :--- | :--- | :--- | :---: | :--- |
 | [`DockWidgetArea`](#31-dockwidgetarea) | `IntFlag` | [`enums.py`](../lace/enums.py) | 9 | Regions of a container where widgets dock |
-| [`DockFlags`](#32-dockflags) | `IntFlag` | [`enums.py`](../lace/enums.py) | 21 | Global configuration switches on `DockManager` |
+| [`DockFlags`](#32-dockflags) | `IntFlag` | [`enums.py`](../lace/enums.py) | 20 | Global configuration switches on `DockManager` |
 | [`TitleBarButton`](#33-titlebarbutton) | `Enum` | [`enums.py`](../lace/enums.py) | 7 | Keys for the buttons of a dock area title bar |
 | [`OverlayMode`](#34-overlaymode) | `Enum` | [`enums.py`](../lace/enums.py) | 2 | Drop overlay over one dock area, or over the whole container |
 | [`DragState`](#35-dragstate) | `Enum` | [`enums.py`](../lace/enums.py) | 4 | Drag state machine of tabs, title bars and floats |
@@ -100,6 +100,7 @@ windows. `default_config` holds the flags marked ●.
 | `dock_area_has_maximize_button` | ● | Maximize/restore button | `DockAreaTitleBar._create_buttons()`, `update_button_states()`, `on_maximize_button_clicked()` |
 | `sidebar_area_has_maximize_button` | ● | Maximize button on an open sidebar panel | `SideBarTitleBar.update_button_states()` |
 | `dock_area_has_tabs_menu_button` | ● | Button listing the area's tabs | `DockAreaTitleBar._create_buttons()`, `update_button_states()` |
+| `dock_area_has_tab_scroll_buttons` | ● | Auto-show tab scroll arrows when the tabs overflow; off disables them | `DockAreaTitleBar._sync_tab_scroll_buttons()` |
 | `middle_mouse_button_closes_tab` | ● | Middle click closes a tab | `DockWidgetTab.mousePressEvent()` |
 | `floatable_tabs` | ● | Tabs and areas can be floated | `DockAreaTitleBar.mouseMoveEvent()`, `_start_floating()`, `on_undock_button_clicked()`, `mouseDoubleClickEvent()`, `update_button_states()`, `_gather_menu_context()`; `DockWidgetTab` |
 | `pinnable_tabs` | ● | Tabs and areas can be pinned to a sidebar | `DockAreaTitleBar.on_pin_button_clicked()`, `update_button_states()`, `_gather_menu_context()`; `DockWidgetTab._pinnable()`; `dock_menu.menu_default_pin()` / `menu_default_pin_all()` |
@@ -116,6 +117,7 @@ Keys for `DockAreaTitleBar.button(which)` and `DockAreaWidget.title_bar_button(w
 | Member | Returns | Looked up by |
 | :--- | :--- | :--- |
 | `tabs_menu` | The tabs menu button | `DockAreaTitleBar.button()` only |
+| `tab_scroll_left` / `tab_scroll_right` | The auto-shown tab scroll arrows | `DockAreaTitleBar.button()` only |
 | `undock` | The undock button | `DockContainerWidget._on_visible_dock_area_count_changed()` (hidden for a lone area in a float), `_add_dock_areas_to_list()` |
 | `close` | The close button | as `undock` |
 | `pin` | The pin button | as `undock` |

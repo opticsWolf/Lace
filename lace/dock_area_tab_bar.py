@@ -13,7 +13,9 @@
 from typing import TYPE_CHECKING, Optional
 import logging
 
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
+import shiboken6
+
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QBoxLayout, QFrame, QScrollArea, QSizePolicy, QWidget
 
@@ -95,10 +97,71 @@ class DockAreaTabBar(QScrollArea, DockStyled):
             if i == self._current_index:
                 tab_widget.show()
                 tab_widget.set_active_tab(True)
-                self.ensureWidgetVisible(tab_widget)
             else:
                 tab_widget.set_active_tab(False)
         self._update_tab_bar_visibility()
+        self.apply_cramped_minimums()
+        self._tabs_layout.activate()
+        QTimer.singleShot(0, self._reveal_current)
+
+    def _reveal_current(self) -> None:
+        """Scroll the current tab into view after the layout has settled."""
+        if not shiboken6.isValid(self) or not shiboken6.isValid(self._tabs_layout):
+            return
+        tab = self.current_tab()
+        if tab is not None and tab.isVisible():
+            self.ensureWidgetVisible(tab, 0, 0)
+
+    def apply_cramped_minimums(self, enabled: Optional[bool] = None) -> None:
+        """Raise each tab's minimum width when the scroll-button flag is on."""
+        if not shiboken6.isValid(self) or not shiboken6.isValid(self._tabs_layout):
+            return
+        if enabled is None:
+            enabled = self._test_config_flag(
+                DockFlags.dock_area_has_tab_scroll_buttons)
+        for i in range(self.count()):
+            tab = self.tab(i)
+            if tab is not None:
+                tab.update_cramped_minimum(enabled)
+
+    def is_overflowing(self) -> bool:
+        bar = self.horizontalScrollBar()
+        return bar.maximum() > bar.minimum()
+
+    def can_scroll_left(self) -> bool:
+        bar = self.horizontalScrollBar()
+        return bar.value() > bar.minimum()
+
+    def can_scroll_right(self) -> bool:
+        bar = self.horizontalScrollBar()
+        return bar.value() < bar.maximum()
+
+    def _tab_scroll_step(self) -> int:
+        for i in range(self.count()):
+            tab = self.tab(i)
+            if tab is not None and tab.isVisible():
+                return max(40, min(tab.width(), 240))
+        return 80
+
+    def scroll_tabs(self, direction: int) -> None:
+        """Reveal the next tab hidden to the left (-1) or right (+1)."""
+        bar = self.horizontalScrollBar()
+        if direction < 0:
+            left = bar.value()
+            for i in reversed(range(self.count())):
+                tab = self.tab(i)
+                if tab is not None and tab.isVisible() and tab.geometry().right() <= left:
+                    self.ensureWidgetVisible(tab, 0, 0)
+                    return
+            bar.setValue(bar.minimum())
+        else:
+            right = bar.value() + self.viewport().width()
+            for i in range(self.count()):
+                tab = self.tab(i)
+                if tab is not None and tab.isVisible() and tab.geometry().left() >= right:
+                    self.ensureWidgetVisible(tab, 0, 0)
+                    return
+            bar.setValue(bar.maximum())
 
     def _connect_tab_signals(self, tab: DockWidgetTab):
         tab.clicked.connect(self.on_tab_clicked)
@@ -205,11 +268,26 @@ class DockAreaTabBar(QScrollArea, DockStyled):
         floating_container.show()
 
     def wheelEvent(self, event: QWheelEvent):
+        bar = self.horizontalScrollBar()
+        if bar.maximum() <= bar.minimum():
+            # Nothing to scroll: let a parent scroll area use the wheel.
+            event.ignore()
+            return
+
+        pixel = event.pixelDelta()
+        angle = event.angleDelta()
+        if not pixel.isNull():
+            if pixel.x():
+                bar.setValue(bar.value() + int(pixel.x()))
+            else:
+                bar.setValue(bar.value() - int(pixel.y()))
+        elif angle.x():
+            step = int(angle.x() / 120.0 * self._tab_scroll_step())
+            bar.setValue(bar.value() + step)
+        else:
+            step = int(angle.y() / 120.0 * self._tab_scroll_step())
+            bar.setValue(bar.value() - step)
         event.accept()
-        direction = event.angleDelta().y()
-        horizontal_bar = self.horizontalScrollBar()
-        delta = (20 if direction < 0 else -20)
-        horizontal_bar.setValue(self.horizontalScrollBar().value() + delta)
 
     # --- REPLACED: Simplified mouse event handlers ---
     def mousePressEvent(self, ev: QMouseEvent):
@@ -396,5 +474,6 @@ class DockAreaTabBar(QScrollArea, DockStyled):
                 QWidget#tabsContainerWidget { background: transparent; }
             """)
         self.viewport().setAutoFillBackground(False)
+        self.apply_cramped_minimums()
 
 

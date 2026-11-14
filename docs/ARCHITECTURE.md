@@ -104,9 +104,9 @@ The user-facing widget wrapper. Each `DockWidget` owns a user `QWidget` and a `D
 
 | Category | Members |
 |---|---|
-| **Signals** | `view_toggled(bool)`, `closed()`, `title_changed(str)`, `top_level_changed(bool)`, `features_changed(DockWidgetFeature)` |
+| **Signals** | `view_toggled(bool)`, `closed()`, `title_changed(str)`, `description_changed(str)`, `top_level_changed(bool)`, `features_changed(DockWidgetFeature)` |
 | **Content** | `set_widget(widget, insert_mode)`, `take_widget()`, `widget() → QWidget` |
-| **Tab** | `tab_widget() → DockWidgetTab`, `set_icon(icon)`, `icon()`, `set_default_icon_name(name)`, `default_icon_name()`, `set_custom_icon(icon)`, `custom_icon()`, `set_custom_icon_name(name)`, `custom_icon_name()`, `set_tab_tool_tip(text)` |
+| **Tab** | `tab_widget() → DockWidgetTab`, `set_icon(icon)`, `icon()`, `set_default_icon_name(name)`, `default_icon_name()`, `set_custom_icon(icon)`, `custom_icon()`, `set_custom_icon_name(name)`, `custom_icon_name()`, `description()`, `set_description(text)`, `set_tab_tool_tip(text)` |
 | **Toolbar** | `tool_bar() → QToolBar`, `create_default_tool_bar()`, `set_tool_bar(toolbar)`, `set_tool_bar_style(style, state)`, `tool_bar_style(state)`, `set_tool_bar_icon_size(size, state)`, `tool_bar_icon_size(state)`, `set_toolbar_floating_style(floating)` |
 | **Features** | `set_features(flags)`, `set_feature(flag, on)`, `features() → DockWidgetFeature`, `locked_to_area` (property to assign a named lock area) |
 | **State** | `widget_state() → WidgetState`, `set_widget_state(state)`, `is_floating()`, `is_in_floating_container()`, `is_in_sidebar()`, `is_pinned()` *(deprecated)*, `is_closed()`, `toggle_view(open_)`, `toggle_view_internal(open_)` |
@@ -127,18 +127,24 @@ The painted-chrome tab button displayed in `DockAreaTabBar`.
 | Category | Members |
 |---|---|
 | **Signals** | `active_tab_changed()`, `clicked()`, `close_requested()`, `close_other_tabs_requested()`, `moved(QPoint)` |
-| **Icon/Text** | `set_icon(icon)`, `set_default_icon_name(name)`, `default_icon_name()`, `set_custom_icon(icon)`, `custom_icon()`, `set_custom_icon_name(name)`, `custom_icon_name()`, `update_icon()`, `icon() → QIcon`, `text()`, `set_text(title)` |
+| **Icon/Text** | `set_icon(icon)`, `set_default_icon_name(name)`, `default_icon_name()`, `set_custom_icon(icon)`, `custom_icon()`, `set_custom_icon_name(name)`, `custom_icon_name()`, `update_icon()`, `icon() → QIcon`, `text()`, `set_text(title)`, `refresh_tooltip()`, `update_cramped_minimum(enabled)` |
 | **Active State** | `is_active_tab()`, `set_active_tab(active)`, `update_close_button_visibility()` |
 | **Float** | `_floatable`, `on_detach_action_triggered()`, `_start_floating(drag_state)` |
 | **Pin** | `_pinnable`, `_menu_is_pinned()` |
 | **Movable** | `_movable` |
-| **Config** | `_test_config_flag(flag)` |
+| **Config** | `_test_config_flag(flag)`, `CRAMPED_FACTOR = 2.0` |
 | **Mouse** | `mousePressEvent()`, `mouseMoveEvent()`, `mouseReleaseEvent()`, `mouseDoubleClickEvent()` |
 | **Menu** | `contextMenuEvent()`, `build_dock_menu(menu, tab_bar)`, `dispatch_dock_action(action)`, `_gather_menu_context(tab_bar)`, `_menu_is_floating()`, `_menu_has_sidebars()` |
 | **MenuActionTarget** | `menu_target_widget()`, `menu_pin_target()`, `menu_unpin_target()`, `menu_pin_all_target()`, `menu_float_target()`, `menu_dock_target()`, `menu_close_target()`, `menu_close_others_target()`, `menu_maximize_target()` |
 | **Styling** | `refresh_style()`, `paintEvent(event)`, `enterEvent()`, `leaveEvent()` |
 | **References** | `dock_widget() → DockWidget`, `set_dock_area_widget(area)`, `dock_area_widget() → DockAreaWidget` |
 | **Closable** | `is_closable()` |
+
+A tab's automatic tooltip is installed only when the title is elided or the dock has a
+description; an explicit `set_tab_tool_tip()` always shows. When the scroll-button flag is on,
+each tab's effective minimum is `chrome + CRAMPED_FACTOR × (first two characters + …)`, so the
+scroll range begins before the tab collapses to its two-character layout minimum. An icon-only
+tab has no text to elide and keeps its chrome width.
 
 ---
 
@@ -1160,8 +1166,8 @@ on every SIDEBAR/CORE theme change; hovered and pressed items keep the theme acc
 |---|---|---|
 | **DockInsertParam** (NamedTuple) | `orientation`, `append` | Helper for splitter insertion direction; exposes `insert_offset` property |
 | **DockWidgetArea** (`IntFlag`) | Bitwise flags: `no_area`, `left`, `right`, `top`, `bottom`, `center`, `invalid`; masks: `outer_dock_areas` (15), `all_dock_areas` (31) | Physical layout zones within a `DockContainerWidget` or `SideBarContainer` where widgets can be dropped, split, or docked. Used by `DockContainerWidget` to determine splitter orientation (Horizontal for left/right, Vertical for top/bottom), by `SideBarManager` to map to sidebar overlays, and by `DockOverlay` / `DockPaint` to compute drop-zone hitboxes and paint translucent indicators |
-| **DockFlags** (`IntFlag`) | 19 global config bits: `opaque_splitter_resize`, `opaque_undocking`, `always_show_tabs`, `show_tab_close_button`, `active_tab_has_close_button`, `dock_area_has_close_button`, `dock_area_close_button_closes_tab`, `dock_area_has_undock_button`, `dock_area_has_pin_button`, `dock_area_has_maximize_button`, `sidebar_area_has_maximize_button`, `dock_area_has_tabs_menu_button`, `middle_mouse_button_closes_tab`, `floatable_tabs`, `pinnable_tabs`, `custom_tab_icons`, `hide_disabled_title_bar_icons`, `chromeless_float`, `floating_taskbar_button`; plus `none_` (0) and `default_config` (combined mask) | Global system configuration controlling tab rendering, button visibility, drag-and-drop behavior, and floating window appearance. Stored on `DockManager.config_flags`. For example: `opaque_undocking` keeps floating windows at 100% opacity during drag (vs 0.6); `chromeless_float` creates frameless top-level windows; `floating_taskbar_button` gives each float its own taskbar button (`WS_EX_APPWINDOW`) plus a minimize button — without it a float is an owned window, so minimizing would put it somewhere the user cannot click; `custom_tab_icons` switches between user-configured and default tab icons; `floatable_tabs` / `pinnable_tabs` gate whether tabs can be dragged to float or pinned to sidebars |
-| **TitleBarButton** (Enum) | `tabs_menu`, `undock`, `close`, `pin`, `maximize`, `minimize`, `restore` | Identifiers for standard interactive buttons on dock area title bars. Used by `DockAreaTitleBar.button(which)` to retrieve specific `QToolButton` instances, and by `DockContainerWidget` to dynamically update button visibility/state for floating windows |
+| **DockFlags** (`IntFlag`) | 20 global config bits: `opaque_splitter_resize`, `opaque_undocking`, `always_show_tabs`, `show_tab_close_button`, `active_tab_has_close_button`, `dock_area_has_close_button`, `dock_area_close_button_closes_tab`, `dock_area_has_undock_button`, `dock_area_has_pin_button`, `dock_area_has_maximize_button`, `sidebar_area_has_maximize_button`, `dock_area_has_tabs_menu_button`, `dock_area_has_tab_scroll_buttons`, `middle_mouse_button_closes_tab`, `floatable_tabs`, `pinnable_tabs`, `custom_tab_icons`, `hide_disabled_title_bar_icons`, `chromeless_float`, `floating_taskbar_button`; plus `none_` (0) and `default_config` (combined mask) | Global system configuration controlling tab rendering, button visibility, tab scrolling, drag-and-drop behavior, and floating window appearance. Stored on `DockManager.config_flags`. For example: `opaque_undocking` keeps floating windows at 100% opacity during drag (vs 0.6); `chromeless_float` creates frameless top-level windows; `floating_taskbar_button` gives each float its own taskbar button (`WS_EX_APPWINDOW`) plus a minimize button — without it a float is an owned window, so minimizing would put it somewhere the user cannot click; `custom_tab_icons` switches between user-configured and default tab icons; `floatable_tabs` / `pinnable_tabs` gate whether tabs can be dragged to float or pinned to sidebars |
+| **TitleBarButton** (Enum) | `tabs_menu`, `tab_scroll_left`, `tab_scroll_right`, `undock`, `close`, `pin`, `maximize`, `minimize`, `restore` | Identifiers for standard interactive buttons on dock area title bars. Used by `DockAreaTitleBar.button(which)` to retrieve specific `QToolButton` instances, and by `DockContainerWidget` to dynamically update button visibility/state for floating windows |
 | **OverlayMode** (Enum) | `dock_area`, `container` | Controls how translucent drop indicator crosses (`DockOverlay`) are rendered: `dock_area` targets a specific `DockAreaWidget` (local card split), `container` targets outer margins of `DockContainerWidget` (global edge split). Instantiated in `DockManager.__init__()` as two separate overlays |
 | **DragState** (Enum) | `inactive`, `mouse_pressed`, `tab`, `floating_widget` | State machine tracking drag-and-drop context across `DockWidgetTab`, `DockAreaTitleBar`, and `FloatingDockContainer`. Transitions: `mouse_pressed` → (distance exceeded?) → `tab` (reorder within tab bar) or `floating_widget` (detach to new window) → `inactive` on release |
 | **InsertionOrder** (Enum) | `by_spelling`, `by_insertion` | Governs sorting order of dock widget items in dynamic "Show View" dropdown menus (`DockManager.view_menu`). `by_spelling` = alphabetical by title; `by_insertion` = chronological by widget registration. Runtime-changeable via `DockManager.menu_insertion_order` |

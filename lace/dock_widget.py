@@ -43,10 +43,12 @@ class DockWidget(QFrame, DockStyled):
     view_toggled = Signal(bool)
     closed = Signal()
     title_changed = Signal(str)
+    description_changed = Signal(str)
     top_level_changed = Signal(bool)
     features_changed = Signal(DockWidgetFeature)
 
-    def __init__(self, title: str, parent: QWidget = None):
+    def __init__(self, title: str, parent: QWidget = None, *,
+                 description: str = ""):
         super().__init__(parent)
         
         # Flattened private properties
@@ -57,6 +59,8 @@ class DockWidget(QFrame, DockStyled):
         self._dock_manager: 'DockManager' = None
         self._dock_area: 'DockAreaWidget' = None
         self._toggle_view_action: QAction = None
+        self._description = ""
+        self._tab_tool_tip_override: Optional[str] = None
         self._closed = False
         self._scroll_area: QScrollArea = None
         self._tool_bar: QToolBar = None
@@ -94,6 +98,8 @@ class DockWidget(QFrame, DockStyled):
         self._toggle_view_action = QAction(title, self)
         self._toggle_view_action.setCheckable(True)
         self._toggle_view_action.triggered.connect(self.toggle_view)
+        self._description = "" if description is None else str(description)
+        self._refresh_tooltip_targets()
         
         self.set_toolbar_floating_style(False)
 
@@ -488,13 +494,53 @@ class DockWidget(QFrame, DockStyled):
                 if WidgetState.floating == state
                 else self._tool_bar_icon_size_docked)
 
-    def set_tab_tool_tip(self, text: str):
+    def description(self) -> str:
+        """The optional secondary text shown under the title in tab tooltips."""
+        return self._description
+
+    def set_description(self, text: str) -> None:
+        """Set the tooltip description without touching the tab title.
+
+        The description is runtime metadata: it is not part of ``save_state()``.
+        Empty or whitespace-only text removes it. The tab tooltips show it even
+        when the title fits; without it, a title tooltip appears only when the
+        title is actually elided.
+        """
+        text = "" if text is None else str(text)
+        if text == self._description:
+            return
+        self._description = text
+        self._refresh_tooltip_targets()
+        self.description_changed.emit(text)
+
+    def _composed_tab_tool_tip(self) -> str:
+        if self._tab_tool_tip_override is not None:
+            return self._tab_tool_tip_override
+        title = self.windowTitle().strip()
+        desc = self._description.strip()
+        if title and desc:
+            return f"{title}\n{desc}"
+        return desc or title
+
+    def _has_tab_tool_tip_override(self) -> bool:
+        return self._tab_tool_tip_override is not None
+
+    def _refresh_tooltip_targets(self) -> None:
         if self._tab_widget:
-            self._tab_widget.setToolTip(text)
+            self._tab_widget.refresh_tooltip()
         if self._toggle_view_action:
-            self._toggle_view_action.setToolTip(text)
+            self._toggle_view_action.setToolTip(self._composed_tab_tool_tip())
         if self._dock_area:
             self._dock_area.mark_title_bar_menu_outdated()
+
+    def set_tab_tool_tip(self, text: str):
+        """Set an explicit tab tooltip, overriding title/description composition.
+
+        An empty string clears the override and returns to the composed
+        title/description tooltip.
+        """
+        self._tab_tool_tip_override = None if text is None or text == "" else str(text)
+        self._refresh_tooltip_targets()
             
     def widget_state(self) -> WidgetState:
         return self._widget_state
@@ -515,8 +561,7 @@ class DockWidget(QFrame, DockStyled):
                 self._tab_widget.set_text(title)
             if self._toggle_view_action:
                 self._toggle_view_action.setText(title)
-            if self._dock_area:
-                self._dock_area.mark_title_bar_menu_outdated()
+            self._refresh_tooltip_targets()
             self.title_changed.emit(title)
 
         return super().event(e)

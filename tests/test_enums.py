@@ -93,6 +93,7 @@ def test_default_config_contains_core_flags():
         DockFlags.dock_area_has_pin_button,
         DockFlags.dock_area_has_maximize_button,
         DockFlags.dock_area_has_tabs_menu_button,
+        DockFlags.dock_area_has_tab_scroll_buttons,
         DockFlags.middle_mouse_button_closes_tab,
         DockFlags.floatable_tabs,
         DockFlags.pinnable_tabs,
@@ -115,6 +116,7 @@ def test_default_config_matches_architecture_doc():
         | DockFlags.active_tab_has_close_button | DockFlags.dock_area_has_close_button
         | DockFlags.dock_area_has_undock_button | DockFlags.dock_area_has_pin_button
         | DockFlags.dock_area_has_maximize_button | DockFlags.dock_area_has_tabs_menu_button
+        | DockFlags.dock_area_has_tab_scroll_buttons
         | DockFlags.middle_mouse_button_closes_tab | DockFlags.floatable_tabs
         | DockFlags.pinnable_tabs | DockFlags.hide_disabled_title_bar_icons
         | DockFlags.sidebar_area_has_maximize_button
@@ -179,7 +181,8 @@ def test_insert_param_offsets():
 # ---------------------------------------------------------------------------
 def test_member_inventories_match_architecture_doc():
     assert {m.name for m in TitleBarButton} == {
-        "tabs_menu", "undock", "close", "pin", "maximize", "minimize", "restore",
+        "tabs_menu", "tab_scroll_left", "tab_scroll_right",
+        "undock", "close", "pin", "maximize", "minimize", "restore",
     }
     assert {m.name for m in OverlayMode} == {"dock_area", "container"}
     assert {m.name for m in DragState} == {"inactive", "mouse_pressed", "tab", "floating_widget"}

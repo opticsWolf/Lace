@@ -544,6 +544,7 @@ class SideTabBar(QFrame, DockStyled):
             return
         
         btn.removeEventFilter(self)
+        btn.set_dock_widget(None)
         self._layout.removeWidget(btn)
         self._buttons.remove(btn)
         
