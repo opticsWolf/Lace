@@ -386,6 +386,37 @@ class DockManager(QObject):
         return FloatingDockContainer
 
     @property
+    def sidebar_hover_delay(self) -> int:
+        """Delay before a hover-opened sidebar overlay appears, in ms.
+
+        ``0`` opens on hover immediately. Clicks are never delayed.
+        This is the same value as ``sidebar_manager.hover_delay_ms``.
+        """
+        return self.sidebar_manager.hover_delay_ms
+
+    @sidebar_hover_delay.setter
+    def sidebar_hover_delay(self, ms: int):
+        self.sidebar_manager.hover_delay_ms = ms
+
+    @property
+    def sidebar_hide_delay(self) -> int:
+        """Delay after leaving a sidebar before its overlay closes, in ms."""
+        return self.sidebar_manager.hide_delay_ms
+
+    @sidebar_hide_delay.setter
+    def sidebar_hide_delay(self, ms: int):
+        self.sidebar_manager.hide_delay_ms = ms
+
+    @property
+    def sidebar_switch_delay(self) -> int:
+        """Delay before switching tabs while the overlay is open, in ms."""
+        return self.sidebar_manager.switch_delay_ms
+
+    @sidebar_switch_delay.setter
+    def sidebar_switch_delay(self, ms: int):
+        self.sidebar_manager.switch_delay_ms = ms
+
+    @property
     def sidebar_focus_behavior(self) -> SideBarFocusBehavior:
         """Get the current focus behavior when sliding sidebar overlays out and in."""
         return self.sidebar_manager.focus_behavior

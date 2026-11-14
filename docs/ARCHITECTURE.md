@@ -82,7 +82,7 @@ attribute, any widget that takes a native handle under the main window (a
 |---|---|
 | **Signals** | `perspective_list_changed`, `perspectives_removed`, `restoring_state`, `state_restored`, `opening_perspective`, `perspective_opened` |
 | **Core Docking** | `add_dock_widget(area, widget, target_area)`, `remove_dock_widget(widget)`, `find_dock_widget(name)` |
-| **Sidebars** | `add_sidebar_widget(area, widget)`, `set_sidebar_areas(areas)`, `sidebar_areas()`, `pin_dock_widget(widget, area?) → bool`, `unpin_dock_widget(widget, area?)`, `is_dock_widget_pinned(widget)`, `pinned_dock_widgets() → {widget: area}`, `sidebar_focus_behavior` (prop), `tab_badge_position` (prop) |
+| **Sidebars** | `add_sidebar_widget(area, widget)`, `set_sidebar_areas(areas)`, `sidebar_areas()`, `pin_dock_widget(widget, area?) → bool`, `unpin_dock_widget(widget, area?)`, `is_dock_widget_pinned(widget)`, `pinned_dock_widgets() → {widget: area}`, `sidebar_focus_behavior` (prop), `tab_badge_position` (prop), `sidebar_hover_delay` / `sidebar_hide_delay` / `sidebar_switch_delay` (props) |
 | **State** | `save_state(version)`, `restore_state(json, version)`, `save_layout_to_file(path)`, `load_layout_from_file(path)` |
 | **Themes** | `set_theme(name)` |
 | **Perspectives** | `add_perspective(name)`, `remove_perspective(name)`, `perspective_names()`, `open_perspective(name)` |
@@ -931,13 +931,14 @@ VS Code-style auto-hide sidebar with hover, animations, badges, and drag-to-floa
 | **Overlay** | `close_overlay()`, `raise_overlays()`, `show_widget(widget)`, `hide_widget(widget)` |
 | **Badges** | `update_badge(widget, value)`, `badge_position` (prop), `set_badge_position(position)` |
 | **Toggles** | `set_auto_show_on_hover(enable)`, `set_animations_enabled(enable)`, `set_keep_open(keep)` |
+| **Timing** | `hover_delay_ms`, `hide_delay_ms`, `switch_delay_ms` (props; 150 / 400 / 150 ms defaults) |
 | **State** | `save_state() → dict`, `restore_state(dict) → bool` |
 | **Props** | `overlay → SideBarContainer`, `focus_behavior → SideBarFocusBehavior`, `has_sidebars → bool` |
 | **Internal** | `_uncheck_all()`, `_on_tab_hover_enter/leave()`, `_process_pending_switch()`, `_on_hide_timeout()`, `_on_tab_clicked()`, `_show_for_button()`, `_on_overlay_pin_back/drag_unpin/resized()`, `_on_tab_drag_started()`, `_on_sidebar_activated()` |
 
 **Inner controllers:**
 - **SidebarKeyboardHandler** — shortcut registration (Escape, enabled only while an overlay is up — see `SidebarManager.eventFilter`), signals: `toggle_sidebar`, `focus_sidebar`, `close_current`
-- **SidebarHoverController** — hover timers (400ms hide, 150ms switch), pending tab switching
+- **SidebarHoverController** — hover timers (150 ms show, 400 ms hide, 150 ms switch), pending tab switching
 - **SidebarOverlayController** — show/hide/resizing overlay, detach from overlay
 - **SidebarDragController** — drag tab off sidebar → floating window
 - **ClickOutsideFilter** — closes overlay when clicking outside
@@ -974,6 +975,7 @@ Vertical tab strip with scroll, overflow counter, drag-drop reordering.
 | **Actions** | `_close_dock_widget(widget)`, `_close_tab_button(btn)`, `_close_others(keep_btn)`, `_close_all()`, `_move_to_area(widget, area)`, `_unpin_tab(btn)` |
 | **Style** | `refresh_style()`, `paintEvent(event)` |
 | **Filter** | `eventFilter(obj, event)` — hover enter/leave |
+| **Window resize** | `_WindowResizeGrip` child on the window-facing edge; `startSystemResize()` on press, with edge cursor feedback |
 
 ### 4.4 `sidebar_container.py` — `SideBarContainer`
 

@@ -4,8 +4,10 @@
 **Baseline:** v0.9.7 (`cb07ab6`)
 **Target:** v0.10.0
 **Test baseline:** `1899 passed, 2 skipped, 1 xfailed` (`pytest tests -q`, offscreen)
-**Scope:** one open bug-report audit plus five new items (sidebar splitter, hover delay,
+**Scope:** one open bug-report audit plus five new items (window-edge resize, hover delay,
 dock-menu icons, cramped title bars, rare frameless overlap)
+
+**Implementation status (branch `dev_v0.10.0`):** B, C and D implemented; E and F pending.
 
 ---
 
@@ -14,7 +16,7 @@ dock-menu icons, cramped title bars, rare frameless overlap)
 | # | Item | Type | Severity | Confidence in diagnosis | Est. |
 |---|------|------|----------|--------------------------|------|
 | A | Open bug reports | audit | — | verified against code, tests and GitHub | 0.5 d |
-| B | Active sidebar blocks resizing the dock edge | bug | high | reproduced | 1–2 d |
+| B | Active sidebar blocks window-edge resizing | bug | high | reproduced | 1–2 d |
 | C | Sidebar hover delay parameter | feature | medium | current values verified | 0.5 d |
 | D | Title-bar tab menu shows the generic tab icon | bug | medium | reproduced | 0.25 d |
 | E | Cramped tabs: no full tooltip, no description, no scroll controls | bug + feature | high | code verified; overflow bug reproduced | 2–3 d |
@@ -61,133 +63,72 @@ since been fixed or superseded.
 
 ---
 
-## 2. (B) Active sidebar blocks resizing of the dock edge
+## 2. (B) Active sidebar blocks window-edge resizing
 
 ### 2.1 Symptom
 
-When a sidebar overlay is open, the `DockSplitterHandle` between the dock area under the
-overlay and its neighbour cannot be dragged. The handle is still drawn (if visible at all),
-but the mouse goes to the sidebar content. A resize/restore of the window does not fix it;
-closing the sidebar does.
+When a sidebar is present, the outer window edge it runs along can no longer be dragged to
+resize the window. The sidebar's tab strip sits directly on that edge; its children (tab
+buttons, the scroll area) receive the press, so the window manager never gets a resize gesture.
+This is most visible with the frameless / custom title bar, where the client area reaches the
+window edge.
 
-### 2.2 Reproduction
+This is **not** about dock splitters. The earlier splitter-clamp proposal was based on a
+misreading and has been reverted.
 
-```python
-# 900 x 600 main window, DockManager
-# left dock A, center dock B, right dock C
-m.set_sidebar_areas([DockWidgetArea.left, DockWidgetArea.right])
-m.pin_dock_widget(center_dock, DockWidgetArea.left)     # pin B to the left
-m.root_splitter().setSizes([150, 750])                  # left column narrower than sidebar
-sm._show_for_button(sm._pinned[center_dock].button_for(center_dock))
-```
+### 2.2 Root cause
 
-Measured at v0.9.7:
+- `SideTabBar` is a fixed-width child of the root container and runs along the window edge.
+- Its child buttons and scroll area cover almost the full strip, including the outer 5-6 px
+  where a frameless window's resize border lives.
+- A press in that strip is consumed by the sidebar widget tree. `QFramelessWindow`'s
+  `WM_NCHITTEST` path normally answers the border before Qt client dispatch, but that is not
+  guaranteed when a child owns the pointer (native-child cases, custom chrome, platform
+  differences). The sidebar must not rely on the OS hit test reaching the top-level window.
+- The active overlay does not have to be open for this: the tab strip alone sits on the edge.
 
-```
-root splitter handle: (178, 0, 7, 598)      # vertical handle between left and right
-sidebar overlay:      (30, 0, 280, 600)     # covers x = 30 .. 309
-QApplication.widgetAt(handle centre) -> QLabel (the sidebar content)
-```
+### 2.3 Fix - a window-edge grip on `SideTabBar`
 
-The overlay's right edge extends **past** the handle. Because the overlay is raised above the
-root container (`raise_overlays()`), it receives the press; `DockSplitterHandle` never sees it.
+Add a transparent `_WindowResizeGrip` child to every `SideTabBar`, covering its window-facing
+edge:
 
-### 2.3 Root cause
+- left bar: `(0, 0, 6, height)`;
+- right bar: `(width - 6, 0, 6, height)`;
+- bottom bar: `(0, height - 6, width, 6)`;
+- top bar: `(0, 0, width, 6)` (only useful if the root actually reaches the window top).
 
-- `SidebarManager` creates `self._overlay = SideBarContainer(dock_manager.root_container())` and
-  parents it directly to the root container.
-- `SideBarContainer._get_visible_geometry()` places it at the sidebar's own edge and gives it
-  the full `_size_hint` width/height. There is no awareness of the dock splitter tree.
-- `SidebarManager.raise_overlays()` raises the overlay above everything in the root container.
-- The overlay's child `QSplitter` / dock widget fills that geometry and takes the mouse events.
+The grip is raised above the tab strip and its children, so it receives the press first. On a
+left press it:
 
-So the overlay deliberately covers the splitter, and nothing forwards the press back down.
+1. resolves the cursor against the client rect (`LeftEdge`, `RightEdge`, `TopEdge`, `BottomEdge`,
+   including corners);
+2. calls `self.window().windowHandle().startSystemResize(edges)`, which starts the native resize
+   loop;
+3. accepts the press when the window manager accepts the gesture.
 
-### 2.4 Recommended fix — clamp the overlay to the next splitter handle
+It also sets the matching resize cursor (`SizeHorCursor`, `SizeVerCursor`, `SizeFDiagCursor`,
+`SizeBDiagCursor`) while hovering. The grip does not paint anything and does not change the
+bar's layout; it is a 3 px transparent hit area.
 
-Do **not** shrink `_size_hint`; only clamp the displayed span. The requested sidebar width is
-remembered for when the splitter moves or the overlay is reopened.
+Constraints:
 
-Add a helper on `SideBarContainer`:
+- no resize while the window is maximized or full screen;
+- `startSystemResize` returning `False` falls back to ignoring the event, so platforms without
+  support keep their previous behaviour;
+- the grip must stay above tabs and the scroll area, including while the overlay is open.
 
-```python
-def _splitter_limit(self, area) -> Optional[int]:
-    """Distance from this overlay's anchored edge to the nearest visible
-    DockSplitterHandle, in overlay coordinates, minus the handle width."""
-    root = self.parentWidget()
-    if root is None:
-        return None
-    start, end = self._anchor_span(root)          # per area, see below
-    limit = None
-    for handle in root.findChildren(DockSplitterHandle):
-        if not handle.isVisible():
-            continue
-        if handle.orientation() != self._splitter_orientation():
-            continue
-        p0 = handle.mapTo(root, QPoint(0, 0))
-        if not (start <= p0.x() <= end):          # or y for bottom
-            continue
-        distance = p0.x() - start                 # right/bottom: start - p0.x()
-        if distance > 0:
-            limit = distance if limit is None else min(limit, distance)
-    return max(0, limit - 1) if limit is not None else None
-```
+### 2.4 Tests
 
-Then `_get_visible_geometry()` uses:
+`tests/test_sidebar_window_resize.py`:
 
-```python
-desired = self._size_hint.width() if left/right else self._size_hint.height()
-limit = self._splitter_limit(self._area)
-span = desired if limit is None else min(desired, limit)
-```
+- left and right bars carry a visible grip covering the window-facing edge;
+- the grip is the top child at that edge (`bar.childAt()`), even with the overlay open;
+- a press on the left/right grip calls `startSystemResize()` with the matching edge;
+- the cursor shape follows the edge (horizontal, vertical, diagonal);
+- no resize call for maximized/full-screen windows.
 
-and positions the overlay exactly as today with `span` in place of the desired size.
-
-Connections:
-
-- Recompute on every visible `DockSplitter`'s `splitterMoved` signal. The overlay must follow a
-  splitter drag live, not only on sidebar show.
-- Recompute on root-container `Resize`, on overlay `Show`, and after `refresh_style()` changes
-  margins.
-- When the overlay is maximized (`SideBarContainer._maximize()`), the same clamp applies; a
-  maximized sidebar must still not bury the last splitter.
-- If there is no matching handle (center-only layout, or no dock area under the sidebar),
-  behaviour is exactly today's.
-
-This preserves both interactions:
-
-- the overlay's own inner-edge resize strip (6 px) still resizes the sidebar, and
-- the exposed `DockSplitterHandle` just outside it still resizes the dock tree.
-
-### 2.5 Alternative if the overlay must be allowed to cover a splitter
-
-Implement a *splitter proxy* instead of clamping:
-
-- on overlay hover/press, find a visible `DockSplitterHandle` under the global cursor;
-- paint a subtle 1 px line at the handle's position (theme `SPLITTER` colour) so the user can see
-  it through the overlay;
-- forward the press/move/release to the handle with coordinates remapped into its parent, or
-  drive `splitter.setSizes()` directly.
-
-This is more code and more edge cases (multiple handles, mouse grab, hit-test precedence with
-the sidebar's own resize strip). Keep it as a fallback only if clamping proves unacceptable in
-real use.
-
-### 2.6 Tests
-
-`tests/test_sidebar_splitter.py`:
-
-- left sidebar with a 150 px left dock area and default 280 px overlay: assert
-  `overlay.geometry().right() < handle.geometry().left()`;
-- `QTest.mousePress/mouseMove/mouseRelease` on the handle while the overlay is open: root
-  splitter sizes change;
-- the overlay's own right-edge drag still changes its width;
-- same for right and bottom sidebars;
-- overlay width follows a live `splitterMoved` and is restored to the requested width when the
-  splitter is moved back.
-
-Acceptance: the handle is reachable for every sidebar area and every allowed theme; no overlay
-paint/hit-test regressions (`tests/test_sidebar_paint.py`, `test_overlay_*`).
+Acceptance: dragging the frameless window's left/right edge over the sidebar resizes the window,
+with the sidebar open or closed; normal tab clicks away from the 3 px strip are unchanged.
 
 ---
 
@@ -207,9 +148,8 @@ paint/hit-test regressions (`tests/test_sidebar_paint.py`, `test_overlay_*`).
 There is no setter, no property and no saved setting. `save_state()` serialises only
 `auto_show_on_hover`, `animations_enabled` and `keep_open`.
 
-**Decision needed:** what should the new auto-show hover delay be?
-Suggested starting point: **120 ms** (long enough to stop accidental fly-bys, short enough to
-still feel instant). Current: **0 ms**. Hide stays 400 ms unless changed too.
+**Decision: 150 ms.** The pre-change behaviour was 0 ms. Hide stays 400 ms and tab switching
+stays 150 ms.
 
 ### 3.2 Proposed API
 
@@ -236,7 +176,7 @@ def switch_delay_ms(self, ms: int) -> None: ...
 Facade on `DockManager`:
 
 ```python
-dock_manager.sidebar_hover_delay = 120      # ms; None/0 = immediate
+dock_manager.sidebar_hover_delay = 150      # ms; None/0 = immediate
 ```
 
 Rules:
@@ -317,10 +257,16 @@ In `build_dock_context_menu()`, use the tab's rendered icon with fallbacks:
 def _tab_icon(tab):
     icon = tab.icon() if hasattr(tab, "icon") else QIcon()
     if icon.isNull():
+        icon = _icon("tab_list")
+    if icon.isNull():
         dw = getattr(tab, "_dock_widget", None)
         if dw is not None:
             icon = dw.windowIcon()
-    return icon if not icon.isNull() else _icon("tab_list")
+        if icon.isNull():
+            app = QApplication.instance()
+            if app is not None:
+                icon = app.windowIcon()
+    return icon
 ```
 
 ```python
@@ -330,7 +276,8 @@ act = menu.addAction(_tab_icon(tab), tab.text())
 Details:
 
 - `tab.icon()` is already themed and tinted for the tab's active/inactive state; prefer it.
-- `DockWidget.windowIcon()` is the next fallback, then the generic action icon.
+- The generic `tab_list` action glyph is the first fallback; the dock window icon and then the
+  application icon are the final fallbacks.
 - Set the menu's icon size from the TAB token so the tab icons are not scaled:
   `menu.setIconSize(QSize(tab_icon_size, tab_icon_size))` only when the caller has not set one.
 - Keep the existing tooltip line (`act.setToolTip(tab.toolTip())`); after item E it will carry the
@@ -763,13 +710,13 @@ reason.
   `docs/ARCHITECTURE.md`, `docs/QUICK_REFERENCE.md` (guarded by
   `test_version_is_consistent`).
 - **CHANGELOG.md:** new `## [0.10.0]` section with:
-  - Fixed: sidebar overlay covering dock splitters; current tab not scrolled into view;
+  - Fixed: sidebar tab strip blocking window-edge resizing; current tab not scrolled into view;
   - Fixed: per-tab icons in the dock menus;
   - Added: `DockWidget.description` / `description_changed`;
   - Added: configurable sidebar hover/hide/switch delays;
   - Added: title-bar tab scroll arrows and improved wheel scrolling;
   - Fixed: frameless title-bar/dock overlap (or “hardened against”, if F remains unreproduced);
-  - Changed: default `hover_delay_ms` = **<new value>**.
+  - Changed: default `hover_delay_ms` = **150**.
 - **README:** sidebar delay parameter, description property, scroll-arrow behavior; update the
   flag count if `dock_area_has_tab_scroll_buttons` is added.
 - **docs/ARCHITECTURE.md:** sidebars section (hover timers), title-bar section (scroll arrows),
@@ -787,26 +734,31 @@ reason.
 
 | Risk | Where | Mitigation |
 |---|---|---|
-| Clamping the overlay changes the sidebar's effective width | B | Clamp only the *displayed* span; keep `_size_hint`; document that a wider sidebar needs a wider dock column |
-| Forwarding splitter events breaks the sidebar's own resize strip | B (alt) | Prefer the clamp; if forwarding, define hit-test precedence and test both interactions |
-| Hover delay makes the sidebar feel sluggish | C | Default 120 ms, configurable to 0; only auto-show is delayed, clicks stay instant |
+| The edge grip steals clicks from a tab near the outer edge | B | Limit the grip to 3 px and keep normal tab hit-testing inside it |
+| `startSystemResize` is unavailable or returns `False` | B | Ignore the event; the previous behaviour is unchanged |
+| The grip falls under the scroll area after a relayout | B | Reposition and `raise_()` on every `SideTabBar.resizeEvent` |
+| Hover delay makes the sidebar feel sluggish | C | Default 150 ms, configurable to 0; only auto-show is delayed, clicks stay instant |
 | Tab arrows crowd an already cramped bar | E | Show only on overflow; hide both when not needed; reuse existing button chrome |
 | Per-tab `QIcon`s bypass the theme on inactive tabs | D | Use `tab.icon()` (already state-tinted), not the raw custom icon |
 | Description tooltips expose stale text after a rename | E | One composer on `DockWidget`; refresh after every title/description/tooltip change |
-| Defensive relayout hides a real QMainWindow bug | F | Keep the probe and trace; assert invariants; do not “fix” by forcing geometry |
+| Defensive relayout hides a real QMainWindow bug | F | Keep the probe and trace; assert invariants; do not "fix" by forcing geometry |
 | New flag breaks enum documentation tests | E | Update `default_config`, `test_enums.py`, `enum_mapping.md`, `ARCHITECTURE.md` in the same commit |
-
 ---
 
-## 10. Decisions needed before implementation
+## 10. Decisions
 
-1. **Hover delay value (C).** Current auto-show delay is **0 ms**; hide is 400 ms. What should the
-   new default be? Recommended: **120 ms**. Reply with a number (and say if hide/switch should
-   change too).
-2. **Overlay width vs. splitter (B).** Preferred fix is clamping the overlay to the next splitter
-   handle (the overlay may be narrower than requested). If the overlay must remain freely
-   resizable across splitters, we implement the proxy-forwarding fallback instead.
-3. **Tab scroll buttons flag (E).** Add `DockFlags.dock_area_has_tab_scroll_buttons` (default on,
-   visible on overflow) or always show them on overflow with no flag?
-4. **Calendar popup rounding (A).** Carry the one open polish item into 0.10.0, or defer to
-   0.10.x? It is independent of B–F.
+Resolved for B/C/D:
+
+1. **Hover delay (C): 150 ms.** Hide stays 400 ms; tab switch stays 150 ms.
+2. **B:** the window-edge resize is the target. The splitter-clamp proposal was reverted; the
+   implemented fix is the `SideTabBar` window-edge grip.
+3. **D:** keep the generic `tab_list` glyph; use the dock/application window icon only as the
+   final fallback.
+4. **C facade:** `DockManager.sidebar_hover_delay`, `sidebar_hide_delay` and
+   `sidebar_switch_delay` all proxy the corresponding `SidebarManager` properties.
+
+Still open for E/F:
+
+- Add `DockFlags.dock_area_has_tab_scroll_buttons` (default on, visible on overflow) or always
+  show the tab arrows on overflow with no flag?
+- Carry the calendar-popup rounding item into 0.10.0, or defer it to 0.10.x?

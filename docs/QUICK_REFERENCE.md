@@ -241,6 +241,22 @@ from lace import SideBarFocusBehavior
 dock_manager.sidebar_focus_behavior = SideBarFocusBehavior.no_focus_transfer
 ```
 
+### Hover / Hide / Switch Delays
+
+```python
+# Milliseconds. 0 opens on hover immediately; clicks are never delayed.
+dock_manager.sidebar_hover_delay = 150    # default
+
+dock_manager.sidebar_hide_delay = 400     # default
+dock_manager.sidebar_switch_delay = 150   # default
+
+# The manager properties are the same values:
+sm = dock_manager.sidebar_manager
+sm.hover_delay_ms = 150
+sm.hide_delay_ms = 400
+sm.switch_delay_ms = 150
+```
+
 ### Badge Position
 
 ```python
@@ -914,6 +930,7 @@ class ThemeSwitcher:
 | `view_menu` | QMenu with toggle actions for all dock widgets |
 | `config_flags` | Get/set global configuration flags |
 | `sidebar_focus_behavior` | Get/set sidebar focus behavior |
+| `sidebar_hover_delay` / `sidebar_hide_delay` / `sidebar_switch_delay` | Get/set sidebar timing in milliseconds (defaults 150 / 400 / 150) |
 | `tab_badge_position` | Get/set default badge position |
 | `set_active_dock_area(area)` | Set which dock area is visually focused |
 | `signals` | `DockSignals` bus for the floating-drag path (see §13) |

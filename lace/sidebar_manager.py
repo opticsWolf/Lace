@@ -33,6 +33,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _HIDE_DELAY_MS = 400
+_HOVER_DELAY_MS = 150
+_SWITCH_DELAY_MS = 150
+_MAX_DELAY_MS = 5000
 
 #: The sides a sidebar can run along, in the order ties are broken.
 _AREA_ORDER = (DockWidgetArea.left, DockWidgetArea.bottom,
@@ -101,14 +104,30 @@ class SidebarHoverController(QObject):
         
         self._hide_timer = QTimer(self)
         self._hide_timer.setSingleShot(True)
-        self._hide_timer.setInterval(_HIDE_DELAY_MS)
+        self._hide_timer.setInterval(manager.hide_delay_ms)
         self._hide_timer.timeout.connect(self.on_hide_timeout)
         
+        self._show_timer = QTimer(self)
+        self._show_timer.setSingleShot(True)
+        self._show_timer.timeout.connect(self.process_pending_switch)
+
         self._switch_timer = QTimer(self)
         self._switch_timer.setSingleShot(True)
-        self._switch_timer.setInterval(150) # Matches animation duration
+        self._switch_timer.setInterval(manager.switch_delay_ms)
         self._switch_timer.timeout.connect(self.process_pending_switch)
         self._pending_button: Optional[VerticalTabButton] = None
+
+    def sync_delays(self) -> None:
+        """Apply the manager's current delay values to the timers."""
+        self._hide_timer.setInterval(self._manager.hide_delay_ms)
+        self._switch_timer.setInterval(self._manager.switch_delay_ms)
+
+    def _cancel_pending_show(self, uncheck: bool = False) -> None:
+        """Stop a queued auto-show and forget the button that queued it."""
+        self._show_timer.stop()
+        self._pending_button = None
+        if uncheck and not self._manager._overlay.isVisible():
+            self._manager._uncheck_all()
 
     def on_tab_hover_enter(self, button: VerticalTabButton):
         if not self._manager._auto_show_on_hover or self._manager._keep_open:
@@ -129,6 +148,12 @@ class SidebarHoverController(QObject):
         
         if self._manager._overlay.isVisible() and self._manager._animations_enabled:
             self._switch_timer.start()
+        elif self._manager._overlay.isVisible():
+            # Animations are off: tab switching keeps its old immediate path;
+            # the hover delay is only for opening a closed overlay.
+            self.process_pending_switch()
+        elif self._manager.hover_delay_ms > 0:
+            self._show_timer.start(self._manager.hover_delay_ms)
         else:
             self.process_pending_switch()
 
@@ -137,6 +162,12 @@ class SidebarHoverController(QObject):
             return
         dw = button.dock_widget()
         trace("sidebar.hover", action="leave", button=dw.objectName() if dw else "button")
+        # Leaving before the auto-show delay expires cancels the pending
+        # appearance. The button was checked on enter, so undo that too.
+        # While the overlay is already up, leave starts the hide timer only;
+        # a pending tab switch (animations on) keeps its normal behaviour.
+        if not self._manager._overlay.isVisible():
+            self._cancel_pending_show(uncheck=True)
         self._hide_timer.start()
 
     def process_pending_switch(self):
@@ -165,6 +196,7 @@ class SidebarHoverController(QObject):
         self._manager.close_overlay()
 
     def on_tab_clicked(self, button: VerticalTabButton):
+        self._cancel_pending_show()
         if self._manager._active_button is button and self._manager._overlay.isVisible():
             self._switch_timer.stop()
             self._pending_button = None
@@ -183,6 +215,10 @@ class SidebarHoverController(QObject):
 
     def on_sidebar_activated(self):
         self._hide_timer.stop()
+        # Do NOT cancel a pending show here: SideTabBar emits sidebar_activated
+        # immediately after tab_hover_enter, so cancelling would stop the very
+        # show the hover just queued. Leave/click/close are the cancellation
+        # points.
 
 
 class SidebarOverlayController(QObject):
@@ -331,6 +367,9 @@ class SidebarManager(QObject):
         self._auto_show_on_hover: bool = True
         self._animations_enabled: bool = True  # NEW: Master toggle for animations
         self._keep_open: bool = False
+        self._hover_delay_ms: int = _HOVER_DELAY_MS
+        self._hide_delay_ms: int = _HIDE_DELAY_MS
+        self._switch_delay_ms: int = _SWITCH_DELAY_MS
         
         self._sidebars: Dict[DockWidgetArea, SideTabBar] = {}
         self._overlay = SideBarContainer(dock_manager.root_container())
@@ -373,8 +412,60 @@ class SidebarManager(QObject):
         return self._hover_controller._hide_timer
 
     @property
+    def _show_timer(self):
+        return self._hover_controller._show_timer
+
+    @property
     def _switch_timer(self):
         return self._hover_controller._switch_timer
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  Hover / hide / switch delays
+    # ─────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _clamp_delay(ms: Any) -> int:
+        """Coerce a delay to whole milliseconds in the supported range."""
+        try:
+            value = int(ms)
+        except (TypeError, ValueError):
+            return 0
+        return max(0, min(value, _MAX_DELAY_MS))
+
+    @property
+    def hover_delay_ms(self) -> int:
+        """Delay before an auto-show overlay appears, in milliseconds.
+
+        ``0`` restores the old immediate-on-hover behaviour. The delay only
+        affects auto-show; clicks and ``show_widget()`` stay immediate.
+        """
+        return self._hover_delay_ms
+
+    @hover_delay_ms.setter
+    def hover_delay_ms(self, ms: Any) -> None:
+        self._hover_delay_ms = self._clamp_delay(ms)
+
+    @property
+    def hide_delay_ms(self) -> int:
+        """Delay after the pointer leaves before the overlay closes."""
+        return self._hide_delay_ms
+
+    @hide_delay_ms.setter
+    def hide_delay_ms(self, ms: Any) -> None:
+        self._hide_delay_ms = self._clamp_delay(ms)
+        if hasattr(self, "_hover_controller"):
+            self._hover_controller.sync_delays()
+
+    @property
+    def switch_delay_ms(self) -> int:
+        """Delay before switching tabs while the overlay is already open."""
+        return self._switch_delay_ms
+
+    @switch_delay_ms.setter
+    def switch_delay_ms(self, ms: Any) -> None:
+        self._switch_delay_ms = self._clamp_delay(ms)
+        if hasattr(self, "_hover_controller"):
+            self._hover_controller.sync_delays()
 
     @property
     def _pending_button(self):
@@ -796,6 +887,7 @@ class SidebarManager(QObject):
 
     def close_overlay(self):
         """Safely closes the overlay and stops pending animations."""
+        self._hover_controller._cancel_pending_show()
         self._overlay_controller.close_overlay()
 
     def _on_tab_hover_enter(self, button: VerticalTabButton):
@@ -930,6 +1022,9 @@ class SidebarManager(QObject):
                 "auto_show_on_hover": self._auto_show_on_hover,
                 "animations_enabled": self._animations_enabled,
                 "keep_open": self._keep_open,
+                "hover_delay_ms": self._hover_delay_ms,
+                "hide_delay_ms": self._hide_delay_ms,
+                "switch_delay_ms": self._switch_delay_ms,
             }
         }
         
@@ -972,6 +1067,9 @@ class SidebarManager(QObject):
             self._auto_show_on_hover = settings.get("auto_show_on_hover", True)
             self._animations_enabled = settings.get("animations_enabled", True)
             self._keep_open = settings.get("keep_open", False)
+            self.hover_delay_ms = settings.get("hover_delay_ms", _HOVER_DELAY_MS)
+            self.hide_delay_ms = settings.get("hide_delay_ms", _HIDE_DELAY_MS)
+            self.switch_delay_ms = settings.get("switch_delay_ms", _SWITCH_DELAY_MS)
             
             # Restore overlay sizes
             overlay_sizes = state.get("overlay_sizes", {})

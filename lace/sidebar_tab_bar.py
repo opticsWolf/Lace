@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 import shiboken6
 from PySide6.QtCore import Qt, Signal, QPoint, QEvent, QPropertyAnimation, QSize, QTimer, QRectF
-from PySide6.QtGui import QAction, QColor, QPainter, QPen, QPalette, QPainterPath
+from PySide6.QtGui import (QAction, QColor, QCursor, QMouseEvent, QPainter, QPen,
+                           QPalette, QPainterPath)
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QSizePolicy, QLabel, QMenu, QWidget, QToolButton, QScrollArea
 
 from lace.enums import DockWidgetArea, DockWidgetFeature
@@ -71,6 +72,130 @@ class _CounterBadge(QLabel):
             p.fillPath(path, self._bg)
             p.end()
         super().paintEvent(event)   # draws the digit in the palette colour
+
+
+class _WindowResizeGrip(QWidget):
+    """Transparent strip on the sidebar's window-facing edge.
+
+    The sidebar tab bar runs along the window edge. Without this grip a press
+    in the outer few pixels lands on the bar (or one of its tab buttons),
+    whose mouse handling consumes it, so the window cannot be resized from
+    that edge. The grip sits above the bar's contents, answers the outer edge
+    itself, and hands the gesture to the window manager via
+    ``QWindow.startSystemResize()``.
+    """
+
+    #: Width/height of the clickable strip, in pixels.
+    THICKNESS = 3
+    #: How close to the client edge counts as that edge. Slightly wider than
+    #: THICKNESS so a press on the grip always resolves to at least one edge.
+    EDGE_MARGIN = 8
+
+    def __init__(self, bar: 'SideTabBar', area: DockWidgetArea):
+        super().__init__(bar)
+        self._bar = bar
+        self._area = area
+        self.setObjectName("sidebarResizeGrip")
+        self.setMouseTracking(True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        self.setFocusPolicy(Qt.NoFocus)
+        self._position()
+
+    def _position(self) -> None:
+        if self._bar is None:
+            return
+        w = self._bar.width()
+        h = self._bar.height()
+        t = self.THICKNESS
+        if self._area == DockWidgetArea.left:
+            self.setGeometry(0, 0, t, h)
+        elif self._area == DockWidgetArea.right:
+            self.setGeometry(w - t, 0, t, h)
+        elif self._area == DockWidgetArea.bottom:
+            self.setGeometry(0, h - t, w, t)
+        elif self._area == DockWidgetArea.top:
+            self.setGeometry(0, 0, w, t)
+        else:
+            self.hide()
+            return
+        self.show()
+        self.raise_()
+
+    def _edges_for(self, global_pos: QPoint) -> Qt.Edge:
+        win = self.window()
+        if win is None:
+            return Qt.Edge(0)
+        origin = win.mapToGlobal(QPoint(0, 0))
+        w, h = win.width(), win.height()
+        gx, gy = global_pos.x(), global_pos.y()
+        edges = Qt.Edge(0)
+        if gx - origin.x() <= self.EDGE_MARGIN:
+            edges |= Qt.Edge.LeftEdge
+        if origin.x() + w - gx <= self.EDGE_MARGIN:
+            edges |= Qt.Edge.RightEdge
+        if gy - origin.y() <= self.EDGE_MARGIN:
+            edges |= Qt.Edge.TopEdge
+        if origin.y() + h - gy <= self.EDGE_MARGIN:
+            edges |= Qt.Edge.BottomEdge
+        return edges
+
+    @staticmethod
+    def _cursor_for(edges: Qt.Edge) -> Qt.CursorShape:
+        left = bool(edges & Qt.Edge.LeftEdge)
+        right = bool(edges & Qt.Edge.RightEdge)
+        top = bool(edges & Qt.Edge.TopEdge)
+        bottom = bool(edges & Qt.Edge.BottomEdge)
+        if (left and top) or (right and bottom):
+            return Qt.SizeFDiagCursor
+        if (right and top) or (left and bottom):
+            return Qt.SizeBDiagCursor
+        if left or right:
+            return Qt.SizeHorCursor
+        if top or bottom:
+            return Qt.SizeVerCursor
+        return Qt.ArrowCursor
+
+    def _update_cursor(self, global_pos: QPoint) -> None:
+        self.setCursor(self._cursor_for(self._edges_for(global_pos)))
+
+    def enterEvent(self, event) -> None:
+        self._update_cursor(QCursor.pos())
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self.unsetCursor()
+        super().leaveEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        self._update_cursor(event.globalPosition().toPoint())
+        super().mouseMoveEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() != Qt.LeftButton:
+            event.ignore()
+            return
+        win = self.window()
+        if win is None or win.isMaximized() or win.isFullScreen():
+            event.ignore()
+            return
+        edges = self._edges_for(event.globalPosition().toPoint())
+        if not edges:
+            event.ignore()
+            return
+        handle = win.windowHandle()
+        if handle is None:
+            event.ignore()
+            return
+        try:
+            started = handle.startSystemResize(edges)
+        except (RuntimeError, TypeError):
+            started = False
+        if started:
+            event.accept()
+        else:
+            event.ignore()
 
 
 class SideTabBar(QFrame, DockStyled):
@@ -191,6 +316,10 @@ class SideTabBar(QFrame, DockStyled):
         self._drop_indicator_color = QColor("#007acc")
         self._init_dock_style()
 
+        # Keep the window's outer edge resizable even though this bar and its
+        # tabs sit directly on it.
+        self._resize_grip = _WindowResizeGrip(self, area)
+
         self.hide()
 
     @property
@@ -232,6 +361,9 @@ class SideTabBar(QFrame, DockStyled):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        grip = getattr(self, '_resize_grip', None)
+        if grip is not None:
+            grip._position()
         self._update_scroll_visibility()
 
     # ── MenuActionTarget & Menu Builder ───────────────────────────────────

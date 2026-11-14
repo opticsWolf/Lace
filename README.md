@@ -38,7 +38,8 @@
 
 ### 📌 Sidebars
 
-- **Auto-hide panels** — VS Code-style slide-out sidebars that appear on hover
+- **Auto-hide panels** — VS Code-style slide-out sidebars that appear on hover, with configurable hover/hide/switch delays
+- **Window-edge resize** — the tab strip leaves a transparent grip on its window-facing edge, so a frameless window stays resizable from that edge
 - **Pinned widgets** — Pin dock widgets to sidebars with visual tab buttons; pinned docks, and whether each is closed, are saved with the layout
 - **Allowed sides** — Limit sidebars to the edges you want (say left and right only); pinning never creates one elsewhere
 - **Pin API and signal** — `pin_dock_widget()`, `unpin_dock_widget()`, `is_dock_widget_pinned()`, `pinned_dock_widgets()`, and `signals.dock_pinned_changed` to follow pin changes
@@ -138,6 +139,12 @@ sidebars and limits pinning to those sides:
 
 ```python
 dock_manager.set_sidebar_areas({DockWidgetArea.left, DockWidgetArea.right})
+
+# Timing for hover-opened sidebars (milliseconds). 150 is the default;
+# 0 opens immediately, and clicks are never delayed.
+dock_manager.sidebar_hover_delay = 150
+dock_manager.sidebar_hide_delay = 400
+dock_manager.sidebar_switch_delay = 150
 
 dock_manager.pin_dock_widget(editor)                       # closest allowed side
 dock_manager.pin_dock_widget(editor, DockWidgetArea.left)

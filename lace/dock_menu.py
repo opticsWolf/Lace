@@ -267,6 +267,27 @@ def build_dock_context_menu(context: MenuContext, menu: QMenu) -> None:
     def _label(key: str, default_label: str) -> str:
         return context.label_overrides.get(key, default_label)
 
+    def _tab_icon(tab) -> QIcon:
+        """The dock panel's own icon, with the tab-list glyph as fallback.
+
+        ``tab.icon()`` is the tab's already-themed and active/inactive-tinted
+        icon, so the menu entry matches the tab the user just right-clicked.
+        A tab with no icon at all falls back to the generic tab-list action
+        glyph, then to the dock/application window icon as a last resort.
+        """
+        icon = tab.icon() if hasattr(tab, "icon") else QIcon()
+        if icon.isNull():
+            icon = _icon("tab_list")
+        if icon.isNull():
+            dock_widget = getattr(tab, "_dock_widget", None)
+            if dock_widget is not None:
+                icon = dock_widget.windowIcon()
+            if icon.isNull():
+                app = QApplication.instance()
+                if app is not None:
+                    icon = app.windowIcon()
+        return icon
+
     # ── Tab list (only entries when > 1 tabs) ─────────────────────
     if MenuSection.TAB_LIST in sections and tab_bar is not None and count > 1:
         current_index = tab_bar.current_index()
@@ -274,7 +295,7 @@ def build_dock_context_menu(context: MenuContext, menu: QMenu) -> None:
             if not tab_bar.is_tab_open(i):
                 continue
             tab = tab_bar.tab(i)
-            act = menu.addAction(_icon("tab_list"), tab.text())
+            act = menu.addAction(_tab_icon(tab), tab.text())
             act.setToolTip(tab.toolTip())
             act.setCheckable(True)
             act.setChecked(i == current_index)
