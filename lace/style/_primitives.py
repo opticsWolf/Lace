@@ -242,7 +242,9 @@ def frame_line_edit(style, opt, p, w):
 # Scrollbars
 # ---------------------------------------------------------------------------
 #: Scrollbar extent per mode. ``fusion`` defers to Fusion entirely.
-SCROLLBAR_EXTENT = {"thin": 8, "expanding": 10}
+#: ``expanding`` reserves 12 px so it can grow 2 px on hover; its rest state
+#: still uses EXPANDING_REST below, so the resting thickness is unchanged.
+SCROLLBAR_EXTENT = {"thin": 8, "expanding": 12}
 #: Handle thickness of an ``expanding`` bar at rest; full extent on hover.
 EXPANDING_REST = 4
 

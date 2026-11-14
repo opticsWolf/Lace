@@ -96,7 +96,7 @@ def test_unstyled_controls_fall_through_cleanly(qapp, themed, warnings, cls):
 # ---------------------------------------------------------------------------
 # Scrollbar modes
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("mode, extent", [("thin", 8), ("expanding", 10)])
+@pytest.mark.parametrize("mode, extent", [("thin", 8), ("expanding", 12)])
 def test_scrollbar_extent_per_mode(qapp, mode, extent):
     assert LaceStyle(scrollbar=mode).pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent) == extent
 
@@ -149,7 +149,7 @@ def test_thin_scrollbar_has_no_step_buttons(qapp):
 def test_expanding_scrollbar_has_square_step_buttons(qapp):
     style = LaceStyle(scrollbar="expanding")
     opt = QStyleOptionSlider()
-    opt.rect = QRect(0, 0, 10, 200)
+    opt.rect = QRect(0, 0, 12, 200)
     opt.orientation = Qt.Orientation.Vertical
     opt.minimum, opt.maximum, opt.pageStep, opt.sliderPosition = 0, 100, 20, 100
     cc, sc = QStyle.ComplexControl.CC_ScrollBar, QStyle.SubControl
@@ -157,8 +157,8 @@ def test_expanding_scrollbar_has_square_step_buttons(qapp):
     add = style.subControlRect(cc, opt, sc.SC_ScrollBarAddLine)
     groove = style.subControlRect(cc, opt, sc.SC_ScrollBarGroove)
     handle = style.subControlRect(cc, opt, sc.SC_ScrollBarSlider)
-    assert sub == QRect(0, 0, 10, 10) and add == QRect(0, 190, 10, 10)
-    assert groove == QRect(0, 10, 10, 180)
+    assert sub == QRect(0, 0, 12, 12) and add == QRect(0, 188, 12, 12)
+    assert groove == QRect(0, 12, 12, 176)
     assert groove.contains(handle) and handle.bottom() == groove.bottom()
 
 
