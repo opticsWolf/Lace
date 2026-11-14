@@ -3,9 +3,11 @@
 and frameless before it exists, and the panel paints a rounded fill."""
 
 import pytest
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtGui import QImage, QPainter
-from PySide6.QtWidgets import QComboBox, QMenu, QStyle, QStyleFactory, QStyleOptionMenuItem
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import (QComboBox, QDateEdit, QMenu, QStyle, QStyleFactory,
+                               QStyleOptionMenuItem, QVBoxLayout, QWidget)
 
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import build_dock_palette, resolve_dock_colors
@@ -41,6 +43,36 @@ def _combo_popup(style):
     popup.setStyle(style)
     popup.ensurePolished()
     return combo, popup
+
+
+def _calendar_popup(style):
+    date = QDateEdit()
+    date.setCalendarPopup(True)
+    date.setStyle(style)
+    calendar = date.calendarWidget()
+    popup = calendar.parentWidget()
+    popup.setStyle(style)
+    popup.ensurePolished()
+    return date, calendar, popup
+
+
+def _shown_calendar(qapp, x, y):
+    host = QWidget()
+    host.setGeometry(x, y, 500, 100)
+    layout = QVBoxLayout(host)
+    date = QDateEdit()
+    date.setCalendarPopup(True)
+    date.setStyle(LaceStyle())
+    layout.addWidget(date)
+    host.show()
+    qapp.processEvents()
+    popup = date.calendarWidget().parentWidget()
+    popup.setStyle(date.style())
+    popup.ensurePolished()
+    QTest.mouseClick(date, Qt.MouseButton.LeftButton,
+                     pos=QPoint(date.width() - 8, date.height() // 2))
+    qapp.processEvents()
+    return host, date, popup
 
 
 def test_a_menu_becomes_a_translucent_frameless_window(qapp):
@@ -351,3 +383,79 @@ def test_square_controls_keep_a_square_completer_popup(qapp):
     popup.ensurePolished()
     assert not _popup.is_rounded(popup)
     assert not popup.testAttribute(WA.WA_TranslucentBackground)
+
+
+# -- calendar popups -------------------------------------------------------------
+def test_a_calendar_popup_is_rounded_and_padded(qapp):
+    style = LaceStyle()
+    _date, calendar, popup = _calendar_popup(style)
+
+    assert _popup.is_calendar_popup(popup)
+    assert _popup.is_popup(popup)
+    assert _popup.is_rounded(popup)
+    assert popup.testAttribute(WA.WA_TranslucentBackground)
+    assert popup.windowFlags() & WT.FramelessWindowHint
+    assert popup.windowFlags() & WT.NoDropShadowWindowHint
+
+    inset = _popup.SHADOW + _popup.pad(style)
+    m = popup.layout().contentsMargins()
+    assert (m.left(), m.top(), m.right(), m.bottom()) == (inset, inset, inset, inset)
+
+    mask = calendar.mask()
+    assert not mask.isEmpty()
+    assert not mask.contains(QPoint(0, 0))
+    assert mask.contains(calendar.rect().center())
+
+    # The Paint filter supplies the panel and shadow behind the opaque child.
+    image = popup.grab().toImage()
+    assert image.pixelColor(0, 0).alpha() < 255
+    assert image.pixelColor(image.rect().center()).alpha() == 255
+
+
+def test_a_calendar_panel_lines_up_under_its_field(qapp):
+    host, date, popup = _shown_calendar(qapp, 100, 100)
+    field = QRect(date.mapToGlobal(QPoint(0, 0)), date.size())
+    panel = popup.geometry().adjusted(
+        _popup.SHADOW, _popup.SHADOW, -_popup.SHADOW, -_popup.SHADOW)
+
+    assert panel.left() == field.left()
+    assert panel.top() >= field.bottom()
+
+    popup.hide()
+    host.close()
+
+
+def test_a_calendar_panel_opens_above_when_there_is_no_room_below(qapp):
+    screen = qapp.primaryScreen().availableGeometry()
+    host, date, popup = _shown_calendar(
+        qapp, screen.left() + 50, screen.bottom() - 120)
+    field = QRect(date.mapToGlobal(QPoint(0, 0)), date.size())
+    panel = popup.geometry().adjusted(
+        _popup.SHADOW, _popup.SHADOW, -_popup.SHADOW, -_popup.SHADOW)
+
+    assert panel.left() == field.left()
+    assert panel.bottom() < field.top()
+
+    popup.hide()
+    host.close()
+
+
+def test_a_calendar_popup_is_restored_off_lace_style(qapp):
+    fusion = QStyleFactory.create("Fusion")
+    _date, calendar, popup = _calendar_popup(LaceStyle())
+
+    popup.setStyle(fusion)
+
+    assert not _popup.is_rounded(popup)
+    assert not popup.testAttribute(WA.WA_TranslucentBackground)
+    assert popup.layout().contentsMargins().isNull()
+    assert calendar.mask().isEmpty()
+
+
+def test_square_controls_keep_a_square_calendar_popup(qapp):
+    _date, calendar, popup = _calendar_popup(LaceStyle(control_radius=0))
+
+    assert not _popup.is_rounded(popup)
+    assert not popup.testAttribute(WA.WA_TranslucentBackground)
+    assert popup.layout().contentsMargins().isNull()
+    assert calendar.mask().isEmpty()

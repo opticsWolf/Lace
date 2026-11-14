@@ -472,7 +472,7 @@ chrome (`lace/style/_chrome.py`) is flat too:
 - **`QFrame` lines** (`HLine`, `VLine`) are one line in the border colour, and boxes and panels a
   flat rounded outline, whatever their shadow.
 - **Toolbar handles and separators and size grips** are flat lines in the muted text colour.
-- **Menus and combo box popups** get rounded corners and a few pixels of top and bottom
+- **Menus, combo box, completer and calendar popups** get rounded corners and a few pixels of
   padding, over a soft painted shadow (`lace/style/_popup.py`). `polish()` makes
   each popup window translucent and frameless before it is created, and swaps the native square
   drop shadow for a painted one: the window grows by 5 px on every side for the shadow, and on
@@ -489,6 +489,10 @@ chrome (`lace/style/_chrome.py`) is flat too:
   sit inside the panel. Qt re-sizes the popup on every keystroke, so it is placed again on each
   move or resize: the panel keeps the field's left edge and width, and grows up instead of down
   when Qt opened it above the field.
+  A **calendar popup** (`QDateEdit`/`QDateTimeEdit`) is the private `QCalendarPopup` widget. Its
+  layout takes the shadow margin plus padding on every side, and the opaque `QCalendarWidget`
+  child is masked to the rounded panel, so the accent navigation bar and day grid cannot paint
+  over the corners. It opens above the field when there is no room below, like the completer.
 - **`QCalendarWidget`** weekends use the accent (held to the text floor) instead of Qt's red,
   re-tinted on each theme switch.
 

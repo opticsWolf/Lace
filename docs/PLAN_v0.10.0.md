@@ -7,7 +7,7 @@
 **Scope:** one open bug-report audit plus five new items (window-edge resize, hover delay,
 dock-menu icons, cramped title bars, rare frameless overlap)
 
-**Implementation status (branch `dev_v0.10.0`):** B, C and D implemented; E and F pending.
+**Implementation status (branch `dev_v0.10.0`):** A, B, C and D implemented; E and F pending.
 
 ---
 
@@ -31,11 +31,11 @@ the same sidebar/title-bar area; F is diagnostic and should not block the others
 
 ### 1.1 Inventory of the local report files
 
-The reports live next to the checkout (`..\*.md`), not in `docs/`. Status as of v0.9.7:
+The reports live next to the checkout (`..\*.md`), not in `docs/`. Status as of v0.10.0:
 
 | Report | Status | Evidence |
 |---|---|---|
-| `calendar-popup-rounding.md` | **OPEN** — polish TODO, not a crash | `lace/style/_popup.py` still has no `is_calendar_popup()` / calendar-panel path; calendars still fall through to square Fusion popups |
+| `calendar-popup-rounding.md` | **CLOSED in 0.10.0** | `_popup.is_calendar_popup()` rounds the private `QCalendarPopup`, paints its panel/shadow and masks the opaque calendar child; `tests/test_lace_style_popup.py` |
 | `native-frame-native-child-bug.md` | **CLOSED in 0.9.2** | `apply_native_frame()` reads `internalWinId()` (`lace/native_frame.py`); `tests/test_native_frame.py` |
 | `native-sibling-freeze.md` | **CLOSED in 0.9.5** | `DockManager.__init__` sets `AA_DontCreateNativeWidgetSiblings`; `tests/test_native_siblings.py` |
 | `sidebar-pinning-fixes.md` (incl. §10) | **CLOSED in 0.9.3 / 0.9.4** | pin/unpin/restore, allow-list API, signal, deleted-button guard; `tests/test_sidebar_pinning.py` |
@@ -54,8 +54,7 @@ since been fixed or superseded.
 
 ### 1.3 Verdict
 
-- **One open report remains:** `calendar-popup-rounding.md` (calendar popup corners/shadow).
-  It is cosmetic and can be carried into 0.10.x unless we want it in this release.
+- **No open reports remain:** `calendar-popup-rounding.md` is closed in 0.10.0.
 - No open crash, freeze or data-loss report.
 - Items **B–F in this plan are new**, opened while preparing v0.10.0. Treat them as the 0.10.0
   bug/feature set.
@@ -712,6 +711,7 @@ reason.
 - **CHANGELOG.md:** new `## [0.10.0]` section with:
   - Fixed: sidebar tab strip blocking window-edge resizing; current tab not scrolled into view;
   - Fixed: per-tab icons in the dock menus;
+  - Fixed: `QDateEdit`/`QDateTimeEdit` calendar popups now get the rounded panel and shadow;
   - Added: `DockWidget.description` / `description_changed`;
   - Added: configurable sidebar hover/hide/switch delays;
   - Added: title-bar tab scroll arrows and improved wheel scrolling;
@@ -761,4 +761,7 @@ Still open for E/F:
 
 - Add `DockFlags.dock_area_has_tab_scroll_buttons` (default on, visible on overflow) or always
   show the tab arrows on overflow with no flag?
-- Carry the calendar-popup rounding item into 0.10.0, or defer it to 0.10.x?
+
+Resolved for A:
+
+- Calendar popup rounding lands in 0.10.0; no deferral.

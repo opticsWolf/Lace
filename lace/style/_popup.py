@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Rounded popups with a soft shadow: menus, combo box drop-down lists and
-list popups such as a ``QCompleter``'s.
+"""Rounded popups with a soft shadow: menus, combo box drop-down lists,
+list popups such as a ``QCompleter``'s, and the private calendar popup of a
+``QDateEdit``/``QDateTimeEdit``.
 
 A top-level window is square unless it is translucent, so ``LaceStyle.polish``
 makes each popup translucent and frameless before its native window exists,
@@ -15,9 +16,12 @@ panel and no shadow: translucency can't be switched on after creation.
 
 import math
 
+import shiboken6
+
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QPalette, QPen
-from PySide6.QtWidgets import QAbstractItemView, QApplication, QMenu, QWidget
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen, QRegion
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCalendarWidget,
+                               QMenu, QStyleOption, QWidget)
 
 from lace.style import _paint as P
 
@@ -39,6 +43,8 @@ SHADOW_DARK, SHADOW_LIGHT = 0.26, 0.09
 _ROUNDED = "_laceRoundedPopup"
 #: The margins a combo popup was given, taken back exactly on ``unpolish``.
 _PAD = "_laceRoundedPopupPad"
+#: The layout margins a calendar popup was given, taken back on ``unpolish``.
+_CALENDAR_PAD = "_laceRoundedCalendarLayoutPad"
 #: The padding this style added to a list popup's viewport margins.
 _VIEWPORT_PAD = "_laceRoundedPopupViewportPad"
 #: A list popup's viewport filled itself before this style turned that off.
@@ -97,13 +103,27 @@ def is_list_popup(w) -> bool:
             and (w.windowType() == Qt.WindowType.Popup))
 
 
+def is_calendar_popup(w) -> bool:
+    """The private popup Qt opens for a ``QDateEdit``/``QDateTimeEdit``.
+
+    It is a plain ``QWidget`` with ``Qt.Popup`` named ``QCalendarPopup``.
+    Matching the class name keeps every other popup out without walking a
+    possibly-destroyed widget tree during teardown.
+    """
+    return (isinstance(w, QWidget) and w.isWindow()
+            and w.windowType() == Qt.WindowType.Popup
+            and (w.metaObject().className() == "QCalendarPopup"
+                 or w.objectName() == "qt_datetimedit_calendar"))
+
+
 def list_fill(w, opt) -> QColor:
     """The colour a list popup's rows sit on: its viewport's Base."""
     return w.palette().color(opt.palette.currentColorGroup(), Role.Base)
 
 
 def is_popup(w) -> bool:
-    return (isinstance(w, QMenu) or is_combo_popup(w) or is_list_popup(w)) and w.isWindow()
+    return (isinstance(w, QMenu) or is_combo_popup(w) or is_list_popup(w)
+            or is_calendar_popup(w)) and w.isWindow()
 
 
 def is_rounded(w) -> bool:
@@ -154,7 +174,82 @@ def round_popup(style, w: QWidget, shift: "ShadowShift") -> None:
             # fill would cover its corners.
             w.viewport().setAutoFillBackground(False)
             w.setProperty(_VIEWPORT_FILL, True)
+    if is_calendar_popup(w):
+        _round_calendar_popup(style, w, shift)
     w.installEventFilter(shift)
+
+
+def _round_calendar_popup(style, w: QWidget, shift: "ShadowShift") -> None:
+    """Grow the calendar popup for its panel and mask the calendar itself.
+
+    ``QCalendarPopup`` is a plain widget, so the shadow margin and the
+    padding that keeps its content clear of the arcs have to come from its
+    layout.  The calendar child is opaque and square; mask it to a radius
+    one padding step larger than the panel, so the nav bar and day grid
+    cannot paint over the rounded corners.
+    """
+    layout = w.layout()
+    if layout is not None:
+        before = layout.contentsMargins()
+        w.setProperty(_CALENDAR_PAD,
+                      [before.left(), before.top(), before.right(), before.bottom()])
+        inset = SHADOW + pad(style)
+        layout.setContentsMargins(before.left() + inset, before.top() + inset,
+                                  before.right() + inset, before.bottom() + inset)
+    calendar = w.findChild(QCalendarWidget)
+    if calendar is not None:
+        calendar.installEventFilter(shift)
+        _mask_calendar_popup(w)
+
+
+def _unround_calendar_popup(w: QWidget, shift: "ShadowShift") -> None:
+    """Undo the calendar popup's layout margins and child mask."""
+    calendar = w.findChild(QCalendarWidget)
+    if calendar is not None:
+        calendar.removeEventFilter(shift)
+        calendar.clearMask()
+    before = w.property(_CALENDAR_PAD)
+    layout = w.layout()
+    if before and layout is not None:
+        left, top, right, bottom = before
+        layout.setContentsMargins(left, top, right, bottom)
+        w.setProperty(_CALENDAR_PAD, None)
+
+
+def _mask_calendar_popup(w: QWidget) -> None:
+    """Clip the calendar child to the rounded panel inside the popup."""
+    calendar = w.findChild(QCalendarWidget)
+    if calendar is None:
+        return
+    calendar.clearMask()
+    if not is_rounded(w):
+        return
+    style = w.style()
+    if not hasattr(style, "control_radius"):
+        return
+    r = radius(style)
+    if r <= 0 or calendar.width() <= 0 or calendar.height() <= 0:
+        return
+    path = QPainterPath()
+    r += pad(style)
+    path.addRoundedRect(QRectF(calendar.rect()), r, r)
+    calendar.setMask(QRegion(path.toFillPolygon().toPolygon()))
+
+
+def _paint_calendar_popup(w: QWidget) -> bool:
+    """Paint the calendar popup's panel and shadow behind its child."""
+    style = w.style()
+    if not hasattr(style, "control_radius"):
+        return False        # the style changed after the native window existed
+    opt = QStyleOption()
+    opt.initFrom(w)
+    opt.rect = w.rect()
+    painter = QPainter(w)
+    try:
+        paint(style, opt, painter, w)
+    finally:
+        painter.end()
+    return True
 
 
 def unround_popup(style, w: QWidget, shift: "ShadowShift") -> None:
@@ -180,6 +275,8 @@ def unround_popup(style, w: QWidget, shift: "ShadowShift") -> None:
     if w.property(_VIEWPORT_FILL):
         w.viewport().setAutoFillBackground(True)
         w.setProperty(_VIEWPORT_FILL, None)
+    if is_calendar_popup(w):
+        _unround_calendar_popup(w, shift)
     w.setProperty(_PLACED, None)
 
 
@@ -226,6 +323,24 @@ class ShadowShift(QObject):
     _LIST_EVENTS = (QEvent.Type.Show, QEvent.Type.Move, QEvent.Type.Resize)
 
     def eventFilter(self, obj, event):
+        if not shiboken6.isValid(obj):
+            return False
+        if isinstance(obj, QCalendarWidget):
+            popup = obj.window()
+            if (shiboken6.isValid(popup) and is_calendar_popup(popup)
+                    and is_rounded(popup)
+                    and event.type() in (QEvent.Type.Show, QEvent.Type.Resize)):
+                _mask_calendar_popup(popup)
+            return False
+        if is_calendar_popup(obj) and is_rounded(obj):
+            if event.type() == QEvent.Type.Paint:
+                return _paint_calendar_popup(obj)
+            if event.type() == QEvent.Type.Show:
+                _mask_calendar_popup(obj)
+                obj.move(obj.pos() - QPoint(SHADOW, SHADOW))
+            elif event.type() == QEvent.Type.Resize:
+                _mask_calendar_popup(obj)
+            return False
         if is_list_popup(obj) and is_rounded(obj):
             if event.type() == QEvent.Type.Hide:
                 obj.setProperty(_PLACED, None)

@@ -896,8 +896,9 @@ property tests pin the round trip and the contrast guarantees.
 - `_range` (sliders, dials, progress)
 - `_chrome` (splitter grips, tab close buttons, `QFrame` lines and boxes, toolbar handles and
   separators, size grips, calendar weekend tint)
-- `_popup` (rounded, shadowed menus and combo popups: translucent frameless windows set up in
-  `polish()`, moved back by the shadow margin on show by `ShadowShift`)
+- `_popup` (rounded, shadowed menus, combo, completer and calendar popups: translucent
+  frameless windows set up in `polish()`, moved back by the shadow margin on show by
+  `ShadowShift`; the calendar's opaque child is masked to the rounded panel)
 - `_containers` (tabs, headers, menus, item views, tooltips, tool box)
 - `_paint`, with memoised colour helpers shared by the others
 
