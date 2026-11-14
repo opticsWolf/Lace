@@ -116,6 +116,7 @@ class SidebarHoverController(QObject):
         self._switch_timer.setInterval(manager.switch_delay_ms)
         self._switch_timer.timeout.connect(self.process_pending_switch)
         self._pending_button: Optional[VerticalTabButton] = None
+        self._overlay_pointer_inside = False
 
     def sync_delays(self) -> None:
         """Apply the manager's current delay values to the timers."""
@@ -190,10 +191,28 @@ class SidebarHoverController(QObject):
         self._manager._show_for_button(button)
 
     def on_hide_timeout(self):
-        if self._manager._keep_open or self._manager._overlay.underMouse():
+        if self._manager._keep_open or self._overlay_pointer_inside:
             return
         trace("sidebar.timer", kind="hide", fire=True)
         self._manager.close_overlay()
+
+    def on_overlay_enter(self):
+        """The pointer is inside the open overlay: never auto-hide."""
+        self._overlay_pointer_inside = True
+        self._hide_timer.stop()
+
+    def on_overlay_leave(self):
+        """Start the hide delay when the pointer actually leaves the overlay."""
+        self._overlay_pointer_inside = False
+        if not self._manager._auto_show_on_hover or self._manager._keep_open:
+            return
+        if self._manager._overlay.isVisible():
+            self._hide_timer.start()
+
+    def on_overlay_hidden(self):
+        """Forget stale hover state once the overlay is gone."""
+        self._overlay_pointer_inside = False
+        self._hide_timer.stop()
 
     def on_tab_clicked(self, button: VerticalTabButton):
         self._cancel_pending_show()
@@ -491,9 +510,14 @@ class SidebarManager(QObject):
         # Syncing on Show/Hide follows the overlay's actual visibility —
         # including animation-delayed hides — whatever path showed or hid it.
         if watched is self._overlay:
-            if event.type() == QEvent.Show:
+            if event.type() == QEvent.Enter:
+                self._hover_controller.on_overlay_enter()
+            elif event.type() == QEvent.Leave:
+                self._hover_controller.on_overlay_leave()
+            elif event.type() == QEvent.Show:
                 self._keyboard.set_escape_enabled(True)
             elif event.type() == QEvent.Hide:
+                self._hover_controller.on_overlay_hidden()
                 self._keyboard.set_escape_enabled(False)
         return False
     
