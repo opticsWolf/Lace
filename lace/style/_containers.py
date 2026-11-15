@@ -10,17 +10,17 @@
 
 """Phase 4b-4: tabs, group boxes, headers, menus, item views, tooltips, tool box.
 
-Flat surfaces with one 1 px line where a separation is needed. Selection and
-hover are shown with the accent: an accent wash and underline on the selected
-tab, a lighter wash on a hovered tab, and a rounded highlight on menu items.
-Labels, icons and all rects stay Fusion's -- where Fusion paints a selection
-fill inside a label element, it is handed a transparent highlight so only the
-flat fill drawn here shows.
+Flat surfaces with one 1 px line where a separation is needed. Selection is
+shown with the accent: an accent wash and underline on the selected tab. A
+hovered unselected tab gets a slight surface step, and menu items get a rounded
+highlight. Labels, icons and all rects stay Fusion's -- where Fusion paints a
+selection fill inside a label element, it is handed a transparent highlight so
+only the flat fill drawn here shows.
 """
 
 from typing import Optional
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QCursor, QPainterPath, QPalette, QPen, QRegion
 from PySide6.QtWidgets import (
     QFrame, QStyle, QStyleOptionFrame, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab, QTabBar,
@@ -42,9 +42,9 @@ TAB_UNDERLINE = 2.0
 #: Selected tab's accent tint: an accent wash over the tab bar's surface.
 TAB_ACTIVE_WASH = 0.12
 #: Selected tab's accent tint while the pointer is over it.
-TAB_ACTIVE_HOVER_WASH = 0.15
-#: Hovered unselected tab's accent tint, lighter than the selected fill.
-TAB_HOVER_WASH = 0.10
+TAB_ACTIVE_HOVER_WASH = 0.18
+#: Hovered unselected tab's lightness step from the tab-bar surface.
+TAB_HOVER_STEP = 0.05
 #: Hover wash of item-view rows: text over the surface.
 HOVER_WASH = 0.06
 #: Menu separators' inset from the popup's sides, px.
@@ -70,21 +70,57 @@ def _hovered(opt) -> bool:
     return bool(opt.state & State.State_MouseOver) and _enabled(opt)
 
 
+class _TabHoverTracker(QObject):
+    """Repaints a tab bar on every pointer transition within it.
+
+    QTabBar normally repaints only the old and new ``hoverRect``.  When two
+    adjacent tabs are involved, or the platform does not deliver hover events,
+    the old tab's fill can be left behind.  Repainting the whole (small) bar on
+    enter/move/leave keeps every tab's hover state in sync.
+    """
+
+    _EVENTS = {
+        QEvent.Type.Enter, QEvent.Type.Leave,
+        QEvent.Type.MouseMove, QEvent.Type.HoverEnter,
+        QEvent.Type.HoverMove, QEvent.Type.HoverLeave,
+    }
+
+    def eventFilter(self, obj, event):
+        if event.type() in self._EVENTS:
+            obj.update()
+        return False
+
+
+_TAB_HOVER_TRACKER = "_laceTabHoverTracker"
+
+
+def _track_tab_hover(w) -> None:
+    if not isinstance(w, QTabBar):
+        return
+    if not w.testAttribute(Qt.WidgetAttribute.WA_Hover):
+        w.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+    if not w.property(_TAB_HOVER_TRACKER):
+        w.setMouseTracking(True)
+        tracker = _TabHoverTracker(w)
+        w.installEventFilter(tracker)
+        w._lace_tab_hover_tracker = tracker
+        w.setProperty(_TAB_HOVER_TRACKER, True)
+
+
 def _tab_hovered(opt, w) -> bool:
     """Whether the pointer is over this tab.
 
-    QTabBar populates ``State_MouseOver`` only after ``WA_Hover`` is enabled
-    and it has received a hover event.  Use the option state when present, and
-    fall back to the tab bar's own widget under the pointer for the first paint
-    and custom tab bars.
+    For a real QTabBar, the pointer position is authoritative: Qt may leave
+    ``State_MouseOver`` on the previously hovered tab when the pointer moves
+    directly to an adjacent tab.  For a non-tab widget, use the option state.
     """
     if not _enabled(opt):
         return False
-    if opt.state & State.State_MouseOver:
-        return True
-    if not isinstance(w, QTabBar) or not w.underMouse():
-        return False
-    return QRectF(opt.rect).contains(QPointF(w.mapFromGlobal(QCursor.pos())))
+    if isinstance(w, QTabBar):
+        if not w.underMouse():
+            return False
+        return QRectF(opt.rect).contains(QPointF(w.mapFromGlobal(QCursor.pos())))
+    return _hovered(opt)
 
 
 def _line(style, opt, surface: QColor) -> QColor:
@@ -131,12 +167,7 @@ def _pane_edge(shape) -> str:
 def tab_shape(style, opt, p, w):
     if not isinstance(opt, QStyleOptionTab):
         return False
-    if isinstance(w, QTabBar) and not w.testAttribute(Qt.WidgetAttribute.WA_Hover):
-        # QTabBar updates its hover rect only from HoverEnter/HoverMove, but
-        # does not ask for hover events itself.  Enabling the attribute here
-        # (on the first paint) also makes later pointer moves schedule the
-        # repaint that shows the hover wash.
-        w.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+    _track_tab_hover(w)
     r = QRectF(opt.rect)
     edge = _pane_edge(opt.shape)
     selected = bool(opt.state & State.State_Selected)
@@ -148,7 +179,7 @@ def tab_shape(style, opt, p, w):
             wash = TAB_ACTIVE_HOVER_WASH if hovered else TAB_ACTIVE_WASH
             fill = P.mix(window, accent, wash)
         elif hovered:
-            fill = P.mix(window, accent, TAB_HOVER_WASH)
+            fill = P.step(window, TAB_HOVER_STEP)
         else:
             fill = None
         if fill is not None:

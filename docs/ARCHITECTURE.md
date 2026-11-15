@@ -905,10 +905,10 @@ property tests pin the round trip and the contrast guarantees.
 - `_popup` (rounded, shadowed menus, combo, completer and calendar popups: translucent
   frameless windows set up in `polish()`, moved back by the shadow margin on show by
   `ShadowShift`; the calendar's nav bar is rounded with the panel radius)
-- `_containers` (tabs: accent washes on hover and selection, with a 2 px selected underline; headers, menus, item views, tooltips, tool box)
+- `_containers` (tabs: an accent wash and 2 px underline on selection, a neutral surface step on hover; headers, menus, item views, tooltips, tool box)
 - `_paint`, with memoised colour helpers shared by the others
 
-`QTabBar` clears `State_MouseOver` from its style option and restores it only from its own hover tracking, which needs `WA_Hover`; `tab_shape()` enables that attribute on the first paint and also checks the pointer against the tab rect, so hover and selected-hover work under `LaceStyle` as a `QProxyStyle`.
+`QTabBar` clears `State_MouseOver` from its style option and restores it only from its own hover tracking, which needs `WA_Hover`; `tab_shape()` enables that attribute on the first paint, enables mouse tracking, repaints the bar on pointer transitions, and resolves the hovered tab from the pointer position. This keeps adjacent-tab hovers from going stale under `LaceStyle` as a `QProxyStyle`.
 
 `gallery.py` renders every control in every state for tests and the Theme Studio.
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""LaceStyle 4b-4, containers: flat surfaces, accent washes on hovered and
-selected tabs, rounded highlight on menu items, bare ticks in menus."""
+"""LaceStyle 4b-4, containers: flat surfaces, accent selection and neutral
+hover on tabs, rounded highlight on menu items, bare ticks in menus."""
 
 import pytest
 from PySide6.QtCore import QPoint, QRect, Qt
@@ -14,8 +14,9 @@ from lace import color_science as cs
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import build_dock_palette, resolve_dock_colors
 from lace.lace_style import LaceStyle
+from lace.style import _paint as P
 from lace.style._containers import (TAB_ACTIVE_HOVER_WASH, TAB_ACTIVE_WASH,
-                                    TAB_HOVER_WASH)
+                                    TAB_HOVER_STEP)
 from tests.theme_sets import load
 
 S = QStyle.StateFlag
@@ -79,7 +80,7 @@ def test_selected_tab_fills_with_the_accent_wash(qapp):
     assert _rgb(img.pixelColor(W // 2, H // 2)) == _rgb(expected)
 
 
-def test_hovered_tab_gets_a_lighter_accent_wash_than_a_selected_one(qapp):
+def test_hovered_tab_gets_a_neutral_tint_lighter_than_a_selected_one(qapp):
     pal = _palette()
 
     def tab(state):
@@ -92,7 +93,8 @@ def test_hovered_tab_gets_a_lighter_accent_wash_than_a_selected_one(qapp):
     selected = tab(S.State_Selected)
     window = pal.color(G, QPalette.ColorRole.Window)
     accent = pal.color(G, QPalette.ColorRole.Accent)
-    assert _rgb(hovered) == _rgb(cs.mix(_rgb(window), _rgb(accent), TAB_HOVER_WASH))
+    assert _rgb(hovered) == _rgb(P.step(window, TAB_HOVER_STEP))
+    assert _rgb(hovered) != _rgb(cs.mix(_rgb(window), _rgb(accent), TAB_ACTIVE_WASH))
     assert cs.delta_e(_rgb(selected), _rgb(window)) > cs.delta_e(_rgb(hovered), _rgb(window))
 
 
@@ -119,8 +121,24 @@ def test_tab_hover_falls_back_to_the_tab_bar_pointer(qapp):
     img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabShape, o, p, w), opt, bar)
     window = pal.color(G, QPalette.ColorRole.Window)
     accent = pal.color(G, QPalette.ColorRole.Accent)
-    assert _rgb(img.pixelColor(W // 2, H // 2)) == _rgb(
-        cs.mix(_rgb(window), _rgb(accent), TAB_HOVER_WASH))
+    assert _rgb(img.pixelColor(W // 2, H // 2)) == _rgb(P.step(window, TAB_HOVER_STEP))
+
+
+def test_stale_hover_state_does_not_keep_the_previous_tab_hovered(qapp):
+    """Moving straight from tab to tab must not leave the old fill behind."""
+    pal = _palette()
+    left = QStyleOptionTab()
+    left.rect, left.palette, left.state = QRect(0, 0, W, H), pal, _state(S.State_MouseOver)
+    left_img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabShape, o, p, w),
+                     left, _PointerBar(QPoint(W + 5, H + 5)))
+    assert left_img.pixelColor(W // 2, H // 2).alpha() == 0
+
+    right = QStyleOptionTab()
+    right.rect, right.palette, right.state = QRect(0, 0, W, H), pal, _state()
+    right_img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabShape, o, p, w),
+                      right, _PointerBar(QPoint(W // 2, H // 2)))
+    assert _rgb(right_img.pixelColor(W // 2, H // 2)) == _rgb(
+        P.step(pal.color(G, QPalette.ColorRole.Window), TAB_HOVER_STEP))
 
 
 def test_selected_tab_tints_more_while_hovered(qapp):

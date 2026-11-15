@@ -93,6 +93,7 @@ def test_tab_bar_receives_hover_events(qapp):
     tabs.show()
     tabs.grab()     # first tab-shape paint enables the attribute
     assert tabs.tabBar().testAttribute(Qt.WidgetAttribute.WA_Hover)
+    assert tabs.tabBar().hasMouseTracking()
     tabs.hide()
 
 
