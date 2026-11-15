@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""LaceStyle 4b-4, containers: flat surfaces, accent underline on the selected
-tab, rounded highlight on menu items, bare ticks in menus."""
+"""LaceStyle 4b-4, containers: flat surfaces, accent washes on hovered and
+selected tabs, rounded highlight on menu items, bare ticks in menus."""
 
 import pytest
 from PySide6.QtCore import QRect, Qt
@@ -14,6 +14,7 @@ from lace import color_science as cs
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import build_dock_palette, resolve_dock_colors
 from lace.lace_style import LaceStyle
+from lace.style._containers import TAB_ACTIVE_WASH, TAB_HOVER_WASH
 from tests.theme_sets import load
 
 S = QStyle.StateFlag
@@ -28,6 +29,8 @@ def _palette(theme_key="kilim_dark"):
 
 
 def _rgb(c):
+    if isinstance(c, (list, tuple)):
+        return list(c[:3])
     return [c.red(), c.green(), c.blue()]
 
 
@@ -62,6 +65,34 @@ def test_selected_tab_underlines_the_pane_edge(qapp, shape, edge):
     accent = pal.color(G, QPalette.ColorRole.Accent)
     assert cs.contrast_ratio(_rgb(img.pixelColor(*at)), _rgb(accent)) < \
         cs.contrast_ratio(_rgb(img.pixelColor(*far)), _rgb(accent))
+
+
+def test_selected_tab_fills_with_the_accent_wash(qapp):
+    pal = _palette()
+    opt = QStyleOptionTab()
+    opt.rect, opt.palette, opt.state = QRect(0, 0, W, H), pal, _state(S.State_Selected)
+    img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabShape, o, p, w), opt)
+    window = pal.color(G, QPalette.ColorRole.Window)
+    accent = pal.color(G, QPalette.ColorRole.Accent)
+    expected = cs.mix(_rgb(window), _rgb(accent), TAB_ACTIVE_WASH)
+    assert _rgb(img.pixelColor(W // 2, H // 2)) == _rgb(expected)
+
+
+def test_hovered_tab_gets_a_lighter_accent_wash_than_a_selected_one(qapp):
+    pal = _palette()
+
+    def tab(state):
+        opt = QStyleOptionTab()
+        opt.rect, opt.palette, opt.state = QRect(0, 0, W, H), pal, _state(state)
+        img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabShape, o, p, w), opt)
+        return img.pixelColor(W // 2, H // 2)
+
+    hovered = tab(S.State_MouseOver)
+    selected = tab(S.State_Selected)
+    window = pal.color(G, QPalette.ColorRole.Window)
+    accent = pal.color(G, QPalette.ColorRole.Accent)
+    assert _rgb(hovered) == _rgb(cs.mix(_rgb(window), _rgb(accent), TAB_HOVER_WASH))
+    assert cs.delta_e(_rgb(selected), _rgb(window)) > cs.delta_e(_rgb(hovered), _rgb(window))
 
 
 def test_focused_tab_label_has_no_tinted_box(qapp):

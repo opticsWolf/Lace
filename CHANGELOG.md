@@ -17,6 +17,12 @@ through a cycle.
 - `demos/demo_app_overflow.py` for exercising overflow arrows, descriptions, icon-only tabs and
   live flag changes.
 
+### Changed
+
+- `LaceStyle` now gives `QTabWidget` tabs an accent tint: 10 % on hover and 14 % on the
+  selected tab, with the existing 2 px accent underline. Previously the selected tab kept the
+  window colour, so only the underline distinguished it.
+
 ### Fixed
 
 - Selecting a tab beyond the visible strip now scrolls it into view after layout.

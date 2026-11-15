@@ -10,11 +10,12 @@
 
 """Phase 4b-4: tabs, group boxes, headers, menus, item views, tooltips, tool box.
 
-Flat surfaces with one 1 px line where a separation is needed. Selection is
-shown with the accent: an underline on the selected tab, a rounded highlight
-on menu items. Labels, icons and all rects stay Fusion's -- where Fusion paints
-a selection fill inside a label element, it is handed a transparent highlight
-so only the flat fill drawn here shows.
+Flat surfaces with one 1 px line where a separation is needed. Selection and
+hover are shown with the accent: an accent wash and underline on the selected
+tab, a lighter wash on a hovered tab, and a rounded highlight on menu items.
+Labels, icons and all rects stay Fusion's -- where Fusion paints a selection
+fill inside a label element, it is handed a transparent highlight so only the
+flat fill drawn here shows.
 """
 
 from typing import Optional
@@ -38,7 +39,11 @@ Shape = QTabBar.Shape
 
 #: Selected tab's accent underline, px.
 TAB_UNDERLINE = 2.0
-#: Hover wash of item-view rows and unselected tabs: text over the surface.
+#: Selected tab's accent tint: an accent wash over the tab bar's surface.
+TAB_ACTIVE_WASH = 0.14
+#: Hovered unselected tab's accent tint, lighter than the selected fill.
+TAB_HOVER_WASH = 0.10
+#: Hover wash of item-view rows: text over the surface.
 HOVER_WASH = 0.06
 #: Menu separators' inset from the popup's sides, px.
 MENU_SEPARATOR_INSET = 6
@@ -112,8 +117,14 @@ def tab_shape(style, opt, p, w):
     selected = bool(opt.state & State.State_Selected)
     window = P.color(opt, Role.Window)
     with P.Painting(p):
-        if selected or _hovered(opt):
-            fill = window if selected else P.mix(window, P.color(opt, Role.Text), HOVER_WASH)
+        accent = P.accent(opt)
+        if selected:
+            fill = P.mix(window, accent, TAB_ACTIVE_WASH)
+        elif _hovered(opt):
+            fill = P.mix(window, accent, TAB_HOVER_WASH)
+        else:
+            fill = None
+        if fill is not None:
             # Round the corners away from the pane; square them where the tab meets it.
             radius = style.control_radius
             grow = {"bottom": (0, 0, 0, radius), "top": (0, -radius, 0, 0),

@@ -905,7 +905,7 @@ property tests pin the round trip and the contrast guarantees.
 - `_popup` (rounded, shadowed menus, combo, completer and calendar popups: translucent
   frameless windows set up in `polish()`, moved back by the shadow margin on show by
   `ShadowShift`; the calendar's nav bar is rounded with the panel radius)
-- `_containers` (tabs, headers, menus, item views, tooltips, tool box)
+- `_containers` (tabs: accent washes on hover and selection, with a 2 px selected underline; headers, menus, item views, tooltips, tool box)
 - `_paint`, with memoised colour helpers shared by the others
 
 `gallery.py` renders every control in every state for tests and the Theme Studio.
