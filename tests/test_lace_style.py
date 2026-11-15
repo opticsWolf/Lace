@@ -83,6 +83,19 @@ def test_size_hints_match_fusion(qapp, cls, mode):
 # ---------------------------------------------------------------------------
 # Fall-through
 # ---------------------------------------------------------------------------
+def test_tab_bar_receives_hover_events(qapp):
+    """QTabBar needs WA_Hover for its hover rect, and repaints on hover."""
+    style = LaceStyle()
+    tabs = QTabWidget()
+    tabs.setStyle(style)
+    tabs.tabBar().setStyle(style)
+    tabs.addTab(QWidget(), "Tab")
+    tabs.show()
+    tabs.grab()     # first tab-shape paint enables the attribute
+    assert tabs.tabBar().testAttribute(Qt.WidgetAttribute.WA_Hover)
+    tabs.hide()
+
+
 @pytest.mark.parametrize("cls", [QDial, QCalendarWidget, QMdiArea], ids=lambda c: c.__name__)
 def test_unstyled_controls_fall_through_cleanly(qapp, themed, warnings, cls):
     w = _styled(cls, LaceStyle())

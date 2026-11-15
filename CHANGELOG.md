@@ -22,6 +22,9 @@ through a cycle.
 - `LaceStyle` now gives `QTabWidget` tabs an accent tint: 10 % on hover, 12 % on the selected
   tab, and 15 % when the selected tab is hovered, with the existing 2 px accent underline.
   Previously the selected tab kept the window colour, so only the underline distinguished it.
+- Tab hover now enables `WA_Hover` on the `QTabBar` at its first paint. Qt's tab bar does not
+  request hover events itself, so its style option never carried `State_MouseOver` and no hover
+  repaint was scheduled.
 
 ### Fixed
 

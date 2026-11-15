@@ -73,10 +73,10 @@ def _hovered(opt) -> bool:
 def _tab_hovered(opt, w) -> bool:
     """Whether the pointer is over this tab.
 
-    QTabBar does not put ``State_MouseOver`` on a tab's style option, including
-    the selected tab, so the style option alone cannot show a tab hover.  Use
-    the option state when a caller provides it (tests and custom styles), and
-    fall back to the tab bar's own widget under the pointer.
+    QTabBar populates ``State_MouseOver`` only after ``WA_Hover`` is enabled
+    and it has received a hover event.  Use the option state when present, and
+    fall back to the tab bar's own widget under the pointer for the first paint
+    and custom tab bars.
     """
     if not _enabled(opt):
         return False
@@ -131,6 +131,12 @@ def _pane_edge(shape) -> str:
 def tab_shape(style, opt, p, w):
     if not isinstance(opt, QStyleOptionTab):
         return False
+    if isinstance(w, QTabBar) and not w.testAttribute(Qt.WidgetAttribute.WA_Hover):
+        # QTabBar updates its hover rect only from HoverEnter/HoverMove, but
+        # does not ask for hover events itself.  Enabling the attribute here
+        # (on the first paint) also makes later pointer moves schedule the
+        # repaint that shows the hover wash.
+        w.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
     r = QRectF(opt.rect)
     edge = _pane_edge(opt.shape)
     selected = bool(opt.state & State.State_Selected)
