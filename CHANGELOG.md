@@ -5,6 +5,15 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
+## [0.10.1] — 2026-11-15
+
+### Fixed
+
+- Tab scroll arrows now appear only when at least two tabs are visible. A lone tab keeps its
+  normal eliding minimum instead of the cramped minimum, so it can shrink to fit rather than
+  being clipped with no arrows to reveal the rest. Hidden tabs from closed docks no longer
+  count towards the arrow condition.
+
 ## [0.10.0] — 2026-11-15
 
 ### Added

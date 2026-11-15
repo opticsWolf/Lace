@@ -14,7 +14,7 @@ Public API is imported explicitly at the top level for discoverability
 and IDE/mypy compatibility.
 """
 
-__version__ = "0.10.0"
+__version__ = "0.10.1"
 
 # ---------------------------------------------------------------------------
 # Core Classes

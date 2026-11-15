@@ -2,7 +2,7 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.10.0
+**Version:** 0.10.1
 
 ---
 
@@ -167,11 +167,13 @@ dock_manager.add_dock_widget(DockWidgetArea.center, console)  # becomes a tab
 
 ### Tab Overflow, Tooltips and Descriptions
 
-When tabs would become narrower than twice their eliding width, Lace shows
-automatic `‹` / `›` scroll arrows instead of squeezing labels to a sliver.
-The flag `DockFlags.dock_area_has_tab_scroll_buttons` is on by default; turn it
-off to disable the arrows entirely. The mouse wheel over the tab strip still
-scrolls it, and selecting a tab outside the visible strip scrolls it into view.
+When two or more visible tabs would become narrower than twice their eliding
+width, Lace shows automatic `‹` / `›` scroll arrows instead of squeezing labels
+to a sliver. A lone tab keeps its normal eliding width, and hidden tabs from
+closed docks do not count. The flag
+`DockFlags.dock_area_has_tab_scroll_buttons` is on by default; turn it off to
+disable the arrows entirely. The mouse wheel over the tab strip still scrolls
+it, and selecting a tab outside the visible strip scrolls it into view.
 
 ```python
 from lace import DockFlags
