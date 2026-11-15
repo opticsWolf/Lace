@@ -71,6 +71,40 @@ def test_arrows_appear_only_when_the_tabs_overflow(qapp, make_desk):
     assert title_bar._tab_scroll_right.isEnabled() is True
 
 
+def test_a_single_visible_tab_has_no_arrows_and_elides(qapp, make_desk):
+    desk = make_desk(160, 300)
+    dock, area = _tab_dock(desk, "A very long dock widget title that should elide")
+    bar, title_bar = _bar(area), area._title_bar
+    QTest.qWait(30)
+
+    assert bar.count() == 1
+    assert bar.visible_tab_count() == 1
+    assert not title_bar._tab_scroll_left.isVisible()
+    assert not title_bar._tab_scroll_right.isVisible()
+    assert dock._tab_widget.minimumWidth() == 0
+
+
+def test_a_hidden_tab_does_not_count_towards_overflow(qapp, make_desk):
+    desk = make_desk(160, 300)
+    first, area = _tab_dock(desk, "A very long dock widget title that should elide")
+    second = desk.widget("Hidden")
+    desk.add(CENTER, second, target=area)
+    desk.show()
+    QTest.qWait(40)
+
+    second.toggle_view(False)
+    QTest.qWait(50)
+    bar, title_bar = _bar(area), area._title_bar
+
+    # The closed dock's hidden tab is still in the layout, but it is not a
+    # visible tab and must not make the lone open tab look scrollable.
+    assert bar.count() == 2
+    assert bar.visible_tab_count() == 1
+    assert not title_bar._tab_scroll_left.isVisible()
+    assert not title_bar._tab_scroll_right.isVisible()
+    assert first._tab_widget.minimumWidth() == 0
+
+
 def test_clicking_an_arrow_scrolls_to_the_next_hidden_tab(qapp, make_desk):
     desk = make_desk(400, 300)
     area, _docks = _add_tabs(desk)
@@ -162,7 +196,9 @@ def test_closing_tabs_removes_the_arrows(qapp, make_desk):
 
 def test_cramped_minimum_is_a_multiple_of_the_elide_minimum(qapp, make_desk):
     desk = make_desk(900, 300)
-    dock, _area = _tab_dock(desk, "A long title that is allowed to elide")
+    dock, area = _tab_dock(desk, "A long title that is allowed to elide")
+    desk.add(CENTER, desk.widget("Second"), target=area)
+    desk.show()
     tab = dock._tab_widget
     QTest.qWait(30)
 

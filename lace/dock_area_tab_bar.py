@@ -112,17 +112,39 @@ class DockAreaTabBar(QScrollArea, DockStyled):
         if tab is not None and tab.isVisible():
             self.ensureWidgetVisible(tab, 0, 0)
 
+    def visible_tab_count(self) -> int:
+        """The number of tab widgets the user can currently see.
+
+        A closed dock keeps its tab widget in the layout but hides it, so
+        :meth:`count` can be larger than the number of tabs in the strip.
+        """
+        count = 0
+        for i in range(self.count()):
+            tab = self.tab(i)
+            if tab is not None and tab.isVisible():
+                count += 1
+        return count
+
     def apply_cramped_minimums(self, enabled: Optional[bool] = None) -> None:
-        """Raise each tab's minimum width when the scroll-button flag is on."""
+        """Raise each tab's minimum width when the scroll-button flag is on.
+
+        The raised minimum only exists to make the scroll arrows useful, so a
+        lone visible tab with a title keeps its normal eliding behaviour:
+        there is nowhere to scroll to, and forcing it wider would only clip
+        the title.  An icon-only tab has no title to elide, so it still keeps
+        its chrome width.
+        """
         if not shiboken6.isValid(self) or not shiboken6.isValid(self._tabs_layout):
             return
         if enabled is None:
             enabled = self._test_config_flag(
                 DockFlags.dock_area_has_tab_scroll_buttons)
+        multiple = self.visible_tab_count() > 1
         for i in range(self.count()):
             tab = self.tab(i)
             if tab is not None:
-                tab.update_cramped_minimum(enabled)
+                tab.update_cramped_minimum(
+                    enabled and (multiple or not tab.text().strip()))
 
     def is_overflowing(self) -> bool:
         bar = self.horizontalScrollBar()

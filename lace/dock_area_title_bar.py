@@ -551,9 +551,13 @@ class DockAreaTitleBar(QFrame, DockStyled):
         try:
             enabled = self._test_config_flag(
                 DockFlags.dock_area_has_tab_scroll_buttons)
+            # A single tab has nowhere to scroll. Keep its normal eliding
+            # minimum and hide the arrows, even when the strip is too narrow.
+            visible_tabs = self._tab_bar.visible_tab_count()
             self._tab_bar.apply_cramped_minimums(enabled)
             bar = self._tab_bar.horizontalScrollBar()
-            visible = enabled and bar.maximum() > bar.minimum()
+            visible = (enabled and visible_tabs > 1
+                       and bar.maximum() > bar.minimum())
             for button in (self._tab_scroll_left, self._tab_scroll_right):
                 if button is not None:
                     button.setVisible(visible)
