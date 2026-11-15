@@ -908,6 +908,8 @@ property tests pin the round trip and the contrast guarantees.
 - `_containers` (tabs: accent washes on hover and selection, with a 2 px selected underline; headers, menus, item views, tooltips, tool box)
 - `_paint`, with memoised colour helpers shared by the others
 
+`QTabBar` clears `State_MouseOver` from its style option and restores it only from its own hover tracking. `tab_shape()` also checks the pointer against the tab rect, so hover and selected-hover work under `LaceStyle` as a `QProxyStyle`.
+
 `gallery.py` renders every control in every state for tests and the Theme Studio.
 
 ### 3.17 `lace/theme_kit/` — Theme kit

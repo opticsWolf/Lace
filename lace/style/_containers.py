@@ -21,7 +21,7 @@ flat fill drawn here shows.
 from typing import Optional
 
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QPainterPath, QPalette, QPen, QRegion
+from PySide6.QtGui import QColor, QCursor, QPainterPath, QPalette, QPen, QRegion
 from PySide6.QtWidgets import (
     QFrame, QStyle, QStyleOptionFrame, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab, QTabBar,
 )
@@ -40,7 +40,9 @@ Shape = QTabBar.Shape
 #: Selected tab's accent underline, px.
 TAB_UNDERLINE = 2.0
 #: Selected tab's accent tint: an accent wash over the tab bar's surface.
-TAB_ACTIVE_WASH = 0.14
+TAB_ACTIVE_WASH = 0.12
+#: Selected tab's accent tint while the pointer is over it.
+TAB_ACTIVE_HOVER_WASH = 0.15
 #: Hovered unselected tab's accent tint, lighter than the selected fill.
 TAB_HOVER_WASH = 0.10
 #: Hover wash of item-view rows: text over the surface.
@@ -66,6 +68,23 @@ def _enabled(opt) -> bool:
 
 def _hovered(opt) -> bool:
     return bool(opt.state & State.State_MouseOver) and _enabled(opt)
+
+
+def _tab_hovered(opt, w) -> bool:
+    """Whether the pointer is over this tab.
+
+    QTabBar does not put ``State_MouseOver`` on a tab's style option, including
+    the selected tab, so the style option alone cannot show a tab hover.  Use
+    the option state when a caller provides it (tests and custom styles), and
+    fall back to the tab bar's own widget under the pointer.
+    """
+    if not _enabled(opt):
+        return False
+    if opt.state & State.State_MouseOver:
+        return True
+    if not isinstance(w, QTabBar) or not w.underMouse():
+        return False
+    return QRectF(opt.rect).contains(QPointF(w.mapFromGlobal(QCursor.pos())))
 
 
 def _line(style, opt, surface: QColor) -> QColor:
@@ -115,12 +134,14 @@ def tab_shape(style, opt, p, w):
     r = QRectF(opt.rect)
     edge = _pane_edge(opt.shape)
     selected = bool(opt.state & State.State_Selected)
+    hovered = _tab_hovered(opt, w)
     window = P.color(opt, Role.Window)
     with P.Painting(p):
         accent = P.accent(opt)
         if selected:
-            fill = P.mix(window, accent, TAB_ACTIVE_WASH)
-        elif _hovered(opt):
+            wash = TAB_ACTIVE_HOVER_WASH if hovered else TAB_ACTIVE_WASH
+            fill = P.mix(window, accent, wash)
+        elif hovered:
             fill = P.mix(window, accent, TAB_HOVER_WASH)
         else:
             fill = None

@@ -19,9 +19,9 @@ through a cycle.
 
 ### Changed
 
-- `LaceStyle` now gives `QTabWidget` tabs an accent tint: 10 % on hover and 14 % on the
-  selected tab, with the existing 2 px accent underline. Previously the selected tab kept the
-  window colour, so only the underline distinguished it.
+- `LaceStyle` now gives `QTabWidget` tabs an accent tint: 10 % on hover, 12 % on the selected
+  tab, and 15 % when the selected tab is hovered, with the existing 2 px accent underline.
+  Previously the selected tab kept the window colour, so only the underline distinguished it.
 
 ### Fixed
 

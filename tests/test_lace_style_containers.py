@@ -3,7 +3,7 @@
 selected tabs, rounded highlight on menu items, bare ticks in menus."""
 
 import pytest
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtGui import QImage, QPainter, QPalette
 from PySide6.QtWidgets import (
     QMenu, QStyle, QStyleOptionButton, QStyleOptionHeader, QStyleOptionMenuItem, QStyleOptionTab,
@@ -14,7 +14,8 @@ from lace import color_science as cs
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import build_dock_palette, resolve_dock_colors
 from lace.lace_style import LaceStyle
-from lace.style._containers import TAB_ACTIVE_WASH, TAB_HOVER_WASH
+from lace.style._containers import (TAB_ACTIVE_HOVER_WASH, TAB_ACTIVE_WASH,
+                                    TAB_HOVER_WASH)
 from tests.theme_sets import load
 
 S = QStyle.StateFlag
@@ -93,6 +94,57 @@ def test_hovered_tab_gets_a_lighter_accent_wash_than_a_selected_one(qapp):
     accent = pal.color(G, QPalette.ColorRole.Accent)
     assert _rgb(hovered) == _rgb(cs.mix(_rgb(window), _rgb(accent), TAB_HOVER_WASH))
     assert cs.delta_e(_rgb(selected), _rgb(window)) > cs.delta_e(_rgb(hovered), _rgb(window))
+
+
+class _PointerBar(QTabBar):
+    """A tab bar whose pointer position is fixed for a paint test."""
+
+    def __init__(self, point):
+        super().__init__()
+        self.point = point
+
+    def underMouse(self):
+        return True
+
+    def mapFromGlobal(self, _pos):
+        return self.point
+
+
+def test_tab_hover_falls_back_to_the_tab_bar_pointer(qapp):
+    """QTabBar does not set State_MouseOver; the pointer position must."""
+    pal = _palette()
+    opt = QStyleOptionTab()
+    opt.rect, opt.palette, opt.state = QRect(0, 0, W, H), pal, _state()
+    bar = _PointerBar(QPoint(W // 2, H // 2))
+    img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabShape, o, p, w), opt, bar)
+    window = pal.color(G, QPalette.ColorRole.Window)
+    accent = pal.color(G, QPalette.ColorRole.Accent)
+    assert _rgb(img.pixelColor(W // 2, H // 2)) == _rgb(
+        cs.mix(_rgb(window), _rgb(accent), TAB_HOVER_WASH))
+
+
+def test_selected_tab_tints_more_while_hovered(qapp):
+    pal = _palette()
+    opt = QStyleOptionTab()
+    opt.rect, opt.palette, opt.state = QRect(0, 0, W, H), pal, _state(S.State_Selected)
+    bar = _PointerBar(QPoint(W // 2, H // 2))
+    img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabShape, o, p, w), opt, bar)
+    window = pal.color(G, QPalette.ColorRole.Window)
+    accent = pal.color(G, QPalette.ColorRole.Accent)
+    assert _rgb(img.pixelColor(W // 2, H // 2)) == _rgb(
+        cs.mix(_rgb(window), _rgb(accent), TAB_ACTIVE_HOVER_WASH))
+
+
+def test_selected_tab_away_from_the_pointer_uses_the_resting_wash(qapp):
+    pal = _palette()
+    opt = QStyleOptionTab()
+    opt.rect, opt.palette, opt.state = QRect(0, 0, W, H), pal, _state(S.State_Selected)
+    bar = _PointerBar(QPoint(W + 5, H + 5))
+    img = _draw(lambda o, p, w: LaceStyle().drawControl(CE.CE_TabBarTabShape, o, p, w), opt, bar)
+    window = pal.color(G, QPalette.ColorRole.Window)
+    accent = pal.color(G, QPalette.ColorRole.Accent)
+    assert _rgb(img.pixelColor(W // 2, H // 2)) == _rgb(
+        cs.mix(_rgb(window), _rgb(accent), TAB_ACTIVE_WASH))
 
 
 def test_focused_tab_label_has_no_tinted_box(qapp):
