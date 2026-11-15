@@ -24,13 +24,7 @@
     { group: "Neon & Edge",     key: "violet_haze",     name: "Violet Haze",     bg: "#282a36", accent: "#bd93f9" },
   ];
   const src = (t) => `img/themes/${t.key}.webp`;
-  const root = document.documentElement;
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  // Dark accents (light themes') are lifted so they stay readable on the dark page.
-  function pageAccent(hex) {
-    return `color-mix(in oklab, ${hex} 78%, white)`;
-  }
 
   // Preload theme screenshots once the page has settled.
   addEventListener("load", () => THEMES.forEach((t) => { new Image().src = src(t); }));
@@ -76,7 +70,6 @@
     const t = THEMES[i];
     chips.forEach((c, j) => c.setAttribute("aria-selected", j === i ? "true" : "false"));
     swap(stage, src(t), `The demo app in the ${t.name} theme`);
-    root.style.setProperty("--accent", pageAccent(t.accent));
     if (fromUser) stopHero();
   }
 
@@ -97,7 +90,6 @@
   function stopHero() { clearInterval(heroTimer); heroTimer = null; }
 
   showHero(heroOrder[0]);
-  root.style.setProperty("--accent", pageAccent("#7aa2f7"));
   if (!reducedMotion) {
     heroTimer = setInterval(() => {
       if (document.hidden) return;
@@ -133,6 +125,33 @@
     }
     el.innerHTML = out;
   });
+
+  // Panel grids: give each cell sitting on a grid corner that corner's radius, so the
+  // hover outline follows the rounded edge. Recomputed whenever a grid reflows.
+  const R = "9px"; // --radius-lg (10px) minus the grid's 1px border
+  function tagCorners(grid) {
+    const box = grid.getBoundingClientRect();
+    const cells = [...grid.children];
+    const near = (a, b) => Math.abs(a - b) < 2;
+    let top = Infinity, bottom = -Infinity;
+    const rects = cells.map((c) => {
+      const r = c.getBoundingClientRect();
+      top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom);
+      return r;
+    });
+    cells.forEach((c, i) => {
+      const r = rects[i];
+      const left = near(r.left, box.left + 1), right = near(r.right, box.right - 1);
+      const first = near(r.top, top), last = near(r.bottom, bottom);
+      c.style.setProperty("--tl", first && left ? R : "0");
+      c.style.setProperty("--tr", first && right ? R : "0");
+      c.style.setProperty("--br", last && right ? R : "0");
+      c.style.setProperty("--bl", last && left ? R : "0");
+    });
+  }
+  const grids = document.querySelectorAll(".panel-grid");
+  const ro = new ResizeObserver((entries) => entries.forEach((e) => tagCorners(e.target)));
+  grids.forEach((g) => { tagCorners(g); ro.observe(g); });
 
   // Copy buttons
   async function copy(btn, text) {

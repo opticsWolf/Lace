@@ -3,33 +3,47 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lace — Docking for PySide6</title>
-  <meta name="description" content="Lace is an advanced, themeable docking system for PySide6: tabbed dock areas, floating windows, auto-hide sidebars, 37 themes and themed frameless dialogs.">
-  <meta name="theme-color" content="#08090f">
-  <meta property="og:title" content="Lace — Docking for PySide6">
-  <meta property="og:description" content="Tabbed dock areas, floating windows, auto-hide sidebars, 37 themes and themed dialogs for Qt desktop apps in Python.">
+  <title>Lace — The workspace layer for Qt</title>
+  <meta name="description" content="Lace is a docking framework and workspace layer for PySide6: tabbed docks, floating panels, auto-hide sidebars, saved layouts and a theme engine that reaches every surface.">
+  <meta name="theme-color" content="#0b0d12">
+  <meta property="og:title" content="Lace — The workspace layer for Qt">
+  <meta property="og:description" content="A docking framework with tabbed docks, floating panels, auto-hide sidebars and saved layouts for Qt desktop apps in Python.">
   <meta property="og:image" content="https://opticswolf.github.io/Lace/img/themes/tokyo_night.webp">
   <meta property="og:type" content="website">
   <link rel="icon" href="img/logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="bg-glow" aria-hidden="true"></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="lace-g" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#7aa2f7"/><stop offset=".55" stop-color="#5b84ea"/><stop offset=".85" stop-color="#8f6fe0"/><stop offset="1" stop-color="#d9649f"/>
+      </linearGradient>
+      <linearGradient id="lace-tip" x1="31" y1="34" x2="59" y2="59" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#7576e8"/><stop offset=".4" stop-color="#9c6cd6"/><stop offset=".7" stop-color="#d9649f"/><stop offset="1" stop-color="#dc629c"/>
+      </linearGradient>
+      <symbol id="lace-mark" viewBox="0 0 64 64">
+        <rect x="5" y="5" width="22" height="54" rx="7" fill="url(#lace-g)"/>
+        <rect x="31" y="5" width="28" height="25" rx="7" fill="url(#lace-g)" opacity=".7"/>
+        <rect x="32.5" y="35.5" width="25" height="22" rx="5.5" fill="url(#lace-tip)" fill-opacity=".14" stroke="url(#lace-tip)" stroke-width="3"/>
+      </symbol>
+    </defs>
+  </svg>
 
   <header class="nav" id="top">
     <div class="wrap nav-inner">
-      <a class="brand" href="#top"><img src="img/logo.svg" alt="" width="28" height="28"><span>Lace</span></a>
+      <a class="brand" href="#top"><svg class="brand-mark" width="28" height="28" aria-hidden="true"><use href="#lace-mark"/></svg><span>Lace</span></a>
       <nav class="nav-links" aria-label="Sections">
-        <a href="#features">Features</a>
-        <a href="#themes">Themes</a>
-        <a href="#dialogs">Dialogs</a>
-        <a href="#code">Code</a>
-        <a href="#docs">Docs</a>
+        <a href="#features">features</a>
+        <a href="#themes">themes</a>
+        <a href="#dialogs">dialogs</a>
+        <a href="#code">code</a>
+        <a href="#docs">docs</a>
       </nav>
-      <a class="btn btn-ghost btn-sm" href="https://github.com/opticsWolf/Lace">
+      <a class="btn btn-quiet btn-sm" href="https://github.com/opticsWolf/Lace">
         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>
         GitHub
       </a>
@@ -37,18 +51,20 @@
   </header>
 
   <main>
-    <!-- Hero -->
     <section class="hero">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <a class="pill" href="https://github.com/opticsWolf/Lace/releases/tag/v0.10.0">
-            <span class="pill-tag">New</span> 0.10.0 — tab overflow, descriptions &amp; edge resize <span aria-hidden="true">→</span>
+          <a class="release" href="https://github.com/opticsWolf/Lace/releases/tag/v0.10.0">
+            <span class="release-tag">0.10.0</span>
+            <span class="release-text">Tab overflow, descriptions &amp; edge resize</span>
+            <span class="release-arrow" aria-hidden="true">↗</span>
           </a>
-          <h1>Docking that looks<br><span class="grad">as good as it works.</span></h1>
+          <h1>The <span class="hl">workspace</span><br>layer for Qt.</h1>
+          <p class="hero-style">Every pixel in its place.</p>
           <p class="lede">
-            Lace is an advanced docking system for PySide6. Tabbed dock areas, floating
-            windows, auto-hide sidebars and saved layouts — drawn by a theme engine that
-            makes every panel, menu and dialog of your Qt app match.
+            A docking framework with tabbed docks, floating panels, auto-hide
+            sidebars and saved layouts — and a theme engine that reaches every
+            widget, menu and dialog.
           </p>
           <div class="install">
             <code><span class="prompt">$</span> pip install lace-dock</code>
@@ -58,7 +74,7 @@
           </div>
           <div class="cta">
             <a class="btn btn-primary" href="#code">Get started</a>
-            <a class="btn btn-ghost" href="#themes">Browse themes</a>
+            <a class="btn btn-quiet" href="#themes">Browse themes</a>
           </div>
           <ul class="meta">
             <li>Python 3.11+</li><li>PySide6 / Qt 6</li><li>Apache-2.0</li>
@@ -69,95 +85,94 @@
             <img id="hero-img" src="img/themes/tokyo_night.webp" width="1500" height="1000"
                  alt="The Lace demo app: dock areas with tabs, a sidebar and a calendar, in the Tokyo Night theme">
           </div>
-          <figcaption><span class="swatch" id="hero-swatch"></span><span id="hero-name">Tokyo Night</span></figcaption>
+          <figcaption><span class="shot-kicker">Live theme</span><span class="swatch" id="hero-swatch"></span><span id="hero-name">Tokyo Night</span></figcaption>
         </figure>
       </div>
     </section>
 
-    <!-- Stats -->
-    <section class="stats wrap" aria-label="At a glance">
-      <div><strong>37</strong><span>built-in themes</span></div>
-      <div><strong>20</strong><span>configuration flags</span></div>
-      <div><strong>1,950+</strong><span>tests</span></div>
-      <div><strong>0</strong><span>platform colours leaking through</span></div>
-    </section>
+    <div class="wrap">
+      <ul class="manifest panel-grid" aria-label="At a glance">
+        <li><strong>37</strong><span>built-in themes</span></li>
+        <li><strong>20</strong><span>configuration flags</span></li>
+        <li><strong>1,950+</strong><span>tests</span></li>
+        <li><strong>0</strong><span>platform colours leaking through</span></li>
+      </ul>
+    </div>
 
-    <!-- Features -->
     <section class="section" id="features">
       <div class="wrap">
-        <header class="section-head">
-          <p class="eyebrow">Features</p>
-          <h2>Everything a pro desktop layout needs.</h2>
-          <p>Built for IDEs, lab software, dashboards and editors — apps where people arrange their own workspace and come back to it every day.</p>
-        </header>
-
-        <div class="cards">
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="16" rx="2"/><rect x="13" y="4" width="8" height="7" rx="2"/><rect x="13" y="14" width="8" height="6" rx="2"/></svg></div>
-            <h3>Dock anywhere</h3>
-            <p>Left, right, top, bottom or as a tab. Nested splitters, reorderable tabs, maximize and restore any area.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="13" rx="2"/><path d="M8 4h11a2 2 0 0 1 2 2v11"/></svg></div>
-            <h3>Floating windows</h3>
-            <p>Tear any panel out into its own window and drag it back. Native or frameless chrome with snap, shadow and resize borders.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M5.5 8h0M5.5 11h0"/></svg></div>
-            <h3>Auto-hide sidebars</h3>
-            <p>VS Code-style slide-out panels with notification badges. Pin, unpin, and drag panels out of the sidebar again.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17Z" class="fill"/></svg></div>
-            <h3>OKLCH theme engine</h3>
-            <p>37 themes derived in OKLCH, held to WCAG contrast floors, and switched live. Follows the OS light/dark setting if you want it to.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></div>
-            <h3>Layouts &amp; perspectives</h3>
-            <p>Save the whole workspace to JSON — atomically — and switch between named perspectives like “Coding” or “Review”.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M15.5 7h0M18 7h0"/></svg></div>
-            <h3>Themed dialogs</h3>
-            <p>Message boxes, input, colour and file dialogs with your theme's title bar — drop-in for Qt's static helpers.</p>
-          </article>
+        <div class="feature-layout">
+          <div class="feature-copy">
+            <h2>A layout engine, not a widget pack.</h2>
+            <p>Lace gives a Qt window the structure of a real application: tabs that behave, panels that float, sidebars that wait, and layouts that survive the next launch.</p>
+          </div>
+          <div class="feature-list panel-grid">
+            <article class="feature-item">
+              <span class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="16" rx="2"/><rect x="13" y="4" width="8" height="7" rx="2"/><rect x="13" y="14" width="8" height="6" rx="2"/></svg></span>
+              <div><h3>Dock anywhere</h3><p>Left, right, top, bottom or as a tab. Nested splitters, reorderable tabs, maximize and restore any area.</p></div>
+            </article>
+            <article class="feature-item">
+              <span class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="13" rx="2"/><path d="M8 4h11a2 2 0 0 1 2 2v11"/></svg></span>
+              <div><h3>Floating windows</h3><p>Tear any panel out into its own window and drag it back. Native or frameless chrome with snap, shadow and resize borders.</p></div>
+            </article>
+            <article class="feature-item">
+              <span class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M5.5 8h0M5.5 11h0"/></svg></span>
+              <div><h3>Auto-hide sidebars</h3><p>VS Code-style slide-out panels with notification badges. Pin, unpin, and drag panels out of the sidebar again.</p></div>
+            </article>
+            <article class="feature-item">
+              <span class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17Z" class="fill"/></svg></span>
+              <div><h3>OKLCH theme engine</h3><p>37 themes derived in OKLCH, held to WCAG contrast floors, and switched live. Follows the OS light/dark setting if you want it to.</p></div>
+            </article>
+            <article class="feature-item">
+              <span class="feature-icon"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></span>
+              <div><h3>Layouts &amp; perspectives</h3><p>Save the whole workspace to JSON — atomically — and switch between named perspectives like “Coding” or “Review”.</p></div>
+            </article>
+            <article class="feature-item">
+              <span class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M15.5 7h0M18 7h0"/></svg></span>
+              <div><h3>Themed dialogs</h3><p>Message boxes, input, colour and file dialogs with your theme's title bar — drop-in for Qt's static helpers.</p></div>
+            </article>
+          </div>
         </div>
 
         <div class="showcase">
-          <div class="showcase-row">
+          <article class="showcase-row">
             <div class="showcase-copy">
-              <p class="eyebrow">Drag &amp; drop</p>
               <h3>Drop targets that show you exactly where it lands.</h3>
               <p>Drag a tab or a floating window and Lace overlays a cross over the area under the cursor and the edges of the window, previewing the split before you let go. Per-widget flags decide what can be closed, moved, floated or pinned.</p>
             </div>
-            <div class="shot-frame"><img loading="lazy" src="img/hover_cyberpunk_neon.webp" width="1499" height="999" alt="Drop indicators over a dock area while a window is dragged"></div>
-          </div>
-          <div class="showcase-row flip">
+            <figure class="showcase-media">
+              <div class="shot-frame"><img loading="lazy" src="img/hover_cyberpunk_neon.webp" width="1499" height="999" alt="Drop indicators over a dock area while a window is dragged"></div>
+              <figcaption>Drag &amp; drop · Cyberpunk Neon</figcaption>
+            </figure>
+          </article>
+          <article class="showcase-row flip">
             <div class="showcase-copy">
-              <p class="eyebrow">Sidebars</p>
               <h3>Panels out of the way until you need them.</h3>
               <p>Pin any dock widget to an edge. It folds into a vertical tab — with a badge for unread items — and slides out over the layout on click, keeping or handing back keyboard focus as you configure.</p>
             </div>
-            <div class="shot-frame"><img loading="lazy" src="img/sidebar_kilim_dark.webp" width="1499" height="999" alt="A pinned panel slid out from the right sidebar"></div>
-          </div>
+            <figure class="showcase-media">
+              <div class="shot-frame"><img loading="lazy" src="img/sidebar_kilim_dark.webp" width="1500" height="1000" alt="The Right Pinnable Tool panel slid out from the right sidebar and holding focus, with badges on the other sidebar tabs"></div>
+              <figcaption>Pinned sidebar · Kilim Dark</figcaption>
+            </figure>
+          </article>
         </div>
       </div>
     </section>
 
-    <!-- Themes -->
     <section class="section themes" id="themes">
       <div class="wrap">
-        <header class="section-head">
-          <p class="eyebrow">Themes</p>
-          <h2>One switch. Every pixel follows.</h2>
+        <div class="section-head">
+          <h2>One switch.<br>Every pixel follows.</h2>
           <p>Docks, tabs, menus, scroll bars, title bars and the full <code>QPalette</code> — Active, Inactive and Disabled — all change together. Here are seventeen of the 37, including the editor classics.</p>
-        </header>
-        <div class="theme-picker" role="tablist" aria-label="Themes" id="theme-picker"></div>
-        <div class="shot-frame theme-stage">
-          <img id="theme-img" src="img/themes/midnight_neo.webp" width="1500" height="1000" alt="The demo app in the selected theme">
         </div>
-        <div class="theme-notes">
+        <div class="theme-picker" role="tablist" aria-label="Themes" id="theme-picker"></div>
+        <figure class="theme-stage-wrap">
+          <div class="shot-frame theme-stage">
+            <img id="theme-img" src="img/themes/midnight_neo.webp" width="1500" height="1000" alt="The demo app in the selected theme">
+          </div>
+          <figcaption>Live preview · pick a theme above</figcaption>
+        </figure>
+        <div class="theme-notes panel-grid">
           <div><h4>Derived, not hand-picked</h4><p>Two seed colours and a chassis make a theme. Surfaces step evenly in OKLCH; text holds its contrast.</p></div>
           <div><h4>Theme Studio</h4><p><code>python -m lace.theme_kit studio</code> edits a theme live, audits contrast and exports JSON.</p></div>
           <div><h4>Ship your own</h4><p>Load JSON themes validated by Pydantic, or define a <code>ThemeSpec</code> with your colours and geometry.</p></div>
@@ -165,35 +180,33 @@
       </div>
     </section>
 
-    <!-- Dialogs -->
     <section class="section" id="dialogs">
-      <div class="wrap dialogs-grid">
-        <div>
-          <p class="eyebrow">Themed dialogs</p>
-          <h2>Dialogs that belong to your app.</h2>
-          <p class="section-lede">A stock Qt message box breaks the look with a system title bar. <code>lace.dialogs</code> mirrors Qt's static functions — same arguments, same return values — but each dialog carries your theme's title bar. Build your own with <code>FramelessLaceDialog</code>.</p>
-          <ul class="checks">
-            <li>Message boxes: information, question, warning, critical, about</li>
-            <li>Text, item, integer and decimal input</li>
-            <li>Colour picker, and Qt or native file dialogs</li>
-            <li>System-framed windows still get the theme's caption colour on Windows 11</li>
-          </ul>
-        </div>
-        <div class="dialog-stack">
-          <div class="shot-frame back"><img loading="lazy" src="img/dialog_light.webp" width="1499" height="999" alt="A themed question dialog in the Light theme"></div>
-          <div class="shot-frame front"><img loading="lazy" src="img/dialog_tokyo_night.webp" width="1499" height="999" alt="A themed question dialog in the Tokyo Night theme"></div>
+      <div class="wrap">
+        <div class="dialogs-grid">
+          <div>
+            <h2>Dialogs that belong to your app.</h2>
+            <p class="section-lede">A stock Qt message box breaks the look with a system title bar. <code>lace.dialogs</code> mirrors Qt's static functions — same arguments, same return values — but each dialog carries your theme's title bar. Build your own with <code>FramelessLaceDialog</code>.</p>
+            <ul class="checks">
+              <li>Message boxes: information, question, warning, critical, about</li>
+              <li>Text, item, integer and decimal input</li>
+              <li>Colour picker, and Qt or native file dialogs</li>
+              <li>System-framed windows still get the theme's caption colour on Windows 11</li>
+            </ul>
+          </div>
+          <div class="dialog-stack">
+            <div class="shot-frame back"><img loading="lazy" src="img/dialog_light.webp" width="1499" height="999" alt="A themed question dialog in the Light theme"></div>
+            <div class="shot-frame front"><img loading="lazy" src="img/dialog_tokyo_night.webp" width="1499" height="999" alt="A themed question dialog in the Tokyo Night theme"></div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Code -->
     <section class="section" id="code">
       <div class="wrap">
-        <header class="section-head">
-          <p class="eyebrow">Code</p>
+        <div class="section-head">
           <h2>A docking window in twenty lines.</h2>
           <p>Lace's API is plain Python on top of PySide6. Create a manager, add widgets, pick a theme.</p>
-        </header>
+        </div>
         <div class="code-card">
           <div class="code-tabs" role="tablist" aria-label="Examples">
             <button role="tab" aria-selected="true" data-tab="quick">Quick start</button>
@@ -271,35 +284,35 @@ get_dock_style_manager().apply_theme_dict(theme)</code></pre>
       </div>
     </section>
 
-    <!-- Docs -->
     <section class="section" id="docs">
       <div class="wrap">
-        <header class="section-head">
-          <p class="eyebrow">Documentation</p>
+        <div class="section-head">
           <h2>Read the manual.</h2>
-        </header>
-        <div class="doc-links">
-          <a href="https://github.com/opticsWolf/Lace/blob/main/docs/QUICK_REFERENCE.md"><h4>Quick Reference</h4><p>Copy-paste recipes for every feature.</p><span aria-hidden="true">→</span></a>
-          <a href="https://github.com/opticsWolf/Lace/blob/main/docs/ARCHITECTURE.md"><h4>Architecture</h4><p>Module by module: classes, signals and data flow.</p><span aria-hidden="true">→</span></a>
-          <a href="https://github.com/opticsWolf/Lace/blob/main/docs/theming_and_geometry.md"><h4>Theming &amp; Geometry</h4><p>Every token, the chassis, and title bars.</p><span aria-hidden="true">→</span></a>
-          <a href="https://github.com/opticsWolf/Lace/blob/main/docs/THEME_KIT.md"><h4>Theme Kit</h4><p>Build, audit and export your own themes.</p><span aria-hidden="true">→</span></a>
-          <a href="https://github.com/opticsWolf/Lace/blob/main/CHANGELOG.md"><h4>Changelog</h4><p>What changed in each release.</p><span aria-hidden="true">→</span></a>
-          <a href="https://pypi.org/project/lace-dock/"><h4>PyPI</h4><p><code>lace-dock</code> — install and version history.</p><span aria-hidden="true">→</span></a>
+          <p>Everything from the first window to the last theme token, written for people who would rather ship than guess.</p>
+        </div>
+        <div class="doc-links panel-grid">
+          <a href="https://github.com/opticsWolf/Lace/blob/main/docs/QUICK_REFERENCE.md"><h4>Quick Reference</h4><p>Copy-paste recipes for every feature.</p><span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/opticsWolf/Lace/blob/main/docs/ARCHITECTURE.md"><h4>Architecture</h4><p>Module by module: classes, signals and data flow.</p><span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/opticsWolf/Lace/blob/main/docs/theming_and_geometry.md"><h4>Theming &amp; Geometry</h4><p>Every token, the chassis, and title bars.</p><span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/opticsWolf/Lace/blob/main/docs/THEME_KIT.md"><h4>Theme Kit</h4><p>Build, audit and export your own themes.</p><span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/opticsWolf/Lace/blob/main/CHANGELOG.md"><h4>Changelog</h4><p>What changed in each release.</p><span aria-hidden="true">↗</span></a>
+          <a href="https://pypi.org/project/lace-dock/"><h4>PyPI</h4><p><code>lace-dock</code> — install and version history.</p><span aria-hidden="true">↗</span></a>
         </div>
       </div>
     </section>
 
-    <!-- Final CTA -->
     <section class="section final">
-      <div class="wrap final-card">
-        <h2>Give your Qt app a workspace.</h2>
-        <p>Clone the repo and run the demo to try every feature, then drop Lace into your own window.</p>
-        <div class="install center">
-          <code><span class="prompt">$</span> git clone https://github.com/opticsWolf/Lace &amp;&amp; cd Lace &amp;&amp; pip install -e . &amp;&amp; python -m demos.demo_app</code>
-        </div>
-        <div class="cta center">
-          <a class="btn btn-primary" href="https://github.com/opticsWolf/Lace">View on GitHub</a>
-          <a class="btn btn-ghost" href="https://github.com/opticsWolf/Lace/releases">Releases</a>
+      <div class="wrap">
+        <div class="final-card">
+          <h2>Give your Qt app<br>a real workspace.</h2>
+          <p>Clone the repo and run the demo to try every feature, then drop Lace into your own window.</p>
+          <div class="install center">
+            <code><span class="prompt">$</span> git clone https://github.com/opticsWolf/Lace &amp;&amp; cd Lace &amp;&amp; pip install -e . &amp;&amp; python -m demos.demo_app</code>
+          </div>
+          <div class="cta center">
+            <a class="btn btn-primary" href="https://github.com/opticsWolf/Lace">View on GitHub</a>
+            <a class="btn btn-quiet" href="https://github.com/opticsWolf/Lace/releases">Releases</a>
+          </div>
         </div>
       </div>
     </section>
@@ -307,7 +320,7 @@ get_dock_style_manager().apply_theme_dict(theme)</code></pre>
 
   <footer class="footer">
     <div class="wrap footer-inner">
-      <div class="brand small"><img src="img/logo.svg" alt="" width="20" height="20"><span>Lace</span></div>
+      <div class="brand small"><svg class="brand-mark" width="20" height="20" aria-hidden="true"><use href="#lace-mark"/></svg><span>Lace</span></div>
       <p>Apache-2.0 · © 2026 opticsWolf · includes code from <a href="https://github.com/klauer/qtpydocking">qtpydocking</a> (BSD-3-Clause)</p>
       <nav aria-label="Footer"><a href="https://github.com/opticsWolf/Lace">GitHub</a><a href="https://pypi.org/project/lace-dock/">PyPI</a><a href="https://github.com/opticsWolf/Lace/issues">Issues</a></nav>
     </div>
