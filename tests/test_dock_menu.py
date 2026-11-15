@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QMenu
 from lace.dock_menu import (dock_icon, MenuContext, MenuSection,
                             build_dock_context_menu)
 from lace.dock_theme import DockStyleCategory
-from lace.enums import DockWidgetArea
+from lace.enums import DockWidgetArea, InsertionOrder
 
 
 def _icon(color):
@@ -28,11 +28,16 @@ def _add_tab(desk, title, icon=None, target=None):
 
 def _switch_actions(menu):
     """``{tab index: action}`` for the checkable tab entries."""
-    found = {}
+    return {action.data()[1]: action for action in _switch_action_list(menu)}
+
+
+def _switch_action_list(menu):
+    """The checkable tab entries, in the order they appear in the menu."""
+    found = []
     for action in menu.actions():
         data = action.data()
         if isinstance(data, (tuple, list)) and data and data[0] == "switch_tab":
-            found[data[1]] = action
+            found.append(action)
     return found
 
 
@@ -88,6 +93,26 @@ def test_the_title_bar_context_menu_uses_the_same_tab_icons(qapp, make_desk):
 
     assert actions[0].icon().cacheKey() == title_bar.tab_bar().tab(0).icon().cacheKey()
     assert actions[1].icon().cacheKey() == title_bar.tab_bar().tab(1).icon().cacheKey()
+
+
+def test_the_tab_list_follows_menu_insertion_order(qapp, make_desk):
+    desk = make_desk()
+    area = _add_tab(desk, "Zulu")
+    _add_tab(desk, "Alpha", target=area)
+    _add_tab(desk, "Mike", target=area)
+    desk.show(area)
+    qapp.processEvents()
+
+    menu = QMenu()
+    area._title_bar.build_dock_menu(menu, area._title_bar.tab_bar())
+    assert [a.text() for a in _switch_action_list(menu)] == ["Alpha", "Mike", "Zulu"]
+    assert [a.data()[1] for a in _switch_action_list(menu)] == [1, 2, 0]
+
+    desk.manager.menu_insertion_order = InsertionOrder.by_insertion
+    menu = QMenu()
+    area._title_bar.build_dock_menu(menu, area._title_bar.tab_bar())
+    assert [a.text() for a in _switch_action_list(menu)] == ["Zulu", "Alpha", "Mike"]
+    assert [a.data()[1] for a in _switch_action_list(menu)] == [0, 1, 2]
 
 
 def test_the_application_icon_is_the_final_fallback(qapp, make_desk):

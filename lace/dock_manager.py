@@ -652,6 +652,12 @@ class DockManager(QObject):
         if self._menu_insertion_order != order:
             self._menu_insertion_order = order
             self._rebuild_view_menu()
+            # The title-bar tabs menu caches its actions; drop that cache so
+            # its tab list also adopts the new order on the next open.
+            for container in self.dock_containers():
+                for area in container.opened_dock_areas():
+                    if area._title_bar is not None:
+                        area._title_bar.mark_tabs_menu_outdated()
 
     def add_toggle_view_action_to_menu(self, action: QAction, group: str = None, menu: QMenu = None):
         """

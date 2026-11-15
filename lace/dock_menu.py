@@ -17,7 +17,8 @@ from PySide6.QtCore import QPoint, QRect, QSize
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QMenu, QStyle
 
-from lace.enums import DockWidgetArea, DockWidgetFeature, DockFlags
+from lace.enums import (DockWidgetArea, DockWidgetFeature, DockFlags,
+                        InsertionOrder)
 from lace.dock_style_manager import get_dock_style_manager
 from lace.dock_theme import DEFAULT_ICON_SIZE, DockStyleCategory
 from lace.dock_icon_provider import get_icon_provider
@@ -293,9 +294,23 @@ def build_dock_context_menu(context: MenuContext, menu: QMenu) -> None:
     # ── Tab list (only entries when > 1 tabs) ─────────────────────
     if MenuSection.TAB_LIST in sections and tab_bar is not None and count > 1:
         current_index = tab_bar.current_index()
-        for i in range(tab_bar.count()):
-            if not tab_bar.is_tab_open(i):
-                continue
+        indexes = [i for i in range(tab_bar.count())
+                   if tab_bar.is_tab_open(i)]
+
+        # Use the same menu ordering setting as the View menu.  For this
+        # tab list, ``by_insertion`` means tab-strip order: the order the
+        # tabs were inserted, updated by drag reordering.  The View menu has
+        # no strip, so it uses registration order instead.
+        manager = area.dock_manager() if area is not None else None
+        if manager is None:
+            widget = context.widget
+            manager = widget.dock_manager() if widget is not None else None
+        order = (manager.menu_insertion_order
+                 if manager is not None else InsertionOrder.by_spelling)
+        if order == InsertionOrder.by_spelling:
+            indexes.sort(key=lambda i: tab_bar.tab(i).text().lower())
+
+        for i in indexes:
             tab = tab_bar.tab(i)
             act = menu.addAction(_tab_icon(tab), tab.text())
             act.setToolTip(tab.toolTip())

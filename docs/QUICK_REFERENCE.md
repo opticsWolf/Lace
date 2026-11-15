@@ -929,6 +929,7 @@ class ThemeSwitcher:
 | `remove_perspective(name)` | Delete a perspective |
 | `perspective_names()` | List all perspective names |
 | `view_menu` | QMenu with toggle actions for all dock widgets |
+| `menu_insertion_order` | `by_spelling` (default) or `by_insertion` for the View and right-click tab menus |
 | `config_flags` | Get/set global configuration flags |
 | `sidebar_focus_behavior` | Get/set sidebar focus behavior |
 | `sidebar_hover_delay` / `sidebar_hide_delay` / `sidebar_switch_delay` | Get/set sidebar timing in milliseconds (defaults 150 / 400 / 150) |

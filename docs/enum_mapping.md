@@ -144,12 +144,12 @@ Keys for `DockAreaTitleBar.button(which)` and `DockAreaWidget.title_bar_button(w
 ### 3.6 `InsertionOrder`
 
 Set with `DockManager.menu_insertion_order` (default `by_spelling`); a change calls
-`DockManager._rebuild_view_menu()`.
+`DockManager._rebuild_view_menu()` and affects the next right-click tab-list build.
 
 | Member | Meaning | Read by |
 | :--- | :--- | :--- |
-| `by_spelling` | View menu sorted by title | `DockManager.add_toggle_view_action_to_menu()` |
-| `by_insertion` | View menu in registration order | `DockManager._rebuild_view_menu()` |
+| `by_spelling` | View menu and tab list sorted by title | `DockManager.add_toggle_view_action_to_menu()`, `build_dock_context_menu()` |
+| `by_insertion` | View menu in registration order; tab list in tab-strip order (including drag reordering) | `DockManager._rebuild_view_menu()`, `build_dock_context_menu()` |
 
 ### 3.7 `DockWidgetFeature`
 

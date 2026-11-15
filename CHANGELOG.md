@@ -22,6 +22,8 @@ through a cycle.
 - Selecting a tab beyond the visible strip now scrolls it into view after layout.
 - The mouse wheel over a tab now scrolls the center tab strip and sidebar, not just the empty
   strip or the arrows.
+- The title-bar right-click tab list now follows `DockManager.menu_insertion_order`:
+  `by_spelling` sorts alphabetically, `by_insertion` keeps tab-strip order.
 - Sidebar tab tooltips follow title and description changes.
 
 ## [0.9.7] — 2026-10-04

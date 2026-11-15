@@ -71,7 +71,7 @@
 
 - **20 global flags** — Control tab visibility, button visibility, tab scrolling, drag behavior, floating window chrome, icon styling, and more
 - **Per-widget feature flags** — Granular control over what each dock widget can do: closable, movable, floatable, pinnable
-- **Insertion order** — Sort "Show View" menu items alphabetically or chronologically
+- **Insertion order** — Sort "Show View" and right-click tab-list items alphabetically or by insertion
 - **Toggle view actions** — Integrate dock widget show/hide into menu bars or toolbars as checkable toggles or one-way show buttons
 
 ### 💾 Persistence
