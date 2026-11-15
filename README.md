@@ -11,6 +11,10 @@
 [![Framework](https://img.shields.io/badge/framework-PySide6%20%2F%20Qt6-purple)](https://pypi.org/project/PySide6/)
 [![Website](https://img.shields.io/badge/website-Lace-ff3d9a)](https://opticswolf.github.io/Lace/)
 
+![Lace in action: resizing a pane, dragging a tab into it with the drop preview, switching themes, pulling a panel out of a sidebar and docking it, and pinning a panel to a sidebar](https://raw.githubusercontent.com/opticsWolf/Lace/main/screenshots/lace_tour_short.gif?v=0.10.1)
+
+*Resize, drag and drop with a live preview, theme switching, sidebars: all in the demo app ([`demos/demo_app_custom_titlebar.py`](https://github.com/opticsWolf/Lace/blob/main/demos/demo_app_custom_titlebar.py)).*
+
 ---
 
 ## Table of Contents
