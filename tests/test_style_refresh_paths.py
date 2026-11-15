@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Which restyle path runs when — docs/CODE_REVIEW.md §4.1, §4.2.
+"""Which restyle path runs when — docs/archive/CODE_REVIEW.md §4.1, §4.2.
 
 Focus changes fire on every click, and a single click restyles both the losing
 and the gaining dock area. The full refresh_style() rebuilds stylesheets,

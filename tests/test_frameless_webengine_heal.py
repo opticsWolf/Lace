@@ -4,7 +4,7 @@
 A GL child (QWebEngineView first setHtml, QOpenGLWidget, …) makes Qt destroy
 and recreate the top-level native handle, stripping the CAPTION/THICKFRAME
 bits DWM rounding and Snap depend on. See
-docs/frameless-webengine-findings.md §3.
+docs/archive/frameless-webengine-findings.md §3.
 
 FramelessLaceMainWindow / FramelessLaceWindow watch QEvent.WinIdChange and
 defer a coalesced ensure_frameless_chrome() (updateFrameless + taskbar

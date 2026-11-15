@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Layout save/restore round-trip tests — docs/CODE_REVIEW.md §6.
+"""Layout save/restore round-trip tests — docs/archive/CODE_REVIEW.md §6.
 
 These assert *placement*, not just the boolean returned by restore_state().
 Before the v0.5.1 fix, restore_state() returned True while orphaning every

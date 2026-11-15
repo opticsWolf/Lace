@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""lace.dialogs helpers (docs/DIALOG_TITLEBAR_PLAN.md, phase D3).
+"""lace.dialogs helpers (docs/archive/DIALOG_TITLEBAR_PLAN.md, phase D3).
 
 Each helper is driven through a QTimer while its modal loop runs: the host
 must be a FramelessLaceDialog with the Qt dialog embedded (not a window),

@@ -5,7 +5,7 @@ All notable changes to Lace are recorded here.  Versions follow
 the public API happen in minor/patch releases rather than being deprecated
 through a cycle.
 
-## [Unreleased]
+## [0.10.0] — 2026-11-15
 
 ### Added
 
@@ -16,6 +16,9 @@ through a cycle.
   two-character layout minimum.
 - `demos/demo_app_overflow.py` for exercising overflow arrows, descriptions, icon-only tabs and
   live flag changes.
+- `DockManager.sidebar_hover_delay`, `sidebar_hide_delay` and `sidebar_switch_delay`, plus the
+  matching `SidebarManager` properties. The default hover delay is 150 ms; 0 opens immediately,
+  and clicks are never delayed.
 
 ### Changed
 
@@ -30,9 +33,18 @@ through a cycle.
   6.12.1 branch, where the same `State_MouseOver`/`hoverRect` logic remains (the 6.12 hover
   fix, QTBUG-146116, only covers vertical tabs). Revisit and remove the tracker/pointer
   fallback if a future Qt release fixes horizontal `QTabBar` hover-state tracking.
+- The default sidebar hover delay is now **150 ms** (hide 400 ms, switch 150 ms). Set any of
+  the three delays to 0 to make that transition immediate.
 
 ### Fixed
 
+- A sidebar tab strip no longer blocks window-edge resizing. Its window-facing edge carries a
+  3 px transparent grip that starts a system resize, so frameless windows stay resizable where
+  the sidebar meets the window border.
+- Title-bar right-click tab lists now use each dock's own icon (falling back to the tab-list
+  glyph, then the window/application icon) instead of the same generic tab icon for every dock.
+- `QDateEdit` and `QDateTimeEdit` calendar popups now use the rounded themed popup panel,
+  soft shadow and rounded accent nav bar, with antialiased bottom corners.
 - Frameless main windows now re-activate the `QMainWindow` layout after title-bar/menu-widget
   changes, native state changes, screen/DPI changes and native-handle recreation. A layout pass
   during `setMenuWidget()` could leave the central widget at `y=0`, under the still-visible custom
@@ -452,7 +464,7 @@ unchanged; every new keyword has a default that keeps the 0.7.6 look.
 
 ## [0.7.5] — 2026-09-15
 
-Frameless follow-through from `docs/frameless-webengine-findings.md`
+Frameless follow-through from `docs/archive/frameless-webengine-findings.md`
 (Kilim WebEngine surface): the GL-child handle recreation now auto-heals,
 and the custom-bar recipe is code instead of documentation.
 
@@ -483,7 +495,7 @@ and the custom-bar recipe is code instead of documentation.
 ## [0.7.0] — 2026-09-03
 
 The release the 0.6.6 – 0.6.18 patches roll up into: the seven phases of
-`docs/IMPROVEMENT_PLAN_v0.7.md`, one bug found while testing them, and the
+`docs/archive/IMPROVEMENT_PLAN_v0.7.md`, one bug found while testing them, and the
 theme work that followed.  Nothing new lands here that is not already in an
 entry below — this is the version number catching up with the work.
 
@@ -659,7 +671,7 @@ a split drop onto a maximized area.
 
 ## [0.6.12] — 2026-09-03
 
-Phase 7 of `docs/IMPROVEMENT_PLAN_v0.7.md`: cleanup and hygiene.
+Phase 7 of `docs/archive/IMPROVEMENT_PLAN_v0.7.md`: cleanup and hygiene.
 
 ### Removed
 

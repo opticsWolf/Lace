@@ -90,7 +90,7 @@ class MenuEmbeddedTitleBar(LaceStandardTitleBar, DockStyled):
 
         # Anchored after the title (the title is hidden, so this reads as
         # right-after-the-icon). Never hardcode the index: the base layout
-        # order changed before (see docs/frameless-webengine-findings.md §1).
+        # order changed before (see docs/archive/frameless-webengine-findings.md §1).
         self.insert_content_widget(self.menu_bar)
 
         self._build_menus()

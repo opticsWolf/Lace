@@ -2,11 +2,15 @@
 
 **Advanced PySide6 Docking System** — your 5-minute guide to getting started.
 
-**Version:** 0.9.7
+**Version:** 0.10.0
 
 ---
 
 ## 1. Installation & Setup
+
+```bash
+pip install lace-dock
+```
 
 ### Minimal Window
 
@@ -161,6 +165,33 @@ dock_manager.add_dock_widget(DockWidgetArea.center, editor)
 dock_manager.add_dock_widget(DockWidgetArea.center, console)  # becomes a tab
 ```
 
+### Tab Overflow, Tooltips and Descriptions
+
+When tabs would become narrower than twice their eliding width, Lace shows
+automatic `‹` / `›` scroll arrows instead of squeezing labels to a sliver.
+The flag `DockFlags.dock_area_has_tab_scroll_buttons` is on by default; turn it
+off to disable the arrows entirely. The mouse wheel over the tab strip still
+scrolls it, and selecting a tab outside the visible strip scrolls it into view.
+
+```python
+from lace import DockFlags
+
+# Keep the automatic arrows (default), or disable them:
+dock_manager.config_flags |= DockFlags.dock_area_has_tab_scroll_buttons   # on
+dock_manager.config_flags &= ~DockFlags.dock_area_has_tab_scroll_buttons  # off
+```
+
+Tabs get a tooltip only when the title actually elides or the dock has a
+description. A short, undescribed title stays tooltip-free:
+
+```python
+from lace import DockWidget
+
+log = DockWidget("Log", description="Build output and diagnostics")
+log.set_description("Updated at runtime")   # refreshes tab and sidebar tooltips
+log.set_tab_tool_tip("Explicit override")   # empty string clears the override
+```
+
 ---
 
 ## 4. Sidebars (Auto-Hide Panels)
@@ -179,6 +210,11 @@ The default allows all four sides, and a sidebar is made the first time a dock
 is pinned there. With an allow-list, pinning never makes a sidebar outside it:
 a dock is pinned to the closest allowed side, and a layout that pins one to a
 side that isn't allowed restores it to the closest one that is.
+
+Each sidebar's tab strip keeps a 3 px transparent grip on its window-facing
+edge. Dragging that strip's outer edge calls `startSystemResize()`, so a
+frameless window remains resizable where the sidebar sits against the window
+border; normal tab clicks inside the grip are unaffected.
 
 ### Pinning
 
@@ -753,7 +789,7 @@ recreate the top-level native handle, stripping the DWM bits. Both frameless
 window classes watch `QEvent.WinIdChange` and re-apply the chrome
 (`ensure_frameless_chrome()` — `updateFrameless()` plus the float taskbar
 ex-style), coalesced and idempotent; `restore_frameless_chrome()` remains as
-a manual escape hatch. See `docs/frameless-webengine-findings.md`.
+a manual escape hatch. See `docs/archive/frameless-webengine-findings.md`.
 
 ### Chromeless Floating Windows
 

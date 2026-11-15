@@ -53,8 +53,8 @@ mechanism.
 | # | Entry point | Implementation | Mechanism |
 | --- | --- | --- | --- |
 | 1 | Double-click the title bar | `LaceStandardTitleBar.mouseDoubleClickEvent` → `showMaximized()` / `showNormal()` | **Qt** |
-| 2 | Dock-area ⛶ button on a solo-area float | `DockContainerWidget.toggle_maximize_dock_area` ([dock_container_widget.py:842](../lace/dock_container_widget.py#L842)) | **Qt** |
-| 3 | Layout restore | `LayoutSerializer` → `fw.showMaximized()` ([layout_serializer.py:302](../lace/layout_serializer.py#L302)) | **Qt** |
+| 2 | Dock-area ⛶ button on a solo-area float | `DockContainerWidget.toggle_maximize_dock_area` ([dock_container_widget.py:842](../../lace/dock_container_widget.py#L842)) | **Qt** |
+| 3 | Layout restore | `LayoutSerializer` → `fw.showMaximized()` ([layout_serializer.py:302](../../lace/layout_serializer.py#L302)) | **Qt** |
 | 4 | **Title-bar maximize button** | `TitleBarBase.maxBtn.clicked` → `qframelesswindow.utils.toggleMaxState` | **Win32** |
 
 Fixed in 0.5.52: `LaceStandardTitleBar.__init__` disconnects the base wiring
@@ -115,7 +115,7 @@ Case **C** is the one users hit, and it is worse than a no-op. The first
 lies, so the next double-click takes the `else` branch and calls
 `showMaximized()` — the float can never be restored again by any Qt-side
 caller. Entry points 2 and 3 read the same lying flag
-(`is_area_maximized()` at [dock_container_widget.py:759](../lace/dock_container_widget.py#L759)),
+(`is_area_maximized()` at [dock_container_widget.py:759](../../lace/dock_container_widget.py#L759)),
 so the dock-area ⛶ icon goes wrong too.
 
 Cases A and D are each individually correct. **Only the mixture is broken.**
@@ -130,7 +130,7 @@ Two independent facts combine.
 
 **The window is owned.** The float is constructed as
 `super().__init__(dock_manager.root_container())`
-([floating_dock_container_frameless.py:69](../lace/floating_dock_container_frameless.py#L69))
+([floating_dock_container_frameless.py:69](../../lace/floating_dock_container_frameless.py#L69))
 and then promoted with `Qt.Window`. Qt gives a parented top-level window
 the parent's `HWND` as its *owner*. Win32 gives an owned window a taskbar
 button only when `WS_EX_APPWINDOW` is set. Measured:
@@ -287,7 +287,7 @@ VERDICT: REFUSED (no modal loop)
 
 (The same rule is why the system menu greys out *Move* while maximized —
 Lace's own Qt fallback menu encodes it at
-[frameless_window.py:211](../lace/frameless_window.py#L211).)
+[frameless_window.py:211](../../lace/frameless_window.py#L211).)
 
 So after the §3.3 sequence the float is in the terminal state: Win32 says
 maximized (no moving), Qt says normal (no restoring). The title bar is
@@ -344,7 +344,7 @@ canDrag(pos) = _isDragRegion(pos) and not _hasButtonPressed()
 
 a button left in `PRESSED` makes the *whole title bar* undraggable, and
 `_handle_titlebar_drag` then declines every press
-([floating_dock_container_frameless.py:600](../lace/floating_dock_container_frameless.py#L600)).
+([floating_dock_container_frameless.py:600](../../lace/floating_dock_container_frameless.py#L600)).
 Measured offscreen: after a complete press+release on `maxBtn` the state is
 still `PRESSED` and `canDrag()` is still `False`.
 

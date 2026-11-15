@@ -71,7 +71,7 @@ A titlebar visible: True   C titlebar: True
 ```
 
 So there is no missing repaint. What *is* missing is everything else. Compare the two sibling
-insertion paths in [dock_container_widget.py](../lace/dock_container_widget.py):
+insertion paths in [dock_container_widget.py](../../lace/dock_container_widget.py):
 
 | Post-insert step | `_add_dock_area()` (:387) | `_dock_widget_into_dock_area()` (:361) |
 |---|---|---|
@@ -138,7 +138,7 @@ free function — `split_share(target_size, handle_width, n_new)` — and call i
 "insert a sibling next to this area" means the same thing whether it came from a drag or from
 `add_dock_widget()`.
 
-> **Note on `hide_empty_parent_splitters()`** ([util.py:76](../lace/util.py)): it calls
+> **Note on `hide_empty_parent_splitters()`** ([util.py:76](../../lace/util.py)): it calls
 > `splitter.hide()`, which sets `WA_WState_ExplicitShowHide`. That is the flag that suppresses
 > Qt's `ChildPolished` auto-show. The two ad-hoc `if not splitter.isVisible(): splitter.show()`
 > lines in `_add_dock_area()` (:410) and `_drop_into_container()` (:145) exist because of it. If
@@ -153,7 +153,7 @@ half-broken, so both need addressing.
 
 ### Cause 1 — the centre indicator is switched off in exactly the case you want it
 
-[floating_behaviour.py:534-538](../lace/floating_behaviour.py):
+[floating_behaviour.py:534-538](../../lace/floating_behaviour.py):
 
 ```python
 dock_area_overlay.set_allowed_areas(
@@ -162,7 +162,7 @@ dock_area_overlay.set_allowed_areas(
     else DockWidgetArea.all_dock_areas)
 ```
 
-`no_area` is `0`. `DockOverlayCross.reset()` ([dock_overlay.py:379](../lace/dock_overlay.py)) then
+`no_area` is `0`. `DockOverlayCross.reset()` ([dock_overlay.py:379](../../lace/dock_overlay.py)) then
 hides **every** indicator widget, and `cursor_location()` (:341) requires `widget.isVisible()`, so
 it can only return `invalid`. **[verified]:**
 
@@ -187,7 +187,7 @@ container overlay *is* given `all_dock_areas` for a solo area, :523-527). Droppi
 `_drop_into_container()`.
 
 `_drop_into_container()` has no centre special case, so it goes through
-`dock_area_insert_parameters()` ([dock_container_widget.py:40](../lace/dock_container_widget.py)),
+`dock_area_insert_parameters()` ([dock_container_widget.py:40](../../lace/dock_container_widget.py)),
 where centre is folded in with bottom:
 
 ```python
@@ -255,7 +255,7 @@ I traced it end to end. `pin` is created and updated exactly like `close`, `floa
 `tabs_menu`:
 
 - construction — `dock_icon("pin", DockStyleCategory.TITLE_BAR)`
-  ([dock_area_title_bar.py:124](../lace/dock_area_title_bar.py))
+  ([dock_area_title_bar.py:124](../../lace/dock_area_title_bar.py))
 - refresh — `dock_icon(pin_key, DockStyleCategory.TITLE_BAR)` where `pin_key = "unpin" if is_pinned
   else "pin"` (:387)
 - sizing — the same `icon_size` as every other button (:388), and the same
@@ -340,12 +340,12 @@ stay the reference.
 ### The bug
 
 `DockWidgetTab` resolves its **label** colour through `_resolve_focus_colors()`
-([dock_widget_tab.py:582](../lace/dock_widget_tab.py)), which honours `TAB.tab_dimming`: when the
+([dock_widget_tab.py:582](../../lace/dock_widget_tab.py)), which honours `TAB.tab_dimming`: when the
 dock area is unfocused, the active tab's text is blended halfway back toward `text_normal`.
 
 Its **icon** is resolved through a completely separate path —
 `DockIconProvider._resolve_normal_color(TAB, styles, active)`
-([dock_icon_provider.py:173](../lace/dock_icon_provider.py)) — which knows about `active` and
+([dock_icon_provider.py:173](../../lace/dock_icon_provider.py)) — which knows about `active` and
 nothing about focus. It returns raw `text_active` / `text_normal`.
 
 The two therefore disagree exactly when the area loses focus. **[verified]** on two themes:
@@ -369,11 +369,11 @@ On all ten, an unfocused active tab shows a dimmed title next to a full-brightne
 
 Two reinforcing reasons:
 
-1. **`refresh_focus_tint()` does not call `update_icon()`** ([dock_widget_tab.py:656](../lace/dock_widget_tab.py)).
+1. **`refresh_focus_tint()` does not call `update_icon()`** ([dock_widget_tab.py:656](../../lace/dock_widget_tab.py)).
    That is the cheap path taken on every focus change, and it deliberately excludes icon work —
    correct as long as icons don't depend on focus, which is precisely the assumption that is
    wrong. **[verified]:** `"update_icon" in getsource(refresh_focus_tint)` → `False`.
-2. **The icon memo key omits focus** ([dock_widget_tab.py:483](../lace/dock_widget_tab.py)):
+2. **The icon memo key omits focus** ([dock_widget_tab.py:483](../../lace/dock_widget_tab.py)):
 
    ```python
    icon_key = (self._custom_icon_name, self._default_icon_name, use_custom,
@@ -399,7 +399,7 @@ Give the icon the same colour resolution the label already has, rather than a pa
 
 ### Two smaller issues in the same area
 
-- **`elif` chain swallows the QIcon fallback** ([dock_widget_tab.py:508-521](../lace/dock_widget_tab.py)).
+- **`elif` chain swallows the QIcon fallback** ([dock_widget_tab.py:508-521](../../lace/dock_widget_tab.py)).
   If `_default_icon_name` is set but the provider returns a null icon (missing SVG), the `elif not
   self._default_icon.isNull()` and `elif … windowIcon()` branches are unreachable, so the tab ends
   up with no icon rather than falling back. Same shape in the `use_custom` block at :492-505.
@@ -416,10 +416,10 @@ Give the icon the same colour resolution the label already has, rather than a pa
 
 ### Sidebar counterpart — same family, worse
 
-`VerticalTabButton.refresh_style()` ([sidebar_tab.py:343](../lace/sidebar_tab.py)) re-reads every
+`VerticalTabButton.refresh_style()` ([sidebar_tab.py:343](../../lace/sidebar_tab.py)) re-reads every
 SIDEBAR token — `tab_bg_active`, `tab_text_active`, `tab_text_normal`, borders, badge colours,
 typography — and **not the icon**. `self._icon` is captured once in `__init__` (:64) from
-`dock_widget.icon()` ([sidebar_tab_bar.py:325](../lace/sidebar_tab_bar.py)) and painted verbatim at
+`dock_widget.icon()` ([sidebar_tab_bar.py:325](../../lace/sidebar_tab_bar.py)) and painted verbatim at
 :237.
 
 So a sidebar tab's text switches between `tab_text_active` and `tab_text_normal` on
@@ -439,7 +439,7 @@ in a method where every other metric comes from the theme.
 
 Confirmed, and the consequences run deeper than the missing splitter restore.
 
-`_restore_maximized_area()` ([dock_container_widget.py:876](../lace/dock_container_widget.py)) has
+`_restore_maximized_area()` ([dock_container_widget.py:876](../../lace/dock_container_widget.py)) has
 exactly **three** callers: `close_other_areas()` (:748) and the two guard clauses inside
 `toggle_maximize_dock_area()` itself (:834, :839). **No drop path calls it.** `DropController`
 never consults `_maximized_dock_area` at all.
@@ -476,7 +476,7 @@ px. Every consumer of that state is now wrong: `is_area_maximized(A)` returns `T
 bar keeps showing the *Restore* icon and tooltip for an area that is plainly not maximized.
 
 **2. B and C are stranded.** They were hidden by `setVisible(False)` during maximize
-([dock_container_widget.py:865-867](../lace/dock_container_widget.py)) and nothing in the drop path
+([dock_container_widget.py:865-867](../../lace/dock_container_widget.py)) and nothing in the drop path
 shows them again. The user sees a two-pane layout (D | A) and has **silently lost two dock
 widgets** — with no visual affordance suggesting they still exist. This is the most damaging part
 of the bug, and it is worse than the missing relayout you described. Note that `setVisible(False)`
@@ -553,7 +553,7 @@ stomp it.
 ### Proposal
 
 Add a single guard at the top of `DropController.drop_floating_widget()`
-([dock_container_widget.py:70](../lace/dock_container_widget.py)), where `dock_area` and `drop_area`
+([dock_container_widget.py:70](../../lace/dock_container_widget.py)), where `dock_area` and `drop_area`
 are both already resolved before dispatch:
 
 ```python
@@ -589,13 +589,13 @@ stranded.
 
 ## 2.1 `_handle_cache` is never invalidated by a layout restore  **[High]**
 
-`DockSplitterHandle._all_handles()` ([dock_splitter.py:74](../lace/dock_splitter.py)) caches the
+`DockSplitterHandle._all_handles()` ([dock_splitter.py:74](../../lace/dock_splitter.py)) caches the
 container's handle list because it runs on every hover-move. Its docstring says the cache "is
 cleared from its two layout-change choke points (`_emit_dock_areas_added`/`_removed`), which is
 where handles come and go."
 
 **A layout restore is a third choke point, and it clears nothing.**
-`restore_container_state()` ([dock_container_state.py:69-79](../lace/dock_container_state.py))
+`restore_container_state()` ([dock_container_state.py:69-79](../../lace/dock_container_state.py))
 resets `_visible_dock_area_count`, `_dock_areas`, `_last_added_area_cache`, `_maximized_dock_area`,
 `_pre_maximize_splitter_sizes` and `_top_level_dock_area` — but not `_handle_cache`. It then
 replaces the entire splitter tree at :106-109.
@@ -617,14 +617,14 @@ next add/remove happens to invalidate the cache. No error, no log line — the f
 doesn't work after loading a perspective.
 
 **Proposal:** add `c._handle_cache = None` to the reset block at
-[dock_container_state.py:69-79](../lace/dock_container_state.py). One line. Better still, replace
+[dock_container_state.py:69-79](../../lace/dock_container_state.py). One line. Better still, replace
 the three scattered reset sites with a single `DockContainerWidget._invalidate_layout_caches()`
 that owns `_visible_dock_area_count`, `_handle_cache` and `_last_added_area_cache` together — the
 docstring on `_all_handles()` will then be true by construction rather than by vigilance.
 
 ## 2.2 Restored dock areas get no `destroyed` safety net  **[Medium]**
 
-`_restore_dock_area()` ([dock_container_state.py:211](../lace/dock_container_state.py)) registers
+`_restore_dock_area()` ([dock_container_state.py:211](../../lace/dock_container_state.py)) registers
 new areas with `c._append_dock_areas(dock_area)`, which connects only `view_toggled`.
 `_add_dock_area()` additionally connects `destroyed → remove_dock_area` (:421).
 
@@ -634,7 +634,7 @@ should be the single place that wires a new area up, and `_restore_dock_area()` 
 
 ## 2.3 `_drop_into_section()` locates the floating root splitter by type-scan  **[Medium]**
 
-[dock_container_widget.py:230-231](../lace/dock_container_widget.py):
+[dock_container_widget.py:230-231](../../lace/dock_container_widget.py):
 
 ```python
 floating_splitter = find_child(
@@ -672,7 +672,7 @@ it makes the two drop paths agree. Also narrow the `QWidget` type hint on the pa
 
 During the drag, `_update_drop_overlays()` decides what is allowed based on
 `visible_dock_area_count`. At the moment of the drop,
-[dock_container_widget.py:79-81](../lace/dock_container_widget.py) throws that away:
+[dock_container_widget.py:79-81](../../lace/dock_container_widget.py) throws that away:
 
 ```python
 drop_overlay = self._c._dock_manager.dock_area_overlay()
@@ -686,7 +686,7 @@ Two problems:
    are configured by different rules. Today the mismatch is masked by cause 2 of §1.2; fixing
    §1.2 without fixing this would expose it.
 2. **The re-arm reads stale geometry.** `set_allowed_areas()` only acts when the value *changed*
-   ([dock_overlay.py:75](../lace/dock_overlay.py)), and when it does it calls `_cross.reset()`,
+   ([dock_overlay.py:75](../../lace/dock_overlay.py)), and when it does it calls `_cross.reset()`,
    which flips indicator widgets from hidden to visible. `QGridLayout` gives hidden widgets no
    space, so the newly shown indicators keep their stale geometry until the next layout pass —
    and `cursor_location()` tests `widget.geometry().contains(pos)` **immediately**, in the same
@@ -698,14 +698,14 @@ by the time a drop happens the overlay is already configured correctly by the dr
 
 ## 2.5 `TAB.tab_icon_size` does not exist  **[Medium]**
 
-[dock_widget_tab.py:476](../lace/dock_widget_tab.py):
+[dock_widget_tab.py:476](../../lace/dock_widget_tab.py):
 
 ```python
 icon_size = sm.get(DockStyleCategory.TAB, "tab_icon_size", 16)
 ```
 
 `DockStyleManager.get()` returns the default when `hasattr(schema, key)` is false
-([dock_style_manager.py:192](../lace/dock_style_manager.py)), and `DockTabStyleSchema` declares no
+([dock_style_manager.py:192](../../lace/dock_style_manager.py)), and `DockTabStyleSchema` declares no
 such field. **[verified]:**
 
 ```
@@ -722,7 +722,7 @@ reads like it is supported.
 
 ## 2.6 `dock_icon(key, TAB)` reads a token TAB doesn't have  **[Medium]**
 
-[dock_menu.py:83](../lace/dock_menu.py):
+[dock_menu.py:83](../../lace/dock_menu.py):
 
 ```python
 icon_dim = sm.get(category, "button_icon_size", 14)
@@ -746,8 +746,8 @@ exactly the blurred-and-thickened stroke symptom you were chasing in §1.3/§1.4
 
 There is also a **default mismatch**: `dock_icon()` falls back to `14`, `_ActionButtonFields`
 declares `16`, and `style_title_bar_buttons()` /
-[dock_area_title_bar.py:501](../lace/dock_area_title_bar.py) fall back to `16`, while
-[dock_area_title_bar.py:321](../lace/dock_area_title_bar.py) falls back to `14`. Four fallbacks,
+[dock_area_title_bar.py:501](../../lace/dock_area_title_bar.py) fall back to `16`, while
+[dock_area_title_bar.py:321](../../lace/dock_area_title_bar.py) falls back to `14`. Four fallbacks,
 two values, for the same concept.
 
 **Proposal:** have `dock_icon()` take the display size from the caller rather than guessing a
@@ -766,9 +766,9 @@ Covered in §1.5 under "Sidebar counterpart".
 
 ## 3.1 Every tab switch rebuilds all five title-bar icons  **[Medium]**
 
-`DockAreaTitleBar.update_button_states()` ([dock_area_title_bar.py:306](../lace/dock_area_title_bar.py))
+`DockAreaTitleBar.update_button_states()` ([dock_area_title_bar.py:306](../../lace/dock_area_title_bar.py))
 unconditionally calls `setIcon(dock_icon(...))` for all five buttons. `dock_icon()`
-([dock_menu.py:70](../lace/dock_menu.py)) allocates a fresh `QIcon`, calls `provider.get()` twice
+([dock_menu.py:70](../../lace/dock_menu.py)) allocates a fresh `QIcon`, calls `provider.get()` twice
 and `addPixmap()` four times, every time.
 
 Measured on a 2-area × 4-tab layout **[verified]**:
@@ -806,7 +806,7 @@ separately.
 
 ## 3.2 Per-area application-wide focus connections  **[Low]**
 
-`DockAreaWidget.__init__` ([dock_area_widget.py:65-68](../lace/dock_area_widget.py)) connects
+`DockAreaWidget.__init__` ([dock_area_widget.py:65-68](../../lace/dock_area_widget.py)) connects
 `QApplication.focusChanged` to `self._on_app_focus_changed`, once per dock area, and never
 disconnects. With N areas, every focus change in the entire application invokes N Python slots,
 each of which does an `isAncestorOf()` walk. `DockManager.__init__` adds one more (:118-121).
@@ -818,7 +818,7 @@ on a very hot signal. A single manager-level handler that resolves the area via
 ## 3.3 Icon cache key omits device pixel ratio  **[Low]**
 
 `DockIconProvider._icon_cache` is keyed on `(name, color, active, disabled, size)`
-([dock_icon_provider.py:226](../lace/dock_icon_provider.py)) — no DPR. `_render_svg()` bakes
+([dock_icon_provider.py:226](../../lace/dock_icon_provider.py)) — no DPR. `_render_svg()` bakes
 `QApplication.instance().devicePixelRatio()` into the pixmap at :129.
 
 Two consequences on multi-monitor setups: `QGuiApplication::devicePixelRatio()` is documented as
@@ -834,7 +834,7 @@ which is derived from them.
 
 ## 4.1 The `DockSignals` bus is connected but never emitted  **[verified]**
 
-`DockManager.__init__` ([dock_manager.py:81-84](../lace/dock_manager.py)) constructs `DockSignals`
+`DockManager.__init__` ([dock_manager.py:81-84](../../lace/dock_manager.py)) constructs `DockSignals`
 and connects all three signals to handlers (`_handle_request_overlay_show`,
 `_handle_request_overlay_hide`, `_handle_floating_widget_dropped`, :438-446). **No `.emit()` exists
 anywhere in the package** — a full grep returns only the three `connect()` lines.
@@ -864,15 +864,15 @@ dev script is a poor trade — point the script at `DropController` (or expose o
 
 ## 4.3 Miscellaneous dead code
 
-- **`paint_panel()`** ([dock_paint.py:274](../lace/dock_paint.py)) — imported by `dock_chrome.py`
+- **`paint_panel()`** ([dock_paint.py:274](../../lace/dock_paint.py)) — imported by `dock_chrome.py`
   but never called there; the only caller is `tests/test_dock_paint.py:159`. Production code uses
   `paint_panel_bg` + `paint_panel_border` separately.
-- **`DockMenuMixin`** ([dock_context_menu.py:20](../lace/dock_context_menu.py)) — an empty class
+- **`DockMenuMixin`** ([dock_context_menu.py:20](../../lace/dock_context_menu.py)) — an empty class
   whose docstring says "Deprecated legacy mixin", exported from `lace/__init__.py` (:58, :166).
   `sidebar_tab_bar.py:420` still *mentions* it in a docstring for a method that doesn't use it.
 - **`dock_context_menu.py`** is otherwise a pure re-export shim over `dock_menu.py`. Worth an
   explicit deprecation note with a removal version, or removal.
-- **`DockAreaWidget.update_title_bar_visibility()`** ([dock_area_widget.py:323](../lace/dock_area_widget.py))
+- **`DockAreaWidget.update_title_bar_visibility()`** ([dock_area_widget.py:323](../../lace/dock_area_widget.py))
   is already a documented deprecated alias with a `DeprecationWarning` — good pattern; the two
   above should follow it.
 
@@ -930,12 +930,12 @@ These are not bugs, but they are the conditions that produced several of the bug
    `sidebar_title_bar.py:342`, `frameless_titlebar.py:177`, and `dock_chrome.py:328`. One constant.
 
 4. **`style_title_bar_buttons()` accepts dead parameters.** `color` and `disabled` are documented as
-   "accepted for call-site compatibility but unused" ([dock_chrome.py:338](../lace/dock_chrome.py)).
+   "accepted for call-site compatibility but unused" ([dock_chrome.py:338](../../lace/dock_chrome.py)).
    Both call sites pass them. Removing them from both is a two-line change that stops the next
    reader wondering whether button tinting flows through there.
 
 5. **`DockAreaTitleBar._create_buttons()` sets `setIconSize(QSize(16, 16))` on the close button
-   only** ([dock_area_title_bar.py:168](../lace/dock_area_title_bar.py)), out of five buttons, and
+   only** ([dock_area_title_bar.py:168](../../lace/dock_area_title_bar.py)), out of five buttons, and
    it is overwritten moments later by `refresh_style()`. Vestigial; delete.
 
 6. **Defensive `hasattr()` is load-bearing in places it shouldn't be.** e.g.

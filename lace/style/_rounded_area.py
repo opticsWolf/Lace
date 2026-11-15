@@ -89,7 +89,7 @@ _GEOMETRY_EVENTS = (QEvent.Type.Move, QEvent.Type.Resize, QEvent.Type.Show)
 
 def _native(widget: QWidget) -> bool:
     """Whether ``widget`` holds a native child window, which a mask on its
-    parent does not clip (see docs/frameless-webengine-findings.md)."""
+    parent does not clip (see docs/archive/frameless-webengine-findings.md)."""
     return any(w.testAttribute(Qt.WidgetAttribute.WA_NativeWindow) and not w.isWindow()
                for w in widget.findChildren(QWidget))
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Dropping on the centre of a container — IMPROVEMENT_PLAN_v0.7.md Phase 3.
+"""Dropping on the centre of a container — docs/archive/IMPROVEMENT_PLAN_v0.7.md Phase 3.
 
 Two independent causes kept a floating widget from tabbing into a one-area
 container:

@@ -2,7 +2,7 @@
 
 **Advanced docking system for PySide6** — a feature-rich, themeable widget layout framework for building professional Qt desktop applications in Python.
 
-**Version:** 0.9.7
+**Version:** 0.10.0
 
 [![PyPI](https://img.shields.io/pypi/v/lace-dock.svg)](https://pypi.org/project/lace-dock/)
 [![License](https://img.shields.io/pypi/l/lace-dock.svg)](https://pypi.org/project/lace-dock/)
@@ -97,10 +97,15 @@
 ### Installation
 
 ```bash
-pip install pyside6
-# Clone Lace
-git clone https://github.com/yourusername/lace.git
-cd lace
+pip install lace-dock
+```
+
+`lace-dock` pulls in PySide6. To work from a checkout instead:
+
+```bash
+git clone https://github.com/opticsWolf/Lace.git
+cd Lace
+pip install -e .
 ```
 
 ### Minimal Example
@@ -231,7 +236,7 @@ for the full API.
 
 ## Screenshots
 
-![Lace frameless main window across 12 themes](https://raw.githubusercontent.com/opticsWolf/Lace/main/screenshots/main_themes_grid.png?v=0.9.0)
+![Lace frameless main window across 12 themes](https://raw.githubusercontent.com/opticsWolf/Lace/main/screenshots/main_themes_grid.png?v=0.10.0)
 
 *The frameless main window (custom title bar, dock panels, splitters) across 12 built-in themes.*
 
@@ -282,6 +287,7 @@ See the [Architecture Documentation](docs/ARCHITECTURE.md) for a complete module
 | [**Architecture**](docs/ARCHITECTURE.md) | Complete system architecture — all modules, classes, signals, and data flow |
 | [**Theming & Geometry**](docs/theming_and_geometry.md) | ThemeSpec tokens, titlebar flushness, reactive borders, content margin |
 | [**Enum Mapping**](docs/enum_mapping.md) | Comprehensive mapping of all enumerations and flags with wiring status |
+| [**Archive**](docs/archive/) | Historical reviews, plans and investigations, kept for provenance |
 
 ---
 

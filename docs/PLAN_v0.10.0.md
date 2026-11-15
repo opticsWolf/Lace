@@ -1,14 +1,15 @@
 # Lace v0.10.0 — Release Plan
 
-**Status:** draft
+**Status:** implementation complete; release prep in progress
 **Baseline:** v0.9.7 (`cb07ab6`)
 **Target:** v0.10.0
 **Test baseline:** `1899 passed, 2 skipped, 1 xfailed` (`pytest tests -q`, offscreen)
 **Scope:** one open bug-report audit plus five new items (window-edge resize, hover delay,
 dock-menu icons, cramped title bars, rare frameless overlap)
 
-**Implementation status (branch `dev_v0.10.0`):** A–E implemented; F is implemented on
-`fix/f-titlebar-overlap` (PR pending) with the real-display probe still outstanding.
+**Implementation status (branch `dev_v0.10.0`):** A–F implemented. F was merged in PR #2
+(`61ce534`); its real-display probe is still outstanding. The post-implementation suite is
+`1958 passed, 2 skipped, 1 xfailed` (offscreen).
 
 ---
 
@@ -49,7 +50,7 @@ The reports live next to the checkout (`..\*.md`), not in `docs/`. Status as of 
 There are **no open GitHub issues** in `opticsWolf/Lace`; the only issue-tracker entry is the
 closed PR #1 (`Update NOTICE`). The bug reports above are the working set.
 
-`docs/CODE_REVIEW_0.6.5.md`, `docs/CODE_REVIEW.md` and `docs/IMPROVEMENT_PLAN_v0.8.md` are
+`docs/archive/CODE_REVIEW_0.6.5.md`, `docs/archive/CODE_REVIEW.md` and `docs/archive/IMPROVEMENT_PLAN_v0.8.md` are
 historical review/plan documents. They are not live issue lists; several items in them have
 since been fixed or superseded.
 
@@ -649,12 +650,13 @@ buttons are disabled. If the wheel should be disabled too, gate `wheelEvent` on 
 
 ## 6. (F) Rare dock-area/title-bar overlap with the custom frameless title bar
 
-> **Implemented on `fix/f-titlebar-overlap`.** Qt's `QLayout` drops its menu-bar pointer when
-> the title bar is reparented, and `setMenuWidget()` does not invalidate the layout. A layout
-> pass in that window leaves the central widget at `y=0` under the title bar. The fix
+> **Implemented and merged in PR #2 (`61ce534`).** Qt's `QLayout` drops its menu-bar pointer
+> when the title bar is reparented, and `setMenuWidget()` does not invalidate the layout. A
+> layout pass in that window leaves the central widget at `y=0` under the title bar. The fix
 > re-activates the layout after menu/title-bar changes, native state changes, screen/DPI
 > changes and native-handle recreation; `tests/test_frameless_custom_bar.py` reproduces the
-> race deterministically. The real-display probe is still pending.
+> race deterministically. The real-display probe is still pending; the planned
+> `dev_smoke/probe_titlebar_overlap.py` is not in the repository yet.
 
 ### 6.1 Symptom
 
@@ -786,7 +788,7 @@ Additionally:
 | Menu icons | `tests/test_dock_menu.py` |
 | Description/tooltip | `tests/test_dock_title_hover.py` |
 | Tab overflow/arrows/wheel | `tests/test_tab_overflow.py` |
-| Frameless overlap | `tests/test_frameless_custom_bar.py` additions + `dev_smoke/probe_titlebar_overlap.py` |
+| Frameless overlap | `tests/test_frameless_custom_bar.py` additions; real-display probe still outstanding |
 | Enum/docs | `tests/test_enums.py`, `tests/test_public_api.py`, `tests/test_version_is_consistent.py` |
 
 Run at least:
@@ -795,8 +797,10 @@ Run at least:
 pytest tests -q
 pytest tests/test_frameless_window_state.py tests/test_frameless_custom_bar.py -q
 python dev_smoke/run_all.py            # offscreen subset
-python dev_smoke/probe_titlebar_overlap.py   # real Windows display
 ```
+
+The real-display probe is still outstanding; add it to `dev_smoke/` before the final release
+check rather than treating the offscreen suite as proof of the native path.
 
 The v0.9.7 baseline is `1899 passed, 2 skipped, 1 xfailed`; no new skips without a written
 reason.
@@ -806,8 +810,8 @@ reason.
 ## 8. Documentation and release checklist
 
 - **Version:** `0.10.0` in `pyproject.toml`, `lace/__init__.py`, `README.md`,
-  `docs/ARCHITECTURE.md`, `docs/QUICK_REFERENCE.md` (guarded by
-  `test_version_is_consistent`).
+  `docs/ARCHITECTURE.md`, `docs/QUICK_REFERENCE.md` and `docs/enum_mapping.md`
+  (`test_version_is_consistent` guards the first five).
 - **CHANGELOG.md:** new `## [0.10.0]` section with:
   - Fixed: sidebar tab strip blocking window-edge resizing; current tab not scrolled into view;
   - Fixed: per-tab icons in the dock menus;
@@ -815,14 +819,16 @@ reason.
   - Added: `DockWidget.description` / `description_changed`;
   - Added: configurable sidebar hover/hide/switch delays;
   - Added: title-bar tab scroll arrows and improved wheel scrolling;
-  - Fixed: frameless title-bar/dock overlap (or “hardened against”, if F remains unreproduced);
+  - Fixed: frameless title-bar/dock overlap (merged in PR #2; real-display probe still outstanding);
   - Changed: default `hover_delay_ms` = **150**.
-- **README:** sidebar delay parameter, description property, scroll-arrow behavior; update the
-  flag count if `dock_area_has_tab_scroll_buttons` is added.
+- **README:** sidebar delay parameter, description property, scroll-arrow behavior and the
+  archive link; the flag count is now 20.
 - **docs/ARCHITECTURE.md:** sidebars section (hover timers), title-bar section (scroll arrows),
   dock widget API (description), `DockFlags`.
 - **docs/QUICK_REFERENCE.md:** new properties/setters, tooltip composition, arrow flag.
 - **docs/enum_mapping.md:** new flag and its reader.
+- **docs/archive/:** historical reviews, plans and findings are indexed in
+  `docs/archive/README.md`; keep only current guides in the live `docs/` tree.
 - **docs/theming_and_geometry.md:** if the arrows need a theme token (they can reuse
   `TITLE_BAR.button_*`; only document a new token if one is added).
 - **Site/screenshots:** only if the title-bar demo visibly changes; the arrows are conditionally

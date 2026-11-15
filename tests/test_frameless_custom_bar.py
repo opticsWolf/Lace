@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Custom-bar refactor from docs/frameless-webengine-findings.md §1/§2/§4.
+"""Custom-bar refactor from docs/archive/frameless-webengine-findings.md §1/§2/§4.
 
 - Anchored inserts (no hardcoded layout indices).
 - canDrag veto inherited from LaceStandardTitleBar.

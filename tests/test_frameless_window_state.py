@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Maximize / restore / minimize on a frameless float — docs/FRAMELESS_WINDOW_STATE.md.
+"""Maximize / restore / minimize on a frameless float — docs/archive/FRAMELESS_WINDOW_STATE.md.
 
 A frameless float has four ways to get maximized and they do not agree.
 Three of them are Qt-side (``showMaximized()``/``showNormal()``): the

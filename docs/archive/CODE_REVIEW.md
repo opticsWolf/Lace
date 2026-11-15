@@ -43,8 +43,8 @@ Line numbers refer to the reviewed commit.
 
 ### 1.1 The restore marker is written under one name and cleared under another
 
-**Where:** [`lace/layout_serializer.py:376-386`](../lace/layout_serializer.py) and
-[`lace/dock_container_state.py:174`](../lace/dock_container_state.py)
+**Where:** [`lace/layout_serializer.py:376-386`](../../lace/layout_serializer.py) and
+[`lace/dock_container_state.py:174`](../../lace/dock_container_state.py)
 
 The engine marks every widget before rebuilding the tree:
 
@@ -81,7 +81,7 @@ dock_widget.setProperty("dirty", False)          # <-- wrong name
 
 Nothing ever clears `_lace_unassigned_marker`, so **every** widget takes the `flag_as_unassigned()`
 branch — including the ones just successfully re-docked. `flag_as_unassigned()`
-([`dock_widget.py:229`](../lace/dock_widget.py)) sets `_closed = True`, reparents the widget to the
+([`dock_widget.py:229`](../../lace/dock_widget.py)) sets `_closed = True`, reparents the widget to the
 root container, hides it, and clears its dock area.
 
 **Verified:**
@@ -157,8 +157,8 @@ While you are there: `flag_as_unassigned()` writes `self._closed = True` directl
 
 ### 1.2 `ensure_active_dock_area()` calls a method that does not exist
 
-**Where:** [`lace/dock_manager.py:766-780`](../lace/dock_manager.py), called from
-[`dock_manager.py:368`](../lace/dock_manager.py)
+**Where:** [`lace/dock_manager.py:766-780`](../../lace/dock_manager.py), called from
+[`dock_manager.py:368`](../../lace/dock_manager.py)
 
 ```python
         from lace.dock_area_widget import DockAreaWidget
@@ -207,8 +207,8 @@ never turn a successful restore into an exception.
 
 ### 1.3 A failed restore leaves the container half-mutated and reports success
 
-**Where:** [`lace/layout_serializer.py:267-282`](../lace/layout_serializer.py),
-[`lace/dock_container_state.py:55-94`](../lace/dock_container_state.py)
+**Where:** [`lace/layout_serializer.py:267-282`](../../lace/layout_serializer.py),
+[`lace/dock_container_state.py:55-94`](../../lace/dock_container_state.py)
 
 `apply_state` discards both return values:
 
@@ -279,8 +279,8 @@ one `replaceWidget` call at the end.
 
 ### 1.4 Maximize state survives a restore as a dangling pointer
 
-**Where:** [`lace/dock_container_widget.py:282-283`](../lace/dock_container_widget.py) and
-[`lace/dock_container_state.py:60-63`](../lace/dock_container_state.py)
+**Where:** [`lace/dock_container_widget.py:282-283`](../../lace/dock_container_widget.py) and
+[`lace/dock_container_state.py:60-63`](../../lace/dock_container_state.py)
 
 `restore_container_state` resets `_dock_areas`, `_last_added_area_cache` and
 `_visible_dock_area_count`, but not `_maximized_dock_area`, `_pre_maximize_splitter_sizes` or
@@ -346,8 +346,8 @@ That is a solid core. The gaps below are all additive.
 
 ### 2.1 Area and widget locks are not serialized
 
-**Where:** [`lace/dock_area_widget.py:329-340`](../lace/dock_area_widget.py),
-[`lace/dock_widget.py:221-227`](../lace/dock_widget.py)
+**Where:** [`lace/dock_area_widget.py:329-340`](../../lace/dock_area_widget.py),
+[`lace/dock_widget.py:221-227`](../../lace/dock_widget.py)
 
 `locked_name` gates `features()` (it strips `pinnable` and forces `floatable`), so losing it on
 restore silently changes what the user can do with a panel.
@@ -401,7 +401,7 @@ application set at construction time.
 
 ### 2.2 Pinned widgets come back closed
 
-**Where:** [`lace/layout_serializer.py:289-291`](../lace/layout_serializer.py)
+**Where:** [`lace/layout_serializer.py:289-291`](../../lace/layout_serializer.py)
 
 ```python
         self._restore_dock_widgets_open_state()
@@ -468,8 +468,8 @@ ship it.
 
 ### 2.3 The `widget_states` block is written but never read
 
-**Where:** [`lace/layout_serializer.py:215-242`](../lace/layout_serializer.py) (writer),
-[`:403-416`](../lace/layout_serializer.py) (supposed reader)
+**Where:** [`lace/layout_serializer.py:215-242`](../../lace/layout_serializer.py) (writer),
+[`:403-416`](../../lace/layout_serializer.py) (supposed reader)
 
 `_save_widget_states()` emits `closed`, `state`, `container_id`, `in_dock_area`, `tab_index` and
 `pinned` for every widget. The only consumer is the missing-widget prune at line 324. The method
@@ -521,14 +521,14 @@ finding 1.1.
 
 ### 2.4 Floating geometry is stored twice in conflicting formats
 
-**Where:** [`dock_container_state.py:31-35`](../lace/dock_container_state.py) writes a hex
-`saveGeometry()` blob; [`layout_serializer.py:191-204`](../lace/layout_serializer.py) writes
+**Where:** [`dock_container_state.py:31-35`](../../lace/dock_container_state.py) writes a hex
+`saveGeometry()` blob; [`layout_serializer.py:191-204`](../../lace/layout_serializer.py) writes
 `{x, y, width, height, is_maximized}` for the same window.
 
 On restore, `restore_container_state` applies `restoreGeometry(blob)`
-([`dock_container_state.py:77`](../lace/dock_container_state.py)) and then
+([`dock_container_state.py:77`](../../lace/dock_container_state.py)) and then
 `_apply_container_geometry` immediately overwrites it with `setGeometry(x, y, w, h)`
-([`layout_serializer.py:371`](../lace/layout_serializer.py)) — discarding the screen assignment,
+([`layout_serializer.py:371`](../../lace/layout_serializer.py)) — discarding the screen assignment,
 DPI context and window state that `saveGeometry()` encodes. Then `is_maximized` is re-applied by hand
 via a deferred `showMaximized()`.
 
@@ -559,8 +559,8 @@ the x/y values can be interpreted on the target machine.
 
 ### 2.5 No schema version, and the format identifier is wrong
 
-**Where:** [`layout_serializer.py:155`](../lace/layout_serializer.py),
-[`:464-472`](../lace/layout_serializer.py)
+**Where:** [`layout_serializer.py:155`](../../lace/layout_serializer.py),
+[`:464-472`](../../lace/layout_serializer.py)
 
 ```python
     SYSTEM_TYPE: str = "QtAdvancedDockingSystem"
@@ -615,9 +615,9 @@ Accepting the old string keeps existing user files loadable. Document in `ARCHIT
   construction), but `set_features()` is public and runtime-callable, so this needs a sentence in
   the docs: *"Features are not persisted; re-apply them when you recreate your dock widgets."*
   Alternatively persist them next to `locked_to_area` in `DockWidget.save_state()`.
-- **`RestoreFailureError` is never raised** — [`layout_serializer.py:50`](../lace/layout_serializer.py).
+- **`RestoreFailureError` is never raised** — [`layout_serializer.py:50`](../../lace/layout_serializer.py).
   Fixed by 1.3.
-- **File-descriptor leak on a rare path** — [`layout_serializer.py:85-89`](../lace/layout_serializer.py):
+- **File-descriptor leak on a rare path** — [`layout_serializer.py:85-89`](../../lace/layout_serializer.py):
   if `os.fdopen(fd, ...)` raises, `fd` is never closed. Move `mkstemp` inside the `try`, or wrap:
 
   ```python
@@ -636,10 +636,10 @@ Accepting the old string keeps existing user files loadable. Document in `ARCHIT
 
 - **The directory is never fsynced**, so on POSIX the atomic rename is not durable across power
   loss. Add an `os.open(dir, O_DIRECTORY)` + `os.fsync` after `_safe_replace` if that matters to you.
-- **`sidebar_state` key space is mixed** — [`layout_serializer.py:506-512`](../lace/layout_serializer.py):
+- **`sidebar_state` key space is mixed** — [`layout_serializer.py:506-512`](../../lace/layout_serializer.py):
   `SidebarStateManager` is keyed by widget `objectName()` in
-  [`sidebar_manager.py:218`](../lace/sidebar_manager.py) and by `DockWidgetArea.name` in
-  [`sidebar_manager.py:171`](../lace/sidebar_manager.py). A dock widget named `"left"` collides with
+  [`sidebar_manager.py:218`](../../lace/sidebar_manager.py) and by `DockWidgetArea.name` in
+  [`sidebar_manager.py:171`](../../lace/sidebar_manager.py). A dock widget named `"left"` collides with
   the left sidebar's default size. Use two dicts, or prefix the keys (`"w:Explorer"` / `"a:left"`).
 
 ---
@@ -651,7 +651,7 @@ of stylesheets. The problems are all in the token plumbing.
 
 ### 3.1 "Ghost tokens": the effective schema is not the dataclass
 
-**Where:** [`lace/dock_style_manager.py:40-47`](../lace/dock_style_manager.py)
+**Where:** [`lace/dock_style_manager.py:40-47`](../../lace/dock_style_manager.py)
 
 ```python
 def _create_default_schema(category: DockStyleCategory) -> Any:
@@ -665,8 +665,8 @@ A bare `setattr` on a non-slotted dataclass instance *creates* attributes that a
 live schema is `declared fields ∪ whatever BASE_DOCK_DEFAULTS happens to seed`. The two read paths
 then disagree:
 
-- `get()` uses `hasattr` → **sees** ghost tokens ([`:134-141`](../lace/dock_style_manager.py))
-- `get_all()` iterates `dataclasses.fields()` → **cannot see** them ([`:143-147`](../lace/dock_style_manager.py))
+- `get()` uses `hasattr` → **sees** ghost tokens ([`:134-141`](../../lace/dock_style_manager.py))
+- `get_all()` iterates `dataclasses.fields()` → **cannot see** them ([`:143-147`](../../lace/dock_style_manager.py))
 
 **Verified:**
 
@@ -690,7 +690,7 @@ get_all() exposes: PANEL [] · TAB [] · SIDEPANEL []   <- invisible to every ge
 
 `get_all()` is used by 20 call sites including `DockAreaWidget.refresh_style`,
 `DockAreaTitleBar.refresh_style`, `DockWidgetTab.refresh_style`, `SideBarContainer.refresh_style`
-and the full-theme broadcast at [`:118-120`](../lace/dock_style_manager.py). Anything read through
+and the full-theme broadcast at [`:118-120`](../../lace/dock_style_manager.py). Anything read through
 `get_all()` that happens to be a ghost is permanently `None`.
 
 #### Fix — three parts
@@ -726,7 +726,7 @@ class DockSidePanelStyleSchema(_ActionButtonFields):
 ```
 
 For `TAB.title_text_color` there is no consumer at all — delete it from `_build_tab`
-([`dock_theme.py:620`](../lace/dock_theme.py)) rather than adding a field.
+([`dock_theme.py:620`](../../lace/dock_theme.py)) rather than adding a field.
 
 **(b) Make unknown tokens loud instead of silent.**
 
@@ -764,10 +764,10 @@ This is the one ghost that isn't rescued by `BASE_DOCK_DEFAULTS`, and it fails a
 independent points:
 
 1. `ThemeSpec.title_border_bottom` → `build_theme` writes it as `TITLE_BAR["border_bottom"]`
-   ([`dock_theme.py:524-525`](../lace/dock_theme.py)) → dropped by `_set_field` (3.1).
-2. [`dock_area_title_bar.py:445`](../lace/dock_area_title_bar.py) reads
+   ([`dock_theme.py:524-525`](../../lace/dock_theme.py)) → dropped by `_set_field` (3.1).
+2. [`dock_area_title_bar.py:445`](../../lace/dock_area_title_bar.py) reads
    `styles.get("border_bottom", self._border_width)` through `get_all()` → always the fallback.
-3. [`sidebar_title_bar.py:300-301`](../lace/sidebar_title_bar.py) reads the **wrong key names**
+3. [`sidebar_title_bar.py:300-301`](../../lace/sidebar_title_bar.py) reads the **wrong key names**
    from the TITLE_BAR dict:
 
    ```python
@@ -775,11 +775,11 @@ independent points:
    self._title_border_color  = title_styles.get("title_border_color")    # key is "border_color"
    ```
 
-   Both always `None`, so the paint guard at [`:363`](../lace/sidebar_title_bar.py) never fires.
+   Both always `None`, so the paint guard at [`:363`](../../lace/sidebar_title_bar.py) never fires.
 
 It is also a documented, pydantic-validated field on `ThemeJson`
-([`theme_models.py:131`](../lace/theme_models.py)), and
-[`dock_custom_theme.py:261`](../lace/dock_custom_theme.py) ships a theme with
+([`theme_models.py:131`](../../lace/theme_models.py)), and
+[`dock_custom_theme.py:261`](../../lace/dock_custom_theme.py) ships a theme with
 `title_border_bottom = 1.5  # 1.5px glowing cyan dividing line below title bar` that draws nothing.
 
 #### Fix
@@ -800,7 +800,7 @@ Then visually confirm with the `dock_custom_theme` entry that ships the cyan rul
 
 ### 3.3 Sidebar panel border/focus colours can never be themed
 
-Consequence of 3.1. [`sidebar_container.py:702-717`](../lace/sidebar_container.py):
+Consequence of 3.1. [`sidebar_container.py:702-717`](../../lace/sidebar_container.py):
 
 ```python
         card_border = s.get("border_width")          # ghost -> None
@@ -826,8 +826,8 @@ ghost problem and can be simplified once the tokens are real.
 
 ### 3.4 Any 3–4 element numeric token is silently converted to a `QColor`
 
-**Where:** [`dock_style_manager.py:175-183`](../lace/dock_style_manager.py) →
-[`dock_theme.py:744-765`](../lace/dock_theme.py)
+**Where:** [`dock_style_manager.py:175-183`](../../lace/dock_style_manager.py) →
+[`dock_theme.py:744-765`](../../lace/dock_theme.py)
 
 `_set_field` calls `deep_to_qcolor(value)` unconditionally, and `is_color_list()` decides purely by
 *shape*: "a list/tuple of 3–4 numbers". So a CSS-style margin becomes a colour.
@@ -841,7 +841,7 @@ content_margin=[6, 4, 6]      -> stored as QColor(0.023529, 0.015686, 0.023529, 
 content_margin=[6, 4, 6, 4]   -> stored as QColor(0.023529, 0.015686, 0.023529, 0.015686)
 ```
 
-`DockWidget.refresh_style` ([`dock_widget.py:533-543`](../lace/dock_widget.py)) then matches neither
+`DockWidget.refresh_style` ([`dock_widget.py:533-543`](../../lace/dock_widget.py)) then matches neither
 the numeric nor the list branch and silently falls through to `6, 6, 6, 6`. A user writing a
 four-sided content margin gets no error and no effect.
 
@@ -888,7 +888,7 @@ Either way, keep `to_qcolor()` accepting hex strings so `"#rrggbb"` themes keep 
 
 ### 3.5 A floating window can flip the whole application's theme
 
-**Where:** [`floating_dock_container.py:419-457`](../lace/floating_dock_container.py)
+**Where:** [`floating_dock_container.py:419-457`](../../lace/floating_dock_container.py)
 
 ```python
         qapp.setPalette(palette)          # application-wide
@@ -901,11 +901,11 @@ This runs from `_do_restore_geometry()` after `setWindowFlags()`, i.e. whenever 
 `chromeless_float` config flag changes. Three separate problems:
 
 1. `qapp.setPalette()` re-polishes every widget in the process to fix one window's native frame.
-2. [`:403`](../lace/floating_dock_container.py) also calls `qapp.setStyle(qapp.style().objectName())`
+2. [`:403`](../../lace/floating_dock_container.py) also calls `qapp.setStyle(qapp.style().objectName())`
    — a second full application re-polish.
 3. The `setColorScheme` toggle emits `colorSchemeChanged` **twice, once with the wrong scheme**. If
    the application installed `ThemeManager.install_listener()`
-   ([`theme_manager.py:272-288`](../lace/theme_manager.py)), that fires `sync_theme()` → the app
+   ([`theme_manager.py:272-288`](../../lace/theme_manager.py)), that fires `sync_theme()` → the app
    flips to the light theme and back. Toggling one dock flag visibly strobes the whole UI.
 
 #### Fix
@@ -936,21 +936,21 @@ Also drop the `qapp.setStyle()` call at line 403 — `DockThemeBridge` already o
 
 ### 3.6 Smaller theming items
 
-- **`QStyle` ownership** — [`dock_theme_bridge.py:91-103`](../lace/dock_theme_bridge.py):
+- **`QStyle` ownership** — [`dock_theme_bridge.py:91-103`](../../lace/dock_theme_bridge.py):
   `QWidget.setStyle()` does not take ownership of the `QStyle` returned by `QStyleFactory.create()`.
   Keep a reference: `self._style = style` before `setStyle(style)`. (The `isinstance(QApplication)`
   branch there is also dead — both arms call `self._target.setStyle(style)`.)
-- **`get_all()` returns shared `QColor` objects** — [`:143-147`](../lace/dock_style_manager.py)
+- **`get_all()` returns shared `QColor` objects** — [`:143-147`](../../lace/dock_style_manager.py)
   copies the dict but not the values. A caller doing `c = styles.get("bg_normal"); c.setAlpha(200)`
   corrupts the theme process-wide. Either return `QColor(v)` copies or document the dict as
   read-only.
-- **`ThemeManager` mixes QSS and the palette engine** — [`theme_manager.py:220-235`](../lace/theme_manager.py)
+- **`ThemeManager` mixes QSS and the palette engine** — [`theme_manager.py:220-235`](../../lace/theme_manager.py)
   applies raw `.qss` files with `setStyleSheet()`, which overrides palette colours on styled widgets
   and will half-override the dock chrome. Either document the precedence explicitly or drop the QSS
   path in favour of JSON themes.
-- **Redundant exception tuple** — [`theme_manager.py:86`](../lace/theme_manager.py):
+- **Redundant exception tuple** — [`theme_manager.py:86`](../../lace/theme_manager.py):
   `except (ValueError, TypeError, Exception)` is just `except Exception`.
-- **`ThemeJson` type drift** — [`theme_models.py:129,137`](../lace/theme_models.py) declares
+- **`ThemeJson` type drift** — [`theme_models.py:129,137`](../../lace/theme_models.py) declares
   `title_margin: Optional[float]` and `indicator_width: Optional[float]` where `ThemeSpec` declares
   `int`. Harmless today; align them so the JSON schema and the dataclass can't diverge further.
 
@@ -970,7 +970,7 @@ costs only; real painting adds more.
 
 ### 4.1 Every focus change fully restyles every visible tab
 
-**Where:** [`dock_area_widget.py:96-101`](../lace/dock_area_widget.py)
+**Where:** [`dock_area_widget.py:96-101`](../../lace/dock_area_widget.py)
 
 ```python
     def set_chrome_focused(self, focused: bool):
@@ -983,17 +983,17 @@ costs only; real painting adds more.
 
 `DockManager.set_active_dock_area()` calls this on the losing *and* gaining area, so a single click
 triggers ~10 full restyles here (190 for 20 switches, verified). And
-[`DockWidgetTab.refresh_style`](../lace/dock_widget_tab.py) is expensive — per call it:
+[`DockWidgetTab.refresh_style`](../../lace/dock_widget_tab.py) is expensive — per call it:
 
-- builds and applies a stylesheet on the close button ([`:610`](../lace/dock_widget_tab.py))
-- applies a second stylesheet on the title label ([`:597`](../lace/dock_widget_tab.py))
-- re-creates the close icon via the provider ([`:631`](../lace/dock_widget_tab.py))
-- builds and sets a `QFont` twice ([`:636-643`](../lace/dock_widget_tab.py))
-- calls `update_icon()`, which hits the provider again ([`:644`](../lace/dock_widget_tab.py))
+- builds and applies a stylesheet on the close button ([`:610`](../../lace/dock_widget_tab.py))
+- applies a second stylesheet on the title label ([`:597`](../../lace/dock_widget_tab.py))
+- re-creates the close icon via the provider ([`:631`](../../lace/dock_widget_tab.py))
+- builds and sets a `QFont` twice ([`:636-643`](../../lace/dock_widget_tab.py))
+- calls `update_icon()`, which hits the provider again ([`:644`](../../lace/dock_widget_tab.py))
 
 `setStyleSheet` forces a full unpolish/repolish of the widget subtree — the most expensive routine
 operation in Qt, and it is running on every click. `set_active_tab()`
-([`:392-399`](../lace/dock_widget_tab.py)) does the same on every tab switch.
+([`:392-399`](../../lace/dock_widget_tab.py)) does the same on every tab switch.
 
 #### Fix — split focus repaint from full restyle
 
@@ -1023,7 +1023,7 @@ the label text colour.
         self.update()
 ```
 
-Factor the existing focus/dimming block ([`:541-591`](../lace/dock_widget_tab.py)) into
+Factor the existing focus/dimming block ([`:541-591`](../../lace/dock_widget_tab.py)) into
 `_resolve_focus_colors(styles)` and call it from both paths. Then:
 
 ```python
@@ -1061,12 +1061,12 @@ Expected: focus switches drop from ~2.05 ms to well under 0.1 ms.
 
 ### 4.2 `DockWidget.refresh_style()` runs three times per theme switch
 
-**Where:** [`dock_widget.py:615-623`](../lace/dock_widget.py) and
-[`dock_theme_bridge.py:152-160`](../lace/dock_theme_bridge.py)
+**Where:** [`dock_widget.py:615-623`](../../lace/dock_widget.py) and
+[`dock_theme_bridge.py:152-160`](../../lace/dock_theme_bridge.py)
 
 `DockWidget` overrides `DockStyled.on_style_changed` and calls `refresh_style()` **directly**,
 bypassing the `QTimer.singleShot(0)` coalescing that every other widget class gets from
-[`dock_styled.py:42-47`](../lace/dock_styled.py). It is subscribed to both `PANEL` and `CORE`, so a
+[`dock_styled.py:42-47`](../../lace/dock_styled.py). It is subscribed to both `PANEL` and `CORE`, so a
 full theme apply calls it twice — then `DockThemeBridge.refresh_dock_palette()` sweeps
 `findChildren(DockWidget)` and calls it a third time. (Verified: `DockWidget×12` for 4 visible
 widgets.)
@@ -1108,8 +1108,8 @@ sweep.
 
 ### 4.3 Splitter junction detection walks the widget tree on every hover event
 
-**Where:** [`dock_splitter.py:74-100`](../lace/dock_splitter.py), called from
-[`:203`](../lace/dock_splitter.py) (`HoverMove`/`HoverEnter`) and [`:181`](../lace/dock_splitter.py)
+**Where:** [`dock_splitter.py:74-100`](../../lace/dock_splitter.py), called from
+[`:203`](../../lace/dock_splitter.py) (`HoverMove`/`HoverEnter`) and [`:181`](../../lace/dock_splitter.py)
 (press)
 
 ```python
@@ -1148,13 +1148,13 @@ and in `DockContainerWidget`, clear it from `_emit_dock_areas_added` / `_emit_do
         ...
 ```
 
-Also note `DockSplitterHandle.active_drag_handles` ([`:48`](../lace/dock_splitter.py)) is a
+Also note `DockSplitterHandle.active_drag_handles` ([`:48`](../../lace/dock_splitter.py)) is a
 **class-level** mutable set, shared across every `DockManager` in the process. Move it to an instance
 or container-scoped owner if multi-manager applications are supported.
 
 ### 4.4 Drop geometry is computed as a side effect of painting
 
-**Where:** [`dock_overlay.py:138-176`](../lace/dock_overlay.py)
+**Where:** [`dock_overlay.py:138-176`](../../lace/dock_overlay.py)
 
 ```python
     def paintEvent(self, e):
@@ -1166,11 +1166,11 @@ or container-scoped owner if multi-manager applications are supported.
 ```
 
 `FloatingDockContainer._finalize_drag` depends on `overlay.drop_overlay_rect().isValid()`
-([`floating_dock_container.py:228-246`](../lace/floating_dock_container.py)) — so where a window
+([`floating_dock_container.py:228-246`](../../lace/floating_dock_container.py)) — so where a window
 lands is a function of whether a repaint happened to run. If the overlay is obscured, or the
 compositor coalesces the paint, the drop uses a stale or empty rect.
 
-Related: `show_overlay()` calls `self.repaint()` ([`:101`](../lace/dock_overlay.py)) — a
+Related: `show_overlay()` calls `self.repaint()` ([`:101`](../../lace/dock_overlay.py)) — a
 *synchronous* forced repaint — from inside a mouse-move path.
 
 #### Fix
@@ -1206,8 +1206,8 @@ and change `self.repaint()` at line 101 to `self.update()`.
 
 ### 5.1 Two near-identical 1000+ line floating containers
 
-**Where:** [`lace/floating_dock_container.py`](../lace/floating_dock_container.py) (1008 lines) and
-[`lace/floating_dock_container_frameless.py`](../lace/floating_dock_container_frameless.py) (1481 lines)
+**Where:** [`lace/floating_dock_container.py`](../../lace/floating_dock_container.py) (1008 lines) and
+[`lace/floating_dock_container_frameless.py`](../../lace/floating_dock_container_frameless.py) (1481 lines)
 
 Measured with a method-by-method diff:
 
@@ -1276,7 +1276,7 @@ round-trip test green before and after.
 
 ### 5.2 `_last_added_area_cache` retains deleted dock areas
 
-**Where:** [`dock_container_widget.py:513-515`](../lace/dock_container_widget.py)
+**Where:** [`dock_container_widget.py:513-515`](../../lace/dock_container_widget.py)
 
 ```python
         for _area, _widget in self._last_added_area_cache.items():
@@ -1285,7 +1285,7 @@ round-trip test green before and after.
 ```
 
 The comparison is never true — the cache maps `DockWidgetArea -> DockAreaWidget`
-([`:353`](../lace/dock_container_widget.py)) and `splitter` is a `DockSplitter`. Upstream ADS
+([`:353`](../../lace/dock_container_widget.py)) and `splitter` is a `DockSplitter`. Upstream ADS
 compares against the removed *area*. So the cache keeps a strong reference to a removed (and shortly
 deleted) dock area, and `last_added_dock_area_widget()` — public API, delegated from
 `DockManager` — can hand back a deleted C++ object.
@@ -1296,14 +1296,14 @@ deleted) dock area, and `last_added_dock_area_widget()` — public API, delegate
 ```
 
 Two lines below, `splitter` can be `None` if the area isn't inside a `DockSplitter`, and
-`splitter.count()` at [`:517`](../lace/dock_container_widget.py) is unguarded — add an early return.
+`splitter.count()` at [`:517`](../../lace/dock_container_widget.py) is unguarded — add an early return.
 
 ### 5.3 Stub methods that read as implemented
 
-- **`DockOverlayCross.reset()` is `pass`** — [`dock_overlay.py:363-369`](../lace/dock_overlay.py),
+- **`DockOverlayCross.reset()` is `pass`** — [`dock_overlay.py:363-369`](../../lace/dock_overlay.py),
   with a comment saying so. Consequence: `set_allowed_areas()` has **no visual effect**. Drop
   indicators for disallowed areas stay on screen and simply do nothing when hovered, because only
-  `cursor_location()` ([`:325-336`](../lace/dock_overlay.py)) consults `allowed_areas`. Implement it:
+  `cursor_location()` ([`:325-336`](../../lace/dock_overlay.py)) consults `allowed_areas`. Implement it:
 
   ```python
       def reset(self):
@@ -1313,22 +1313,22 @@ Two lines below, `splitter` can be `None` if the area isn't inside a `DockSplitt
   ```
 
 - **`DockOverlay.drop_area_under_cursor()` has dead code** —
-  [`:89-95`](../lace/dock_overlay.py): computes `pos`, discards it, guarded by a stringly-typed
+  [`:89-95`](../../lace/dock_overlay.py): computes `pos`, discards it, guarded by a stringly-typed
   `'DockAreaWidget' in str(type(...))` check. Delete the block.
 - **`update_title_bar_visibility()` unconditionally shows** —
-  [`dock_area_widget.py:256-262`](../lace/dock_area_widget.py) is `setVisible(True)` with no
+  [`dock_area_widget.py:256-262`](../../lace/dock_area_widget.py) is `setVisible(True)` with no
   condition. Either implement the hide case (upstream hides the bar when the area has no open
   widgets) or rename it to `ensure_title_bar_visible()` so the name stops promising logic.
-- **Stale enum docs** — [`enums.py:82-135`](../lace/enums.py): `opaque_splitter_resize`,
+- **Stale enum docs** — [`enums.py:82-135`](../../lace/enums.py): `opaque_splitter_resize`,
   `opaque_undocking` and `custom_tab_icons` all say *"Currently not in proper use - requires
   implementation"*, but all three are used
-  ([`dock_container_widget.py:696`](../lace/dock_container_widget.py),
-  [`floating_dock_container.py:467`](../lace/floating_dock_container.py),
-  [`dock_widget_tab.py:454`](../lace/dock_widget_tab.py)). Delete the disclaimers.
+  ([`dock_container_widget.py:696`](../../lace/dock_container_widget.py),
+  [`floating_dock_container.py:467`](../../lace/floating_dock_container.py),
+  [`dock_widget_tab.py:454`](../../lace/dock_widget_tab.py)). Delete the disclaimers.
 
 ### 5.4 The `__init__.py` lazy loader should go
 
-**Where:** [`lace/__init__.py:104-243`](../lace/__init__.py)
+**Where:** [`lace/__init__.py:104-243`](../../lace/__init__.py)
 
 The file eagerly imports everything worth exporting at the top, and then adds a PEP 562
 `__getattr__` that, on the first miss, imports **every** module in the package and registers **every**
@@ -1359,7 +1359,7 @@ not trusted anywhere. Two cheap, high-value cleanups:
 
 1. **`getattr(self, "_bg_color", None)` in `paintEvent`s** exists because `refresh_style()` may not
    have run yet. Initialise every painted-chrome attribute in `__init__` (several classes already do
-   this — `DockWidgetTab` at [`:72-80`](../lace/dock_widget_tab.py) is the model) and then read them
+   this — `DockWidgetTab` at [`:72-80`](../../lace/dock_widget_tab.py) is the model) and then read them
    directly. Affects `DockAreaTitleBar.paintEvent`, `SideBarTitleBar.paintEvent`,
    `SideBarContainer.paintEvent`.
 2. **`getattr(manager, '_root', None) or manager`** appears 13 times. `root_container()` already
@@ -1368,14 +1368,14 @@ not trusted anywhere. Two cheap, high-value cleanups:
 
 ### 5.6 Null-safety spots worth a guard
 
-- [`util.py:39`](../lace/util.py) — `emit_top_level_event_for_widget` calls
+- [`util.py:39`](../../lace/util.py) — `emit_top_level_event_for_widget` calls
   `widget.dock_area_widget().update_title_bar_visibility()` with no `None` check on the area.
-- [`floating_dock_container.py:1000`](../lace/floating_dock_container.py) — `is_closable()`
+- [`floating_dock_container.py:1000`](../../lace/floating_dock_container.py) — `is_closable()`
   dereferences `self._dock_container`, which `_destroyed()` sets to `None`; `closeEvent` calls it.
-- [`dock_container_widget.py:767,777`](../lace/dock_container_widget.py) — `_maximize_splitter`
+- [`dock_container_widget.py:767,777`](../../lace/dock_container_widget.py) — `_maximize_splitter`
   calls `sib.setSizes([0])` on splitters that may have more than one child; Qt only applies as many
   values as given, so only the first pane is zeroed.
-- [`dock_widget_tab.py:505-509`](../lace/dock_widget_tab.py) — `_set_icon_internal` removes the icon
+- [`dock_widget_tab.py:505-509`](../../lace/dock_widget_tab.py) — `_set_icon_internal` removes the icon
   label and then `layout.removeItem(layout.itemAt(0))`, relying on positional layout knowledge. Hold
   the spacer item in an attribute instead.
 
@@ -1383,7 +1383,7 @@ not trusted anywhere. Two cheap, high-value cleanups:
 
 ## 6. Test & CI gaps
 
-**CI does not run the test suite.** [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
+**CI does not run the test suite.** [`.github/workflows/publish.yml`](../../.github/workflows/publish.yml)
 has a job named "Test (Python …)" whose only verification step is:
 
 ```yaml
@@ -1393,8 +1393,8 @@ has a job named "Test (Python …)" whose only verification step is:
 
 pytest is never installed or invoked. The 100 local tests pass but never gate a release.
 
-**No test covers save/restore.** [`tests/test_layout_exceptions.py`](../tests/test_layout_exceptions.py)
-asserts only the exception class hierarchy. [`dev_smoke/smoke_roundtrip.py`](../dev_smoke/smoke_roundtrip.py)
+**No test covers save/restore.** [`tests/test_layout_exceptions.py`](../../tests/test_layout_exceptions.py)
+asserts only the exception class hierarchy. [`dev_smoke/smoke_roundtrip.py`](../../dev_smoke/smoke_roundtrip.py)
 asserts `ok is True` and that the sidebar sub-dict is stable — **verified** to print
 `ROUNDTRIP OK` on the currently-broken build.
 

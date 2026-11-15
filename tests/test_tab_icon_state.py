@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tab icon colour, size and fallback — docs/IMPROVEMENT_PLAN_v0.7.md §6.
+"""Tab icon colour, size and fallback — docs/archive/IMPROVEMENT_PLAN_v0.7.md §6.
 
 Three separate bugs live in here, and each has its own test below:
 

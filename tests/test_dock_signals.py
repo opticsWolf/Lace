@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""The DockSignals bus — IMPROVEMENT_PLAN_v0.7.md Phase 5, §4.1.
+"""The DockSignals bus — docs/archive/IMPROVEMENT_PLAN_v0.7.md Phase 5, §4.1.
 
 ``dock_signals.py`` described itself as the event bus replacing "tight coupling
 (where deep widgets call manager methods directly)". DockManager constructed it

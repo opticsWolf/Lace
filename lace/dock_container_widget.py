@@ -986,7 +986,7 @@ class DockContainerWidget(QFrame, DockStyled):
         if floating and self.visible_dock_area_count() == 1:
             # Same toggle the frameless title bar uses: isMaximized() alone is
             # not enough to decide, and showNormal() alone is not enough to
-            # undo. See lace.util / docs/FRAMELESS_WINDOW_STATE.md.
+            # undo. See lace.util / docs/archive/FRAMELESS_WINDOW_STATE.md.
             toggle_window_maximized(floating)
             # Update button state for the floating case
             area._update_title_bar_button_states()

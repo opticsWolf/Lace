@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""One spelling of "insert a dock area" — IMPROVEMENT_PLAN_v0.7.md Phase 1.
+"""One spelling of "insert a dock area" — docs/archive/IMPROVEMENT_PLAN_v0.7.md Phase 1.
 
 There used to be two insertion paths with different post-conditions. The drop
 path split the target evenly, wired the ``destroyed`` guard and recorded the

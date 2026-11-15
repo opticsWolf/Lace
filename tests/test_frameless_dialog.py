@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""FramelessLaceDialog (docs/DIALOG_TITLEBAR_PLAN.md, phase D2).
+"""FramelessLaceDialog (docs/archive/DIALOG_TITLEBAR_PLAN.md, phase D2).
 
 A frameless QDialog with the main window's themed title bar: construction,
 live retheme, modality, styler disposal, chrome heal and placement.
