@@ -13,7 +13,9 @@ import sys
 
 import pytest
 from PySide6.QtCore import QPoint
-from PySide6.QtWidgets import QApplication, QLineEdit, QMenuBar
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import (QApplication, QLineEdit, QMenuBar,
+                               QVBoxLayout, QWidget)
 
 from lace.dock_manager import DockManager
 from lace.frameless_window import (
@@ -82,6 +84,42 @@ def test_manager_installs_app_bridge_without_style_clobber(make_desk):
     manager = make_desk().manager
     assert manager._app_theme_bridge is not None
     assert QApplication.instance().style().objectName() == style_before
+
+
+def test_menu_widget_swap_keeps_the_dock_below_the_title_bar(qapp):
+    """A layout pass during the menu-widget swap must not stick.
+
+    Qt's QLayout clears its menu-bar pointer when the title bar is
+    reparented and setMenuWidget() does not invalidate the layout.  If a
+    layout pass lands in that window, QMainWindow puts the central widget
+    at y=0 under the still-visible bar until the next resize.
+    """
+    win = FramelessLaceMainWindow()
+    win.resize(700, 450)
+    central = QWidget()
+    win.setCentralWidget(central)
+    win.show()
+    qapp.processEvents()
+
+    container = QWidget(win)
+    layout = QVBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
+    layout.addWidget(win.titleBar)
+    container.show()
+
+    # Reproduce the reconfiguration race: the title bar is no longer the
+    # QMainWindow menu widget, and a layout pass sees no menu widget.
+    win.layout().activate()
+    assert central.geometry().top() == 0
+
+    win.setMenuWidget(container)
+    QTest.qWait(50)
+    try:
+        assert win.menuWidget() is container
+        assert central.geometry().top() >= container.geometry().bottom() + 1
+    finally:
+        win.close()
 
 
 def test_main_title_bar_live_swap(qapp):

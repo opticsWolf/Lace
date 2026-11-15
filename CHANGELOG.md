@@ -26,11 +26,17 @@ through a cycle.
 - Tab hover now enables `WA_Hover` on the `QTabBar` at its first paint and repaints the whole bar
   on pointer transitions. Qt's tab bar does not request hover events itself and can leave the
   previous tab's hover fill behind when moving directly to an adjacent tab.
-  *Qt 6 workaround:* this was observed on Qt 6.11.2. Revisit and remove the tracker/pointer
-  fallback if a future Qt release fixes `QTabBar` hover-state tracking.
+  *Qt 6 workaround:* observed on Qt 6.11.2; re-checked against Qt 6.12.0 and the current
+  6.12.1 branch, where the same `State_MouseOver`/`hoverRect` logic remains (the 6.12 hover
+  fix, QTBUG-146116, only covers vertical tabs). Revisit and remove the tracker/pointer
+  fallback if a future Qt release fixes horizontal `QTabBar` hover-state tracking.
 
 ### Fixed
 
+- Frameless main windows now re-activate the `QMainWindow` layout after title-bar/menu-widget
+  changes, native state changes, screen/DPI changes and native-handle recreation. A layout pass
+  during `setMenuWidget()` could leave the central widget at `y=0`, under the still-visible custom
+  title bar, until the next manual resize.
 - Selecting a tab beyond the visible strip now scrolls it into view after layout.
 - The mouse wheel over a tab now scrolls the center tab strip and sidebar, not just the empty
   strip or the arrows.
