@@ -354,9 +354,16 @@ class SideTabBar(QFrame, DockStyled):
 
     def wheelEvent(self, event):
         """Allow smooth mouse wheel scrolling over the sidebar tabs."""
-        delta = event.angleDelta().y()
-        step = -40 if delta > 0 else 40
-        self._scroll_by(step)
+        scrollbar = self._scroll_area.verticalScrollBar()
+        if scrollbar.maximum() <= scrollbar.minimum():
+            event.ignore()
+            return
+        pixel = event.pixelDelta()
+        if not pixel.isNull() and pixel.y():
+            scrollbar.setValue(scrollbar.value() - int(pixel.y()))
+        else:
+            delta = event.angleDelta().y()
+            self._scroll_by(-40 if delta > 0 else 40)
         event.accept()
 
     def resizeEvent(self, event):
@@ -689,6 +696,11 @@ class SideTabBar(QFrame, DockStyled):
     
     def eventFilter(self, obj, event):
         if isinstance(obj, VerticalTabButton):
+            if event.type() == QEvent.Wheel:
+                # QToolButton does not bubble the wheel reliably on every
+                # platform; forward it so a tab behaves like the strip.
+                self.wheelEvent(event)
+                return event.isAccepted()
             if event.type() == QEvent.HoverEnter:
                 self.tab_hover_enter.emit(obj)
                 self.sidebar_activated.emit()

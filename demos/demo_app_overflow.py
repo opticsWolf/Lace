@@ -42,6 +42,7 @@ class OverflowDemoWindow(QMainWindow):
         self.manager = DockManager(self)
         self.setCentralWidget(self.manager.root_container())
         self.docks = []
+        self.sidebar_docks = []
         self._next = 0
         self.area = None
 
@@ -72,6 +73,7 @@ class OverflowDemoWindow(QMainWindow):
         self.controls.set_widget(self._build_controls())
         self.manager.add_dock_widget(DockWidgetArea.right, self.controls)
         self.area.current_changed.connect(self._sync_editor)
+        self._build_sidebar_tabs()
 
         self._apply_theme()
         self._sync_editor()
@@ -80,6 +82,22 @@ class OverflowDemoWindow(QMainWindow):
         self._timer.timeout.connect(self._refresh_status)
         self._timer.start()
         self._refresh_status()
+
+    def _build_sidebar_tabs(self):
+        """Fill the left sidebar past its height so its own arrows appear."""
+        sidebar = self.manager.sidebar_manager
+        sidebar.set_animations_enabled(False)
+        sidebar.add_sidebar(DockWidgetArea.left)
+        for i in range(14):
+            dock = self._make_dock(
+                f"Sidebar {i + 1:02d}",
+                description=f"Pinned panel {i + 1}",
+                body=f"Sidebar panel {i + 1}. Scroll with the wheel or the bar's arrows.",
+            )
+            self.manager.add_dock_widget(
+                DockWidgetArea.center, dock, target_area=self.area)
+            sidebar.pin_widget(dock, area=DockWidgetArea.left)
+            self.sidebar_docks.append(dock)
 
     def _make_dock(self, title, *, description="", body="", icon_only=False):
         dock = DockWidget(title, description=description)
@@ -106,9 +124,10 @@ class OverflowDemoWindow(QMainWindow):
         layout.setSpacing(10)
 
         intro = QLabel(
-            "Drag the window narrower. Tabs stop at twice their eliding width, "
-            "so the ‹ › arrows appear before the two-character minimum. Turn "
-            "the flag off to compare the old behaviour."
+            "The center tabs stop at twice their eliding width, so the ‹ › "
+            "arrows appear before the two-character minimum. The left sidebar "
+            "is deliberately overfilled so its own up/down overflow arrows "
+            "show. Try the wheel over a tab, the strip, and the arrows."
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)

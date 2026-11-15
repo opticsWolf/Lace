@@ -20,6 +20,8 @@ through a cycle.
 ### Fixed
 
 - Selecting a tab beyond the visible strip now scrolls it into view after layout.
+- The mouse wheel over a tab now scrolls the center tab strip and sidebar, not just the empty
+  strip or the arrows.
 - Sidebar tab tooltips follow title and description changes.
 
 ## [0.9.7] — 2026-10-04

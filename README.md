@@ -189,7 +189,7 @@ For focused tests, see:
 
 ```bash
 python -m demos.demo_app_calendar                 # calendar popup rounding testbed
-python -m demos.demo_app_overflow                 # tab overflow, arrows, descriptions
+python -m demos.demo_app_overflow                 # tab overflow, sidebar arrows, descriptions
 python -m demos.demo_app_custom_titlebar          # standard custom title bar
 python -m demos.demo_app_custom_titlebar_menus    # menu-embedded main title bar + search bar for floats
 ```

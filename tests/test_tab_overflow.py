@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Auto scroll arrows, the cramped tab minimum, and wheel scrolling."""
 
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel, QStyle
 
@@ -215,6 +216,51 @@ def test_wheel_scrolls_only_when_the_tabs_overflow(qapp, make_desk):
     no_overflow = _Wheel(angle=(0, -120))
     bar2.wheelEvent(no_overflow)
     assert not no_overflow.isAccepted()
+
+
+def test_wheel_over_a_tab_scrolls_the_strip(qapp, make_desk):
+    desk = make_desk(400, 300)
+    area, _docks = _add_tabs(desk)
+    bar = _bar(area)
+    area.set_current_index(0)
+    QTest.qWait(30)
+    bar.horizontalScrollBar().setValue(0)
+
+    wheel = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0),
+                        QPoint(0, -120), Qt.NoButton, Qt.NoModifier,
+                        Qt.ScrollUpdate, False)
+    QApplication.sendEvent(bar.tab(0), wheel)
+
+    assert wheel.isAccepted()
+    assert bar.horizontalScrollBar().value() > 0
+
+
+def test_wheel_over_a_sidebar_tab_scrolls_the_sidebar(qapp, make_desk):
+    desk = make_desk(900, 400)
+    center = desk.widget("Center")
+    area = desk.add(CENTER, center)
+    desk.show()
+    sm = desk.manager.sidebar_manager
+    sm.set_animations_enabled(False)
+    sm.add_sidebar(DockWidgetArea.left)
+    for i in range(10):
+        dock = desk.widget(f"Sidebar {i}")
+        desk.add(CENTER, dock, target=area)
+        sm.pin_widget(dock, area=DockWidgetArea.left)
+    QTest.qWait(200)
+
+    side = sm._sidebars[DockWidgetArea.left]
+    scrollbar = side._scroll_area.verticalScrollBar()
+    assert side._scroll_prev_btn.isVisible()
+    assert scrollbar.maximum() > scrollbar.minimum()
+
+    wheel = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0),
+                        QPoint(0, -120), Qt.NoButton, Qt.NoModifier,
+                        Qt.ScrollUpdate, False)
+    QApplication.sendEvent(side._buttons[0], wheel)
+
+    assert wheel.isAccepted()
+    assert scrollbar.value() > scrollbar.minimum()
 
 
 def test_wheel_over_the_empty_title_bar_reaches_the_tabs(qapp, make_desk):

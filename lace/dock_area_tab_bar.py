@@ -422,6 +422,12 @@ class DockAreaTabBar(QScrollArea, DockStyled):
     def eventFilter(self, tab: QObject, event: QEvent) -> bool:
         result = super().eventFilter(tab, event)
         if isinstance(tab, DockWidgetTab):
+            if event.type() == QEvent.Wheel:
+                # The wheel lands on the tab, not the scroll viewport.  Forward
+                # it here so hovering a tab scrolls exactly like hovering the
+                # empty strip or the scroll arrows.
+                self.wheelEvent(event)
+                return event.isAccepted()
             if event.type() == QEvent.Hide:
                 self.tab_closed.emit(self._tabs_layout.indexOf(tab))
             elif event.type() == QEvent.Show:
