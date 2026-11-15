@@ -69,6 +69,13 @@ jobs:
       - name: Install dependencies
         run: pip install ".[dev]"
 
+      # TEMPORARY (2026-11-15): PySide6 6.12.0 crashes under Python 3.11 in
+      # this suite with shiboken refcount/finalization faults. Keep the oldest
+      # supported interpreter on the last known-good Qt until 6.12.1 lands.
+      - name: Pin Qt for Python 3.11
+        if: matrix.python == '3.11'
+        run: pip install "pyside6==6.11.2" "shiboken6==6.11.2"
+
       - name: Smoke import test
         env:
           QT_QPA_PLATFORM: offscreen
