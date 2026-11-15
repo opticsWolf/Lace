@@ -137,7 +137,7 @@ def ensure_frameless_chrome(window: QWidget) -> bool:
     A GL child (``QWebEngineView`` first ``setHtml()``, ``QOpenGLWidget``, …)
     makes Qt destroy and recreate the top-level native handle, which strips
     the CAPTION/THICKFRAME bits DWM rounding and Snap depend on (see
-    ``docs/frameless-webengine-findings.md`` §3). ``updateFrameless()``
+    ``docs/archive/frameless-webengine-findings.md`` §3). ``updateFrameless()``
     restores them without changing the ``winId`` itself, so healing is
     idempotent and cannot loop.
 
@@ -289,7 +289,7 @@ class LaceStandardTitleBar(StandardTitleBar):
     is rewired here so every gesture on this bar goes through
     :meth:`toggle_max_state`, and that in turn restores through whichever
     mechanism maximized the window — the OS can still maximize it behind
-    our back with Aero Snap or Win+Up.  See docs/FRAMELESS_WINDOW_STATE.md.
+    our back with Aero Snap or Win+Up.  See docs/archive/FRAMELESS_WINDOW_STATE.md.
 
     Right-clicking the window icon opens the standard system menu
     (Restore / Move / Size / Minimize / Maximize / Close).  On Windows the

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Splitter junction detection and its handle cache — docs/CODE_REVIEW.md §4.3.
+"""Splitter junction detection and its handle cache — docs/archive/CODE_REVIEW.md §4.3.
 
 Junction detection answers "which perpendicular handles cross the cursor?", and
 it runs on every hover-move over any handle. It used to call findChildren() —

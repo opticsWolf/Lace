@@ -85,7 +85,7 @@ places that reset layout caches with different coverage. Collapse each to one.
 ### 1.1 — `split_share()` free function
 
 Lift the share arithmetic out of `_insert_into_section_splitter()`
-([dock_container_widget.py:165](../lace/dock_container_widget.py)) into `lace/util.py`:
+([dock_container_widget.py:165](../../lace/dock_container_widget.py)) into `lace/util.py`:
 
 ```python
 def split_share(target_size: int, handle_width: int, n_total: int) -> int:
@@ -118,7 +118,7 @@ def _finish_area_insertion(self, new_dock_area, area, splitter=None):
 
 Rewire all three call sites. The two ad-hoc `if not splitter.isVisible(): splitter.show()` lines
 (`_add_dock_area` :410, `_drop_into_container` :145) collapse into the helper — they exist only
-because `hide_empty_parent_splitters()` ([util.py:76](../lace/util.py)) sets
+because `hide_empty_parent_splitters()` ([util.py:76](../../lace/util.py)) sets
 `WA_WState_ExplicitShowHide`, which suppresses Qt's `ChildPolished` auto-show. That workaround gets
 exactly one home instead of two-and-a-gap. Add a comment saying so.
 
@@ -133,7 +133,7 @@ def _invalidate_layout_caches(self):
 ```
 
 Call from `_emit_dock_areas_added()`, `_emit_dock_areas_removed()`, and — the missing third choke
-point — `restore_container_state()` ([dock_container_state.py:69-79](../lace/dock_container_state.py)).
+point — `restore_container_state()` ([dock_container_state.py:69-79](../../lace/dock_container_state.py)).
 
 This makes the `_all_handles()` docstring ("cleared from its two layout-change choke points") true
 by construction. **Update that docstring** to name the invalidator rather than enumerate callers.
@@ -180,7 +180,7 @@ floating root splitter by type-scan.
 
 ### 2.1 — Use `root_splitter()`
 
-[dock_container_widget.py:230-231](../lace/dock_container_widget.py):
+[dock_container_widget.py:230-231](../../lace/dock_container_widget.py):
 
 ```python
 # before
@@ -201,7 +201,7 @@ While here, narrow the parameter type hint on `_insert_into_section_splitter()` 
 ### 2.2 — One allowed-areas policy
 
 Extract the branch at
-[floating_behaviour.py:534-538](../lace/floating_behaviour.py) into a module-level function:
+[floating_behaviour.py:534-538](../../lace/floating_behaviour.py) into a module-level function:
 
 ```python
 def allowed_areas_for(container, dock_area) -> DockWidgetArea:
@@ -213,7 +213,7 @@ def allowed_areas_for(container, dock_area) -> DockWidgetArea:
 ```
 
 Then **delete the unconditional re-arm** at
-[dock_container_widget.py:80](../lace/dock_container_widget.py):
+[dock_container_widget.py:80](../../lace/dock_container_widget.py):
 
 ```python
 drop_overlay.set_allowed_areas(DockWidgetArea.all_dock_areas)   # ← remove
@@ -241,7 +241,7 @@ that script's header.
 
 ### 2.4 — De-alias `center` from `bottom`
 
-[dock_container_widget.py:40-48](../lace/dock_container_widget.py) currently folds them together:
+[dock_container_widget.py:40-48](../../lace/dock_container_widget.py) currently folds them together:
 
 ```python
 if area in (DockWidgetArea.center, DockWidgetArea.bottom):
@@ -285,7 +285,7 @@ container has exactly one dock area.
 
 ### 3.1 — Allow centre on a solo area
 
-[floating_behaviour.py:534-538](../lace/floating_behaviour.py), inside the `allowed_areas_for()`
+[floating_behaviour.py:534-538](../../lace/floating_behaviour.py), inside the `allowed_areas_for()`
 function extracted in Phase 2:
 
 ```python
@@ -313,7 +313,7 @@ When `area == center`:
 
 ### 3.3 — Append, don't prepend
 
-[dock_container_widget.py:249-253](../lace/dock_container_widget.py) inserts dropped widgets at
+[dock_container_widget.py:249-253](../../lace/dock_container_widget.py) inserts dropped widgets at
 `i = 0, 1, 2…`, so they land *before* the existing tabs. Upstream ADS appends. Change to append.
 
 ### 3.4 — Guard `set_current_index(-1)`
@@ -355,7 +355,7 @@ tree. A drop that only adds a tab may stay maximized.
 
 ## The defect
 
-`_restore_maximized_area()` ([dock_container_widget.py:876](../lace/dock_container_widget.py)) has
+`_restore_maximized_area()` ([dock_container_widget.py:876](../../lace/dock_container_widget.py)) has
 three callers — `close_other_areas()` and the two guards inside `toggle_maximize_dock_area()`
 itself. **No drop path calls it**, and `DropController` never reads `_maximized_dock_area` at all.
 Dropping a floating widget onto a maximized area therefore leaves four things wrong at once:
@@ -373,7 +373,7 @@ Symptom 2 is the user-facing damage and is worse than the missing relayout in th
 
 ### 4.1 — Restore before a tree-reshaping drop
 
-`drop_floating_widget()` ([dock_container_widget.py:70](../lace/dock_container_widget.py)) already
+`drop_floating_widget()` ([dock_container_widget.py:70](../../lace/dock_container_widget.py)) already
 resolves both `dock_area` and `drop_area` before dispatching, so the guard has one natural home:
 
 ```python
@@ -477,7 +477,7 @@ New `tests/test_maximize_drop.py`:
 
 `dock_signals.py` describes itself as the "Phase 5 global event bus" replacing "tight coupling
 (where deep widgets call manager methods directly)". Today `DockManager.__init__`
-([dock_manager.py:81-84](../lace/dock_manager.py)) constructs the bus and connects all three
+([dock_manager.py:81-84](../../lace/dock_manager.py)) constructs the bus and connects all three
 signals to handlers (:438-446), and **nothing in the package ever emits them** — a full-package
 grep returns only the three `connect()` lines. The direct path
 (`FloatingDockContainer` → `container.drop_floating_widget()`) is what actually runs.
@@ -541,9 +541,9 @@ build per `(icon, size, theme generation)` instead of one per tab click.
 ### 6.1 — Icons join the focus-colour family
 
 The label goes through `_resolve_focus_colors()`
-([dock_widget_tab.py:582](../lace/dock_widget_tab.py)), which honours `TAB.tab_dimming`. The icon
+([dock_widget_tab.py:582](../../lace/dock_widget_tab.py)), which honours `TAB.tab_dimming`. The icon
 goes through `DockIconProvider._resolve_normal_color()`
-([dock_icon_provider.py:173](../lace/dock_icon_provider.py)), which knows `active` and nothing about
+([dock_icon_provider.py:173](../../lace/dock_icon_provider.py)), which knows `active` and nothing about
 focus. They disagree exactly when the area loses focus:
 
 ```
@@ -563,15 +563,15 @@ Fix:
    override. This mechanism already exists and is already used by the tab close button
    (`token="close_btn_color"`); the tab icon is the same shape of problem.
 3. Add `self._is_area_focused()` to `icon_key`
-   ([dock_widget_tab.py:483](../lace/dock_widget_tab.py)) — without this the memo short-circuits
+   ([dock_widget_tab.py:483](../../lace/dock_widget_tab.py)) — without this the memo short-circuits
    the fix.
 4. Call `update_icon()` from `refresh_focus_tint()`
-   ([dock_widget_tab.py:656](../lace/dock_widget_tab.py)). With the memo key correct, this is free
+   ([dock_widget_tab.py:656](../../lace/dock_widget_tab.py)). With the memo key correct, this is free
    on the 9 themes without `tab_dimming`.
 
 ### 6.2 — Sidebar icons re-tint too
 
-`VerticalTabButton.refresh_style()` ([sidebar_tab.py:343](../lace/sidebar_tab.py)) re-reads every
+`VerticalTabButton.refresh_style()` ([sidebar_tab.py:343](../../lace/sidebar_tab.py)) re-reads every
 SIDEBAR token — backgrounds, text, borders, badges, typography — and **not the icon**. `self._icon`
 is captured once in `__init__` (:64) and painted verbatim (:237), so the text switches on
 `isChecked()` and follows the theme while the icon does neither.
@@ -582,7 +582,7 @@ tokens — every other metric in that method already comes from the theme.
 
 ### 6.3 — Fix the two `elif` fallback chains
 
-[dock_widget_tab.py:508-521](../lace/dock_widget_tab.py): if `_default_icon_name` is set but the
+[dock_widget_tab.py:508-521](../../lace/dock_widget_tab.py): if `_default_icon_name` is set but the
 provider returns a null icon (missing SVG), the `elif not self._default_icon.isNull()` and
 `elif … windowIcon()` branches are unreachable, so the tab ends up with **no** icon rather than
 falling back. Same shape at :492-505. Convert both to `if icon_to_use.isNull():` checks.
@@ -596,11 +596,11 @@ Also fix the memo bypass at :486 — the guard requires a *name*, so a tab whose
 Two mis-wirings:
 
 - `sm.get(DockStyleCategory.TAB, "tab_icon_size", 16)`
-  ([dock_widget_tab.py:476](../lace/dock_widget_tab.py)) — **no schema declares `tab_icon_size`**.
+  ([dock_widget_tab.py:476](../../lace/dock_widget_tab.py)) — **no schema declares `tab_icon_size`**.
   `DockStyleManager.get()` returns the default when the field is absent, so tab icon size is not
   themeable, and a theme that tries gets `Theme sets unknown token tab_icon_size … ignored` while
   the code reads as though it works.
-- `sm.get(category, "button_icon_size", 14)` ([dock_menu.py:83](../lace/dock_menu.py)) —
+- `sm.get(category, "button_icon_size", 14)` ([dock_menu.py:83](../../lace/dock_menu.py)) —
   `button_icon_size` lives on `_ActionButtonFields`, which `DockTitleBarStyleSchema` and
   `DockSidePanelStyleSchema` inherit but **`DockTabStyleSchema` does not**. So `dock_icon(key, TAB)`
   always renders at the literal `14`, matching `close_btn_icon_size`'s default of 14 **by
@@ -622,9 +622,9 @@ the point: it removes the render-then-rescale trap before the 0.8 icon pass walk
 
 ### 6.5 — Memoise `dock_icon()`
 
-`dock_icon()` ([dock_menu.py:70](../lace/dock_menu.py)) allocates a fresh `QIcon`, calls
+`dock_icon()` ([dock_menu.py:70](../../lace/dock_menu.py)) allocates a fresh `QIcon`, calls
 `provider.get()` twice and `addPixmap()` four times on **every** invocation.
-`DockAreaTitleBar.update_button_states()` ([dock_area_title_bar.py:306](../lace/dock_area_title_bar.py))
+`DockAreaTitleBar.update_button_states()` ([dock_area_title_bar.py:306](../../lace/dock_area_title_bar.py))
 calls it for all five buttons unconditionally, on every tab click:
 
 | Operation | wall time | `dock_icon()` | `provider.get()` |
@@ -645,7 +645,7 @@ counter. Every call site benefits at once.
 ### 6.6 — DPR in the icon cache key
 
 `_icon_cache` is keyed `(name, color, active, disabled, size)`
-([dock_icon_provider.py:226](../lace/dock_icon_provider.py)) with no device pixel ratio, while
+([dock_icon_provider.py:226](../../lace/dock_icon_provider.py)) with no device pixel ratio, while
 `_render_svg()` bakes `QApplication.instance().devicePixelRatio()` into the pixmap (:129).
 `QGuiApplication::devicePixelRatio()` is documented as returning the **highest** ratio across all
 screens, so icons over-render on the low-DPI monitor and a window moved between monitors of
@@ -685,7 +685,7 @@ New `tests/test_tab_icon_state.py`:
 
 ### 7.1 — Focus fan-out (§3.2)
 
-`DockAreaWidget.__init__` ([dock_area_widget.py:65-68](../lace/dock_area_widget.py)) connects
+`DockAreaWidget.__init__` ([dock_area_widget.py:65-68](../../lace/dock_area_widget.py)) connects
 `QApplication.focusChanged` once per dock area and never disconnects. Qt auto-disconnects on
 destruction so this is not a leak — it is a linear-in-areas cost on a very hot signal, each slot
 doing an `isAncestorOf()` walk. `DockManager.__init__` adds one more (:118-121).
@@ -699,10 +699,10 @@ Pre-1.0 semantics: **remove outright**, changelog entry for each.
 
 | Item | Location | Action |
 |---|---|---|
-| `paint_panel` import | [dock_chrome.py:17](../lace/dock_chrome.py) | Delete the import; production uses `paint_panel_bg` + `paint_panel_border` separately. Keep the function — `tests/test_dock_paint.py:159` covers it |
-| `DockMenuMixin` | [dock_context_menu.py:20](../lace/dock_context_menu.py) | Empty class, docstring says "Deprecated legacy mixin". Remove, plus its exports at `__init__.py:58, 166` |
+| `paint_panel` import | [dock_chrome.py:17](../../lace/dock_chrome.py) | Delete the import; production uses `paint_panel_bg` + `paint_panel_border` separately. Keep the function — `tests/test_dock_paint.py:159` covers it |
+| `DockMenuMixin` | [dock_context_menu.py:20](../../lace/dock_context_menu.py) | Empty class, docstring says "Deprecated legacy mixin". Remove, plus its exports at `__init__.py:58, 166` |
 | `dock_context_menu.py` | whole module | Pure re-export shim over `dock_menu.py`. Remove |
-| stale docstring | [sidebar_tab_bar.py:420](../lace/sidebar_tab_bar.py) | Mentions `DockMenuMixin` for a method that doesn't use it |
+| stale docstring | [sidebar_tab_bar.py:420](../../lace/sidebar_tab_bar.py) | Mentions `DockMenuMixin` for a method that doesn't use it |
 
 `tests/test_public_api.py::test_all_is_accurate_in_both_directions` and `test_star_import_matches_all`
 will need updating — that is the test doing its job.
@@ -743,8 +743,8 @@ re-accumulated.
 
 | Item | Location | Action |
 |---|---|---|
-| Vestigial `setIconSize(QSize(16, 16))` | [dock_area_title_bar.py:168](../lace/dock_area_title_bar.py) | Set on the close button only, out of five, and overwritten by `refresh_style()` moments later. Delete |
-| Dead params on `style_title_bar_buttons()` | [dock_chrome.py:338](../lace/dock_chrome.py) | `color` and `disabled` documented as "accepted for call-site compatibility but unused". Remove from the signature and both call sites |
+| Vestigial `setIconSize(QSize(16, 16))` | [dock_area_title_bar.py:168](../../lace/dock_area_title_bar.py) | Set on the close button only, out of five, and overwritten by `refresh_style()` moments later. Delete |
+| Dead params on `style_title_bar_buttons()` | [dock_chrome.py:338](../../lace/dock_chrome.py) | `color` and `disabled` documented as "accepted for call-site compatibility but unused". Remove from the signature and both call sites |
 
 ### 7.5 — Narrow Qt-lifetime exception handling (§5.7, partial)
 
@@ -752,7 +752,7 @@ re-accumulated.
 `layout_serializer`) and stay. The ones guarding **Qt object lifetimes** should narrow to
 `RuntimeError` — the pattern already used correctly in `dock_splitter.py` and `dock_area_widget.py`.
 
-Highest-value single change: [dock_style_manager.py:261](../lace/dock_style_manager.py) logs and
+Highest-value single change: [dock_style_manager.py:261](../../lace/dock_style_manager.py) logs and
 continues when a subscriber's `refresh_style()` raises. That is how a broken `refresh_style()`
 becomes an invisible styling failure instead of a traceback. Narrow it to `RuntimeError` (the
 deleted-C++-object case it legitimately guards) and let genuine bugs propagate.
@@ -778,7 +778,7 @@ deleted-C++-object case it legitimately guards) and let genuine bugs propagate.
 # Release checklist
 
 - [ ] Phases 1–6 merged, 443 → ~474 tests green across the full matrix
-- [ ] `__version__` bumped in [lace/__init__.py:17](../lace/__init__.py) **and** `pyproject.toml:3`
+- [ ] `__version__` bumped in [lace/__init__.py:17](../../lace/__init__.py) **and** `pyproject.toml:3`
 - [ ] `CHANGELOG` records the removals: `DockMenuMixin`, `dock_context_menu`, the private
       `_drop_into_*` delegation, and `style_title_bar_buttons()`'s two dead parameters
 - [ ] `dev_smoke/interactive/generate_baselines.py` regenerated and re-pointed at `DropController`

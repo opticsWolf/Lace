@@ -9,7 +9,7 @@
 
 """A frameless ``QDialog`` with the main window's themed title bar.
 
-:class:`FramelessLaceDialog` is Layer B of ``docs/DIALOG_TITLEBAR_PLAN.md``:
+:class:`FramelessLaceDialog` is Layer B of ``docs/archive/DIALOG_TITLEBAR_PLAN.md``:
 the same :class:`.frameless_window.LaceStandardTitleBar` and
 :class:`.frameless_titlebar.FramelessTitleBarStyler` as
 ``FramelessLaceMainWindow``, so a dialog's bar is pixel-identical to the

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""The drop path's two silent assumptions — IMPROVEMENT_PLAN_v0.7.md Phase 2.
+"""The drop path's two silent assumptions — docs/archive/IMPROVEMENT_PLAN_v0.7.md Phase 2.
 
 1. ``_drop_into_section()`` located the floating window's root splitter by
    taking the first direct ``QWidget`` child of its container. A root container

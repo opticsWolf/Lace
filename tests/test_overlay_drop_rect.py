@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""The drop preview rect — docs/CODE_REVIEW.md §4.4.
+"""The drop preview rect — docs/archive/CODE_REVIEW.md §4.4.
 
 Where a dragged window lands is read from DockOverlay.drop_overlay_rect() by
 _finalize_drag(). That rect used to be assigned inside paintEvent(), so the

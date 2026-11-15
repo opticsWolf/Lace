@@ -401,7 +401,7 @@ def backdrop_color(widget: QWidget) -> QColor:
 
 def has_native_child(widget: QWidget) -> bool:
     """Whether ``widget`` holds a native child window, which no sibling
-    overlay can paint over (see docs/frameless-webengine-findings.md)."""
+    overlay can paint over (see docs/archive/frameless-webengine-findings.md)."""
     return any(w.testAttribute(Qt.WA_NativeWindow) and not w.isWindow()
                for w in widget.findChildren(QWidget))
 

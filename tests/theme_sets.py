@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""The theme sets the 0.8 plan tests against (docs/IMPROVEMENT_PLAN_v0.8.md).
+"""The theme sets the 0.8 plan tests against (docs/archive/IMPROVEMENT_PLAN_v0.8.md).
 
 Three staged sets, picked by scope of work, plus ALL for numbers-only checks:
 

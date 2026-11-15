@@ -64,7 +64,7 @@ case Phase 5 must get right. `ALL` is 36, not 37: the empty `default` preset is 
 | Area | Today | Target |
 |---|---|---|
 | (a) Base style | Stock Fusion + a partial `QPalette`. Old-school scrollbars; arrow and check glyphs blur when a widget is zoomed in a `QGraphicsView` (Weave canvas) | `LaceStyle`, a `QProxyStyle` over Fusion that keeps Fusion's sizes, behaviour and palette handling but redraws the standard controls flat, rounded and vector-only: buttons, inputs, combo and spin boxes, check boxes, sliders, progress bars, tabs, menus, item views, scrollbars. Every palette role and colour group is set |
-| (b) Rounded content | Content runs into the card corner; `DockWidget` clips it with an aliased `QRegion` mask ([dock_widget.py:632](../lace/dock_widget.py)), so corners staircase and child frames look cut off | An antialiased corner cap painted above the content by the existing border overlay; no masks on docked content. A `corner_clip` keyword picks cap / inset / none |
+| (b) Rounded content | Content runs into the card corner; `DockWidget` clips it with an aliased `QRegion` mask ([dock_widget.py:632](../../lace/dock_widget.py)), so corners staircase and child frames look cut off | An antialiased corner cap painted above the content by the existing border overlay; no masks on docked content. A `corner_clip` keyword picks cap / inset / none |
 | (c) Colour logic | Additive HLS lightness steps, three different step functions, no contrast checks, `is_light` set by hand | One OKLCH-based colour module: perceptual steps, `ensure_contrast()`, `on_color()`, auto light/dark. Keywords `contrast`, `depth`, `selection` shape the whole derivation |
 
 Visual intent for "sleek": flat surfaces separated by small, even lightness steps rather than
@@ -752,7 +752,7 @@ two. With 4b-2 the combo and spin arrows read 1.8–2.2 (Fusion: 4.6–5.8) and 
   layout margins
 - **Interactive:** resize a rounded area while a `QOpenGLWidget` / `QWebEngineView` is inside
   (overlays above native child windows are the known risk — see
-  `docs/frameless-webengine-findings.md`). If a native child can't be covered, that dock area falls
+  `docs/archive/frameless-webengine-findings.md`). If a native child can't be covered, that dock area falls
   back to `inset` automatically and logs it once.
 
 ## Status

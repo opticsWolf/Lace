@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Drops onto a maximized area — IMPROVEMENT_PLAN_v0.7.md Phase 4, §1.6 (f).
+"""Drops onto a maximized area — docs/archive/IMPROVEMENT_PLAN_v0.7.md Phase 4, §1.6 (f).
 
 ``_restore_maximized_area()`` had three callers — ``close_other_areas()`` and
 the two guards inside ``toggle_maximize_dock_area()`` — and no drop path was

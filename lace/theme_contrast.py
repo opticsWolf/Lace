@@ -33,7 +33,7 @@ T = "TAB"
 TB = "TITLE_BAR"
 OV = "OVERLAY"
 
-#: WCAG floors per role and contrast level (docs/IMPROVEMENT_PLAN_v0.8.md).
+#: WCAG floors per role and contrast level (docs/archive/IMPROVEMENT_PLAN_v0.8.md).
 CONTRAST_TARGETS: Dict[str, Dict[str, float]] = {
     "text":     {"low": 4.5, "normal": 7.0, "high": 10.0},
     "muted":    {"low": 3.0, "normal": 4.5, "high": 7.0},

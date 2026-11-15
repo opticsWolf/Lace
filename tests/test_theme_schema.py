@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Theme token schema regression tests — docs/CODE_REVIEW.md §3.1, §6.
+"""Theme token schema regression tests — docs/archive/CODE_REVIEW.md §3.1, §6.
 
 The failure mode these guard against is silent: setattr() on a non-slotted
 dataclass *creates* attributes that are not fields, so an undeclared token

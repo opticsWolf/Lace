@@ -150,7 +150,7 @@ def find_floating_dock_container(widget: QWidget) -> Optional[QWidget]:
 # because Windows refuses SC_MOVE for a zoomed window.
 #
 # So: ask the OS whether the window is maximized, and restore it the way it
-# was maximized. See docs/FRAMELESS_WINDOW_STATE.md.
+# was maximized. See docs/archive/FRAMELESS_WINDOW_STATE.md.
 _SW_MAXIMIZE = 3
 _SW_RESTORE = 9
 
