@@ -126,6 +126,10 @@ DOCK_FLAGS_INFO = [
      "Dock Area Has Tabs Menu",
      "The dock area title bar displays a menu button listing all tabs."),
 
+    (DockFlags.dock_area_has_tab_scroll_buttons,
+     "Tab Scroll Buttons",
+     "The dock area title bar shows ‹ › buttons automatically when the tabs overflow."),
+
     (DockFlags.middle_mouse_button_closes_tab,
      "Middle Click Closes Tab",
      "Clicking a tab with the middle mouse button closes it."),
@@ -506,6 +510,7 @@ class DemoWindowMixin:
         self._add_flag_action(flags_menu, DockFlags.dock_area_has_maximize_button)
         self._add_flag_action(flags_menu, DockFlags.sidebar_area_has_maximize_button)
         self._add_flag_action(flags_menu, DockFlags.dock_area_has_tabs_menu_button)
+        self._add_flag_action(flags_menu, DockFlags.dock_area_has_tab_scroll_buttons)
         self._add_flag_action(flags_menu, DockFlags.hide_disabled_title_bar_icons)
 
         # Presets submenu
@@ -631,6 +636,8 @@ class DemoWindowMixin:
                 splitter.setOpaqueResize(opaque_resize)
             for area in container.opened_dock_areas():
                 area._update_title_bar_button_states()
+                if area._title_bar is not None:
+                    area._title_bar._schedule_tab_scroll_sync()
                 if hasattr(area._title_bar, 'update_pin_button_visibility'):
                     area._title_bar.update_pin_button_visibility()
                 # Force tabs to re-evaluate close buttons
@@ -678,6 +685,7 @@ class DemoWindowMixin:
             DockFlags.dock_area_has_maximize_button |
             DockFlags.sidebar_area_has_maximize_button |
             DockFlags.dock_area_has_tabs_menu_button |
+            DockFlags.dock_area_has_tab_scroll_buttons |
             DockFlags.middle_mouse_button_closes_tab |
             DockFlags.floatable_tabs |
             DockFlags.pinnable_tabs |
