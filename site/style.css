@@ -272,6 +272,7 @@ h1 {
 /* Showcase */
 .showcase { display: flex; flex-direction: column; gap: 80px; margin-top: 96px; }
 .showcase-row { display: grid; grid-template-columns: 0.75fr 1.25fr; gap: 64px; align-items: center; }
+.showcase-row.flip { grid-template-columns: 1.25fr 0.75fr; }
 .showcase-row.flip .showcase-copy { order: 2; }
 .showcase-copy h3 {
   font: 600 clamp(26px, 2.8vw, 38px)/1.08 var(--display);
@@ -365,6 +366,7 @@ h1 {
 @media (max-width: 980px) {
   .hero-grid, .showcase-row, .dialogs-grid, .feature-layout { grid-template-columns: 1fr; gap: 48px; }
   .hero { padding-top: 72px; }
+  .showcase-row.flip { grid-template-columns: 1fr; }
   .showcase-row.flip .showcase-copy { order: 0; }
   .feature-copy p { max-width: 58ch; }
   .manifest { grid-template-columns: repeat(2, 1fr); }
