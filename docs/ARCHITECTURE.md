@@ -909,6 +909,8 @@ property tests pin the round trip and the contrast guarantees.
 - `_paint`, with memoised colour helpers shared by the others
 
 `QTabBar` clears `State_MouseOver` from its style option and restores it only from its own hover tracking, which needs `WA_Hover`; `tab_shape()` enables that attribute on the first paint, enables mouse tracking, repaints the bar on pointer transitions, and resolves the hovered tab from the pointer position. This keeps adjacent-tab hovers from going stale under `LaceStyle` as a `QProxyStyle`.
+It is a workaround for Qt 6's `QTabBar` hover handling (observed on Qt 6.11.2) and should be
+revisited when upstream fixes it; the event filter and pointer fallback may then be removable.
 
 `gallery.py` renders every control in every state for tests and the Theme Studio.
 

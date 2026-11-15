@@ -70,6 +70,13 @@ def _hovered(opt) -> bool:
     return bool(opt.state & State.State_MouseOver) and _enabled(opt)
 
 
+# WORKAROUND (Qt 6.11 / PySide6 6.11.2): QTabBar does not request hover events
+# itself and can leave stale State_MouseOver/hover pixels when the pointer moves
+# directly between adjacent tabs.  The tracker, the extra WA_Hover/mouse-tracking
+# setup below, and the pointer branch in _tab_hovered() compensate for that.
+# Revisit when a Qt 6.x release fixes QTabBar's hover tracking: if it does, the
+# tracker and pointer fallback can likely be removed and the style can trust
+# State_MouseOver from the style option again.
 class _TabHoverTracker(QObject):
     """Repaints a tab bar on every pointer transition within it.
 
@@ -95,6 +102,7 @@ _TAB_HOVER_TRACKER = "_laceTabHoverTracker"
 
 
 def _track_tab_hover(w) -> None:
+    # Part of the Qt 6 QTabBar hover workaround described above.
     if not isinstance(w, QTabBar):
         return
     if not w.testAttribute(Qt.WidgetAttribute.WA_Hover):
@@ -108,6 +116,8 @@ def _track_tab_hover(w) -> None:
 
 
 def _tab_hovered(opt, w) -> bool:
+    # Pointer-authoritative for QTabBar because of the Qt 6 hover workaround
+    # above; revisit together with _TabHoverTracker when upstream is fixed.
     """Whether the pointer is over this tab.
 
     For a real QTabBar, the pointer position is authoritative: Qt may leave

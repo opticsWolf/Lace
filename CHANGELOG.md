@@ -26,6 +26,8 @@ through a cycle.
 - Tab hover now enables `WA_Hover` on the `QTabBar` at its first paint and repaints the whole bar
   on pointer transitions. Qt's tab bar does not request hover events itself and can leave the
   previous tab's hover fill behind when moving directly to an adjacent tab.
+  *Qt 6 workaround:* this was observed on Qt 6.11.2. Revisit and remove the tracker/pointer
+  fallback if a future Qt release fixes `QTabBar` hover-state tracking.
 
 ### Fixed
 
