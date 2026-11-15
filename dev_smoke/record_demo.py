@@ -24,6 +24,8 @@ parser.add_argument("--out", default=os.path.join("screenshots", "lace_tour.gif"
 parser.add_argument("--width", type=int, default=960, help="output width in px")
 parser.add_argument("--short-speed", type=float, default=2.2,
                     help="playback speed-up of the short cut")
+parser.add_argument("--start-theme", default="dark_neo",
+                    help="theme the tour starts and ends in")
 args, qt_args = parser.parse_known_args()
 OUT, OUT_W = args.out, args.width
 if sys.platform != "win32":
@@ -46,7 +48,7 @@ user32 = ctypes.windll.user32
 LDOWN, LUP = 0x0002, 0x0004
 atexit.register(lambda: user32.mouse_event(LUP, 0, 0, 0, 0))
 
-START_THEME = "dark_neo"
+START_THEME = args.start_theme
 TOUR = ["cyberpunk_neon", "catppuccin", "cream_neo", "nordic", "violet_haze",
         "slate_amber", START_THEME]
 FRAME_MS = 80
