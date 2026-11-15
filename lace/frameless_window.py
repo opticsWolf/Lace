@@ -25,6 +25,7 @@ import logging
 import sys
 from typing import Optional, Union
 
+import shiboken6
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
 from PySide6.QtGui import QColor, QMouseEvent, QPainter
 from PySide6.QtWidgets import (QAbstractButton, QLineEdit, QMenu, QMenuBar,
@@ -33,6 +34,7 @@ from qframelesswindow import FramelessMainWindow, FramelessWindow
 from qframelesswindow.titlebar import StandardTitleBar, TitleBarButton
 from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
 
+from lace._trace import trace
 from lace.util import (is_window_maximized, restore_window,
                        toggle_window_maximized)
 
@@ -523,12 +525,20 @@ class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
         a callable that returns a QWidget for this window.
     """
 
+    _chrome_layout_queued: bool = False
+
     def __init__(
         self,
         parent: Optional[QWidget] = None,
         title_bar: TitleBarDescriptor = None,
     ):
         super().__init__(parent)
+        self._chrome_layout_queued = False
+        # Parent-owned timer: when the window is destroyed the timer is
+        # destroyed with it, so no bound callback can outlive the test/app.
+        self._chrome_layout_timer = QTimer(self)
+        self._chrome_layout_timer.setSingleShot(True)
+        self._chrome_layout_timer.timeout.connect(self._sync_chrome_layout)
         self._menu_bar: Optional[QMenuBar] = None
         self._menu_bar_container: Optional[QWidget] = None
         self._titlebar_styler: Optional["FramelessTitleBarStyler"] = None
@@ -545,7 +555,84 @@ class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
         # deferred + coalesced: Chromium delivers WinIdChange twice.
         if e.type() == QEvent.Type.WinIdChange:
             self._schedule_frameless_heal()
+            self._schedule_chrome_layout()
+        elif e.type() in (
+            QEvent.Type.WindowStateChange,
+            QEvent.Type.Show,
+            QEvent.Type.ScreenChangeInternal,
+            QEvent.Type.DevicePixelRatioChange,
+        ):
+            self._schedule_chrome_layout()
         return super().event(e)
+
+    # -- menu-widget layout ------------------------------------------------
+
+    def _schedule_chrome_layout(self) -> None:
+        """Coalesce a QMainWindow relayout after a chrome change.
+
+        ``QMainWindow.setMenuWidget()`` and ``QLayout.setMenuBar()`` do not
+        invalidate the main-window layout.  Reparenting the title bar into
+        (or out of) the menu-widget slot clears Qt's internal menu-bar
+        pointer; a layout pass in that window places the central widget at
+        y=0, under the still-visible title bar.  This can happen while the
+        native window is being resized, restored or recreated, so defer a
+        single relayout instead of relying on the next user resize.
+        """
+        if not shiboken6.isValid(self):
+            return
+        timer = getattr(self, "_chrome_layout_timer", None)
+        if timer is None or getattr(self, "_chrome_layout_queued", False):
+            return
+        self._chrome_layout_queued = True
+        try:
+            timer.start(0)
+        except RuntimeError:
+            self._chrome_layout_queued = False
+
+    def _sync_chrome_layout(self) -> None:
+        """Re-activate the main-window layout without forcing geometry."""
+        if not shiboken6.isValid(self):
+            return
+        try:
+            layout = self.layout()
+            if layout is not None:
+                layout.invalidate()
+                layout.activate()
+            central = self.centralWidget()
+            if central is not None:
+                central.updateGeometry()
+            title_bar = getattr(self, "titleBar", None)
+            if title_bar is not None:
+                title_bar.raise_()
+            menu = self.menuWidget()
+            if menu is not None and central is not None:
+                trace(
+                    "chrome.layout",
+                    action="sync",
+                    menu_bottom=menu.geometry().bottom(),
+                    central_top=central.geometry().top(),
+                    overlap=central.geometry().top()
+                    < menu.geometry().bottom() + 1,
+                )
+        except RuntimeError:
+            pass
+        finally:
+            self._chrome_layout_queued = False
+
+    def resizeEvent(self, e) -> None:
+        # Keep qframelesswindow's title-bar resize, then repair the
+        # QMainWindow layout after the event has settled.
+        super().resizeEvent(e)
+        self._schedule_chrome_layout()
+
+    def setMenuWidget(self, menuBar: QWidget) -> None:
+        """Install the title-bar/container and repair the layout.
+
+        Qt's setMenuWidget() only swaps the layout's menu pointer; it does
+        not invalidate the layout.  See _schedule_chrome_layout().
+        """
+        super().setMenuWidget(menuBar)
+        self._schedule_chrome_layout()
 
     # -- title bar --------------------------------------------------------
 
@@ -569,6 +656,7 @@ class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
         # Notify the styler about the new title bar.
         if self._titlebar_styler is not None:
             self._titlebar_styler.title_bar = self.titleBar
+        self._schedule_chrome_layout()
 
     # -- menu bar ---------------------------------------------------------
 
@@ -584,6 +672,7 @@ class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
 
         self.setMenuWidget(container)
         self._menu_bar_container = container
+        self._schedule_chrome_layout()
 
     def menuBar(self) -> QMenuBar:
         """Return a separate menu bar positioned below the title bar.
@@ -611,6 +700,7 @@ class FramelessLaceMainWindow(_FramelessChromeHealMixin, FramelessMainWindow):
         """Override to keep the title bar above the central widget."""
         super().setCentralWidget(widget)
         self.titleBar.raise_()
+        self._schedule_chrome_layout()
 
     # -- theme integration ------------------------------------------------
 

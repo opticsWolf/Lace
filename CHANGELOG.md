@@ -31,6 +31,10 @@ through a cycle.
 
 ### Fixed
 
+- Frameless main windows now re-activate the `QMainWindow` layout after title-bar/menu-widget
+  changes, native state changes, screen/DPI changes and native-handle recreation. A layout pass
+  during `setMenuWidget()` could leave the central widget at `y=0`, under the still-visible custom
+  title bar, until the next manual resize.
 - Selecting a tab beyond the visible strip now scrolls it into view after layout.
 - The mouse wheel over a tab now scrolls the center tab strip and sidebar, not just the empty
   strip or the arrows.

@@ -7,7 +7,8 @@
 **Scope:** one open bug-report audit plus five new items (window-edge resize, hover delay,
 dock-menu icons, cramped title bars, rare frameless overlap)
 
-**Implementation status (branch `dev_v0.10.0`):** A, B, C and D implemented; E and F pending.
+**Implementation status (branch `dev_v0.10.0`):** A–E implemented; F is implemented on
+`fix/f-titlebar-overlap` (PR pending) with the real-display probe still outstanding.
 
 ---
 
@@ -647,6 +648,13 @@ buttons are disabled. If the wheel should be disabled too, gate `wheelEvent` on 
 ---
 
 ## 6. (F) Rare dock-area/title-bar overlap with the custom frameless title bar
+
+> **Implemented on `fix/f-titlebar-overlap`.** Qt's `QLayout` drops its menu-bar pointer when
+> the title bar is reparented, and `setMenuWidget()` does not invalidate the layout. A layout
+> pass in that window leaves the central widget at `y=0` under the title bar. The fix
+> re-activates the layout after menu/title-bar changes, native state changes, screen/DPI
+> changes and native-handle recreation; `tests/test_frameless_custom_bar.py` reproduces the
+> race deterministically. The real-display probe is still pending.
 
 ### 6.1 Symptom
 
